@@ -10,6 +10,7 @@ import (
   "strconv"
   "strings"
   "sync"
+  "syscall"
   "time"
 )
 
@@ -274,8 +275,9 @@ func (trace *evidenceBridgeTrace) preparationFailure(err error) {
 // result observes completed Run and unmarshal boundaries. The stdout capture
 // is the original buffered slice; outcome IDs come only from successful actual
 // native unmarshal. ProcessState is a native observation, not descendant proof.
-// Signal is unavailable in the portable ExitCode API and is explicitly null;
-// the native ProcessState text is retained rather than interpreted as an oracle.
+// Signal is read only when the native Sys value exposes supported signal
+// methods. Unavailable authority is distinct from an observed nonsignal exit;
+// native ProcessState text is retained without parsing it into a guessed signal.
 func (trace *evidenceBridgeTrace) result(command *exec.Cmd, stdout *limitedBuffer, stderr *limitedBuffer,
   start time.Time, end time.Time, runErr error, parseOutcome string, parseErr error,
   documents []string, problems []string,
@@ -288,11 +290,24 @@ func (trace *evidenceBridgeTrace) result(command *exec.Cmd, stdout *limitedBuffe
     pid = command.Process.Pid
   }
   var status *int
+  var signal any
+  var signalNumber any
+  signalObserved := false
   processState := ""
   if command.ProcessState != nil {
     value := command.ProcessState.ExitCode()
     status = &value
     processState = command.ProcessState.String()
+    if state, ok := command.ProcessState.Sys().(interface {
+      Signaled() bool
+      Signal() syscall.Signal
+    }); ok {
+      signalObserved = true
+      if state.Signaled() {
+        signal = state.Signal().String()
+        signalNumber = int(state.Signal())
+      }
+    }
   }
   message := ""
   if runErr != nil {
@@ -301,7 +316,7 @@ func (trace *evidenceBridgeTrace) result(command *exec.Cmd, stdout *limitedBuffe
   trace.record("process-result", pid, map[string]any{
     "bridge": trace.kind, "argv": command.Args, "cwd": command.Dir, "executable": command.Path,
     "started": command.Process != nil, "exitObserved": command.ProcessState != nil,
-    "status": status, "signal": nil, "signalObservation": "not-exposed-by-portable-ExitCode",
+    "status": status, "signal": signal, "signalNumber": signalNumber, "signalObserved": signalObserved,
     "nativeProcessState": processState, "error": message, "join": "Cmd.Run-return",
     "startLowerBound": start.Format(time.RFC3339Nano), "startUpperBound": end.Format(time.RFC3339Nano),
     "stdoutLimitExceeded": stdout.Exceeded, "stderrLimitExceeded": stderr.Exceeded,
