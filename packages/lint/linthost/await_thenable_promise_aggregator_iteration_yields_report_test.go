@@ -14,7 +14,7 @@ import (
 //  3. Assert exactly one diagnostic on every offending argument.
 //
 // @evidence contracts/testing.md#behavioral-verification Scalar iterator yield types must report despite Promise-looking generic parameters.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 14,15,16,17 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored Promise-parameterized Box yielding numbers, inherited/structural numeric iterables and string iteration independently require four rule-labelled errors on lines 14,15,16,17, four exact protocol messages, code 2 and empty stdout. Count and literal anchors reject missing or extra findings; the rendered-main.ts helper checks each line and error severity, without certifying exact columns or unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Box<Promise<void>> yielding numbers, inherited/structural number iterables and string iteration report with the original exact message; IterationYieldsAllow supplies true Promise-yielding counterparts.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorIterationYieldsReport invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorIterationYieldsReport(t *testing.T) {
