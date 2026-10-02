@@ -17,9 +17,13 @@ import type { TtscDeclaredAlias } from "./TtscDeclaredAlias";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Filters or maps the alias list once.
+ *   Array input filters N entries while retaining original alias objects.
+ *   Object input materializes N own entries, filters string replacements and
+ *   maps survivors to new declarations; temporary tuples/output follow N.
+ *   Property-access work remains with the supplied objects.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This one shape conversion coordinates no cross-call work; representability
+ *   and output translation reuse belong to the translator and its consumers.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

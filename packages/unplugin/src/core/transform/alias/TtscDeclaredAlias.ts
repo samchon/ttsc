@@ -16,18 +16,20 @@
  * @evidence contracts/common.md#clear-and-simple-design One normalized declaration shape represents both host object and array forms without mixing parsing with compiler-path translation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Regex aliases are not silently coerced into unsupported compiler patterns, and no other host is claimed to supply Vite's alias contract.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain form ownership, unknown find, and root-relative resolution; useful member comments retain the boundary reasons.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscDeclaredAlias only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Optional root carries a native Vite directory, while find remains module
+ *   syntax and replacement may be native absolute, root-relative or unsupported
+ *   module/package text. Translation owns native anchoring, not erasure or
+ *   a blanket path interpretation of every declared string.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   TtscDeclaredAlias only declares a shape; it has no computation at
- *   runtime.
+ *   This carrier defines declared fields; normalization and translation own
+ *   scans, native anchoring and precedence algorithms.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   TtscDeclaredAlias only declares a shape; it has no work to reuse at
- *   runtime.
+ *   This carrier implements no shared-work coordinator; translation and host
+ *   configuration owners determine equivalent declaration populations.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   TtscDeclaredAlias only declares a shape; it has no handle or retained
- *   state at runtime.
+ *   Host configuration and translator own declaration/output lifetime. The
+ *   carrier defines no independent acquisition or retention policy.
  */
 export interface TtscDeclaredAlias {
   /** The alias key, as declared: a module specifier prefix, or a `RegExp`. */
