@@ -308,8 +308,8 @@ function createProjectContext(
       : undefined;
   const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
-  // Resolved once: it now costs a realpath (and, for a missing directory on
-  // Windows, a case-sensitivity probe) rather than a string join.
+  // Resolved once: resolution costs a realpath (and, for a missing directory on
+  // Windows, a case-sensitivity probe).
   const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
   const emitProfile = runtimeEmitProfile(
     project,

@@ -261,8 +261,7 @@ async function runJavaScriptEntry(
  * ttsc/register <entry>`: `require.main === module` and `import.meta.main` hold
  * in it, `process.argv` is Node's own, and an error thrown while it evaluates
  * reaches `process.on("uncaughtException")` and Node's exit status
- * (samchon/ttsc#1402). A bootstrap used to load the entry instead, and the
- * program saw the bootstrap as its main module. A runtime manifest pins the
+ * (samchon/ttsc#1402), never a bootstrap module that loads it. A runtime manifest pins the
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
  * find tsgo without re-resolving it from inside the hook.
  */
