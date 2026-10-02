@@ -5,8 +5,10 @@ import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
  * Fold source witnesses into a target through the shared bounded recorder.
  * Source omissions remain counted because their lost identities cannot be
  * deduplicated against the target's retained evidence.
- * The source remains unchanged; retained witnesses are shared references, so
- * producers must treat their classifications as fixed after recording.
+ *
+ * Capture supplies distinct source and target collections, leaving the source
+ * unchanged. Retained witnesses are shared references, so producers must treat
+ * their classifications as fixed after recording.
  *
  * @evidence contracts/common.md#principled-implementation Retained source entries use the target recorder's identity policy, while saturated addition preserves already omitted occurrence counts that cannot be recovered from source entries.
  * @evidence contracts/common.md#clear-and-simple-design This operation coordinates aggregation without duplicating recorder limits or witness identity encoding.
