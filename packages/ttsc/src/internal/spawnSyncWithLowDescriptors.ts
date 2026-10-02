@@ -1,6 +1,7 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 import fs from "node:fs";
 
+import { E2ETrace } from "./E2ETrace";
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 
 /**
@@ -13,6 +14,11 @@ import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
  * inherited preloads can still allocate descriptors; low numeric descriptor
  * values and successful target launch are not guaranteed. Parsed JSON report
  * fields are trusted after syntax parsing rather than structurally validated.
+ * Enabled private tracing observes the broker and target as separate actual
+ * primitives, loading the same private observer in the broker. Its root travels
+ * in private broker arguments without altering the target environment. Trace
+ * loading/write failures leave missing evidence while target results remain
+ * unchanged; optional observation adds native IO and metadata/output work.
  *
  * @evidence contracts/common.md#principled-implementation A fresh Node child inherits only descriptors zero through two, opens owned capture files itself and launches the actual argv; its private status report preserves target exit and native error information rather than broker status alone.
  * @evidence contracts/common.md#clear-and-simple-design One broker boundary separates descriptor acquisition from the already loaded parent; caller-owned capture remains external and the private result file carries only status/error metadata.
@@ -43,32 +49,47 @@ export function spawnSyncWithLowDescriptors(
   });
   const brokerTimeout =
     options.timeout === undefined ? undefined : options.timeout + 5_000;
+  // Only an enabled observer needs the private compiled helper path. Failure
+  // to load the observer leaves missing evidence, not a different command.
+  let traceModule = "";
+  if (process.env.TTSC_E2E_TRACE) {
+    try {
+      traceModule = require.resolve("./E2ETrace");
+    } catch {}
+  }
   try {
-    const broker = spawnSync(
+    const brokerArgs = [
+      "-e",
+      LOW_DESCRIPTOR_BROKER_SOURCE,
+      "--",
+      report,
+      output.stdout,
+      output.stderr,
+      targetOptions,
+      traceModule,
+      process.env.TTSC_E2E_TRACE ?? "",
+      command,
+      ...args,
+    ];
+    const brokerOptions: SpawnSyncOptions = {
+      cwd: options.cwd,
+      encoding: undefined,
+      env: options.env,
+      input: undefined,
+      killSignal: options.killSignal,
+      shell: false,
+      stdio: [0, 1, 2],
+      timeout: brokerTimeout,
+      windowsHide: true,
+    };
+    const trace = E2ETrace.begin(
       process.execPath,
-      [
-        "-e",
-        LOW_DESCRIPTOR_BROKER_SOURCE,
-        "--",
-        report,
-        output.stdout,
-        output.stderr,
-        targetOptions,
-        command,
-        ...args,
-      ],
-      {
-        cwd: options.cwd,
-        encoding: undefined,
-        env: options.env,
-        input: undefined,
-        killSignal: options.killSignal,
-        shell: false,
-        stdio: [0, 1, 2],
-        timeout: brokerTimeout,
-        windowsHide: true,
-      },
+      brokerArgs,
+      brokerOptions,
+      "low-descriptor-broker",
     );
+    const broker = spawnSync(process.execPath, brokerArgs, brokerOptions);
+    E2ETrace.result(trace, broker);
     if (broker.error !== undefined) return broker;
     if (broker.status !== 0) {
       return brokerProtocolFailure(
@@ -151,19 +172,25 @@ function brokerProtocolFailure(
 const LOW_DESCRIPTOR_BROKER_SOURCE = String.raw`
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
-const [report, stdout, stderr, encodedOptions, command, ...args] = process.argv.slice(1);
+const [report, stdout, stderr, encodedOptions, traceModule, traceRoot, command, ...args] = process.argv.slice(1);
 const options = JSON.parse(encodedOptions);
+let traceObserver;
+if (traceRoot && traceModule) {
+  try { traceObserver = require(traceModule).E2ETrace; } catch {}
+}
 let stdoutFd;
 let stderrFd;
 let result;
 try {
   stdoutFd = fs.openSync(stdout, "w");
   stderrFd = stderr === stdout ? stdoutFd : fs.openSync(stderr, "w");
+  const trace = traceObserver?.begin(command, args, {}, "low-descriptor-target", traceRoot);
   result = childProcess.spawnSync(command, args, {
     ...options,
     shell: false,
     stdio: ["ignore", stdoutFd, stderrFd],
   });
+  traceObserver?.result(trace, result);
 } catch (error) {
   result = { error, pid: 0, signal: null, status: null };
 } finally {

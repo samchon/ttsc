@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
 
+import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentReplyKind } from "./ResidentReplyKind";
 import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
@@ -43,11 +44,14 @@ export class ResidentTransformProcess {
     // Default stdio is "pipe" for stdin/stdout/stderr, which is exactly what the
     // line protocol needs; spelling it out as a string[] would not narrow to
     // StdioOptions, so it is left implicit.
-    this.child = spawn(options.binary, [...options.args], {
+    const nativeArgs = [...options.args];
+    const trace = E2ETrace.begin(options.binary, nativeArgs, options, "resident-transform");
+    this.child = spawn(options.binary, nativeArgs, {
       cwd: options.cwd,
       env: options.env,
       windowsHide: true,
     });
+    E2ETrace.asynchronous(trace, this.child);
     const stdout = this.child.stdout;
     const stdin = this.child.stdin;
     if (stdout === null || stdin === null) {

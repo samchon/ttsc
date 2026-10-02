@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import util from "node:util";
 
 import { captureProcessOutput } from "../../../compiler/internal/captureProcessOutput";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
 import { GoToolResolution } from "./GoToolResolution";
 import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
@@ -87,7 +88,9 @@ function spawnGoToolProcess(
     spawnWorkingDirectory(options.cwd),
   );
   if (!resolved.wrapper) {
-    return spawnSync(goBinary, [...args], options);
+    const nativeArgs = [...args];
+    return E2ETrace.synchronous(goBinary, nativeArgs, options, "windows-go-tool",
+      () => spawnSync(goBinary, nativeArgs, options));
   }
   // Supply the install-guidance ENOENT result when no regular wrapper candidate
   // was selected, before cmd.exe becomes the actual child. Candidate stat
@@ -98,19 +101,20 @@ function spawnGoToolProcess(
     return missingGoTool(goBinary, args);
   }
   const shim = createWindowsGoCommandShim([resolved.location, ...args]);
-  return spawnSync(
-    GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
+  const command = GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
       GoToolResolution.readWindowsEnvironmentValue(process.env, "COMSPEC") ??
-      "cmd.exe",
-    windowsGoCommandArgs(shim.payload),
-    {
+      "cmd.exe";
+  const commandArgs = windowsGoCommandArgs(shim.payload);
+  const trace = E2ETrace.begin(command, commandArgs, options, "windows-go-wrapper");
+  const result = spawnSync(command, commandArgs, {
       ...options,
       env: { ...inheritedEnv, ...shim.environment },
       shell: false,
       // The /c payload is already one fully quoted Windows command line.
       windowsVerbatimArguments: true,
-    },
-  );
+    });
+  E2ETrace.result(trace, result);
+  return result;
 }
 
 /**

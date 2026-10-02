@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
 
+import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentCheckProcessOptions } from "./ResidentCheckProcessOptions";
 import type { ResidentCheckRequest } from "./ResidentCheckRequest";
 import type { ResidentCheckResult } from "./ResidentCheckResult";
@@ -53,11 +54,14 @@ export class ResidentCheckProcess {
   private releaseTransport: (() => void) | undefined;
 
   public constructor(options: ResidentCheckProcessOptions) {
-    this.child = spawn(options.binary, [...options.args], {
+    const nativeArgs = [...options.args];
+    const trace = E2ETrace.begin(options.binary, nativeArgs, options, "resident-check");
+    this.child = spawn(options.binary, nativeArgs, {
       cwd: options.cwd,
       env: options.env,
       windowsHide: true,
     });
+    E2ETrace.asynchronous(trace, this.child);
     let onChildClose: (() => void) | undefined;
     this.exited = new Promise<void>((resolve, reject) => {
       onChildClose = () => {

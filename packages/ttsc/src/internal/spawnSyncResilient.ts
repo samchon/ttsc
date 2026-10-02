@@ -1,6 +1,7 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
+import { E2ETrace } from "./E2ETrace";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
 
@@ -18,13 +19,15 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  *
  * Broker callers supply file-backed output and no stdin input or shell mode. It
  * does not reconstruct arbitrary spawn stdio contracts.
+ * Opt-in private tracing observes this actual attempt and any broker/target
+ * separately; it adds metadata/output-byte sink work without changing results.
  *
  * @evidence contracts/common.md#principled-implementation Ordinary spawning is retained; only POSIX EBADF with explicit capture paths selects one isolated broker retry. That error class permits the retry but does not prove descriptor height was the original cause or guarantee retry success.
  * @evidence contracts/common.md#clear-and-simple-design This operation selects between the ordinary path and one broker owner; file capture and output reconstruction remain the callers' responsibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The retry targets the supported descriptor-limit failure class without converting an ordinary command failure into fabricated success; it neither patches spawn nor substitutes target output.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the POSIX descriptor constraint and the supported file-output/no-input/no-shell broker scope, with separated acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Native executable/argv are passed to Node spawning; only POSIX EBADF invokes the isolated broker and Windows retains its supported ordinary spawning path.
- * @evidence contracts/performance.md#efficient-algorithms One ordinary spawn copies A argument references and delegates argument/environment/native launch work. Error-message classification adds text cost; one admitted failure can add broker option/argv serialization, report IO/parsing and target spawning. No retry loop is introduced, and input/output/native costs are not bounded by two owner calls.
+ * @evidence contracts/performance.md#efficient-algorithms One ordinary spawn copies A argument references and delegates argument/environment/native launch work. Error-message classification adds text cost; one admitted failure can add broker option/argv serialization, report IO/parsing and target spawning. Enabled private tracing additionally serializes metadata/returned output and writes its budgeted sink. No retry loop is introduced, and input/output/native costs are not bounded by two owner calls.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Arbitrary command execution has external effects, so matching commands and arguments cannot authorize sharing completed results.
  *
@@ -36,7 +39,10 @@ export function spawnSyncResilient(
   options: SpawnSyncOptions,
   output?: SpawnSyncOutputFiles,
 ): ReturnType<typeof spawnSync> {
-  const result = spawnSync(command, [...args], options);
+  const nativeArgs = [...args];
+  const trace = E2ETrace.begin(command, nativeArgs, options, "spawnSyncResilient");
+  const result = spawnSync(command, nativeArgs, options);
+  E2ETrace.result(trace, result);
   if (
     output === undefined ||
     process.platform === "win32" ||

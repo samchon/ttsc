@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "../../internal/E2ETrace";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
@@ -357,12 +358,14 @@ async function runProgram(
     afterExit?: () => void;
   } = {},
 ): Promise<number> {
+  const trace = E2ETrace.begin(process.execPath, args, { cwd }, "ttsx-runtime");
   const child = spawn(process.execPath, args, {
     cwd,
     env,
     stdio: "inherit",
     windowsHide: true,
   });
+  E2ETrace.asynchronous(trace, child);
   signals.forwardTo(child);
   const outcome = await new Promise<{
     code: number | null;

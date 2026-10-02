@@ -11,6 +11,7 @@ import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
@@ -75,11 +76,14 @@ export function runTtscserver(
   }
   let result: ReturnType<typeof spawnSync>;
   try {
-    result = spawnSync(binary, [...execution.args, ...args], {
+    const nativeArgs = [...execution.args, ...args];
+    const trace = E2ETrace.begin(binary, nativeArgs, {}, "ttscserver");
+    result = spawnSync(binary, nativeArgs, {
       stdio: "inherit",
       env: execution.env,
       windowsHide: true,
     });
+    E2ETrace.result(trace, result);
   } finally {
     execution.dispose();
   }

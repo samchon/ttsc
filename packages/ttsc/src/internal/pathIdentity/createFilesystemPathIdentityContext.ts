@@ -2,6 +2,7 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "../E2ETrace";
 import { parseWindowsDirectoryCaseSensitivity } from "../parseWindowsDirectoryCaseSensitivity";
 import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
 import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
@@ -376,11 +377,9 @@ function queryWindowsDirectoryCaseSensitivity(
 function queryWindowsDirectoryCaseSensitivityBytes(
   directory: string,
 ): Buffer | undefined {
-  const result = childProcess.spawnSync(
-    "fsutil.exe",
-    ["file", "queryCaseSensitiveInfo", directory],
-    { windowsHide: true },
-  );
+  const args = ["file", "queryCaseSensitiveInfo", directory];
+  const result = E2ETrace.synchronous("fsutil.exe", args, {}, "path-case-probe",
+    () => childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }));
   return result.error === undefined &&
     result.status === 0 &&
     Buffer.isBuffer(result.stdout)

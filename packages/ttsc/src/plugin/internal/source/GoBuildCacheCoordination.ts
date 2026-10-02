@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
 
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
@@ -295,9 +296,7 @@ export namespace GoBuildCacheCoordination {
     const ready = `${file}.heartbeat-${crypto.randomBytes(16).toString("hex")}`;
     let heartbeatChild: ReturnType<typeof spawn> | undefined;
     try {
-      const child = spawn(
-        process.execPath,
-        [
+      const heartbeatArgs = [
           "-e",
           [
             'const fs = require("node:fs");',
@@ -322,12 +321,17 @@ export namespace GoBuildCacheCoordination {
           String(GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS),
           String(process.pid),
           ready,
-        ],
+        ];
+      const trace = E2ETrace.begin(process.execPath, heartbeatArgs, {}, "go-cache-heartbeat");
+      const child = spawn(
+        process.execPath,
+        heartbeatArgs,
         {
           stdio: [0, 1, 2],
           windowsHide: true,
         },
       );
+      E2ETrace.asynchronous(trace, child);
       heartbeatChild = child;
       child.on("error", () => {
         // spawn reports OS launch failures asynchronously, outside this try.

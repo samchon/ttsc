@@ -8,6 +8,7 @@ import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
@@ -1655,6 +1656,8 @@ function loadDescriptorViaTtsx(
       }),
     );
     fs.writeFileSync(shim, PLUGIN_DESCRIPTOR_SHIM_SOURCE);
+    const trace = E2ETrace.begin(node, [ttsx, "--no-plugins", shim],
+      { cwd: context.projectRoot }, "plugin-descriptor");
     const result = childProcess.spawnSync(node, [ttsx, "--no-plugins", shim], {
       cwd: context.projectRoot,
       encoding: "utf8",
@@ -1690,6 +1693,7 @@ function loadDescriptorViaTtsx(
       stdio: ["ignore", 2, 2],
       windowsHide: true,
     });
+    E2ETrace.result(trace, result);
     const processFailure = pluginDescriptorProcessFailure(result, request);
     if (processFailure) {
       // The descriptor's stack already reached the user's stderr as it ran.

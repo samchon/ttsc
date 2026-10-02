@@ -12,6 +12,7 @@ import (
   "os"
   "os/exec"
   "path/filepath"
+  "runtime"
   "sync"
   "syscall"
   "time"
@@ -213,6 +214,7 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
     return
   }
   writer.sequence++
+  data["writerRuntime"] = runtime.Version()
   record := map[string]any{
     "schema": 1, "event": event, "writerPid": os.Getpid(), "instance": writer.instance,
     "sequence": writer.sequence, "at": time.Now().UTC().Format(time.RFC3339Nano),
@@ -234,7 +236,7 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
     writer.failed = true
     record["event"] = "integrity-failure"
     record["at"] = time.Now().UTC().Format(time.RFC3339Nano)
-    record["data"] = map[string]any{"outcome": "writer-budget-exceeded"}
+    record["data"] = map[string]any{"outcome": "writer-budget-exceeded", "writerRuntime": runtime.Version()}
     record["argv"] = nil
     record["cwd"] = ""
     if failure, err := json.Marshal(record); err == nil {
@@ -249,7 +251,7 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
     record["sequence"] = writer.sequence
     record["event"] = "integrity-failure"
     record["at"] = time.Now().UTC().Format(time.RFC3339Nano)
-    record["data"] = map[string]any{"outcome": "sink-io-failed"}
+    record["data"] = map[string]any{"outcome": "sink-io-failed", "writerRuntime": runtime.Version()}
     record["argv"] = nil
     record["cwd"] = ""
     if failure, marshalErr := json.Marshal(record); marshalErr == nil {
