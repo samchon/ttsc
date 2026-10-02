@@ -6,9 +6,9 @@ import "testing"
 // element-types rule denies an import by way of an allow-list, the message names
 // what the list permits.
 //
-// The rule evaluates `allow` to decide, then throws it away and reports only
-// that the import is forbidden — leaving the reader to open lint.config to learn
-// what is permitted from here. This asserts the set is named instead.
+// A rejection should identify the configured alternatives rather than require
+// the reader to open lint.config. This entry checks the authored singleton set
+// in the same finding that rejects the domain import.
 //
 // 1. Allow `app` to import only `shared`.
 // 2. Import `domain`, which the allow-list excludes.
