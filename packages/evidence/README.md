@@ -130,6 +130,8 @@ A false tag removes the error, not the problem. `@evidenceReview` asks for a sep
 - Reviews match the same declaration and target.
 - The fingerprint expires when the cited content changes.
 
+Swagger operation fingerprints now decode local component URI fragments before interpreting JSON Pointer tokens, including array indices. Upgrading can expire reviews of operations using encoded pointers, array elements, or malformed references that previously selected a literal property. Re-read those operations and their referenced contracts before replacing a fingerprint.
+
 The compiler handles omissions. Humans handle falsehoods.
 
 ## Spec-Driven Development

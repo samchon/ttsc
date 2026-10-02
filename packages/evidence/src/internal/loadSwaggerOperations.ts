@@ -314,8 +314,10 @@ const operationOf = (
  *
  * Siblings of a `$ref` are kept and override what it resolves to, which is what
  * OpenAPI 3.1 says they do. A reference already open on the path above is left
- * as written, so a recursive schema terminates while two operations reaching
- * one cycle by different routes still differ. An undeclared reference is left
+ * as written. The guard uses the decoded pointer, so percent-encoded and plain
+ * spellings of the same recursive component stop at the same boundary. Two
+ * operations reaching one cycle by different routes can still differ.
+ * An undeclared or malformed reference is left
  * as written too: a broken document is not a digest question, and inventing an
  * empty schema for it would make two different broken documents agree.
  */
@@ -333,24 +335,24 @@ const withResolvedReferences = (
     value as Record<string, unknown>,
   );
   const reference: unknown = (value as Record<string, unknown>)["$ref"];
-  if (typeof reference !== "string" || open.has(reference))
+  const target =
+    typeof reference === "string"
+      ? componentAt(components, reference)
+      : undefined;
+  if (target === undefined || open.has(target.pointer))
     return Object.fromEntries(
       entries.map(([key, element]) => [
         key,
         withResolvedReferences(element, components, open),
       ]),
     );
-  const target: unknown = componentAt(components, reference);
-  if (target === undefined)
-    return Object.fromEntries(
-      entries.map(([key, element]) => [
-        key,
-        withResolvedReferences(element, components, open),
-      ]),
-    );
-  open.add(reference);
+  open.add(target.pointer);
   try {
-    const resolved: unknown = withResolvedReferences(target, components, open);
+    const resolved: unknown = withResolvedReferences(
+      target.value,
+      components,
+      open,
+    );
     const siblings: Array<[string, unknown]> = entries
       .filter(([key]) => key !== "$ref")
       .map(([key, element]) => [
@@ -365,52 +367,54 @@ const withResolvedReferences = (
       ...Object.fromEntries(siblings),
     };
   } finally {
-    open.delete(reference);
+    open.delete(target.pointer);
   }
 };
 
-const COMPONENT_REFERENCE_PREFIX = "#/components/";
+const COMPONENT_REFERENCE_PREFIX = "/components/";
 
 /**
- * Reads one `#/components/<section>/<name>` pointer, or nothing.
+ * Reads one local component URI fragment, or nothing.
  *
- * Only own properties count, so a name such as `constructor` that no document
- * declares does not resolve to something inherited. A segment whose percent
- * escape is malformed is read as written rather than failing the document,
- * because a pointer that names nothing is left as written by the caller.
+ * RFC 6901 URI decoding precedes tokenization: %2F separates pointer tokens,
+ * while ~1 names a slash inside one token. Malformed URI or tilde escapes name
+ * nothing; the caller preserves their original reference rather than selecting
+ * a literal property with invalid pointer syntax. Tokens are decoded once and
+ * remain case-sensitive, without Unicode normalization.
+ *
+ * Own object members and canonical unsigned array indices can be selected.
+ * Inherited properties, leading-zero indices, array append and absent elements
+ * cannot. The decoded pointer also identifies the recursion guard independently
+ * of percent-escape spelling. Walking costs the fragment length plus its token
+ * count and retains only this lookup's tokens and result.
  */
 const componentAt = (
   components: Record<string, unknown>,
   reference: string,
-): unknown => {
-  if (!reference.startsWith(COMPONENT_REFERENCE_PREFIX)) return undefined;
-  const segments: string[] = reference
+): { pointer: string; value: unknown } | undefined => {
+  if (!reference.startsWith("#")) return undefined;
+  let pointer: string;
+  try {
+    pointer = decodeURIComponent(reference.slice(1));
+  } catch {
+    return undefined;
+  }
+  if (!pointer.startsWith(COMPONENT_REFERENCE_PREFIX)) return undefined;
+  const tokens: string[] = pointer
     .slice(COMPONENT_REFERENCE_PREFIX.length)
-    .split("/")
-    .map((segment) =>
-      percentDecoded(segment).replaceAll("~1", "/").replaceAll("~0", "~"),
-    );
+    .split("/");
   let current: unknown = components;
-  for (const segment of segments) {
-    if (
-      current === null ||
-      typeof current !== "object" ||
-      Array.isArray(current)
-    )
+  for (const token of tokens) {
+    if (/~(?:[^01]|$)/u.test(token)) return undefined;
+    const segment: string = token.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (current === null || typeof current !== "object") return undefined;
+    if (Array.isArray(current) && /^(?:0|[1-9][0-9]*)$/u.test(segment) === false)
       return undefined;
     if (!Object.hasOwn(current as Record<string, unknown>, segment))
       return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
-  return current;
-};
-
-const percentDecoded = (segment: string): string => {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
-  }
+  return current === undefined ? undefined : { pointer, value: current };
 };
 
 const isInventory = (
