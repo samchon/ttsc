@@ -294,7 +294,7 @@ type ProjectInput struct {
 // @evidence contracts/common.md#clear-and-simple-design A separate optional interface declares inputs without expanding the mandatory Check interface.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Watch topology uses a supported declaration hook rather than patching file observation after successful checking.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies pre-Program invocation and configuration readiness; tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputRule is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation This publication boundary returns local native file/glob declarations using the context's project identity. ProjectInput owns Pattern spelling and limitations; the host resolves actual filesystem ancestors and preserves case spelling before watcher publication. A remote resource requires a separate contributor policy, not an invented local path or OS-name case assumption.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputRule is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputRule is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputRule is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -305,7 +305,7 @@ type ProjectInputRule interface {
   // @evidence contracts/common.md#clear-and-simple-design One declarative method keeps dependency selection separate from checking and watcher mechanics.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit dependency channel avoids inventing successful-read-only watch coverage.
   // @evidence contracts/common.md#meaningful-documentation The native comment explains options-based topology with a separated tag block under documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputRule.ProjectInputs is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidence contracts/portability.md#os-neutral-implementation The bodyless method still defines a native dependency boundary: returned Patterns are local paths or supported globs interpreted by the host against the project root, not protocol URLs. Implementations choose the configured declarations; ProjectInput and host normalization own spelling, missing-ancestor and actual case-policy distinctions.
   // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputRule.ProjectInputs is a method signature without a body; each implementation chooses its own algorithm.
   // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputRule.ProjectInputs is a method signature without a body; each implementation decides what, if anything, to share.
   // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputRule.ProjectInputs is a method signature without a body; each implementation owns any retained state.
