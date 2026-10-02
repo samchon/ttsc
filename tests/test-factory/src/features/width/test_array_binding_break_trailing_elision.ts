@@ -6,22 +6,20 @@ import { id } from "../../internal/helpers";
 
 /**
  * Verifies a broken array binding pattern ending in an elision parses back with
- * the same arity as its flat layout.
+ * its authored hole in both flat and broken layouts.
  *
  * Pins the `OmittedExpression` branch of `TsPrinter.listTrailingComma`. The
- * synthetic width-break comma must stay cosmetic: after a trailing hole it is
- * not (`[a, ,]` parses to one more hole than `[a, ]`), so the flat and broken
- * layouts of the same node would disagree on arity. The printer suppresses it
- * there, making both layouts parse to the named bindings only — a trailing hole
- * binds nothing, so dropping it is semantically lossless.
+ * comma after a trailing hole is semantic: `[a, ,]` advances an iterator once
+ * more than `[a, ]`. Both layouts must retain that authored OmittedExpression,
+ * even though it binds no name. The iterator-effects case checks that runtime
+ * distinction through each binding consumer.
  *
  * 1. Print `const [first, second, <hole>] = values;` flat and broken.
  * 2. Assert both layouts transpile without syntax diagnostics.
- * 3. Parse both back and assert each yields exactly the two named binding elements
- *    — identical arity regardless of layout.
+ * 3. Parse both back and require the two named bindings plus the authored hole.
  *
- * @evidence contracts/testing.md#behavioral-verification Flat and broken array bindings ending in an elision retain the same two named bindings without an extra hole.
- * @evidence contracts/testing.md#independent-expectations The independent TS parser/transpiler and explicit first/second name array specify binding meaning rather than comparing only printer texts.
+ * @evidence contracts/testing.md#behavioral-verification Flat and broken array bindings ending in an elision retain first, second and the authored hole instead of dropping an iterator advance.
+ * @evidence contracts/testing.md#independent-expectations The independent TS parser/transpiler and authored first/second/hole array specify the complete binding shape. ECMAScript elision advances the iterator even without binding a name; the iterator-effects companion checks that observable behavior.
  * @evidence contracts/testing.md#distinguishing-cases Wide80 and narrow20 layouts must differ in line breaks but agree on binding names/arity; literal-array holes are covered separately.
  * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_array_binding_break_trailing_elision. Calls declare, both printers and bindingNames parser/transpiler within this one source unit export.
  */
@@ -73,9 +71,10 @@ export const test_array_binding_break_trailing_elision = (): void => {
   const broken: string = new TsPrinter({ printWidth: 20 }).print(declare());
   TestValidator.equals("flat stays on one line", wide.includes("\n"), false);
   TestValidator.equals("broken layout breaks", broken.includes("\n"), true);
-  TestValidator.equals("flat arity", bindingNames(wide), ["first", "second"]);
+  TestValidator.equals("flat arity", bindingNames(wide), ["first", "second", "<hole>"]);
   TestValidator.equals("broken arity", bindingNames(broken), [
     "first",
     "second",
+    "<hole>",
   ]);
 };
