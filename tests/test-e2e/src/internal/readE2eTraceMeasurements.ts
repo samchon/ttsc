@@ -40,6 +40,7 @@ export function readE2eTraceMeasurements(
     lastWriterSequences: {},
     writerRuntimeVersions: {},
     processObservations: [],
+    writerObservations: [],
   };
   const writerPids = new Set<number>();
   const writerInstances = new Set<string>();
@@ -110,6 +111,7 @@ export function readE2eTraceMeasurements(
       writerInstances.add(writer);
       writerPids.add(event.writerPid);
       const invocation = writer + ":" + event.invocation;
+      result.writerObservations.push({ writerFile: name, observation: event });
       if (event.event.startsWith("process-")) {
         result.processObservations.push({ writerFile: name, observation: event });
         if (event.event === "process-attempt") attempts.add(invocation);
@@ -194,6 +196,8 @@ export interface TraceMeasurements {
   writerRuntimeVersions: Record<string, string>;
   /** Original observed process rows for explicit boundary ownership; duplicates are not PID-deduplicated. */
   processObservations: { writerFile: string; observation: TraceEvent }[];
+  /** Validated phase rows for explicit domain/process boundary pairing, without copied payload bytes. */
+  writerObservations: { writerFile: string; observation: TraceEvent }[];
 }
 
 /** Rejects malformed event cores without manufacturing missing observations. */
