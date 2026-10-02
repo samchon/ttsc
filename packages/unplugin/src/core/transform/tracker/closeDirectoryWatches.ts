@@ -19,6 +19,7 @@
  * @evidence contracts/performance.md#efficient-algorithms
  *   For n handles the snapshot and close pass require O(n) work and O(n)
  *   temporary references; no pairwise lookup or repeated removal is used.
+ *   Each caller-supplied close executes once, with its own cost and failure.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Closing owned handles is an ownership-ending effect, not a computation
  *   whose result another owner may reuse.

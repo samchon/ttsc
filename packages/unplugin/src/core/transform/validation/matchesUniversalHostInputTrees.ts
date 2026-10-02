@@ -22,11 +22,11 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * below it. The proof lists the directory as the plugin build lists it, which a
  * delivery pays only after an event below the directory, a changed environment,
  * or where no tracker watches it or its watch cannot vouch for it, and reads
- * the files' bytes again only when their metadata moved
- * (`pluginSourceFilesDigest`).
- * A missing or stale environment reading returns false here. The async delivery
- * owner prepares that authority before this synchronous proof; this operation
- * never starts a cold Go or SDK probe on the host thread.
+ * the files' bytes again when population, metadata or fresh clock qualification
+ * does not permit digest reuse (`pluginSourceFilesDigest`).
+ * A missing or stale prepared environment reading returns false here. The async
+ * delivery owner prepares that authority before this synchronous proof; that
+ * prepared route never starts a cold Go or SDK probe on the host thread.
  * Standalone synchronous results retain their original native observation and
  * mismatch refresh; the async preparation owner marks its result identity.
  *
@@ -39,7 +39,7 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish source notification, environment authority and metadata-qualified digest reuse before param tags.
  * @evidence contracts/portability.md#os-neutral-implementation Supported plugin-source APIs and capability-qualified native trackers own source/toolchain observation without OS-wide watcher assumptions.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One environment witness per current manifest tree is replaced in place; no delivery history is retained.
- * @evidence contracts/performance.md#efficient-algorithms Environment checks precede tree proof; qualified silent sources avoid enumeration, while others pay listing and metadata-invalidated content hashing.
+ * @evidence contracts/performance.md#efficient-algorithms Each tree first pays the shared environment reader's variable-key construction and native dependency qualification. Qualified silent sources avoid enumeration; other trees enumerate and sort the selected file population, inspect metadata and hash source bytes whenever population, metadata or clock evidence cannot qualify reuse. The synchronous owner can also refresh native environment authority after a mismatch.
  * @evidence contracts/performance.md#reuse-equivalent-work Generation environment witnesses and the owning digest cache share prior proof only while source and toolchain identities remain valid.
  */
 export function matchesUniversalHostInputTrees(

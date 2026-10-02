@@ -9,8 +9,9 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
  * once its watches hear.
  *
  * The watches report to the tracker's own sink (`brokeredTrackerSink`), which
- * applies the tracker's event decision, so a brokered tracker records exactly
- * what the in-process listener would for the same event (samchon/ttsc#1384).
+ * applies the tracker's shared exact-input classifier or project membership
+ * and content filters (samchon/ttsc#1384). Authority withdrawal is distinct
+ * from recording a structural or content witness.
  * The tracker drains through the broker's barrier, which on macOS proves each
  * probed stream delivered (samchon/ttsc#1453), and closing it removes its
  * watches. A read made after this resolves can never race the watches' start;

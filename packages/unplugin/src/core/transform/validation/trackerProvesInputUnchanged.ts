@@ -14,11 +14,8 @@ import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationT
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Quiet but failed, incomplete or undeliverable scopes are rejected rather than promoted to proof.
  * @evidence contracts/common.md#meaningful-documentation Native prose enumerates health, coverage and overlap premises rather than treating silence as universal authority.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution and supplied overlap semantics qualify paths; fallback containment is component-aware rather than substring matching.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Scans the unproven directories once and the changes once, in sequence
- *   rather than nested.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ * @evidence contracts/performance.md#efficient-algorithms Health and exact covered-key checks precede sequential scans of unproven scopes and sampled changes, stopping at the first overlap. Cost follows those populations and each native identity or lexical path comparison; no project enumeration or source byte read occurs here.
+ * @evidence contracts/performance.md#reuse-equivalent-work This predicate qualifies reuse of a generation's recorded content from its current tracker witness. Exact coverage, verified delivery, complete healthy content authority and absence of overlapping uncertainty or events are all required; the boolean itself is recomputed rather than cached across tracker changes.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

@@ -40,13 +40,19 @@ const MAX_HOST_INPUT_WATCH_SCOPES = 16;
  * metadata validation. Too many unrelated watch roots disable notification
  * authority rather than dropping inputs from validation.
  *
- * Path parsing follows the supplied filesystem's platform. An unmeasured case
+ * Path parsing follows the supplied filesystem's platform. An unknown case
  * policy keeps input metadata validation; a foreign view supplies its own watch
  * capability rather than opening a host-native handle for foreign paths.
+ * Unmatched native event spellings withdraw
+ * notification authority; metadata establishes the resulting change verdict.
+ * Each named event also rechecks its identity against a fresh native view. A
+ * changed alias or case policy withdraws authority instead of reusing the
+ * generation's earlier identity observation for a new target.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Compiler observation scopes govern admitted events; physical identity and
  *   link checks govern whether notification silence may replace metadata reads.
+ *   Uncertain name equivalence sets unverified without inventing membership change.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One constructor builds coverage, scoped classification and owned locations;
  *   both local listeners and broker sinks use the same classifier and lifecycle.
@@ -58,22 +64,43 @@ const MAX_HOST_INPUT_WATCH_SCOPES = 16;
  *   fallback boundaries; local comments give identity reasons under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral coverage uses one filesystem identity context, native realpaths,
- *   explicit view path grammar, measured case policy and watched-directory
+ *   explicit view path grammar, supplied case capability and watched-directory
  *   identities; lexical aliases and junctions
  *   cannot certify quiet old physical targets as current inputs.
+ *   Unicode spelling and native alternate names cannot be excluded merely by
+ *   comparing event code units with the indexed names.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Sets and directory maps index inputs, scopes and ancestors; shared ancestry
  *   walks avoid rescanning common components. Event classification follows its
  *   ancestor chain plus relevant scoped roots instead of reopening the graph.
+ *   Name uncertainty scans event text and uses indexed location flags; withdrawn
+ *   authority incurs the owning validators' current native metadata work.
+ *   Each named event has a call-local identity transaction for its path and
+ *   directory; native resolution and directory-case observation are repeated
+ *   because earlier event identities do not establish current equivalence.
+ *   Native resolution, string keys and admission predicates retain their path
+ *   costs, while recursive backend population follows admitted directories.
+ *   Construction arrays and indexes grow with input paths, distinct ancestors
+ *   and grouped locations. Fresh event maps and native case-probe listings are
+ *   temporary; the generation memo separately retains queried historical paths.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   One construction shares physical identities, link-component checks and
  *   grouped locations; native subscriptions and scope-aware drains share only
  *   valid current owners, while every delivery rechecks watched identities.
+ *   Named events revalidate the generation memo before using it. A changed
+ *   physical key or directory case policy withdraws notification proof rather
+ *   than silently moving earlier event witnesses to a new native target.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   A generation owns input indexes and admitted native locations, with at most
  *   sixteen unrelated roots and an eight-path mutation sample. Close withdraws
  *   authority and retires owned handles; failed construction remains untrusted
  *   and its caller must retire any handles already acquired.
+ *   A recursive root can own many backend directory watches; sixteen roots is
+ *   not a bound on those handles or retained path bytes. Indexes remain reachable
+ *   with the tracker until its generation releases the object.
+ *   The retained identity context also grows with distinct event paths and
+ *   ancestors queried during this generation; it has no internal eviction or
+ *   independent historical-path bound.
  */
 export async function createHostInputMutationTracker(
   inputs: readonly string[],
@@ -119,8 +146,8 @@ export async function createHostInputMutationTracker(
         // project, the input's own nearest existing directory outside it. The
         // watched directory and its ancestors are re-checked by identity on
         // every delivery instead (`verifyLocations`), so a link there
-        // withdraws the tracker rather than moving the input silently; every
-        // macOS temporary directory and any linked workspace lies below one.
+        // withdraws the tracker rather than moving the input silently. Native
+        // temporary roots and linked workspaces can have aliases above them.
         const watched =
           internal !== undefined &&
           relativeToProject(input, internal, filesystem.platform) !== undefined
@@ -143,7 +170,13 @@ export async function createHostInputMutationTracker(
             (lexical.isFile() && lexical.nlink > 1n)
           )
             return false;
-        } catch {
+        } catch (error) {
+          let missing = false;
+          try {
+            const code = (error as NodeJS.ErrnoException | undefined)?.code;
+            missing = code === "ENOENT" || code === "ENOTDIR";
+          } catch {}
+          if (!missing) return false;
           // A genuinely absent lexical path is covered by its nearest existing
           // ancestor and remains eligible for notification proof.
         }
@@ -185,6 +218,9 @@ export async function createHostInputMutationTracker(
       /** Entry names the watch reports, or every entry when absent. */
       names?: Set<string>;
       recursive?: boolean;
+
+      /** A requested Unicode spelling may have an ASCII native event alias. */
+      uncertainNames?: true;
     }
   >();
   // The directories below `internalRoot` its recursive observer must hear, for
@@ -225,6 +261,7 @@ export async function createHostInputMutationTracker(
     directory: string,
     name: string | undefined,
     recursive: boolean,
+    uncertainNames: boolean = false,
   ): void => {
     const directoryIdentity = identities.resolve(directory);
     let location = locationsByDirectory.get(directoryIdentity.key);
@@ -237,6 +274,13 @@ export async function createHostInputMutationTracker(
       locationsByDirectory.set(directoryIdentity.key, location);
     }
     if (recursive) location.recursive = true;
+    if (
+      uncertainNames ||
+      /[^\x00-\x7f]/.test(directory) ||
+      (name !== undefined && /[^\x00-\x7f]/.test(name))
+    ) {
+      location.uncertainNames = true;
+    }
     if (name === undefined) {
       // Some input needs every entry of this directory reported.
       delete location.names;
@@ -266,7 +310,7 @@ export async function createHostInputMutationTracker(
       internalRoot !== undefined &&
       relativeToProject(absolute, internal, filesystem.platform) !== undefined
     ) {
-      watchDirectory(internalRoot, undefined, true);
+      watchDirectory(internalRoot, undefined, true, /[^\x00-\x7f]/.test(probed));
       admitInternal(probed, scope);
       continue;
     }
@@ -277,6 +321,13 @@ export async function createHostInputMutationTracker(
       watchDirectory(probed, undefined, true);
       trees.push(probed);
       continue;
+    }
+    if (scope === "subtree" && exists) {
+      // Unknown observations can depend on children outside the project too.
+      // A parent-only subscription cannot certify this subtree. A non-directory
+      // or inaccessible root fails acquisition and withdraws notification proof.
+      watchDirectory(probed, undefined, true);
+      internalSubtrees.push(probed);
     }
     watchDirectory(probe.directory, probe.name, false);
     // A listing changes through the entries of the directory itself, which a
@@ -356,7 +407,37 @@ export async function createHostInputMutationTracker(
     const rename = eventType === "rename";
     if (events === "rename" && !rename) return undefined;
     const changed = paths.resolve(directory, filename);
+    const current = createHostPathIdentityContext(filesystem);
     const key = pathIdentityKey(changed, identities);
+    if (
+      key !== pathIdentityKey(changed, current) ||
+      pathIdentityKey(directory, identities) !==
+        pathIdentityKey(directory, current) ||
+      identities.caseSensitive(directory) !== current.caseSensitive(directory)
+    ) {
+      // The memo retains the generation's and earlier events' identities for
+      // overlap checks. A later alias cannot reuse those observations, and
+      // refreshing them would reinterpret the already recorded witnesses.
+      tracker.unverified = true;
+      return undefined;
+    }
+    const location = locationsByDirectory.get(
+      pathIdentityKey(directory, identities),
+    );
+    if (
+      (/[^\x00-\x7f]/.test(filename) || location?.uncertainNames === true) &&
+      location?.names?.has(
+        normalizeHostInputName(
+          filename,
+          identities.caseSensitive(directory) !== false,
+        ),
+      ) !== true
+    ) {
+      // A different Unicode spelling, or an ASCII alias of a Unicode input,
+      // needs native metadata. It does not establish a membership mutation.
+      tracker.unverified = true;
+      return undefined;
+    }
     const verdict = rename ? "mutation" : "change";
     const own = tracked.get(key);
     if (own !== undefined) {
@@ -391,6 +472,10 @@ export async function createHostInputMutationTracker(
         return "mutation";
       }
     }
+    // A missing native alias cannot be recovered by current realpath. Neither
+    // ASCII spelling nor OS name proves this event unrelated to a tracked path.
+    // Keep exact metadata validation without inventing a membership mutation.
+    tracker.unverified = true;
     return undefined;
   };
   if (usesWatchBroker(filesystem)) {

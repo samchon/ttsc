@@ -11,21 +11,24 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
- * Validate the universal inputs that exist, by metadata first and content only
- * when that moved, and not at all where the tracker proves them unchanged.
+ * Validate existing universal inputs by qualified metadata or notifications,
+ * otherwise replay their recorded state and physical target. Unchanged metadata
+ * without clock separation still requires the owning content comparison.
  *
- * Every rejection here is evidence of a change — a vanished path, a moved
- * physical target, a strict blocker's metadata, differing content — so this
- * half is safe for a validation path that must never discard a generation for
- * want of a proof.
+ * A false verdict can mean a changed target, blocker or content, or unavailable
+ * metadata after replay. It withdraws entry proof without distinguishing those
+ * causes; it does not certify that every rejected generation actually changed.
  *
  * @evidence contracts/common.md#principled-implementation Qualified exact notifications and separable metadata preserve the recorded entry; otherwise physical target and owning content comparison must match before readable state or signature is refreshed.
- * @evidence contracts/common.md#clear-and-simple-design Existing-entry proof is separate from missing-name listings and plugin-tree proof because their authorities differ.
+ * @evidence contracts/common.md#clear-and-simple-design Existing-entry proof is separate from native absence probes and plugin-tree proof because their authorities differ.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Strict non-directory blockers cannot inherit content equivalence, and unreadable inputs cannot skip reads merely because their metadata is unchanged.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain existing-entry authority, actual rejection causes and why proof loss differs from a content mismatch.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain existing-entry authority, clock qualification and false verdict's change-or-unavailability meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Metadata and physical targets come from the result's native filesystem operations; exact watcher coverage uses its proved capabilities rather than an OS-name assumption.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing entries are updated in place within one generation manifest; no per-delivery history or additional native handle is retained.
- * @evidence contracts/performance.md#efficient-algorithms One entry scan skips exact tracker-qualified inputs and stable separable metadata; remaining cost is constant-count metadata calls plus bytes read for changed witnesses.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One entry scan skips qualified notifications or metadata. Remaining native
+ *   target/metadata work follows path components and fields; recorded-state
+ *   replay additionally costs consulted bytes or predicate entries.
  * @evidence contracts/performance.md#reuse-equivalent-work Re-earned readable/signature state is shared by all modules of this generation only after recorded content and physical target remain qualified.
  */
 export function matchesUniversalHostInputEntries(

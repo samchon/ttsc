@@ -5,6 +5,7 @@ import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../tsconfig/PERMISSIVE_
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
+import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { pathIsWithin } from "../filesystem/pathIsWithin";
 import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirectorySnapshot";
 import { isPossibleProgramFileName } from "../project/isPossibleProgramFileName";
@@ -30,10 +31,19 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  * Directory ancestry uses the observing view's path grammar. Disjoint volumes
  * or unknown root case policy withdraw notification authority and leave the
  * recorded-state validator responsible for proof.
+ * A named event rejected by lexical membership policy can still be a native
+ * alias of a program path. It withdraws notification authority without asserting
+ * a structural change; recorded-state validation supplies the actual verdict.
+ * Named events also compare current native identity and case policy with the
+ * retained identity transaction. Retargeting withdraws notification authority
+ * without changing the meaning of earlier recorded event spellings.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The project walk and membership policy own structural relevance; content
  *   witnesses remain separate, and missing watched-root identity withdraws coverage.
+ *   A lexical nonmatch is uncertainty rather than native alias exclusion.
+ *   Changed native identity premises also withdraw notification proof while
+ *   membership and content witnesses keep their independent classifications.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One root, directory index and filter set define the tracker; broker and local
  *   paths share those decisions rather than duplicating backend-specific policies.
@@ -50,14 +60,26 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *   Known directory keys provide expected-constant admission checks; common-root
  *   discovery follows ancestor depth and the observer visits admitted directories
  *   instead of opening one watch per program file or excluded dependency entry.
+ *   Construction scans directory paths to find the root and build the index;
+ *   temporary path arrays and the index grow with that population. Event filters
+ *   include path text, supplied membership patterns and native metadata work.
+ *   Each named event resolves its path and directory in a fresh transaction,
+ *   including native ancestor and case-probe listing costs when required.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   One identity context and known-directory index serve all event filters;
+ *   One retained identity context and known-directory index serve event overlap;
  *   process-wide native producers share watches where their backend permits it,
  *   while root identity is refreshed for each delivery's verification memo.
+ *   Named events recheck current identity before relying on the retained memo;
+ *   changing its entries would reinterpret earlier witnesses, so mismatches
+ *   withdraw authority instead. A quiet stream alone cannot restore that proof.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Generation-owned directory indexes and watched coverage grow with the walk;
  *   diagnostic paths stay bounded at eight. Close marks failed before retiring
  *   all acquired local handles or the broker registration.
+ *   A recursive root can own many admitted backend directory handles. The
+ *   identity memo grows with distinct queried event paths and ancestors and has
+ *   no historical-path eviction; its indexes survive until the generation
+ *   releases the tracker. Fresh event maps and case listings are temporary.
  */
 export async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
@@ -115,7 +137,19 @@ export async function createProjectMutationTracker(
   );
   const reportsMembership = (location: string, filename: string): boolean => {
     const changed = paths.join(location, filename);
-    return (
+    const current = createHostPathIdentityContext(filesystem);
+    if (
+      pathIdentityKey(changed, identities) !==
+        pathIdentityKey(changed, current) ||
+      pathIdentityKey(location, identities) !==
+        pathIdentityKey(location, current) ||
+      identities.caseSensitive(location) !== current.caseSensitive(location)
+    ) {
+      // Preserve the original overlap meaning of recorded witnesses. A later
+      // event selecting another target cannot reuse that transaction's proof.
+      tracker.unverified = true;
+    }
+    const membership = (
       knownDirectories.has(paths.resolve(changed)) ||
       reportsProgramMembership(
         root,
@@ -125,6 +159,10 @@ export async function createProjectMutationTracker(
         filesystem,
       )
     );
+    // Current realpath cannot identify a deleted alias. Policy checks only
+    // lexical spellings, so rejection cannot establish unchanged program state.
+    if (!membership) tracker.unverified = true;
+    return membership;
   };
   const reportsNewMembership = (
     location: string,

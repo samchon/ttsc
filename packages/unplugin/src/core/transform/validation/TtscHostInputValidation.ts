@@ -4,13 +4,13 @@
  * Universal inputs, such as plugin descriptors, their config files, and package
  * manifests read by discovery, can affect every module, so they are proven once
  * for the generation, not once per delivery. Existing inputs keep the metadata
- * signature that can stand in for their content. Absent ones are grouped by the
- * directory whose listing proves them still absent, or checked by their exact
+ * signature that can stand in for their content. Absent ones retain raw native
+ * candidates grouped by their nearest directory, or are checked by their exact
  * native paths when directory case policy is unknown. `covered` records which
  * lexical spellings the manifest answers for, so the per-module loop can skip
  * exactly those and no others.
  *
- * @evidence contracts/common.md#principled-implementation Existing entries, case-qualified absent-name groups, exact native absence probes and source-tree states retain distinct authority; lexical covered spellings cannot be replaced by physical identity.
+ * @evidence contracts/common.md#principled-implementation Existing entries, raw nearest-ancestor candidates, exact full-path probes and source-tree states retain distinct authority; lexical covered spellings cannot be replaced by physical identity or normalized listing names.
  * @evidence contracts/common.md#clear-and-simple-design Separate populations expose each validator's responsibility while one generation owns their shared lifetime.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable content, blockers and external build environments remain explicit rather than one blanket watcher-success flag.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and separated member comments explain optional signatures, exact coverage, absence groups and tree environments.
@@ -71,14 +71,14 @@ export interface TtscHostInputValidation {
   readonly covered: Set<string>;
 
   /**
-   * Missing paths grouped by the nearest directory whose listing proves them
-   * absent.
+   * Original child-name candidates grouped by their nearest directory. Native
+   * stat of each joined spelling, not directory-entry inequality, proves absence.
    */
   readonly missing: Map<string, Set<string>>;
 
   /**
    * Exact absent paths checked through native stat when a directory's case
-   * policy cannot qualify a listing shortcut. Only ENOENT or ENOTDIR proves
+   * policy is unknown. Only ENOENT or ENOTDIR proves
    * continued absence; permission and other observation failures reject reuse.
    */
   readonly directMissing?: Set<string>;
@@ -89,7 +89,7 @@ export interface TtscHostInputValidation {
    * samchon/ttsc#1493). No one path's metadata stands for a directory's files,
    * so each is proven by ttsc's rule (`pluginSourceHolds`) unless its tracker
    * proves it unchanged; the proof reads the files' bytes again only when the
-   * metadata of every one of them no longer vouches for the digest last read
+   * population, metadata or fresh clock evidence cannot qualify the digest last read
    * (`pluginSourceFilesDigest`).
    */
   readonly trees: Map<string, string>;

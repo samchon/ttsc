@@ -9,7 +9,9 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  * and nothing may interleave between them on the same turn. `lstat` and
  * `statBigInt` read `bigint` stats for nanosecond precision, while `stat` keeps
  * the ordinary form for classification only. `realpath` uses the native form so
- * Windows short names expand to what native watchers report.
+ * Windows short names expand to observed physical spelling. Watch events may
+ * still report a short or long name, so that expansion alone cannot qualify an
+ * event-name filter.
  */
 export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
   Object.freeze({

@@ -7,11 +7,12 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
 
 /**
  * The policy and the walk both spell the project root as it was named, while a
- * native Windows watcher expands its short names, and a package `extends`
- * anchors its specs physically. Match each equivalent project-root spelling
+ * native watcher or package `extends` may use another observed root spelling.
+ * Match each equivalent project-root spelling
  * without following child links. Keep patterns intact: a glob can begin above
  * the root, and configDir can retain the requested spelling even when a base
  * config uses the physical one.
+ * Observed root aliases do not establish how native events spell child names.
  *
  * Node's Windows relative-path operation ignores case. A containing spelling is
  * therefore checked under the compiler's comparison rule before conversion;

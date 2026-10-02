@@ -12,7 +12,6 @@ import { pluginSourceHolds } from "../transform/inputs/pluginSourceHolds";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
-import { reportsProgramMembership } from "../transform/project/reportsProgramMembership";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
@@ -55,11 +54,14 @@ import { someSet } from "./someSet";
  * old descendants. Every event is re-checked against the input's recorded
  * condition before an owner hears it, so an event that changed nothing the
  * compile observed is silent.
+ * Native event names can have aliases missing from lexical indexes. Each
+ * settled event batch therefore rechecks all registered conditions of the
+ * reporting scope; directory admission still limits native watch coverage.
  *
  * A project's root-file membership is one entry for the project root
  * (samchon/ttsc#1419). Its scope admits every directory the project walk
- * enters, an event its policy counts as a membership change marks it, and its
- * check re-walks the project. Its owners are reported as invalidated rather
+ * enters, and an event in its scope schedules a current policy-aware walk.
+ * Its owners are reported as invalidated rather
  * than reloaded, since most new files change no other module.
  *
  * A plugin's Go source directory is one entry too (samchon/ttsc#1487). Its
@@ -107,7 +109,9 @@ import { someSet } from "./someSet";
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   Identity maps index entries and their owners; settled events deduplicate
- *   pending entries before rechecking conditions. Directory admission counts
+ *   pending entries before rechecking all reporting-scope conditions. This
+ *   input-proportional validation is needed because lexical names cannot exclude
+ *   native aliases; unrelated scopes are not selected. Directory admission counts
  *   contributions from live entries, and one prune per changed scope releases
  *   unneeded backend subscriptions. Polling remains necessary
  *   for scopes where native notifications cannot establish unchanged inputs.
@@ -334,7 +338,7 @@ export function createInputObserver(
   const recordChange = (
     eventType: string,
     file: string,
-  ): { direct: Set<string>; parent: Set<string> } => {
+  ): void => {
     const absolute = path.resolve(file);
     const parent = path.dirname(absolute);
     const direct = new Set<string>();
@@ -362,7 +366,6 @@ export function createInputObserver(
       changes.clear();
       historyFloor = changeSequence;
     }
-    return { direct, parent: parents };
   };
 
   const remove = (entry: InputEntry): void => {
@@ -482,77 +485,16 @@ export function createInputObserver(
     }
   };
 
-  const enqueue = (eventType: string, file: string): void => {
-    const absolute = path.resolve(file);
-    const eventKeys = recordChange(eventType, absolute);
-    for (const key of eventKeys.direct) {
-      for (const entry of aliases.get(key) ?? []) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
-    }
-    for (const key of eventKeys.parent) {
-      for (const entry of aliases.get(key) ?? []) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
-    }
-    // Any file below a plugin's source can move its state, whatever kind of
-    // event names it (samchon/ttsc#1487).
-    for (const entry of trees) {
-      const named = namedBelow(entry, absolute);
-      if (
-        named === undefined ||
-        named === entry.file ||
-        !pluginSourceCovers(entry.file, named, "entry")
-      ) {
-        continue;
-      }
+  const enqueue = (scope: WatchScope, eventType: string, file: string): void => {
+    recordChange(eventType, path.resolve(file));
+    scope.lastEventAt = changeSequence;
+    // Native event names can be aliases absent from the lexical indexes, even
+    // after the named entry has been deleted. Recheck this watch's owned inputs;
+    // only changed conditions report an owner, and one settled batch deduplicates
+    // repeated events without widening the native subscription tree.
+    for (const entry of scope.entries) {
       entry.changedAt = changeSequence;
       pending.add(entry);
-    }
-    // A root file appearing or leaving anywhere a project's walk enters is a
-    // membership change, whatever path the event names (samchon/ttsc#1419).
-    // Only a rename can be one; an edit to an existing file is not.
-    if (eventType === "rename") {
-      for (const entry of memberships) {
-        const named = namedBelow(entry, absolute);
-        if (named === undefined || named === entry.file) continue;
-        if (
-          membershipPolicies(entry).some((policy) =>
-            reportsProgramMembership(
-              entry.file,
-              named,
-              path.basename(named),
-              policy,
-              DEFAULT_FILESYSTEM_OPERATIONS,
-            ),
-          )
-        ) {
-          entry.changedAt = changeSequence;
-          pending.add(entry);
-        }
-      }
-    }
-    if (eventType === "rename") {
-      const exact = new Set<InputEntry>();
-      for (const key of eventKeys.direct) {
-        for (const entry of renameAliases.get(key) ?? []) exact.add(entry);
-      }
-      // Linux may report only the destination spelling of a directory rename.
-      // That spelling cannot be indexed before the move. Fall back to the
-      // renamed entry's parent only when no exact old spelling matched; the
-      // baseline check below still invalidates solely inputs that really moved.
-      const selected = exact;
-      if (selected.size === 0) {
-        for (const key of eventKeys.parent) {
-          for (const entry of renameAliases.get(key) ?? []) selected.add(entry);
-        }
-      }
-      for (const entry of selected) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
     }
     scheduleFlush();
   };
@@ -624,6 +566,7 @@ export function createInputObserver(
           : {}),
         pinned,
         root,
+        lastEventAt: 0,
         startedAt: changeSequence,
       };
       scopes.set(key, scope);
@@ -636,6 +579,7 @@ export function createInputObserver(
             if (file === null) {
               resetPathIdentityMemos();
               changeSequence += 1;
+              owned.lastEventAt = changeSequence;
               historyFloor = changeSequence;
               changes.clear();
               for (const candidate of owned.entries) {
@@ -646,6 +590,7 @@ export function createInputObserver(
               return;
             }
             enqueue(
+              owned,
               eventType,
               path.isAbsolute(file) ? file : path.resolve(root, file),
             );
@@ -1188,6 +1133,7 @@ export function createInputObserver(
                 (scope) =>
                   scope.failed ||
                   scope.startedAt > startedAt ||
+                  scope.lastEventAt > startedAt ||
                   observedAfterCompile,
               )
             ) {

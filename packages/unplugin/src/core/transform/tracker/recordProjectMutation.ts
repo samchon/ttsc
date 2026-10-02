@@ -20,8 +20,8 @@ import { recordProjectChange } from "./recordProjectChange";
  *   Native paragraphs explain the operation and why membership invalidation
  *   remains monotone, following the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms
- *   One boolean assignment and the bounded Set helper use expected constant
- *   work and no event-stream allocation.
+ *   One boolean assignment delegates bounded Set work, including path-string
+ *   hashing/comparison cost. It allocates no independent event stream.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Repeated structural events reuse the existing invalidation bit and exact
  *   path entries; generations remain isolated by tracker ownership.

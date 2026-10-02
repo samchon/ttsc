@@ -31,7 +31,7 @@
  *   retained state at runtime.
  */
 export interface TtscProjectMutationTracker {
-  /** Absolute paths named by generation-time mutation events. */
+  /** Absolute paths named by mutation events since this tracker opened. */
   changes: Set<string>;
 
   /** Whether additional event paths were discarded after the witness bound. */
@@ -44,13 +44,13 @@ export interface TtscProjectMutationTracker {
   close: CloseProjectMutationTracker;
 
   /**
-   * Absolute spellings whose creation, change or removal this tracker would
-   * report, when it watches exact names rather than whole directories.
+   * Absolute input spellings eligible for this tracker's notification proof
+   * when it watches exact scopes rather than whole directories.
    *
-   * A validation that finds an input here needs no filesystem call of its own:
-   * the tracker is the evidence, and every path that leaves this set falls back
-   * to being proven by hand. Empty for a tracker that watches directories as a
-   * whole, which cannot answer for one name.
+   * A healthy verified content tracker can qualify an input in this set when
+   * no unproven scope or recorded change overlaps it. Paths outside the set
+   * remain on direct validation. A project-directory tracker may also carry
+   * the walk's exact input coverage while its root watch supplies notifications.
    */
   covered?: ReadonlySet<string>;
 
@@ -92,6 +92,10 @@ export interface TtscProjectMutationTracker {
    * {@link failed}, the tracker still hears everything after the gap, so one
    * delivery that proves the recorded state by reading it clears the flag, and
    * its silence is proof again.
+   *
+   * Uncertain native event-name aliases also withdraw this authority without
+   * asserting a membership change. A complete recorded-state proof must settle
+   * that uncertainty before notification silence can qualify reuse again.
    */
   unverified?: boolean;
 
@@ -122,8 +126,8 @@ export interface TtscProjectMutationTracker {
    * root that moves, so replacing a watched directory, or any of its ancestors,
    * leaves the watch observing the old directory while the new one goes
    * unheard, and silence would then be read as proof (samchon/ttsc#1384). One
-   * metadata call per watched directory, made once per delivery, bounds that
-   * window.
+   * metadata observation per watched directory checks the selected target for
+   * that delivery; it does not make later native replacement atomic with use.
    *
    * @param seen Identities already read during this verification, by directory,
    *   shared across a generation's trackers so a directory they all watch is

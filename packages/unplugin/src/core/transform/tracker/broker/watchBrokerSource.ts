@@ -52,6 +52,11 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * Without the binding, a macOS watch can lose events silently, so the child
  * reports every registration failed instead.
  *
+ * Native event names reach the parent without a basename prefilter: neither
+ * backend supplies an alias-free name capability here. Parent classifiers own
+ * exact native identity and uncertainty; requested event kinds still filter
+ * content independently of native name equivalence.
+ *
  * @param fsevents Where the `fsevents` binding is, on macOS. `null` when it
  *   cannot be loaded there, and `undefined` on every other platform.
  * @evidence contracts/common.md#principled-implementation
@@ -63,16 +68,23 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Native flags and deadlines express backend contracts, not fixture-specific
  *   repairs. Missing bindings and probes report uncertainty rather than silent success.
+ *   Name inequality cannot establish native alias inequality; native names
+ *   reach the owning parent classifier without a basename substitution.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain ordering, native loss, probe lifecycle and absence;
  *   embedded-program comments identify state ownership under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral parent code delegates native flags and watcher capability to this
  *   child boundary; node:path handles relative names and canonical stream roots.
+ *   Windows alternate event names and Unicode uncertainty reach the parent
+ *   instead of being interpreted as a universal lowercase identity rule.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Producing source is linear in the fixed program text; the child indexes
  *   registrations and name Sets, and a drain writes one probe per eligible
  *   directory shared by its streams rather than one per project input.
+ *   Without basename filtering, admitted events carry their name text through
+ *   IPC for parent validation; subscription/event populations and message bytes
+ *   govern that additional routing work.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The constant program is reused for every child start; within a drain,
  *   equivalent probe-directory work is shared while each stream must observe it.
@@ -132,13 +144,11 @@ function load() {
 }
 
 function subscriber(message, location) {
-  const names = location.names === undefined ? undefined : new Set(location.names.map((name) => name.toLowerCase()));
   return (event, filename) => {
-    const matches = names === undefined || filename === null || names.has(String(filename).toLowerCase());
     // An event without a name is a backend's notice that anything below the
     // directory may have changed, such as a Windows buffer overflow, so every
     // registration hears it, whichever events it asked for.
-    if (matches && (message.allEvents || event === "rename" || filename === null || location.recursive === true)) {
+    if (message.allEvents || event === "rename" || filename === null || location.recursive === true) {
       process.send?.({ directory: location.directory, eventType: event, filename: filename === null ? null : String(filename), id: message.id });
     }
   };

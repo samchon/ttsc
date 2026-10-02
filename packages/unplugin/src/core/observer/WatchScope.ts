@@ -4,17 +4,17 @@ import type { InputEntry } from "./InputEntry";
  * One native recursive observer and the input entries it covers.
  *
  * The project root scope is pinned for the observer's lifetime. External scopes
- * are bounded in number and close when their last entry leaves. `startedAt` is
- * the change sequence at which the observer became live, so a registration can
- * tell whether a change could have happened before its scope was watching.
+ * are bounded in number and close when their last entry leaves. `startedAt`
+ * records the opening boundary; readiness remains backend-owned. `lastEventAt`
+ * retains named-event uncertainty for registrations racing a compilation.
  *
  * @evidence contracts/common.md#principled-implementation Scope root, start sequence, capability failure, and covered entries describe the observation authority registration can actually rely on.
  * @evidence contracts/common.md#clear-and-simple-design One scope owns its native handle while shared entries own conditions; external root identity supports topology checking without duplicating each input's watch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed or newly opened scope cannot certify a prior compile's unchanged inputs solely because a handle exists.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain pinned ownership, directory admission, external root identity, and the optional directory-backend track capability.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   WatchScope only declares a shape; it has no filesystem, path or process
- *   operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native root identity, failure and optional directory-backend capabilities
+ *   remain explicit; event sequence does not certify canonical native naming.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   WatchScope only declares a shape; it has no computation at runtime.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
@@ -58,7 +58,10 @@ export interface WatchScope {
    */
   pinned: boolean;
 
-  /** Change sequence at which the observer became live. */
+  /** Latest event sequence; a newer event requires current input validation. */
+  lastEventAt: number;
+
+  /** Sequence advanced before attempting native opening, not readiness proof. */
   startedAt: number;
 
   /**

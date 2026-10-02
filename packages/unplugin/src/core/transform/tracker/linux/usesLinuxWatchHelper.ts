@@ -6,7 +6,7 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  *
  * The host filesystem on every platform but Windows and macOS does, since those
  * two watch in the isolated broker instead. An embedder that supplies its own
- * `watch` observes another filesystem, and keeps it.
+ * `watch` retains that capability, including for a host-filesystem view.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A custom watcher keeps authority over its filesystem. Other native hosts

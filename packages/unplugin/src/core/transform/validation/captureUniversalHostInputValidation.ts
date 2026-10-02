@@ -5,7 +5,6 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
-import { normalizeHostInputName } from "../filesystem/normalizeHostInputName";
 import type { TtscGenerationProofFailures } from "../generation/TtscGenerationProofFailures";
 import { createGenerationProofFailures } from "../generation/createGenerationProofFailures";
 import { recordGenerationProofFailure } from "../generation/recordGenerationProofFailure";
@@ -38,7 +37,7 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
- * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy requires exact native ENOENT or ENOTDIR rather than a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
+ * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations qualify metadata and exact native absence. Grouped candidates retain original spelling because measured case policy alone does not define Unicode or short-name equivalence; physical targets and aliases remain distinct from content identity.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
  * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
  * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
@@ -241,8 +240,8 @@ export function captureUniversalHostInputValidation(
     }
     const caseSensitive = state.identityContext.caseSensitive(probe.directory);
     if (caseSensitive === undefined) {
-      // Unknown case policy withdraws the listing shortcut, not the native
-      // filesystem's ability to answer whether this exact path exists.
+      // Unknown case policy retains a full exact candidate rather than inferring
+      // name equivalence. The native filesystem still owns its existence answer.
       let absent = false;
       try {
         filesystem.stat(input);
@@ -267,9 +266,8 @@ export function captureUniversalHostInputValidation(
       names = new Set<string>();
       validation.missing.set(probe.directory, names);
     }
-    names.add(
-      normalizeHostInputName(probe.name, caseSensitive),
-    );
+    // Native probes need the requested spelling, not a normalized listing key.
+    names.add(probe.name);
   }
   // A plugin binary keyed on a source other than the disk's now, whether it
   // was built here or adopted from another worker, is output for a state
