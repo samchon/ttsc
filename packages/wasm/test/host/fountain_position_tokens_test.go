@@ -32,15 +32,23 @@ type fountainSymbol struct {
   } `json:"declarations"`
 }
 
-// TestFountainPositionVerbsResolveTouchingTokens exercises the public wasm
-// API against a real Program. It guards the token-level cursor contract from
-// declarations through references, literals, punctuation, trivia, UTF-8 byte
-// offsets, position errors, and release lifecycle errors.
+// TestFountainPositionVerbsResolveTouchingTokens verifies the wasm API's
+// token-level cursor contract against a real Program in the Go test process.
+//
+// The js/wasm target supplies the JavaScript values these owning operations
+// consume. The test binary calls Expose directly; it does not boot a shipped
+// binary, install a consumer or exercise the browser filesystem bridge.
+//
+// 1. Create an authored project at an absolute path in the target filesystem
+//    and acquire a snapshot through the directly exposed API.
+// 2. Query declarations, references, literals, punctuation, trivia and UTF-8
+//    byte offsets, asserting token spans, names and printed types.
+// 3. Reject out-of-range positions, release the snapshot and reject later use.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the public snapshot, getNodeAtPosition, getTypeAtPosition, getSymbolAtPosition and releaseSnapshot verbs of a real js/wasm Program and asserts kind, text, token span, symbol name, declaration start and printed type for each probed position, so a verb that returns a neighbouring token, a full start including trivia or no answer fails.
 // @evidence contracts/testing.md#independent-expectations The expected kinds, texts and offsets follow the authored source: strings.Index of each literal gives the byte offset the contract names, multi-byte cafe checks that offsets are bytes, and the printed types Point, number and "ok" are what TypeScript specifies for those expressions.
-// @evidence contracts/testing.md#distinguishing-cases Identifiers at a declaration and a reference, numeric and string literals, a semicolon, a keyword preceded by a JSDoc comment, whitespace, a trailing comment, offsets -1 and past the end of the file, and a released handle are separate cases; punctuation and trivia must answer null and bad offsets must answer code 2.
-// @evidence contracts/testing.md#execution-ownership Runs in the js/wasm test binary against the Program that the shared host.Expose API loads through the Node file system, so the connection between the JS verbs, the Go handlers and the compiler is exercised; portable Go helpers have no separate unit because they cannot run without a Program.
+// @evidence contracts/testing.md#distinguishing-cases Identifiers at a declaration and a reference, numeric and string literals, a semicolon, a keyword preceded by a JSDoc comment, whitespace, a trailing comment, offsets -1 and at or past the end of the file, and a released handle are separate cases. The semicolon remains a node with null type and symbol; trivia returns null for all three verbs, and bad offsets return code 2.
+// @evidence contracts/testing.md#execution-ownership The discoverable Test entry calls the owning host.Expose and its snapshot/query operations directly in one js/wasm Go test process. Node supplies the target language runtime and fixture filesystem; no installed consumer, shipped WASM artifact or separate product host is prepared. These units do not establish browser boot or filesystem-bridge assembly.
 func TestFountainPositionVerbsResolveTouchingTokens(t *testing.T) {
   api := startSharedAPI(t)
   // A host whose temporary directory is not a usable wasm path (a Windows
