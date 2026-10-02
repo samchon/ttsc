@@ -34,12 +34,13 @@ export interface TtscHostInputValidation {
       path: string;
 
       /**
-       * Whether the recorded state of this input has been matched to readable
-       * bytes. Capture sets it immediately for compiler-proven inputs; a
-       * current module supplied from an editor buffer can earn it later after
+       * Whether the recorded host state qualified content or native kind.
+       * Capture sets it for a nonnull byte hash or directory marker; a
+       * strict blocker carries separate kind authority even without a byte read.
+       * A current module supplied from an editor buffer can earn it later after
        * its disk bytes match the recorded source.
        *
-       * An input that still cannot be read records a missing state, so no
+       * An unreadable nondirectory input can record a missing state, so no
        * signature may stand in for it: its metadata holds still while the bytes
        * behind it appear.
        */
