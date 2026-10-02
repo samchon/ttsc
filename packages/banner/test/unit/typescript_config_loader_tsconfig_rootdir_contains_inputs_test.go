@@ -27,7 +27,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerTypeScriptConfigLoaderTsconfig, decodes JSON and asserts slash-terminated rootDir with exactly two files, both beneath that root.
 // @evidence contracts/testing.md#independent-expectations Loader and config fixture paths share their filesystem root; a slash-terminated root prefix must contain both independently constructed input paths.
 // @evidence contracts/testing.md#distinguishing-cases Owns root spelling and two-file containment on the current host; module policy has separate coverage and this check does not run a compiler.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs is selected from test/unit by the utility runner unit overlay. Runs bannerTypeScriptConfigLoaderTsconfig and native root/path calculations in the Go process; no compiler project or child launcher is loaded.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerTypeScriptConfigLoaderTsconfig and native root/path calculations in the Go process; no compiler project or child launcher is loaded.
 func TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs(t *testing.T) {
   dir := t.TempDir()
   raw := shared.BannerTypeScriptConfigLoaderTsconfig(

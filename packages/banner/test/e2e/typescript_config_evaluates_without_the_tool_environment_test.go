@@ -27,6 +27,7 @@ import (
 //  2. Shed TTSC_TSGO_BINARY and TTSC_TTSX_BINARY, then load a
 //     `banner.config.ts`.
 //  3. Assert the loaded value carries the project's own compiler path.
+//
 // @evidence contracts/testing.md#behavioral-verification The banner TypeScript loader resolves project fixtures without tool variables, starts the fixture launcher and returns its report of the exact --binary compiler path.
 // @evidence contracts/testing.md#independent-expectations The fake launcher rejects missing --binary and echoes the next argument; the expected path is independently authored project layout.
 // @evidence contracts/testing.md#distinguishing-cases The compiler is an empty fixture file and the launcher only reports argv. Config source is never evaluated, so this distinguishes argument transport rather than real TypeScript compilation.
@@ -34,7 +35,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The loader-to-project-launcher argv and payload connection is observed. The evaluates filename does not establish execution of config source; a real compiler/ttsx owner is separately required.
 // @evidence contracts/e2e.md#shared-execution One fixture launcher invocation observes arguments. No Go producer or compiler build occurs; the compiler-shaped file is only transported.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores tool variables, t.TempDir owns install fixtures and the loader removes its temporary directory. Cached output cannot replace this argument observation.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts load success, an object result, and equality of the value the fake launcher echoes for --binary with the seeded project compiler path (L59); real TypeScript evaluation is not asserted.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts load success, an object result, and equality of the value the fake launcher echoes for --binary with the seeded project compiler path; real TypeScript evaluation is not asserted.
 func TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

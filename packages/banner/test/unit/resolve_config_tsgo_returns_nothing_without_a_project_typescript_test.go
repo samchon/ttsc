@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Clears tool overrides and calls bannerResolveConfigTsgo for a project containing only its config file; it must return no compiler.
 // @evidence contracts/testing.md#independent-expectations A config file supplies no TypeScript install. The empty result follows the resolver contract and the independently absent package layout.
 // @evidence contracts/testing.md#distinguishing-cases Owns missing-TypeScript resolution; requireNoAmbientInstall can skip polluted ancestry. Missing platform and executable after a TypeScript install have separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo and its manifest walk in the Go process; fixture and environment state are testing-owned and no compiler or launcher starts.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerResolveConfigTsgo and its manifest walk in the Go process; fixture and environment state are testing-owned and no compiler or launcher starts.
 func TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

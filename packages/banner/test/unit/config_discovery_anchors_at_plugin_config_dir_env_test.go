@@ -28,7 +28,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerFindBannerConfigFile with a project directory override and asserts the project JSON path wins over a wrapper-adjacent config.
 // @evidence contracts/testing.md#independent-expectations The explicit project directory outranks wrapper location. Distinct independently placed project and wrapper candidates expose incorrect selection.
 // @evidence contracts/testing.md#distinguishing-cases Owns environment-anchor precedence with both locations populated; ordinary tsconfig/cwd discovery is owned by TestConfigPathDiscovery.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryAnchorsAtPluginConfigDirEnv is selected from test/unit by the utility runner unit overlay. Runs banner discovery through PluginConfigBaseDir and DiscoverConfigFile in the Go process with ordinary path/stat fixtures; neither config is evaluated.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryAnchorsAtPluginConfigDirEnv is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs banner discovery through PluginConfigBaseDir and DiscoverConfigFile in the Go process with ordinary path/stat fixtures; neither config is evaluated.
 func TestConfigDiscoveryAnchorsAtPluginConfigDirEnv(t *testing.T) {
   project := t.TempDir()
   wrapper := t.TempDir()

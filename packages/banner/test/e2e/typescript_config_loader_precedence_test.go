@@ -33,7 +33,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary Generated code must remain executable and implement the export policy in the JavaScript runtime; source-string inspection and pure config-option units cannot detect an executable precedence regression.
 // @evidence contracts/e2e.md#shared-execution The three positive fixtures share one recorder artifact and one Node lifetime; the invalid control has a separate lifetime because its actual failure handler exits the process and would hide positive results if combined.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique module filenames and literal config inputs separate each positive import without clearing caches; t.TempDir owns all files, synchronous command completion owns each child, and the negative fixture uses a fresh child with independent recorder state.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts that the three positive loaders report default, outer and nested texts (population counts compared at L78-85) and that the invalid-export loader exits with status 1 and the exact error message at L105; compiler and launcher argument transport are not asserted here.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts that the three positive loaders report default, outer and nested texts (population counts compared) and that the invalid-export loader exits with status 1 and the exact error message; compiler and launcher argument transport are not asserted here.
 func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   root := t.TempDir()
   recorder := filepath.Join(root, "recorder.cjs")

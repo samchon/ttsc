@@ -95,11 +95,7 @@ func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
 // parseBanner resolves and formats banner text into a JSDoc block comment.
 // Trailing blank lines are stripped from the resolved text before formatting.
 func parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error) {
-  return parseBannerWithReporter(config, cwd, tsconfigPath, nil)
-}
-
-func parseBannerWithReporter(config map[string]any, cwd, tsconfigPath string, reporter func(string)) (string, error) {
-  return parseBannerWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
+  return parseBannerWithReporters(config, cwd, tsconfigPath, nil, nil, nil)
 }
 
 // parseBannerWithReporters formats text while forwarding exact config witnesses.
@@ -147,11 +143,7 @@ func sanitizeJSDocLine(line string) string {
 // The discovery base directory doubles as the resolution root the config
 // loader anchors its toolchain lookup on; see configToolAnchors.
 func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string, error) {
-  return resolveBannerTextWithReporter(config, cwd, tsconfigPath, nil)
-}
-
-func resolveBannerTextWithReporter(config map[string]any, cwd, tsconfigPath string, reporter func(string)) (string, error) {
-  return resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
+  return resolveBannerTextWithReporters(config, cwd, tsconfigPath, nil, nil, nil)
 }
 
 // resolveBannerTextWithReporters keeps configuration value loading separate from

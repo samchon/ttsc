@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Sets TTSC_TTSX_BINARY with a competing seeded project launcher and asserts bannerResolveTtsxLauncher returns exactly the pinned path, not the project path.
 // @evidence contracts/testing.md#independent-expectations The explicit launcher override outranks anchor discovery. The two expected identities are distinct paths fixed before lookup.
 // @evidence contracts/testing.md#distinguishing-cases Owns nonempty override priority against a valid project launcher; empty-environment discovery and missing-launcher fallback are separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary is selected from test/unit by the utility runner unit overlay. Runs bannerResolveTtsxLauncher in the Go process with testing-restored environment; neither launcher is invoked.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerResolveTtsxLauncher in the Go process with testing-restored environment; neither launcher is invoked.
 func TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

@@ -21,6 +21,7 @@ import (
 // 1. Materialize a strict TypeScript project and banner manifest.
 // 2. Run the check command through the real sidecar.
 // 3. Assert success and verify no JavaScript output was emitted.
+//
 // @evidence contracts/testing.md#behavioral-verification The strict banner project runs check --quiet with its CJS manifest; status zero, empty streams and absent src/main.js distinguish the no-emit branch.
 // @evidence contracts/testing.md#independent-expectations The check contract is successful validation without JavaScript emission; the absence assertion uses the original source location, not every possible output path.
 // @evidence contracts/testing.md#distinguishing-cases A valid manifest is loaded without outDir; build owns positive publication and transform owns returned source payload. This case does not assert banner text during check.
@@ -28,7 +29,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The native check dispatch loads the project and banner manifest while returning silent success and leaving the asserted output absent. It verifies no-emit command wiring, not banner transformation semantics.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one check process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single check process exits before src/main.js is stat-ed. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check (L41) and the src/main.js absence check (L44) are made in this body; banner text is not asserted here and no assertion is delegated elsewhere.
+// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the src/main.js absence check are made in this body; banner text is not asserted here and no assertion is delegated elsewhere.
 func TestCommandRunsCheck(t *testing.T) {
   // Scenario setup: the project is intentionally minimal because check only
   // needs to prove the sidecar can parse the manifest and load the program.

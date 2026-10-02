@@ -26,6 +26,7 @@ import (
 //  1. Build a store directory holding `typescript` and its platform package.
 //  2. Link the project's `node_modules/typescript` at that store directory.
 //  3. Assert the resolution reaches the store's `lib/tsc`.
+//
 // @evidence contracts/testing.md#behavioral-verification With tool variables cleared, the banner resolver follows node_modules/typescript into its store install and must locate the sibling platform package compiler file.
 // @evidence contracts/testing.md#independent-expectations The authored store topology and binary filename specify the target. The fixture platform pair comes from product code, so platform vocabulary needs its independent unit oracle.
 // @evidence contracts/testing.md#distinguishing-cases The platform package is beside the real install, not the link. Symlink or Windows junction fallback is used, and unavailable links skip the case; compiler bytes are never executed.
@@ -33,7 +34,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The case needs a real directory link: os.Symlink, or windowsjunction.Create (cmd.exe mklink /J) on Windows when symlinks are denied; the resolver must follow it to the store copy to find the sibling platform package. No compiler process starts, so this verifies path resolution through a link, not compiler startup.
 // @evidence contracts/e2e.md#shared-execution One store/link layout is prepared in t.TempDir without a plugin build or compiler process; only the Windows link fallback can start its necessary junction command.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores tool variables and t.TempDir owns the store, link and empty compiler fixture. Link creation can prevent the assertion from executing.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts one equality at L53: the compiler path resolved from a linked node_modules/typescript equals the seeded store lib/tsc path. When no directory link can be created the case skips and asserts nothing.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts one equality: the compiler path resolved from a linked node_modules/typescript equals the seeded store lib/tsc path. When no directory link can be created the case skips and asserts nothing.
 func TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

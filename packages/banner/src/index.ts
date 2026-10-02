@@ -99,9 +99,10 @@ const FRAMEWORK_KEYS = new Set<string>([
  *
  * @evidence contracts/common.md#principled-implementation
  *   The default-export factory maps host module anchors to the shipped driver
- *   and project anchors to config candidates. Discovery records every higher
- *   priority candidate through the first matching ancestor, including absent
- *   paths and directory markers, so creating a nearer config changes the
+ *   and project anchors to config candidates. Discovery records all seven
+ *   candidate names in every directory from the anchor through the first one
+ *   holding a non-directory match, including absent paths and directory markers,
+ *   so creating a nearer config or a second file beside the match changes the
  *   descriptor inputs. Native evaluation validates ambiguous or invalid config;
  *   this factory supplies observations rather than treating existence as a
  *   valid banner. SHA-256 covers candidate bytes and a distinct directory marker.
@@ -116,8 +117,9 @@ const FRAMEWORK_KEYS = new Set<string>([
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Framework keys, candidate filenames, package identity and stage encode the
  *   supported registration contract. The descriptor neither evaluates user
- *   JavaScript nor changes a foreign loader; it records failed filesystem probes
- *   as unknown observations so native evaluation can report the actual error.
+ *   JavaScript nor changes a foreign loader; it records a failed probe (an absent
+ *   or unreadable candidate) as a null hash or physical target, and native
+ *   evaluation reports the actual error.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc separates registration from config evaluation and explains why
@@ -126,8 +128,8 @@ const FRAMEWORK_KEYS = new Set<string>([
  *   documentation skill; the exported factory is documented as a host entry.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Node path operations resolve the host anchors and stop discovery when the
- *   parent equals the current native root. realpathSync.native reports physical
+ *   Node path operations resolve the host anchors and stop discovery at the
+ *   filesystem root, where a directory is its own parent. realpathSync.native reports physical
  *   targets independently of byte hashes; unresolved targets remain null.
  *   No OS name determines case policy and no path becomes a shell command.
  *
@@ -191,7 +193,11 @@ const BANNER_CONFIG_FILENAMES = [
   "banner.config.mts",
 ];
 
-/** Mirror native config resolution while retaining missing priority probes. */
+/**
+ * Mirror native config resolution for a nonblank string `configFile` or for
+ * upward discovery, retaining the absent candidates that could supersede or
+ * make ambiguous the match. Native evaluation rejects any other `configFile`.
+ */
 function bannerConfigInputs(
   context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
 ): {

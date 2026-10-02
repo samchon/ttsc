@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Creates only a TypeScript manifest and asserts bannerResolveConfigTsgo returns empty when the platform sibling package is absent.
 // @evidence contracts/testing.md#independent-expectations The native compiler belongs to the platform package. No such fixture manifest exists, so the resolver must not invent an executable path.
 // @evidence contracts/testing.md#distinguishing-cases Owns TypeScript-present/platform-absent lookup; requireNoAmbientInstall may skip an ambient platform install. Platform-present/executable-absent has a separate case.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo, platform mapping and manifest traversal in the Go process; no native compiler executes.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerResolveConfigTsgo, platform mapping and manifest traversal in the Go process; no native compiler executes.
 func TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

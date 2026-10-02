@@ -22,9 +22,12 @@ import (
 //  3. Render a banner with Windows newlines and a closing-comment token via an
 //     explicit configFile path, asserting JSDoc escaping and trailing-blank-line
 //     stripping.
-// @evidence contracts/testing.md#behavioral-verification Banner coercion accepts nil/object text and rejects invalid values; framework/configFile keys pass and former inline keys fail. Native JSON loading normalizes CRLF, escapes */ and rejects empty text.
-// @evidence contracts/testing.md#independent-expectations Authored scalar/object inputs and literal a * / b define independent coercion/escaping expectations; the loaded one/two text comes from authored JSON bytes.
-// @evidence contracts/testing.md#distinguishing-cases Object text contrasts with missing/bare/numeric values; allowed keys contrast with text/config/banner/options. Nonempty CRLF text contrasts with a JSON config whose text is the empty string, which parseBanner rejects as must be a non-empty string.
+//  4. Render whitespace-only trailing lines, an interior blank line and
+//     overlapping closing tokens, and reject whitespace-only text.
+//
+// @evidence contracts/testing.md#behavioral-verification Banner coercion accepts nil/object text and rejects invalid values; framework/configFile keys pass and former inline keys fail. parseBanner over a JSON config file normalizes CRLF, strips trailing blank and whitespace-only lines, keeps an interior blank line, escapes */ and rejects empty or whitespace-only text.
+// @evidence contracts/testing.md#independent-expectations Authored scalar/object inputs and literal expected comments (a * / b, * /* /, the 64-dash separator and the packageDocumentation footer) define independent coercion/escaping/rendering expectations; the loaded text comes from authored JSON bytes.
+// @evidence contracts/testing.md#distinguishing-cases Object text contrasts with missing/bare/numeric values; allowed keys contrast with text/config/banner/options. Nonempty CRLF text, an interior blank line and a whitespace-only trailing line contrast with a JSON config whose text is the empty string or only whitespace, which parseBanner rejects as must be a non-empty string. Two adjacent closing tokens contrast with a single one.
 // @evidence contracts/testing.md#execution-ownership TestConfigValueBranches executes coercion, validation, sanitization and JSON-backed parseBanner through test bridges in one Go process. No Node, compiler or native producer is launched.
 func TestConfigValueBranches(t *testing.T) {
   // bannerTextFromConfigValue: nil, object, invalid.
@@ -47,6 +50,7 @@ func TestConfigValueBranches(t *testing.T) {
   for label, raw := range map[string]any{
     "bad raw":  123,
     "bad text": map[string]any{"text": 123},
+    "blank text": map[string]any{"text": " \t\n"},
   } {
     if _, _, err := bannerTextFromConfigValue(raw, label); err == nil {
       t.Fatalf("expected %s to fail", label)
@@ -88,6 +92,21 @@ func TestConfigValueBranches(t *testing.T) {
   }
   if got := bannerSanitizeJSDocLine("a */ b"); got != "a * / b" {
     t.Fatalf("sanitize mismatch: %q", got)
+  }
+  if got := bannerSanitizeJSDocLine("*/*/"); got != "* /* /" {
+    t.Fatalf("adjacent closing tokens sanitize mismatch: %q", got)
+  }
+
+  // Whitespace-only trailing lines are dropped, an interior blank line is kept.
+  spacedConfigFile := filepath.Join(root, "spaced", "banner.config.json")
+  shared.WriteFile(t, spacedConfigFile, `{"text":"a\n\nb\n \t\n"}`)
+  spaced, err := bannerParseBanner(map[string]any{"configFile": spacedConfigFile}, root, tsconfig)
+  if err != nil {
+    t.Fatal(err)
+  }
+  spacedExpected := "/**\n * " + strings.Repeat("-", 64) + "\n * a\n * \n * b\n *\n * @packageDocumentation\n */\n"
+  if spaced != spacedExpected {
+    t.Fatalf("spaced banner mismatch:\n%q\nwant\n%q", spaced, spacedExpected)
   }
 
   // parseBanner: empty "text" from config file produces an error.

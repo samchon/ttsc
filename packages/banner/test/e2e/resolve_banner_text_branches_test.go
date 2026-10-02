@@ -20,6 +20,7 @@ import (
 // 1. Reject unknown tsconfig plugin entry keys and invalid configFile values.
 // 2. Resolve explicit configFile paths and reject malformed declarations.
 // 3. Resolve discovered config files and reject missing or unusable exports.
+//
 // @evidence contracts/testing.md#behavioral-verification The banner resolver rejects unsupported/invalid pointers, loads tsconfig-relative CJS text, discovers ancestor config and rejects missing, duplicate, bad and empty exports; fake TS launcher cases return no-text envelopes.
 // @evidence contracts/testing.md#independent-expectations Literal pointer/key errors and authored explicit/discovered text are independent expected results. Fake TS empty envelopes specify transport output rather than evaluating TypeScript source.
 // @evidence contracts/testing.md#distinguishing-cases Framework keys contrast with text/config rejection; numeric/blank configFile differ from valid pointers. Explicit/discovered routes exercise missing text, bare string, empty text and ambiguous configs.

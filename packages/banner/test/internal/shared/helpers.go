@@ -21,16 +21,14 @@ func WriteFile(t *testing.T, file string, contents string) {
 // ShedConfigToolEnvironment removes the compiler and launcher variables from
 // the test's environment for the duration of one case.
 //
-// Neither runner for this package injects them: `go test`
-// and `go test` both forward the ambient environment
+// `go test` injects neither variable and forwards the ambient environment
 // wholesale. That is the point. `ttsx` exports TTSC_TSGO_BINARY and
 // TTSC_TTSX_BINARY to every descendant, so a suite launched anywhere below one
 // inherits both, and every existing loader case pins TTSC_TTSX_BINARY at a fake
 // launcher of its own — between them, an evaluator that read the environment
 // and nothing else looked correct. A case that means to exercise the
 // project-anchored resolution has to shed them first, or it proves only that
-// something upstream set them. (`go test` injects both outright,
-// which is what kept the same defect invisible in @ttsc/lint.)
+// something upstream set them.
 func ShedConfigToolEnvironment(t *testing.T) {
   t.Helper()
   t.Setenv("TTSC_TSGO_BINARY", "")
@@ -54,7 +52,7 @@ func SeedProjectTypeScript(t *testing.T, root string) string {
   return binary
 }
 
-// SeedProjectTypeScriptWithoutCompiler is seedProjectTypeScript stopping one
+// SeedProjectTypeScriptWithoutCompiler is SeedProjectTypeScript stopping one
 // file short: both manifests exist and the platform executable does not. It is
 // the shape an install left behind by a failed or partial unpack, and the
 // resolution must decline it rather than hand the child a path it cannot spawn.

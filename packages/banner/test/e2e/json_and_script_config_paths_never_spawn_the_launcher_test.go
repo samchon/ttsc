@@ -21,6 +21,7 @@ import (
 //  1. Pin both tool variables at paths that do not exist.
 //  2. Load a `.json` and a `.cjs` config through the dispatcher.
 //  3. Assert both return their text with no spawn failure.
+//
 // @evidence contracts/testing.md#behavioral-verification The banner loader reads JSON and evaluates script config successfully while compiler and ttsx variables name nonexistent files; returned values must match the authored exports.
 // @evidence contracts/testing.md#independent-expectations The literal config data is the expectation, and nonexistent pinned TS tools make erroneous routing through ttsx fail.
 // @evidence contracts/testing.md#distinguishing-cases JSON loads directly, whereas script uses actual Node import. The case tests TS-tool avoidance, not absence of Node or TypeScript source evaluation.
@@ -28,7 +29,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary Only the script import-to-returned-value connection needs Node. JSON parsing is a direct unit concern; the mixed E2E label does not make its filesystem read a necessary boundary.
 // @evidence contracts/e2e.md#shared-execution Two files share one root and only the script starts Node. No Go build or compiler preparation occurs.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores the two pinned tool variables, t.TempDir releases the config files, and the Node child for the CJS config has exited before the loader returns (exec Cmd.Output waits for it).
-// @evidence contracts/e2e.md#preserved-coverage The body asserts the returned text for one JSON config (L41) and one CJS config (L52) with both tool variables pinned at nonexistent paths; it loads no TypeScript config and observes avoidance of the launcher only through those two loads succeeding.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts the returned text for one JSON config and one CJS config with both tool variables pinned at nonexistent paths; it loads no TypeScript config and observes avoidance of the launcher only through those two loads succeeding.
 func TestJSONAndScriptConfigPathsNeverSpawnTheLauncher(t *testing.T) {
   root := shared.BannerRealpathIfPossible(t.TempDir())
   t.Setenv("TTSC_TSGO_BINARY", filepath.Join(root, "absent", "tsc"))

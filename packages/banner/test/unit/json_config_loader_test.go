@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerLoadBannerJSONConfigFile and its dispatcher to assert object text, BOM acceptance, malformed JSON/read errors and JSON filename discovery.
 // @evidence contracts/testing.md#independent-expectations Literal JSON and BOM bytes supply independent value expectations; malformed syntax cannot parse and the missing fixture cannot be read. JSON discovery follows the supported config filename.
 // @evidence contracts/testing.md#distinguishing-cases Owns native object/dispatcher success, BOM, syntax error, missing file and discovery. There is no numeric-root rejection assertion or executable-config coverage in this case.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestJSONConfigLoader is selected from test/unit by the utility runner unit overlay. Runs banner JSON read/parse/dispatcher and discovery in the Go process over ordinary files; the selected JSON branch starts no Node or ttsx child.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestJSONConfigLoader is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs banner JSON read/parse/dispatcher and discovery in the Go process over ordinary files; the selected JSON branch starts no Node or ttsx child.
 func TestJSONConfigLoader(t *testing.T) {
   root := t.TempDir()
 

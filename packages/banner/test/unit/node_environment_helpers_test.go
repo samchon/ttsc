@@ -20,9 +20,10 @@ import (
 // 1. Discover nearest node_modules from nested config directories.
 // 2. Build NODE_PATH while preserving existing entries and replacement logic.
 // 3. Link node_modules into loader tempdirs and cover the symlink failure path.
-// @evidence contracts/testing.md#behavioral-verification Banner helpers find nearest node_modules, compose NODE_PATH, replace/append environment keys, create a real symlink and reject a conflicting node_modules file.
+//
+// @evidence contracts/testing.md#behavioral-verification Banner helpers find nearest node_modules, compose NODE_PATH from the nearest node_modules and an existing or empty value, replace/append environment keys, create a real symlink and reject a conflicting node_modules file.
 // @evidence contracts/testing.md#independent-expectations Authored directory topology and literal environment entries define expectations; os.Readlink independently observes the created target.
-// @evidence contracts/testing.md#distinguishing-cases Existing/empty NODE_PATH, replacement/append, valid/conflicting link and conditional absent ancestry differ. Windows skips the symlink tail; ambient ancestors can bypass no-modules assertions.
+// @evidence contracts/testing.md#distinguishing-cases Existing/empty NODE_PATH with a nearby node_modules (existing value after a separator versus the directory alone), an empty NODE_PATH without one, replacement/append, valid/conflicting link and conditional absent ancestry differ. Windows skips the symlink tail; ambient ancestors bypass the no-modules assertions.
 // @evidence contracts/testing.md#execution-ownership TestNodeEnvironmentHelpers invokes owning environment/filesystem operations in-process; it executes no product host, evaluator or native producer. Its discoverable Go unit entry resides in test/unit.
 func TestNodeEnvironmentHelpers(t *testing.T) {
   root := t.TempDir()
@@ -54,9 +55,30 @@ func TestNodeEnvironmentHelpers(t *testing.T) {
   if nodePath != expected {
     t.Fatalf("NODE_PATH mismatch: got %q expected %q", nodePath, expected)
   }
+  // An empty NODE_PATH contributes no entry: the nearest node_modules stands
+  // alone, with no trailing path-list separator.
   t.Setenv("NODE_PATH", "")
-  if got := bannerNodeConfigLoaderEnv(filepath.Join(root, "plain", "banner.config.cjs")); len(got) != len(os.Environ()) {
-    t.Fatalf("expected unchanged env length without node_modules, got %d want %d", len(got), len(os.Environ()))
+  emptyBase := ""
+  for _, entry := range bannerNodeConfigLoaderEnv(filepath.Join(nested, "banner.config.cjs")) {
+    if strings.HasPrefix(entry, "NODE_PATH=") {
+      emptyBase = strings.TrimPrefix(entry, "NODE_PATH=")
+    }
+  }
+  if emptyBase != nodeModules {
+    t.Fatalf("NODE_PATH with an empty base mismatch: got %q expected %q", emptyBase, nodeModules)
+  }
+  // Without any node_modules the empty NODE_PATH stays empty. Hermetic for the
+  // same reason as above: a stray ancestor node_modules is a legitimate hit.
+  if shared.BannerFindNearestNodeModules(filepath.Join(root, "plain")) == "" {
+    plain := "unset"
+    for _, entry := range bannerNodeConfigLoaderEnv(filepath.Join(root, "plain", "banner.config.cjs")) {
+      if strings.HasPrefix(entry, "NODE_PATH=") {
+        plain = strings.TrimPrefix(entry, "NODE_PATH=")
+      }
+    }
+    if plain != "" && plain != "unset" {
+      t.Fatalf("NODE_PATH gained an entry without node_modules: %q", plain)
+    }
   }
 
   replaced := bannerSetEnv([]string{"A=1", "NODE_PATH=old"}, "NODE_PATH", "new")

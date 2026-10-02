@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerValidateBannerConfig to reject unsupported keys with key/error/remedy text, accept configFile/framework keys, and reject inline text/config through resolveBannerText.
 // @evidence contracts/testing.md#independent-expectations The banner entry accepts configFile plus transform, enabled, name and stage. Options belong in a separate file, so the six literal stale keys must fail.
 // @evidence contracts/testing.md#distinguishing-cases Owns text/config/banner/after/before/phase rejection, permitted framework/configFile keys and validation propagated through resolveBannerText; no config is evaluated after those early errors.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigRejectsUnknownTsconfigKeys is selected from test/unit by the utility runner unit overlay. Runs bannerValidateBannerConfig and early validation in bannerResolveBannerText in the Go process; its ordinary tsconfig fixture is not loaded as a Program.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigRejectsUnknownTsconfigKeys is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerValidateBannerConfig and early validation in bannerResolveBannerText in the Go process; its ordinary tsconfig fixture is not loaded as a Program.
 func TestConfigRejectsUnknownTsconfigKeys(t *testing.T) {
   root := t.TempDir()
   tsconfig := filepath.Join(root, "tsconfig.json")

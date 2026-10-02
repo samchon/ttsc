@@ -27,7 +27,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerNodePackageManifestFrom from a nested cwd with bare and ../../ config anchors; both must return the absolute sibling manifest, while an absent scoped package returns empty.
 // @evidence contracts/testing.md#independent-expectations The fixture places sibling/package.json only at the root node_modules. Node-style lookup starts from the absolute anchor, so both relative spellings have that independently seeded destination.
 // @evidence contracts/testing.md#distinguishing-cases Owns bare and parent-relative anchors plus an absent package; the node_modules-directory decoy is covered separately.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePackageManifestFromResolvesARelativeAnchor is selected from test/unit by the utility runner unit overlay. Runs bannerNodePackageManifestFrom and native path/stat operations in the Go process. t.Chdir is restored by testing; no fixture package is imported.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePackageManifestFromResolvesARelativeAnchor is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerNodePackageManifestFrom and native path/stat operations in the Go process. t.Chdir is restored by testing; no fixture package is imported.
 func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
   root := shared.BannerRealpathIfPossible(t.TempDir())
   want := filepath.Join(root, "node_modules", "sibling", "package.json")

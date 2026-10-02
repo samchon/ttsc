@@ -31,6 +31,7 @@ import (
 //  6. A junction node_modules → expect the realpath of its .cache (the ESM
 //     runtime realpaths the loader at import time, so a link-form base breaks
 //     the relative config import).
+//
 // @evidence contracts/testing.md#behavioral-verification The banner temp-base selector returns empty for same-volume/relative paths; drive-letter cases require a created physical .cache, blocked-cache and absent-modules fallbacks, and junction canonicalization.
 // @evidence contracts/testing.md#independent-expectations Authored drive letters and blocked file layouts define choices; filepath.EvalSymlinks supplies the expected physical cache path independently of loaderTempBase.
 // @evidence contracts/testing.md#distinguishing-cases Same/relative paths run everywhere. Cross-volume, blocked-cache, absent-node_modules and junction branches run only on drive-letter platforms; absent ancestry is conditional on no ambient installation.
@@ -38,7 +39,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary Most assertions are direct filesystem semantics and need no E2E host. Only the real junction tail crosses the OS/process boundary; this mixed placement remains a classification finding.
 // @evidence contracts/e2e.md#shared-execution Cheap separate layouts isolate valid caches from squatting files. No native producer or compiler is prepared; a short Windows junction command is the sole child.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns every created .cache and link. No shared product cache is removed; platforms without drive volumes return before Windows-only branches.
-// @evidence contracts/e2e.md#preserved-coverage The same-volume and relative-path assertions (L44-L51) run on every platform; on a platform whose fake Z: or Y: path has no volume name the function returns at L59, so the cross-volume, created-.cache, blocked-cache, bare-directory (itself guarded by findNearestNodeModules) and junction assertions run only where drive-letter volumes exist.
+// @evidence contracts/e2e.md#preserved-coverage The same-volume and relative-path assertions run on every platform; on a platform whose fake Z: or Y: path has no volume name the function returns early, so the cross-volume, created-.cache, blocked-cache, bare-directory (itself guarded by findNearestNodeModules) and junction assertions run only where drive-letter volumes exist.
 func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   root := t.TempDir()
   if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
