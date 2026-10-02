@@ -6,17 +6,20 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Verifies descriptor dependency emits cannot alias after an OS reuses a PID.
+ * Verifies supplied descriptor nonces distinguish dependency addresses while
+ * ordinary requests ignore them, and descriptor output anchors its cache root.
  *
- * The dependency cache outlives evaluator processes. Its descriptor lane must
- * therefore key on a per-process nonce rather than the recyclable numeric PID,
+ * Descriptor dependency addresses must not rely on recyclable numeric PIDs.
+ * The descriptor lane instead includes a supplied per-process nonce,
  * while ordinary ttsx workers retain their cross-process sharing key. The
  * evaluator's dependency cache also belongs beside its result so the parent's
- * existing recursive temp cleanup reclaims the isolated generation.
+ * existing recursive temp cleanup can own the isolated generation. This unit
+ * supplies nonce strings; it does not observe nonce generation, PID recycling,
+ * a compiled emit, or actual parent cleanup.
  *
  * 1. Compare ordinary and descriptor keys across two evaluator nonces.
  * 2. Resolve the evaluator result's owned cache root.
- * 3. Assert ordinary sharing, evaluator isolation and bounded cleanup ownership.
+ * 3. Assert ordinary key equality, evaluator key differences and owned placement.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual key and root functions distinguish shared ordinary builds from isolated descriptor evaluations without launching the runtime.
  * @evidence contracts/testing.md#independent-expectations Equality for ordinary requests, inequality for different descriptor identities and the result-adjacent directory follow the documented evaluator ownership contract.
