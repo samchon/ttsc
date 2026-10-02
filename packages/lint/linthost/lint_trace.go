@@ -7,6 +7,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "runtime"
   "sync"
   "time"
 )
@@ -110,6 +111,11 @@ func (invocation *lintTraceInvocation) record(event string, data map[string]any)
   if actual, exists := data["pid"]; exists {
     pid = actual
   }
+  observedData := make(map[string]any, len(data)+1)
+  for key, value := range data {
+    observedData[key] = value
+  }
+  observedData["writerRuntime"] = runtime.Version()
   body, err := json.Marshal(map[string]any{
     "schema": 1,
     "event": event,
@@ -119,7 +125,7 @@ func (invocation *lintTraceInvocation) record(event string, data map[string]any)
     "at": time.Now().UTC().Format(time.RFC3339Nano),
     "invocation": invocation.id,
     "pid": pid,
-    "data": data,
+    "data": observedData,
   })
   if err != nil {
     failure = err.Error()

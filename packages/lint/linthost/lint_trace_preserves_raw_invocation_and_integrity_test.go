@@ -6,6 +6,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "runtime"
   "testing"
 )
 
@@ -34,7 +35,11 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
   if err != nil || !bytes.Equal(got, raw) {
     t.Fatalf("raw payload mismatch: bytes=%v error=%v", got, err)
   }
-  invocation.record("config-loader-result", map[string]any{"raw": metadata, "normalizationAccepted": false})
+  callerData := map[string]any{"raw": metadata, "normalizationAccepted": false, "writerRuntime": "caller-supplied"}
+  invocation.record("config-loader-result", callerData)
+  if callerData["writerRuntime"] != "caller-supplied" {
+    t.Fatal("observation must not mutate caller data")
+  }
   events, err := filepath.Glob(filepath.Join(root, "*.jsonl"))
   if err != nil || len(events) != 1 {
     t.Fatalf("event files=%v error=%v", events, err)
@@ -52,6 +57,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     Sequence int `json:"sequence"`
     Invocation string `json:"invocation"`
     Data struct {
+      WriterRuntime string `json:"writerRuntime"`
       NormalizationAccepted *bool `json:"normalizationAccepted"`
       Raw struct {
         Path string `json:"path"`
@@ -67,6 +73,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     event.WriterPID != os.Getpid() || event.PID != os.Getpid() ||
     event.Instance != "authored-instance" || event.Sequence != 1 ||
     event.Invocation != "authored-instance:7" || event.Data.NormalizationAccepted == nil || *event.Data.NormalizationAccepted ||
+    event.Data.WriterRuntime != runtime.Version() ||
     event.Data.Raw.Path != payloadPath || event.Data.Raw.Outcome != "complete" || event.Data.Raw.Length != len(raw) {
     t.Fatalf("event mismatch: %+v", event)
   }
@@ -91,6 +98,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     Invocation string `json:"invocation"`
     Sequence int `json:"sequence"`
     Data struct {
+      WriterRuntime string `json:"writerRuntime"`
       Operation string `json:"operation"`
       Payload struct {
         Outcome string `json:"outcome"`
@@ -102,7 +110,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     t.Fatalf("integrity event parse: %v", err)
   }
   if integrity.Event != "trace-integrity-failure" || integrity.Invocation != "authored-instance:7" ||
-    integrity.Sequence != 2 || integrity.Data.Operation != "payload-capture" ||
+    integrity.Sequence != 2 || integrity.Data.WriterRuntime != runtime.Version() || integrity.Data.Operation != "payload-capture" ||
     integrity.Data.Payload.Outcome != "IO-failed" || integrity.Data.Payload.Error == "" {
     t.Fatalf("integrity event mismatch: %+v", integrity)
   }
