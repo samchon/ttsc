@@ -28,6 +28,11 @@ import (
 // Go output at all; the guard accepts that because it runs when the suite is
 // already lost and the stacks are already written, which is not the trade a
 // case on the healthy path makes.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls nodeResourceSummary under node and asserts it renders a bracketed list, so a reading that fails to produce a list cannot pass.
+// @evidence contracts/testing.md#independent-expectations The expected shape follows the rendering contract of describeJSList (a list is bracketed); the content is deliberately not asserted because it depends on ambient event-loop state.
+// @evidence contracts/testing.md#distinguishing-cases A genuine list reading is the positive case; the non-list and throwing sources are owned by the two sibling stall tests.
+// @evidence contracts/testing.md#execution-ownership Runs in the js/wasm test binary because it reads node's process object through syscall/js; no product host is started.
 func TestStallReadingNamesWhatNodeHolds(t *testing.T) {
   summary := nodeResourceSummary()
   if !strings.HasPrefix(summary, "[") || !strings.HasSuffix(summary, "]") {

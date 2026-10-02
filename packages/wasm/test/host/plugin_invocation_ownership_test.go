@@ -28,6 +28,11 @@ func (plugin invocationPlugin) Run(invocation *host.PluginInvocation) int {
 // child writes, concurrent calls, and late writes all stay inside the request
 // that owns their writers. It prevents the browser host from regressing to
 // process-global stdout/stderr capture.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls InvokePlugin with plugins that write through the invocation streams and asserts the captured stdout, stderr and exit code, that process-global os.Stdout and os.Stderr are untouched, and that a write after Run is rejected, so global capture or a late write changing a finished result fails.
+// @evidence contracts/testing.md#independent-expectations The expected strings are authored in the plugin bodies, including a sentinel written to os.Stdout while Run is active that must not appear in the result.
+// @evidence contracts/testing.md#distinguishing-cases Unrelated process output, registered child output, two concurrent invocations with distinct arguments, and registration and writes after Run returns are separate subtests.
+// @evidence contracts/testing.md#execution-ownership Calls the actual host package in the native Go test process without a Program or browser; the panic path is owned by TestPluginInvocationPanicWaitsForChildrenAndClosesOwnership.
 func TestPluginInvocationOutputOwnership(t *testing.T) {
   t.Run("leaves unrelated process output outside the result", func(t *testing.T) {
     originalStdout, originalStderr := os.Stdout, os.Stderr

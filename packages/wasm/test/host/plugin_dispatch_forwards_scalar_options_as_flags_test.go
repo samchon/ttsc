@@ -23,6 +23,11 @@ import (
 // 2. Dispatch to an unregistered name.
 // 3. Assert the command and the sorted flags equal the literals the contract
 //    specifies, name and command are not forwarded, and an unknown name is code 2.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls api.plugin on the exposed js/wasm API and compares the command, the exit code, stderr and the forwarded flag list with literals, so a wrong number format, a forwarded name or command key, or a lost flag fails.
+// @evidence contracts/testing.md#independent-expectations The expected flags are the documented translation (string and number as --key=value, true as --key, false and undefined omitted); 1234567 and 100000000 are written out in full because a plugin flag parser reads integers, not exponent notation.
+// @evidence contracts/testing.md#distinguishing-cases Strings, integers on both sides of the exponent threshold, a fraction, a negative, true, false and undefined each have a separate flag outcome, and an unregistered name is the failure case with code 2.
+// @evidence contracts/testing.md#execution-ownership Runs through the real syscall/js dispatch in the js/wasm test binary, which is the only place buildPluginArgv can execute; the plugin double only echoes what Run received.
 func TestPluginDispatchForwardsScalarOptionsAsFlags(t *testing.T) {
   api := startSharedAPI(t)
 

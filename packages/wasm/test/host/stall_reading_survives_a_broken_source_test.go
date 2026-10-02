@@ -27,6 +27,11 @@ import (
 // walks nothing live. The two internals return libuv handle and request
 // wrappers, and the guard holds those only when the process is already lost;
 // a case on the healthy path is not making that trade.
+//
+// @evidence contracts/testing.md#behavioral-verification Plants three readings, the last of which throws, and asserts the pending-work reading keeps the first and reports the panic, so a failure that replaces the whole answer fails.
+// @evidence contracts/testing.md#independent-expectations The planted values and the thrown error are authored in the test and the expected fragments are literals; the process properties are restored afterwards.
+// @evidence contracts/testing.md#distinguishing-cases The discriminator reading, an empty reading and a throwing reading are distinct sources in one call; a non-list shape and a healthy list are owned by the sibling tests.
+// @evidence contracts/testing.md#execution-ownership Runs in the js/wasm test binary because it replaces properties on node's process object through syscall/js, restoring them before it returns.
 func TestStallReadingSurvivesABrokenSource(t *testing.T) {
   process := js.Global().Get("process")
   originals := map[string]js.Value{}

@@ -45,6 +45,11 @@ const suiteBudget = 120 * time.Second
 // the last test, so a timer scoped to the tests would already be disarmed by
 // the time it mattered. On a healthy run the process exits in under a second
 // and the pending timer is simply discarded with it.
+//
+// @evidence contracts/common.md#principled-implementation Arming the guard before m.Run keeps the suite's own exit path separate from the cases, and the guard is never stopped because the stall it reports happens after the last case.
+// @evidence contracts/common.md#clear-and-simple-design TestMain owns only the teardown guard and the process exit status; the cases and the stall reading helpers keep their own responsibilities.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The guard dumps every goroutine and node's pending work through a direct synchronous write and then exits, instead of replacing any runtime function or relying on the stalled completion event.
+// @evidence contracts/common.md#meaningful-documentation The documentation records the observed stall, why no in-process recovery exists and why the guard outlives the tests; helper comments explain each reading separately.
 func TestMain(m *testing.M) {
   time.AfterFunc(suiteBudget, reportStallAndExit)
   os.Exit(m.Run())

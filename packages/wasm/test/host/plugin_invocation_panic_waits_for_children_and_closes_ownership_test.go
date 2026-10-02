@@ -24,6 +24,11 @@ import (
 // 2. Recover the panic in the caller and read the invocation afterwards.
 // 3. Assert the panic value arrived unchanged, the child saw the cancellation and
 //    wrote before the streams closed, and registration and writes are closed.
+//
+// @evidence contracts/testing.md#behavioral-verification Panics from Run with a registered child and asserts the panic value reaches the caller, the child observed the cancellation and wrote before the streams closed, and registration and writes are closed afterwards, so a swallowed panic, a skipped wait or a missing cancellation fails.
+// @evidence contracts/testing.md#independent-expectations The panic value and the child write error are authored in the test; io.ErrClosedPipe and a canceled context are the documented closed-ownership results.
+// @evidence contracts/testing.md#distinguishing-cases A blocked cooperative child, the panic itself, and the post-panic registration and write attempts on both streams are the cases; normal return is owned by the ownership test.
+// @evidence contracts/testing.md#execution-ownership Calls InvokePlugin directly in the native Go test process, where the plugin double keeps the invocation handle that is the only observer of the failed call.
 func TestPluginInvocationPanicWaitsForChildrenAndClosesOwnership(t *testing.T) {
   var invocation *host.PluginInvocation
   childWrite := fmt.Errorf("child never wrote")
