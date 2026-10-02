@@ -1178,6 +1178,12 @@ func (noUndefInit) Check(ctx *Context, node *shimast.Node) {
   if decl == nil || decl.Initializer == nil {
     return
   }
+  // `const` and `using` declarations must be initialized, so only `let` and
+  // `var` have the redundant form.
+  if list := node.Parent; list == nil || list.Kind != shimast.KindVariableDeclarationList ||
+    (!shimast.IsVar(list) && !shimast.IsLet(list)) {
+    return
+  }
   if identifierText(decl.Initializer) == "undefined" {
     ctx.Report(decl.Initializer, "It's not necessary to initialize \"undefined\".")
   }
