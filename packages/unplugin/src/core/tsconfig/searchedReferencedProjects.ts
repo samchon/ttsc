@@ -31,12 +31,19 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  *   Native prose explains order, root exclusion and why diagnostics must name
  *   the referenced projects rather than instructing users to alter the solution.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Depth-first walk of the references; the visited set stops cycles and
- *   repeats.
+ *   The lexical visited set reads each reached config once and processes its
+ *   reference edges, with O(V + E) graph operations and depth-driven recursion.
+ *   Native address text and delegated entry validation add fresh config-graph
+ *   reads/hashes/identity resolution, including on cache hits; misses also
+ *   extract policy/references. Returned keys and local graph state grow with V.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The visited set keeps a project already searched from being read again.
+ *   Repeated edges and cycles share an already visited lexical config within
+ *   this synchronous traversal. Cross-call entry sharing belongs to the
+ *   selection reader and still requires its fresh graph/content validation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The visited set is local to the call.
+ *   The visited set and recursion are call-local; returned keys transfer to
+ *   the diagnostic caller. Delegated selection-cache lifetime stays with its
+ *   owner; this traversal acquires no retained handle or running task.
  */
 export function searchedReferencedProjects(tsconfig: string): string[] {
   const root = path.resolve(tsconfig);
