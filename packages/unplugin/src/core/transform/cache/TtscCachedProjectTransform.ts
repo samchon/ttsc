@@ -262,20 +262,21 @@ export interface TtscCachedProjectTransform {
   deliveryEpoch?: number;
 
   /**
-   * Whether this generation's non-error diagnostics have been surfaced at all,
-   * and the epoch they were last surfaced in.
+   * Whether this generation's non-error diagnostic reporting was attempted,
+   * and the epoch of the last attempt. The reporter records these before
+   * formatting and writing; they do not certify successful stream output.
    *
    * The diagnostics describe one compile of one program, so they belong to the
    * generation rather than to a delivery; a pass that reuses a retained
-   * generation still surfaces them once, because a build's warnings are part of
+   * generation still attempts them once, because a build's warnings are part of
    * what that build reports (samchon/ttsc#1304). The two fields are separate so
-   * a persistent host, whose epoch is `undefined`, still reports the first
-   * time.
+   * a persistent host, whose epoch is `undefined`, still attempts the first
+   * time. A synchronous formatting or stream failure does not reset the state.
    */
   diagnosticsReported?: boolean;
 
   /**
-   * The pass the diagnostics were last surfaced in; see
+   * The pass the diagnostic report was last attempted in; see
    * {@link diagnosticsReported}.
    */
   diagnosticsEpoch?: number;
