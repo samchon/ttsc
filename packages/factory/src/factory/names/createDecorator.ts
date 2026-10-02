@@ -29,7 +29,7 @@ import { make } from "../internal/make";
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains expression ownership and the missing surrounding declaration,
- *   with an example and separate acknowledgment paragraphs.
+ *   with an example and separate acknowledgment paragraphs. The parentheses the printer adds for a bare binary expression or element access are stated.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.

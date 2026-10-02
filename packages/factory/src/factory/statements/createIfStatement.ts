@@ -38,7 +38,7 @@ import { make } from "../internal/make";
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains omitted else and nested else-if use, followed by a
- *   two-branch example and separated acknowledgment paragraphs.
+ *   two-branch example and separated acknowledgment paragraphs. The paragraph on the printer block that keeps an else bound to its own if is part of the described behavior.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.

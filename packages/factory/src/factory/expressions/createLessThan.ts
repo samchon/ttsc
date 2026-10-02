@@ -23,7 +23,7 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * @evidence contracts/common.md#principled-implementation LessThanToken preserves the relation and operand order without evaluating comparison or swapping it into a greater-than form.
  * @evidence contracts/common.md#clear-and-simple-design One binary-constructor delegation defines the helper; shared node shape and precedence need no duplicate implementation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The requested relation is retained instead of selecting a constant boolean for expected operand cases.
- * @evidence contracts/common.md#meaningful-documentation Native prose identifies the comparison and both operands, with a separate expression example and acknowledgment block under documentation guidance.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies the comparison and both operands, with a separate expression example and acknowledgment block under documentation guidance. The paragraph on type-argument ambiguity and the (+0 as number, ...) operand states what the printer adds.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

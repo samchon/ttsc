@@ -45,7 +45,7 @@ import { createIdentifier } from "../names/createIdentifier";
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish name conversion and flag-selected keywords,
- *   with an export-namespace example separated from acknowledgment tags.
+ *   with an export-namespace example separated from acknowledgment tags. The rule that a string-literal name always prints module is stated.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.

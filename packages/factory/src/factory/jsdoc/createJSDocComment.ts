@@ -27,7 +27,7 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#principled-implementation The adapter stores the optional body and ordered tags unchanged under the JSDoc kind; make adds the discriminant without parsing, copying or validating prose.
  * @evidence contracts/common.md#clear-and-simple-design Two direct payload assignments expose body and tag ownership; block rendering stays in the printer rather than another comment assembly layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller text and tags remain explicit inputs, with no recognized-summary special case or replacement of a foreign comment emitter.
- * @evidence contracts/common.md#meaningful-documentation Native prose documents delimiters, physical-line prefixing, unescaped content and retained references; separated ideas and parameter tags follow the documentation guidance.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents delimiters, physical-line prefixing, unescaped content and retained references; separated ideas and parameter tags follow the documentation guidance. The rule that an empty summary writes no line is stated.
  * @author Jeongho Nam - https://github.com/samchon
  * @param comment The leading comment text, if any.
  * @param tags The tags, if any.
