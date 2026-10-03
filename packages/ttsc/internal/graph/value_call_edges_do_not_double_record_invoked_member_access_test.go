@@ -10,9 +10,10 @@ import (
 // TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess verifies a property
 // access used as an invocation target remains only a value-call edge.
 //
-// Splitting value-call from value-access is useful only if method calls and
-// tagged-template calls do not also look like plain property reads. Otherwise MCP
-// flow ranking cannot tell invoked behavior from state/accessor evidence.
+// Three authored dotted property targets cover method call, construction, and
+// tagged template. Each has a positive value-call and negative value-access
+// triple. This is not an exact edge-count, invocation-origin, bracket-access,
+// runtime-effect, or MCP-ranking oracle.
 //
 //  1. Compile method, constructor, and tagged-template calls whose callee/tag is
 //     a property access expression.
@@ -23,8 +24,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Verifies a property access used as an invocation target remains only a value-call edge.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over service.run(), new Providers.Service() and Tags.html tagged template inside handle: for each of Providers.Service.run, Providers.Service and Tags.html there must be a value-call edge from handle and no value-access edge from handle to the same target.
 // @evidence contracts/testing.md#distinguishing-cases Compile method, constructor, and tagged-template calls whose callee/tag is a property access expression; Build the graph; Assert each target has a value-call edge and no duplicate value-access edge from the same caller.
-// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and three literal positive/negative pairs run in this process using its actual filename and shared nodeID encoder. No independent identity oracle, product CLI, installation, emitted invocation, or MCP-ranking consumer runs.
 func TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), "export namespace Providers {\n"+
