@@ -6,9 +6,9 @@ import "testing"
 // single-generic-heritage type-argument explode reflow synthesizes CRLF breaks
 // under endOfLine:"crlf".
 //
-// Regression shield for issue #616 on the singleGenericHeritageHeader builder:
-// it emitted a literal "\n" after `<` and per type argument, injecting lone LFs
-// into a CRLF file. Bound to the CRLF oracle (LF twin: format_declaration_
+// The singleGenericHeritageHeader builder must use the configured layout EOL
+// after `<` and per type argument rather than inject literal LFs into a CRLF
+// file. Bound to the CRLF oracle (LF twin: format_declaration_
 // header_breaks_generic_heritage_type_args_test.go); the helper asserts zero
 // lone LFs.
 //
