@@ -9,9 +9,10 @@ import (
 // TestFormatClauseJoinReindentsAHoistedElseIfChain verifies a hoisted `else if` chain carries its continuation lines to the new column.
 //
 // An `else if` chain is one of the two clauses that may hoist a multi-line body.
-// Moving only its first line left the trailing `else` at the column it had under
-// the old layout, and no rule owns that column afterwards, so `ttsc format`
-// settled on output Prettier still reindents (#1139).
+// The independent final output requires its trailing `else` to align with the
+// other branch headers. The real command exercises convergence, but this case
+// does not observe an old implementation, individual reindent edits or which
+// pass owns a later repair.
 //
 //  1. Seed a project with a three-level `else if` chain written across lines.
 //  2. Run `ttsc format`.

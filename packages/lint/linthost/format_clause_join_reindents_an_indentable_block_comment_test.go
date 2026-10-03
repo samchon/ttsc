@@ -9,11 +9,11 @@ import (
 // TestFormatClauseJoinReindentsAnIndentableBlockComment verifies a JSDoc-shaped
 // comment inside a hoisted body moves with it.
 //
-// Prettier reprints a block comment verbatim only when it is not indentable.
-// One whose every continuation line starts with `*` is realigned to the current
-// indentation, so protecting the whole class turned well-formed JSDoc into a
-// misaligned block behind a hoisted body, and that was the cascade's fixed
-// point. Its non-indentable twin lives in the sibling case.
+// The protected-range collector excludes a comment whose every continuation
+// line starts with `*` after indentation. Its continuation lines therefore
+// participate in the hoisted body's shift. The final command output requires
+// this alignment; the non-star sibling instead preserves its interior columns.
+// Neither case reproduces an old implementation or obtains external output.
 //
 //  1. Seed a project with a labeled loop whose body opens with a JSDoc block.
 //  2. Run `ttsc format`.
