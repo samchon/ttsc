@@ -11,8 +11,8 @@ import (
 // Mirrors the nil guard in printArrowFunction: the function-expression printer
 // must handle a nil node without panicking. covered==true is returned because
 // an empty Doc contributes no multi-line verbatim content. A regression that
-// panicked or returned covered==false would break callers that defensively
-// check for nil before dispatching.
+// panicked or returned covered==false would violate this direct-call contract.
+// Normal PrintNode dispatch returns at its own nil guard first.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printFunctionExpression(ctx, nil) directly.

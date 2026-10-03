@@ -14,8 +14,9 @@ import (
 // printFunctionLike path. The case exists separately from the arrow
 // case so a regression that only wired the arrow branch — leaving
 // `function () { … }` on the verbatim fallback — would not silently
-// pass. The verbatim fallback would freeze the body columns and corrupt
-// any enclosing reflow.
+// pass. For this one-line source, a verbatim fallback would leave the
+// body unexpanded instead of producing the exact multiline output.
+// This test does not exercise an enclosing reflow.
 //
 //  1. Parse `const run = function () { step(); };`.
 //  2. Dispatch the FunctionExpression through PrintNode.
