@@ -23,7 +23,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification graphemeSegmenter boundaries and stringLength agree with every official Unicode 16 corpus boundary and cluster count.
 // @evidence contracts/testing.md#independent-expectations The GraphemeBreakTest.txt division/multiplication markers are the independent UAX #29 oracle; expected clusters are counted from markers, never from segmenter output.
-// @evidence contracts/testing.md#distinguishing-cases All noncomment corpus rows retain per-code-point boundary and total-count assertions; malformed input, scan failure and zero-row guards prevent partial false greens.
+// @evidence contracts/testing.md#distinguishing-cases All noncomment corpus rows retain per-code-point boundary and total-count assertions; malformed input and scan failures are rejected, and the independently published 1093-row count rejects a shortened or enlarged corpus population.
 // @evidence contracts/testing.md#execution-ownership This Test reads the corpus as behavioral input, invokes graphemeProperties/hasBoundaryBefore/consume/stringLength directly and owns each source-line failure identity in one Go process. No consumer install or native product-host build/launch is used.
 func TestGraphemeBreakUnicode16Conformance(t *testing.T) {
   corpusPath := filepath.Join("..", "test", "testdata", "unicode", graphemeUnicodeVersion, "GraphemeBreakTest.txt")
@@ -90,7 +90,10 @@ func TestGraphemeBreakUnicode16Conformance(t *testing.T) {
   if err := scanner.Err(); err != nil {
     t.Fatalf("scan %s: %v", corpusPath, err)
   }
-  if testCases == 0 {
-    t.Fatal("official grapheme-break corpus contained no test cases")
+  // Unicode 16.0.0 GraphemeBreakTest.txt independently publishes 1093 cases.
+  // Count alone does not authenticate the contents of individual rows.
+  const expectedTestCases = 1093
+  if testCases != expectedTestCases {
+    t.Fatalf("official grapheme-break corpus: want %d cases, got %d", expectedTestCases, testCases)
   }
 }
