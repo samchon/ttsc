@@ -6,6 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+import { TtscCompiler } from "../../../../../../packages/ttsc/lib/index.js";
 
 import { FixtureFiles } from "../../FixtureFiles";
 import fixture from "./runtime-decorator-fixture.json" with { type: "json" };
@@ -15,7 +16,7 @@ import { JSX_COMPONENT_OUTPUT, JSX_COMPONENT_SOURCE, JSX_RUNTIME_PACKAGE } from 
 import { TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 import { spawnNodeWorker } from "./source-build";
-import { WAITING_PROGRAM, forceTerminate, isRunning, runDirectory, runtimeRunsDirectory, startWaitingRun, stopWaitingRun } from "./ttsx-run";
+import { WAITING_PROGRAM, forceTerminate, isRunning, runDirectory, runtimeRunsDirectory, startWaitingRun, stopWaitingRun, type IWaitingRun } from "./ttsx-run";
 import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRealpath, runTtsxWithCoverage, sourceMapSourcePath, tallCommentLibrarySource, tallCommentThrowerSource } from "./ttsx-source-map";
 
 /**
@@ -30,14 +31,14 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Up to seventy-eight original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Up to seventy-nine original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Up to seventy-eight original roots become staged configurations on the one canonical allocation; up to one hundred twenty-five authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement.
+ * @evidence contracts/e2e.md#shared-execution Up to seventy-nine original roots become staged configurations on the one canonical allocation; up to one hundred twenty-eight authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
  * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs; test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it exact typed-to-mistyped writes/status/value/root diagnostic/no-output transition; and test_ttsx_runs_a_source_file_the_entry_generates_at_runtime extensionless VALUE:42; and test_ttsx_preserves_custom_node_builtin_remaps child-local actual user hooks and both custom-remap/non-builtin-exact-strip values; and test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options distinct same-name dep-b:3 owning-option witness. Actual surviving execution and donor removal remain pending.
  */
@@ -1652,6 +1653,63 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
         throw cleanupError;
       }
     }
+    },
+  });
+  profiles.push({
+    name: "public-clean-keeps-live-run-and-api-removes-all-dead-runtime",
+    files: {
+      "package.json": JSON.stringify({ name: "clean-runs", private: true, workspaces: ["packages/*"] }),
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { target: "ES2022", module: "commonjs", strict: true, outDir: "lib", types: [] },
+        include: ["src"],
+      }),
+      "src/waiting.ts": WAITING_PROGRAM,
+    },
+    run: async (root, _persistent, spawn, ownAsyncProcess) => {
+      const acknowledgeRunningJoined = ownAsyncProcess();
+      const runs = runtimeRunsDirectory(root);
+      const env = isolatedCacheEnvironment(root);
+      const running = await startWaitingRun(root, "src/waiting.ts");
+      const acknowledgeKilledJoined = ownAsyncProcess();
+      let killed: IWaitingRun | undefined;
+      let primaryFailure: unknown;
+      try {
+        killed = await startWaitingRun(root, "src/waiting.ts");
+        await forceTerminate(killed.launcher.pid!);
+        await forceTerminate(killed.program);
+        const kept = runDirectory(runs, running.launcher.pid!);
+        const terminated = runDirectory(runs, killed.launcher.pid!);
+        assert.equal(fs.existsSync(terminated), true, killed.output());
+        const result = spawn(TestProject.TTSC_BIN, ["clean", "--cwd", root], { cwd: root, env });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(fs.existsSync(terminated), false, result.stdout);
+        assert.equal(fs.existsSync(kept), true, result.stdout);
+        assert.ok(result.stdout.split(/\r?\n/).includes(
+          `ttsc: kept ${path.relative(root, kept)}: a run that may still be in progress owns it`,
+        ), result.stdout);
+        await forceTerminate(running.launcher.pid!);
+        await forceTerminate(running.program);
+        const runtime = path.dirname(runs);
+        const spellings = new Set([runtime, fs.realpathSync(runtime), fs.realpathSync.native(runtime)]);
+        assert.ok(new TtscCompiler({ cwd: root, env }).clean().some((removed) => spellings.has(removed)),
+          "TtscCompiler.clean() did not report the runtime directory");
+        assert.equal(fs.existsSync(runtime), false);
+      } catch (cause) {
+        primaryFailure = cause;
+        throw cause;
+      } finally {
+        const outcomes = await Promise.allSettled([
+          stopWaitingRun(running),
+          ...(killed === undefined ? [] : [stopWaitingRun(killed)]),
+        ]);
+        const cleanupFailures = outcomes.filter((outcome) => outcome.status === "rejected");
+        if (cleanupFailures.length !== 0) throw new AggregateError([
+          ...(primaryFailure === undefined ? [] : [primaryFailure]),
+          ...cleanupFailures.map((failure) => failure.reason),
+        ], "waiting pair cleanup failed");
+        acknowledgeRunningJoined();
+        if (killed !== undefined) acknowledgeKilledJoined();
+      }
     },
   });
   profiles.push({
