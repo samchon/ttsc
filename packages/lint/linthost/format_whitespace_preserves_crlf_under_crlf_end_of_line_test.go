@@ -5,12 +5,9 @@ import "testing"
 // TestFormatWhitespacePreservesCRLFUnderCRLFEndOfLine verifies the rule
 // keeps interior `\r\n` line endings when `endOfLine` is `crlf`.
 //
-// The trailing-trim loop once stripped `\r` unconditionally, so a CRLF
-// file silently lost its carriage returns even under `{"endOfLine":
-// "crlf"}`. The fix only treats `\r` as trimmable whitespace under LF
-// EOL; under CRLF the `\r` is half of the preserved terminator. This pins
-// that a clean CRLF file with one trailing space is normalized to keep
-// `\r\n` while the stray space is trimmed.
+// Under CRLF the `\r` is part of the preserved terminator, so the
+// trailing-space deletion must end before it. The complete output keeps
+// both `\r\n` pairs while removing only the first line's stray space.
 //
 //  1. Parse a CRLF file whose first line carries a trailing space.
 //  2. Apply the rule with `{"endOfLine":"crlf"}` through the fixer.
