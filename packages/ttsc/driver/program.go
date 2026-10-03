@@ -948,30 +948,32 @@ func (p *Program) PluginObservationsIncomplete() bool {
 //
 // @evidence contracts/common.md#principled-implementation Full diagnostics include latched failures without moving mutation hooks into the diagnostic query.
 // @evidence contracts/common.md#clear-and-simple-design Nil file selection delegates to the shared aggregation owner.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated success, retried transform, or extra mutation precedes diagnostics.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The query neither fabricates success nor retries a plugin transform; native checker queries may populate their normal diagnostic state.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the pre-execution boundary following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Resident diagnostic queries perform no native filesystem operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared pipeline owns queries, filtering, and deduplication.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This entry selects resident compiler diagnostics without a native filename or filesystem policy of its own; any plugin-supplied error formatting remains that implementation's responsibility.
+// @evidence contracts/performance.md#efficient-algorithms The native staged whole-program query can bind/check resident sources, followed by AST-position filtering, diagnostic sorting/deduplication and message/location conversion. Source/checker work, finding count and compared/rendered text govern cost; the nil selection wrapper does not make delegated work constant-time.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Compiler checker state owns semantic reuse without an independent accessor cache.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller-owned result is created.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native checker state remains with Program, while converted diagnostics and their raw source references transfer to the caller without a result-byte cap here; no separate diagnostic cache or lease is acquired by this entry.
 func (p *Program) Diagnostics() []Diagnostic {
   return p.diagnostics(nil)
 }
 
-// DiagnosticsForFiles returns diagnostics whose semantic work is restricted to
-// selected source files, plus the program/global diagnostics that qualify the
-// same immutable Program generation. The resident graph shard producer uses it
+// DiagnosticsForFiles selects native diagnostic queries for the supplied files,
+// including program/global findings when the native syntax/options stages reach
+// them. Type resolution can still inspect dependencies outside that selection.
+// A nil slice requests the whole program; an empty non-nil slice performs no
+// compiler query but still reports any latched plugin failure. The resident graph shard producer uses it
 // for the compiler-invalidated closure; callers that need the complete project
 // continue to use Diagnostics.
 //
-// @evidence contracts/common.md#principled-implementation Selected semantic work remains qualified by globals from the same generation.
+// @evidence contracts/common.md#principled-implementation Selected-file queries preserve the native staged global/program qualification when applicable, and nil versus empty selection remains explicit.
 // @evidence contracts/common.md#clear-and-simple-design Selection delegates to the existing aggregation policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Global findings and current-generation diagnostics are not replaced by narrower cached success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains selection and complete-project alternatives following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Resident AST selection performs no native path resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared pipeline owns queries and deduplication.
+// @evidence contracts/performance.md#efficient-algorithms Each selected file invokes the native staged query, which can repeat global/config work and inspect dependent types; combined findings then undergo AST filtering, sorting/deduplication and message/location conversion. Selected-file count, checker/source work and accumulated finding/text size govern cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns invalidated-closure selection; this method owns no cache validity decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned result acquires no retained resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native checker state remains with Program; copied diagnostics and raw source references transfer to the caller without a byte cap here. This selection entry acquires no separate cache or checker lease.
 func (p *Program) DiagnosticsForFiles(files []*ast.SourceFile) []Diagnostic {
   return p.diagnostics(files)
 }
@@ -982,13 +984,14 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   }
   // A linked ProgramPlugin that failed to apply is reported here, ahead of the
   // compiler's own findings, because every other consumer of this program is
-  // then looking at a tree the plugin did not transform.
+  // then looking at a possibly partially transformed tree, not a successfully
+  // completed plugin pass.
   //
   // `SourceFile`, `SourceFiles`, and the graph builder all run the apply and
   // discard its error — they have no channel of their own and are not the place
   // to grow one. The emit path checks it directly and fails the build, so this
   // is the read-only half of the same fact: graph consumers read the program
-  // through this method, and without it they would describe the untransformed
+  // through this method, and without it they could describe that partial
   // tree while `ttsc build` on the same project reported the failure.
   //
   // The cached outcome is read, never forced. Calling `ApplyLinkedPlugins`
@@ -997,8 +1000,8 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   // into the original source text, and the diagnostic writer walks that text to
   // render context. It panics on the mismatch.
   //
-  // Reading the cache costs nothing and is enough for the consumers this is
-  // for: `SourceTexts` and `SourceFiles` run the apply, and both graph entry
+  // Reading the cached outcome does not repeat plugin execution and is enough
+  // for these consumers: `SourceTexts` and `SourceFiles` run the apply, and both graph entry
   // points call them before asking for diagnostics. A caller that has not
   // applied yet has nothing to report, which is correct — the plugins have not
   // failed, they have not run.
