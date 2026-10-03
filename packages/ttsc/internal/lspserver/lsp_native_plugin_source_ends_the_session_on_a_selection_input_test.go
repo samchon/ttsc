@@ -13,14 +13,14 @@ import (
 )
 
 // TestNativePluginSourceEndsTheSessionOnASelectionInput verifies the inputs a
-// session's plugin selection was loaded from end the session when they change,
-// whatever plugins the session runs.
+// supplied selection inputs drive native currentness and reload-policy checks
+// even when the source has no plugin entries.
 //
 // The launcher hands the native host the files the descriptors' load read or
 // probed and each plugin's Go sources, both by directory with the digest of
 // every file, and the build's rule for residue and passed-over directories. They join the session's project inputs for its whole
-// life, so the proxy's reload path, its watcher registration, and its
-// registration-time recheck all cover them.
+// lifetime. This unit constructs the source and watcher descriptors directly;
+// it does not run a Proxy, register client watchers or end a real host session.
 //
 //  1. Hand a source with no plugin the selection inputs of a plugin module, whose
 //     node_modules is a link, a descriptor, and two resolution candidates the
@@ -34,10 +34,10 @@ import (
 //  3. Hand it inputs whose source digest no longer matches, and assert the source
 //     refuses to start.
 //
-// @evidence contracts/testing.md#behavioral-verification Inputs a session's plugin selection was loaded from, links, descriptors and missing resolution candidates, end the session when they change, an unchanged source file, an editor backup and pruned directories do not, and every directory gets a children watcher.
-// @evidence contracts/testing.md#independent-expectations Currentness decisions and watcher registrations are literal expectations for the authored plugin module tree.
-// @evidence contracts/testing.md#distinguishing-cases Changing, unchanged, backup and pruned inputs separate what ends the session from what does not.
-// @evidence contracts/testing.md#execution-ownership TestNativePluginSourceEndsTheSessionOnASelectionInput is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification A plugin-free source exposes four watch directories and the required children descriptor for each, accepts the unchanged/restored baseline, rejects selected mutations through direct reload-policy booleans, and rejects startup with an authored stale source digest. Generated descriptors are not actual watcher registration, and a true match does not execute session shutdown.
+// @evidence contracts/testing.md#independent-expectations Literal currentness/match outcomes, directory count four, children patterns and changed-during-startup error text distinguish the supplied mutation stages. Baseline digests and expected URI identities use source helpers, so this does not independently authenticate their hash or URI algorithms.
+// @evidence contracts/testing.md#distinguishing-cases Unchanged source, omitted backup, pruned dependency link and unrelated edit remain quiet; source-byte edit/new file/new directory, missing candidate/tree appearance and descriptor edit match. Explicit restoration reestablishes currentness, while a supplied all-zero source digest rejects startup. Only this no-plugin selection is exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit uses actual source construction, selection currentness, reload matching and watcher-descriptor construction over owned native files. Windows fixture preparation calls the actual junction helper's child command; other platforms use os.Symlink. No plugin sidecar, Go build, installed consumer or product host is used. Cleanup closes source admission, but does not certify a joined asynchronous refresh callback or descendant lifecycle.
 func TestNativePluginSourceEndsTheSessionOnASelectionInput(t *testing.T) {
   root := t.TempDir()
   module := filepath.Join(root, "plugin")
@@ -128,6 +128,7 @@ func TestNativePluginSourceEndsTheSessionOnASelectionInput(t *testing.T) {
   if err != nil {
     t.Fatalf("new source: %v", err)
   }
+  t.Cleanup(source.shutdownResidents)
   merged := source.ProjectInputs()
   if len(merged.WatchDirectories) != 4 {
     t.Fatalf("selection inputs are not watched: %#v", merged)
@@ -138,6 +139,7 @@ func TestNativePluginSourceEndsTheSessionOnASelectionInput(t *testing.T) {
   }
   for _, want := range []string{
     projectInputFileURI(realProjectInputPath(rules)) + " *",
+    projectInputFileURI(realProjectInputPath(module)) + " *",
     projectInputFileURI(realProjectInputPath(root)) + " *",
     projectInputFileURI(realProjectInputPath(root)) + " node_modules/pkg/*",
   } {
