@@ -11,11 +11,10 @@ import (
 // TestServeSessionReloadsSourceDeletedDuringLoad verifies a program source
 // that vanishes between compiler load and state capture is still detected.
 //
-// captureState hashes only sources it can read back from disk, so silently
-// skipping a just-deleted file would drop it from every later freshness check:
-// no root change, no source hash, no resolution candidate. The session must
-// record the resident text instead so the next snapshot observes the deletion
-// and reloads rather than serving the vanished declarations forever.
+// The imported helper is not a configured root. When its native stat reports
+// missing, captureState retains a hash of its resident text so the next source
+// check can observe deletion. This fixture requires reload and helper's absence;
+// it does not establish every resolution input or all graph facts.
 //
 //  1. Load a session whose root imports `helper.ts`.
 //  2. Delete `helper.ts` before capturing the freshness state.
@@ -41,9 +40,6 @@ func TestServeSessionReloadsSourceDeletedDuringLoad(t *testing.T) {
   if compiler == nil {
     t.Fatalf("NewSession returned nil session (diagnostics: %v)", diags)
   }
-  if err := os.Remove(filepath.Join(root, "src", "helper.ts")); err != nil {
-    t.Fatal(err)
-  }
   session := &graphSession{
     cwd:         root,
     tsconfig:    "tsconfig.json",
@@ -51,6 +47,12 @@ func TestServeSessionReloadsSourceDeletedDuringLoad(t *testing.T) {
     initialized: true,
   }
   defer session.Close()
+  if compiler.Program().SourceFile(filepath.Join(root, "src", "helper.ts")) == nil {
+    t.Fatal("the initial resident program omitted helper.ts before deletion")
+  }
+  if err := os.Remove(filepath.Join(root, "src", "helper.ts")); err != nil {
+    t.Fatal(err)
+  }
   if err := session.captureState(); err != nil {
     t.Fatal(err)
   }
