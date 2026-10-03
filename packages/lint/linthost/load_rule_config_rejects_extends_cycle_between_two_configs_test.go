@@ -10,11 +10,11 @@ import (
 // config files that `extends` each other fail fast instead of recursing
 // without bound.
 //
-// `collectConfigObject` resolves `extends` recursively, reading (and, for
-// .ts/.js files, subprocess-evaluating) every named config file. Without a
-// visited-path guard a cycle `a -> b -> a` would recurse — and re-spawn a
-// loader subprocess — forever. The guard must reject the cycle before the
-// second hop re-reads `a.config.json`.
+// `collectConfigObject` resolves `extends` recursively through the config loader;
+// executable configs can reuse cached evaluation. The lineage guard reports
+// `a -> b -> a` as a cycle before the return hop loads `a.config.json` again,
+// rather than eventually rejecting it as an overly deep chain. This case
+// asserts the cycle diagnostic and filenames, not read or process counts.
 //
 //  1. Write `a.config.json` and `b.config.json` that each `extends` the other.
 //  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.

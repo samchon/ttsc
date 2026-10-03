@@ -10,11 +10,10 @@ import (
 // TestLoadRuleConfigRejectsOverlyDeepExtendsChain verifies that a linear,
 // non-cyclic `extends` chain longer than extendsDepthLimit fails fast.
 //
-// The visited-path check rejects every cycle, but a future change that resolves
-// the same file under two cleaned paths could let recursion escape it. The hard
-// depth cap is the backstop: even a strictly non-cyclic chain is bounded, so a
-// pathologically long chain cannot spawn an unbounded run of loader
-// subprocesses.
+// Cycle detection compares cleaned paths within the current lineage. The
+// separate depth cap also bounds a strictly forward chain of distinct configs.
+// This JSON-only case observes its diagnostic, not executable-loader process
+// counts, path-alias identity, or a global bound on every config branch.
 //
 //  1. Write `cfg0.config.json` ... `cfgN.config.json` where each file `extends`
 //     the next and the chain length exceeds extendsDepthLimit.

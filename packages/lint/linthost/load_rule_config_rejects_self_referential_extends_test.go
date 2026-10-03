@@ -9,10 +9,10 @@ import (
 // TestLoadRuleConfigRejectsSelfReferentialExtends verifies that a config file
 // whose `extends` points at itself fails fast.
 //
-// A one-file cycle escapes any guard that only tracks the *extended* files: it
-// is the root config that gets re-entered. The cycle guard must therefore be
-// seeded with the root config's own absolute path, so a config that `extends`
-// itself is caught on the first hop instead of recursing without bound.
+// Seeding the lineage with the root config's cleaned absolute path lets the
+// guard reject a self-reference on its first hop, before loading that root
+// again. This case asserts the cycle and filename diagnostic; it does not
+// count reads or distinguish first-hop detection from a later cycle error.
 //
 //  1. Write a single `a.config.json` whose `extends` names `a.config.json`.
 //  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
