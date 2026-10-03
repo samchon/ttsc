@@ -16,7 +16,7 @@ import "testing"
 //  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning ternary-nullish rule must abstain on logical-and/or operands and already parenthesized nullish operands. No-finding assertions detect treating every binary operator as nullish or double-wrapping canonical input.
-// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 leaves logical operands bare and retains these existing nullish parentheses. The authored canonical spellings determine no change independently of the rule operator switch.
+// @evidence contracts/testing.md#independent-expectations The independently authored canonical spellings leave logical operands bare and retain existing parentheses around each complete nullish operand. These inputs specify no change without deriving the expectation from the rule operator switch; this entry does not execute a reference formatter.
 // @evidence contracts/testing.md#distinguishing-cases The original logical-or and wrapped-nullish fixture remains. Added logical-and/or positions and the fully wrapped three-nullish conditional distinguish operator eligibility and the canonical fixed point from WrapsAllPositions positives.
 // @evidence contracts/testing.md#execution-ownership TestFormatTernaryNullishParensLeavesLogicalAndParenthesized owns every authored negative source in the public Go unit population. The syntax-only owning rule executes in process without consumer installation, native builds or real product hosts.
 func TestFormatTernaryNullishParensLeavesLogicalAndParenthesized(t *testing.T) {
