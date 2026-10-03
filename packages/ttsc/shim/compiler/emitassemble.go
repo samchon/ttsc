@@ -42,18 +42,21 @@ func GetSourceFilesToEmit(host innercompiler.SourceFileMayBeEmittedHost, targetS
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type OutputPaths = inneroutputpaths.OutputPaths
 
-// GetOutputPathsFor resolves the .js / .d.ts / map output paths for a source
-// file (honoring rootDir/outDir), the same call tsgo's emitter makes.
-// The host supplies the compiler's path and source-file context.
+// GetOutputPathsFor resolves script, declaration and map destinations using
+// upstream extension and output-directory policy. The script extension can
+// also be .jsx, .mjs, .cjs or .json; disabled or suppressed outputs are empty.
+// The host supplies the common source directory, current directory and case
+// policy. This is path selection, not proof that emit writes every destination.
+// sourceFile, options and host must satisfy the upstream resolver's premises.
 //
 // @evidence contracts/common.md#principled-implementation The wrapper delegates the same source file, options, host and declaration-emission control to the compiler's output-path algorithm, preserving root and output directory semantics.
 // @evidence contracts/common.md#clear-and-simple-design Output placement remains in upstream's owning helper; this adapter only exposes that boundary to the driver.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No path is fabricated from a consumer or fixture name, and the upstream output resolver is neither copied nor patched.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the output classes, relevant directory options and host context, with a separate acknowledgment section.
 // @evidence contracts/portability.md#os-neutral-implementation Upstream's output resolver receives the actual host directory and path-identity policy; the shim does not guess separators, drive roots or case sensitivity from an OS name.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetOutputPathsFor acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetOutputPathsFor performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetOutputPathsFor computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream allocates a returned OutputPaths object and constructs or borrows destination strings; their backing storage survives with the caller's result. Host-owned directory and case-policy state remains with the host. This bridge acquires no independent file handle or persistent result registry.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns extension selection, path normalization, comparison and directory remapping, including work proportional to path text and any host directory lookup. This direct adapter chooses no separate output-path algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Output-path computation and any reusable common-directory or host metadata belong to the upstream resolver and host. This bridge coordinates no independent cache or cross-call producer.
 func GetOutputPathsFor(sourceFile *innerast.SourceFile, options *innercore.CompilerOptions, host inneroutputpaths.OutputPathsHost, forceDtsEmit bool) *inneroutputpaths.OutputPaths {
   return inneroutputpaths.GetOutputPathsFor(sourceFile, options, host, forceDtsEmit)
 }

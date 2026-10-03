@@ -78,13 +78,12 @@ func incrementalGetReferencedFiles(program *innercompiler.Program, file *inneras
 //go:linkname incrementalFileAffectsGlobalScope github.com/microsoft/typescript-go/internal/execute/incremental.fileAffectsGlobalScope
 func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 
-// GetReferencedFilePaths returns the canonical paths of every file that `file`
-// directly references in `program`: resolved imports and re-exports (type-only
-// included), `/// <reference>` targets, resolved type reference directives,
-// module augmentations, and ambient-module declaration files. This is exactly
-// the per-file `referencedMap` entry tsgo's incremental engine stores in
-// `tsbuildinfo`, so the result is the sound language-semantic upper bound on
-// which program files a symbol in `file` can resolve through.
+// GetReferencedFilePaths adapts the upstream incremental reference set:
+// import/re-export and string module-augmentation symbols' declaration files,
+// path directives, resolved type directives and ambient-module declarations.
+// It is not a transitive symbol-reachability closure or proof that every path
+// is a loaded source. Extensionless path-directive adaptation below can also
+// differ from the raw upstream build-info entry.
 //
 // The returned strings are tspath.Path values (case-canonicalized on
 // case-insensitive filesystems); map them back to real file names through
@@ -100,9 +99,9 @@ func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The extra project-reference lookup addresses supported unbuilt declaration outputs using compiler redirects and supported extensions, rather than guessing filenames or special-casing projects.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify reference categories, canonical spelling, extension replacement, same-program premises and unsorted output with descriptive text separate from tags.
 // @evidence contracts/portability.md#os-neutral-implementation Path identity uses Program.UseCaseSensitiveFileNames and compiler path helpers, while project-reference redirects recover the loaded filename rather than inferring native case behavior from the OS.
-// @evidence contracts/performance.md#efficient-algorithms For R semantic references and P path directives, map/set lookup gives expected linear R plus P processing with a supported-extension loop for unresolved directives; temporary replacement and deduplication sets avoid pairwise scans.
-// @evidence contracts/performance.md#reuse-equivalent-work The resident Program's resolution set and loaded files are reused; this adapter does not rerun module resolution or keep results across changed Program identities.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Replacement and deduplication maps are invocation-local, growing with path directives and reference count; ownership of the returned R-sized string slice transfers to the caller, with no historical retained cache.
+// @evidence contracts/performance.md#efficient-algorithms Adaptation uses expected linear map/set processing in upstream reference count plus path-directive count, with path-text hashing/canonicalization and a bounded supported-extension search per unresolved directive. Before that, upstream obtains a checker and visits import/augmentation symbols, their declarations and ambient modules; semantic lookup, declaration parent walks and host/project-reference queries are additional delegated work, not bounded by the returned path count alone.
+// @evidence contracts/performance.md#reuse-equivalent-work Loaded Program resolutions, sources and checker state are reused, while the reference set and adaptation maps are rebuilt per invocation. Upstream checker queries may populate semantic caches; this adapter coordinates no cross-Program cache or separate resolver producer.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream acquires a file checker with a deferred release callback and may retain semantic state under its Program/checker owner. Reference, replacement and deduplication sets are invocation-local; returned slice/string ownership transfers to the caller and may share existing path backing storage. The bridge keeps no historical result registry.
 func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []string {
   set := incrementalGetReferencedFiles(program, file)
   if set == nil {
