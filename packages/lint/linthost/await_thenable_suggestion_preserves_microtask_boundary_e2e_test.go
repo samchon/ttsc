@@ -61,7 +61,12 @@ void Promise.resolve().then(() => console.log(log.join(",")));
 
 func runAwaitMicrotaskProgram(t *testing.T, source string) string {
   t.Helper()
-  output, err := exec.Command("node", "-e", source).CombinedOutput()
+  cmd := exec.Command("node", "-e", source)
+  observation := newLintTraceInvocation()
+  observeLintCommandArtifact(observation, cmd.Path, "await-thenable-node-oracle", "await-thenable-node-artifact")
+  lower := recordLintCommandAttempt(observation, cmd, "await-thenable-node-oracle")
+  output, err := cmd.CombinedOutput()
+  recordLintCommandResult(observation, cmd, "await-thenable-node-oracle", "CombinedOutput", lower, err)
   if err != nil {
     t.Fatalf("node failed: %v\n%s", err, output)
   }
