@@ -1409,8 +1409,8 @@ func IsModuleBlock(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No known string values or fixture spellings affect classification.
 // @evidence contracts/common.md#meaningful-documentation The comment distinguishes kind classification from content parsing and explains nonnil input.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsStringLiteral acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsStringLiteral performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsStringLiteral computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent literal classifier. Upstream compares one node kind in O(1) time and space without reading the string contents.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsStringLiteral computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsStringLiteral(node *Node) bool {
   return innerast.IsStringLiteral(node)
@@ -1456,8 +1456,8 @@ func IsElementAccessExpression(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed numeric boundaries or fixture token codes are added.
 // @evidence contracts/common.md#meaningful-documentation The comment distinguishes kind classification from node inspection with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTokenKind acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsTokenKind performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTokenKind computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent token classifier. Upstream compares the scalar kind against two fixed bounds in O(1) time and space without accessing node data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This scalar forwarding predicate owns no cache or in-flight coordination.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsTokenKind computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTokenKind(kind Kind) bool {
   return innerast.IsTokenKind(kind)
