@@ -8,9 +8,9 @@ import (
 )
 
 // TestEnumInitializerCallsAreEdges pins that a value-call inside a (non-const)
-// enum member initializer is recorded as an edge from the enum node. build.go
-// records the enum as a node, but the edge pass must also walk the enum body, or
-// the call in `A = base()` is silently dropped — the gap a round-1 reviewer found.
+// enum member initializer is recorded as an edge from the enum node in the
+// authored E { A = base() } fixture. Other initializer forms and emitted enum
+// execution are not tested here.
 //
 // 1. Load enum E whose A initializer calls base.
 // 2. Build the enum and initializer relations.
@@ -19,8 +19,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Require the E node and its value-call edge to base.
 // @evidence contracts/testing.md#independent-expectations The expectation is literal: for export enum E { A = base() } the graph must hold the E enum node and a value-call edge from E to the base function; dropping the initializer walk fails the edge check.
 // @evidence contracts/testing.md#distinguishing-cases Load enum E whose A initializer calls base. Build the enum and initializer relations. Require the E node and its value-call edge to base.
-// @evidence contracts/testing.md#execution-ownership TestEnumInitializerCallsAreEdges is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes a driver Program in-process and calls Build. Actual Program filename and shared nodeID formatting select the literal E/base endpoints, not an independent ID grammar. A restored empty linked-plugin manifest excludes ambient hooks; no emit, installed consumer or product process runs.
 func TestEnumInitializerCallsAreEdges(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
