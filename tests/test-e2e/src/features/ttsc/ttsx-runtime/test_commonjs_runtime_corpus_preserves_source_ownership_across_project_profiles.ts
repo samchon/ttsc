@@ -596,7 +596,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       }
       const readProfile = (name: string) =>
         FixtureFiles.read("ttsc/runtime-commonjs-corpus/profiles/" + name);
-      const runtime = runCanonicalRuntimeProfiles(root, [
+      const runtime = await runCanonicalRuntimeProfiles(root, [
         {
           name: "implicit-module-commonjs-manifest",
           files: readProfile("implicit-module-commonjs-manifest"),

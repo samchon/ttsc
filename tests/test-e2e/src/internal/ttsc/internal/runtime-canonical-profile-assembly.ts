@@ -12,7 +12,7 @@ type Profile = {
   files: Files;
   // The actual owning body supplies literal assertions and genuine commands.
   // An emission prediction or metadata simulator is not an admissible body.
-  run(root: string, persistent: string, spawn: typeof TestProject.spawn): void;
+  run(root: string, persistent: string, spawn: typeof TestProject.spawn, ownAsyncProcess: () => () => void): void | Promise<void>;
 };
 
 /**
@@ -23,7 +23,7 @@ type Profile = {
  * actual tracked allocation owner. This does not infer kernel liveness or
  * native descendant counts.
  *
- * @evidence contracts/common.md#principled-implementation Actual synchronous launcher receipts gate graph transitions; uncertainty blocks later requests and restores no active input. The shared classifier supplies metadata authority only.
+ * @evidence contracts/common.md#principled-implementation Actual synchronous launcher receipts and owning async join acknowledgments gate graph transitions; uncertainty blocks later requests and restores no active input. The shared classifier supplies metadata authority only.
  * @evidence contracts/common.md#clear-and-simple-design One assembler stages supplied authored maps and invokes owning callbacks; real TestProject.spawn and retainTemporaryDirectory own process launch and allocation retention.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No simulated host, output, permission failure or cache identity replaces actual operations. The reserved invocation-owned holding namespace cannot be supplied as an active profile input.
  * @evidence contracts/common.md#meaningful-documentation Documents shallow original ownership, independent profile callbacks, ordinary nonzero completion and retained uncertainty.
@@ -36,14 +36,14 @@ type Profile = {
  * @evidence contracts/testing.md#distinguishing-cases Ordinary status zero and negative exits permit independent later profiles; error, null status, signal and invalid process identity retain inputs. Collision and staged-move failures remain failures.
  * @evidence contracts/testing.md#execution-ownership The existing discoverable CommonJS corpus owns callers, authored maps and native launch lifetimes. This exported helper allocates no replacement consumer or hidden test host.
  * @evidence contracts/e2e.md#necessary-boundary Native compilation, runtime loading and output ownership must pass through real launchers; source metadata classification alone cannot prove those connections.
- * @evidence contracts/e2e.md#shared-execution The default parent supplies ten former consumer allocations and nineteen original requests; consolidated selection adds five response-file decorator profiles/five requests and up to seventy-five language profiles/one hundred nineteen requests (the compiler-wrapper profile retains its original POSIX-only selection) on the same root. Programs and nested children await independent measurement, not inference from callback totals.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Shallow holding removes prior profile config/cache aliases from active authority. Unknown processes keep the current graph and held originals without restoring or deleting inputs.
+ * @evidence contracts/e2e.md#shared-execution The default parent supplies ten former consumer allocations and nineteen original requests; consolidated selection adds five response-file decorator profiles/five requests and up to seventy-six language profiles/one hundred twenty-two requests (the compiler-wrapper profile retains its original POSIX-only selection) on the same root. Programs and nested children await independent measurement, not inference from callback totals.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Shallow holding removes prior profile config/cache aliases from active authority. Unknown processes or unacknowledged owning async joins keep the current graph and held originals without restoring or deleting inputs.
  * @evidence contracts/e2e.md#preserved-coverage Each owning callback retains its original literal assertions and failure identity; the assembler does not replace compiler, source-race, map or output evidence.
  */
-export function runCanonicalRuntimeProfiles(
+export async function runCanonicalRuntimeProfiles(
   lexicalRoot: string,
   profiles: readonly Profile[],
-): { failures: Error[]; phases: string[]; safeForCleanup: boolean } {
+): Promise<{ failures: Error[]; phases: string[]; safeForCleanup: boolean }> {
   assert.equal(
     new Set(profiles.map((profile) => profile.name)).size,
     profiles.length,
@@ -168,7 +168,24 @@ export function runCanonicalRuntimeProfiles(
           }
           return receipt;
         };
-        profile.run(root, persistent, spawn);
+        let pendingOwnedProcesses = 0;
+        const ownAsyncProcess = (): (() => void) => {
+          assert.equal(safeForCleanup, true, "BLOCKED: previous request has uncertain launcher metadata");
+          pendingOwnedProcesses++;
+          let joined = false;
+          return () => {
+            assert.equal(joined, false, "owned process join must be acknowledged once");
+            joined = true;
+            pendingOwnedProcesses--;
+          };
+        };
+        try {
+          await profile.run(root, persistent, spawn, ownAsyncProcess);
+        } finally {
+          // A callback acknowledges only its real owned join. Failure or absence
+          // of that acknowledgment retains the exact live input graph.
+          if (pendingOwnedProcesses !== 0) safeForCleanup = false;
+        }
       } catch (cause) {
         failures.push(new Error("Runtime profile " + profile.name, { cause }));
       } finally {
