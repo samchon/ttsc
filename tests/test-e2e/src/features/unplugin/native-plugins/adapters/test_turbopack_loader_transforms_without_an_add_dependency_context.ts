@@ -23,11 +23,14 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_transforms_without_an_add_dependency_context is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built loader handles a captured older/minimal context while native plugin reports dependencies.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls create a project with an empty config plugin list. The shared caller supplies that same input on its retained root; explicit reported-dependency options remain unchanged. Actual callback return is observed before assertions and gates baseline config restoration; it does not prove descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: context omitting addDependency still returns PLUGIN and captures no dependencies. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_transforms_without_an_add_dependency_context(): Promise<void> {
-  const root = TestUnpluginProject.createProject({ plugins: [] });
+export async function test_turbopack_loader_transforms_without_an_add_dependency_context(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
   const { content, dependencies } = await runTurbopackLoaderWithContext({
     resourcePath: TestUnpluginProject.mainFile(root),
     source: TestUnpluginProject.mainSource(root),
@@ -36,6 +39,7 @@ export async function test_turbopack_loader_transforms_without_an_add_dependency
     },
     omitAddDependency: true,
   });
+  observeReturned?.();
   TestUnpluginProject.assertTransformedToPlugin(content);
   assert.deepEqual(dependencies, []);
 }
