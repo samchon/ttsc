@@ -8,10 +8,9 @@ import "testing"
 // `var x = typeof x;` is legal under `var` hoisting: the initializer reads the
 // hoisted `undefined` and yields "undefined". Rewriting the keyword to `let`
 // turns that self-read into a TDZ ReferenceError, because the binding is not
-// yet initialized when its initializer runs. The earlier TDZ gate only flagged
-// references whose Pos() preceded the var statement's start, so a self-read
-// inside the initializer (Pos() after the statement start) slipped through. The
-// gate now also declines when the target is value-referenced within the
+// yet initialized when its initializer runs. This reference follows the var
+// token, so a before-declaration check alone would miss the hazard. The
+// gate also declines when the target is value-referenced within the
 // declarator's initializer range, so the diagnostic fires but the `var` stays.
 //
 //  1. Parse `var x = typeof x;`, a self-read inside the initializer.
