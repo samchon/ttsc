@@ -1294,10 +1294,10 @@ func Checker_instantiateType(recv *innerchecker.Checker, t *innerchecker.Type, m
 // @evidence contracts/common.md#clear-and-simple-design The one-pair constructor is distinct from parallel and composed mappings, exposing the representation required for its actual operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed type-parameter name or fixed consumer class determines the mapping.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies one-pair substitution, nil refusal and same-context types.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_newSimpleTypeMapper acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_newSimpleTypeMapper performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_newSimpleTypeMapper computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_newSimpleTypeMapper computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Construction acquires one upstream mapper retaining the source and target type references, and transfers it to the caller. Retaining that mapper can retain their semantic graphs; the bridge keeps no additional mapper registry, handle or historical population.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The upstream simple-mapper constructor owns its fixed-size allocation and its later direct pointer-identity substitution. The bridge only rejects nil inputs and forwards the pair, selecting no separate graph-traversal or substitution algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructor transfers a semantic mapping value; it does not coordinate a shared instantiation producer or cache its results. Any reuse by an instantiating checker is owned by that checker, not a new constructor cache.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Mapper construction retains supplied semantic type identities and introduces no independent host, path or process policy.
 func Checker_newSimpleTypeMapper(source *innerchecker.Type, target *innerchecker.Type) *innerchecker.TypeMapper {
   if source == nil || target == nil {
     return nil
@@ -1311,16 +1311,19 @@ func Checker_newSimpleTypeMapper(source *innerchecker.Type, target *innerchecker
 // `[A, B] -> [B, A]` preserves both target identities. Returns nil when the
 // slices are empty, differ in length, or contain nil types.
 //
-// The compiler retains the supplied slices; callers must not mutate them after
-// construction, and all entries must belong to one semantic checker context.
+// For multiple pairs the compiler retains the supplied slices; callers must
+// not mutate them after construction. A single pair stores the two type
+// references in a simple mapper. All entries must belong to one semantic
+// checker context. Mapping selects the first matching source identity without
+// feeding the selected target back through this mapper.
 //
 // @evidence contracts/common.md#principled-implementation Parallel source/target identities are validated pairwise and passed to the compiler mapper without composing targets through other pairs, preserving simultaneous substitution such as a swap.
 // @evidence contracts/common.md#clear-and-simple-design One constructor owns parallel-shape validation, separate from the explicitly compositional mapper operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid arrays are rejected rather than truncated, padded or converted into successive substitutions that change meaning.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain parallel-versus-composed substitution, a swap example, rejection conditions and retained-slice ownership.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The mapper is returned to the caller and nothing else is retained.
-// @evidenceExclude contracts/performance.md#efficient-algorithms One pass over the source and target pairs, linear in their count.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Builds one mapper per call from its arguments and shares nothing.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Construction transfers one mapper to the caller: a single pair retains its type references, while multiple pairs retain both caller-owned slice backing stores and their type graphs without copying them. Slice contents must remain stable during use; dropping this mapper releases only its references, not graphs still owned elsewhere. The bridge keeps no historical mapper registry.
+// @evidence contracts/performance.md#efficient-algorithms One O(N) validation pass checks corresponding nonnil pairs without composing substitutions or allocating copied arrays. Upstream construction stores references in bounded wrapper storage; later mapping is direct for one pair and first-match linear in N for an array mapper. This preserves simultaneous substitution and input identity without a sequential substitution rebuild.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The constructor validates and transfers a mapping value rather than coordinating a shared instantiation result or in-flight producer. Instantiating checker state owns any semantic-result reuse; this bridge has no separate cross-request mapper cache/invalidation policy.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory type values only; it accesses no path or filesystem.
 func Checker_newTypeMapper(sources []*innerchecker.Type, targets []*innerchecker.Type) *innerchecker.TypeMapper {
   if len(sources) == 0 || len(sources) != len(targets) {
