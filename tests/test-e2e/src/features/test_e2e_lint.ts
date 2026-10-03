@@ -39,20 +39,21 @@ import { test_lint_mixed_diagnostics_follow_source_order } from "./lint/plugin/c
  * Own the lint package's actual config, contributor and edit connections.
  *
  * Nine language consumers observe one exact combined diagnostic stream from a
- * single native host load. Three contributor consumers observe one native wire
- * population. Remaining contexts need differing discovery roots, evaluator
+ * completed launcher result. Three contributor consumers observe a separate
+ * completed launcher result. These results do not count native Program loads.
+ * Remaining contexts need differing discovery roots, evaluator
  * failures, contributor selections or fix/format writes and occupy sibling
  * directories in this experiment's one consumer tree. Independent scenarios
  * continue after failure, and the owner releases their tree and output caches.
  *
- * @evidence contracts/testing.md#behavioral-verification Named cases retain their literal diagnostic, descriptor, module-error and exact edited-byte assertions against the emitted package and actual native transport; the sixteen Go cases execute their evaluator, formatter oracle and LSP connections.
+ * @evidence contracts/testing.md#behavioral-verification Named cases retain diagnostic, descriptor, module-error and edited-byte assertions against their emitted-package/native routes. The registry selects sixteen exact Go names and checks run/terminal events and command status; a terminal skip is not assertion coverage.
  * @evidence contracts/testing.md#independent-expectations Existing authored source/configuration fixtures and literal diagnostic or expected-file assertions remain per case. The Prettier population uses its independently version-checked formatter oracle.
  * @evidence contracts/testing.md#distinguishing-cases Includes all nine config-language contexts, three contributor wire consumers, discovery-anchor conflicts, failed or changed executable modules, source ordering and independent fix/format publication. Each declaration describes its own detailed distinction.
- * @evidence contracts/testing.md#execution-ownership test_e2e_lint is the only discoverable lint experiment. It calls all thirty-four named TypeScript cases and selects sixteen exact Go names under the e2e build tag, with actual JSON execution verified by GoBoundary.
- * @evidence contracts/e2e.md#necessary-boundary Emitted descriptor evaluation, actual executable config loading, compiler-to-native diagnostics, independent Prettier formatting, real LSP stdin and disk edit publication require these connections rather than portable rule calls.
- * @evidence contracts/e2e.md#shared-execution Nine language verdicts share one project/native result and three contributor verdicts share one contributor project/native result. Every ordinary consumer occupies the one experiment tree and shares the content-keyed native producer/object cache. Distinct module/configuration/discovery and write policies retain their own invocation; the Go population uses one binary with one pinned formatter-oracle batch.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Sibling manifests/configs do not become another consumer's ancestors. Source edits, wrapper configs and alternate-temp links are case-owned; the root is removed and absence verified in finally. Completed language/contributor outputs are cleared with their experiment owner, including failures.
- * @evidence contracts/e2e.md#preserved-coverage All original TypeScript assertions remain called once under their names and all sixteen package-owned Go assertions remain explicit. Independent failure collection and verified workspace cleanup add ownership without replacing expected diagnostics, byte comparisons, source immutability or negative cases.
+ * @evidence contracts/testing.md#execution-ownership This named parent invokes thirty-one TypeScript callbacks plus the exact sixteen-name Go registry, collecting named failures. Individual scenes own their oracles; Go selection and terminal completion do not establish current runtime survival, packed installation or executed assertions after a skip.
+ * @evidence contracts/e2e.md#necessary-boundary Descriptor loading, executable config, native diagnostics, LSP stdin and disk publication retain actual scene connections. Formatter conformance is a direct owning Go operation with an independent Node oracle, not an installed SUT boundary merely because that oracle starts a child.
+ * @evidence contracts/e2e.md#shared-execution Nine language verdicts reuse one completed launcher result and three contributor verdicts reuse another; retained preparation or execution errors are also shared until release. Separate configuration/discovery/write states retain separate calls. Shared cache paths and one Go invocation do not establish actual cache hits, native child totals or Program constructions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenes own source edits, wrapper configs and alternate-temp links; sibling configurations are not ancestor inputs. Finally clears both completed-result/failure memos and attempts workspace removal with absence verification, retaining cleanup errors. This does not prove arbitrary descendant shutdown, image identity or exclusion of shared environment/cache state.
+ * @evidence contracts/e2e.md#preserved-coverage The thirty-one callback addresses/order and sixteen Go names remain, with every original oracle retained in its owning declaration. Exact direct owners and the formatter's normal-unit selection are recorded separately; duplicate selection removal requires actual survivor proof. Independent failure and cleanup aggregation do not replace diagnostics, byte comparisons, immutability or negative controls.
  */
 export async function test_e2e_lint(): Promise<void> {
   LintWorkspace.open();
