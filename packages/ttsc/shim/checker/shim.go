@@ -368,15 +368,20 @@ func Checker_isPropertyAssignableTo(
 // base method may be replaced by a function-valued property.
 // The symbols must belong to the supplied checker and represent direct class
 // members. This predicate checks member kind, not type assignability.
+// Same target identity returns false because no distinct override pair exists.
+// The result does not perform the full class check: private-member handling,
+// inherited abstract implementation and class-field overwrite diagnostics are
+// outside this selected member-kind rule. A shared checker needs caller-owned
+// synchronization.
 //
 // @evidence contracts/common.md#principled-implementation Resolving target symbols and applying the pinned checkKindsOfPropertyMemberOverrides flags preserves direct-class property/accessor/method constraints; structural assignability is a separate required relation.
 // @evidence contracts/common.md#clear-and-simple-design One direct-pair predicate exposes member-kind legality independently from Checker_isPropertyAssignableTo, so callers can require both without importing internal flag policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Assignment and abstract/interface exceptions are upstream class-member semantics; the mapped-property exception is absent because a direct class base member cannot be mapped.
 // @evidence contracts/common.md#meaningful-documentation Native prose contrasts class inheritance with structural assignment and states direct-member, same-checker and kind-only limits.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isValidClassMemberOverridePair acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isValidClassMemberOverridePair performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isValidClassMemberOverridePair computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isValidClassMemberOverridePair computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The boolean predicate keeps no symbols, tasks or result collection after return. Instantiated-symbol target links and declaration/modifier metadata belong to the supplied checker and AST; this predicate does not independently acquire or release their graph lifetime.
+// @evidence contracts/performance.md#efficient-algorithms Direct target/flag comparisons isolate this pair without traversing sibling members or running the full class diagnostic pass. Upstream modifier selection may scan accessor declarations and their modifier syntax, and abstract/interface checks short-circuit over base declarations; their declaration and syntax populations, rather than only the wrapper's branch count, determine cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream target links and AST modifier state supply the semantic metadata; this selected kind predicate owns neither a cross-request override producer nor a cache/invalidation policy for a class check.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This predicate interprets the supplied checker/AST member metadata and introduces no independent filesystem, executable or platform policy.
 func Checker_isValidClassMemberOverridePair(
   recv *innerchecker.Checker,
   derivedProperty *innerast.Symbol,
@@ -534,21 +539,26 @@ func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Sy
   )
 }
 
-// Checker_isSymbolAccessibleAsValue verifies that SymbolToStringEx can name a
-// symbol from enclosingDeclaration. Unlike GetAccessibleSymbolChain, the
+// Checker_isSymbolAccessibleAsValue reports upstream value-meaning accessibility
+// from enclosingDeclaration. Unlike GetAccessibleSymbolChain, the
 // checker also follows containing enum, class, and namespace symbols, so a
 // qualified member such as Domain.Mode.Done is accepted when its container is
 // visible.
+// The upstream query also permits its external-module accessibility route;
+// true does not independently certify the text returned by a formatting query.
+// Alias-visibility marking is not requested, but semantic accessibility and
+// declaration-visibility caches can still be populated. Inputs must belong to
+// the supplied checker/program; a shared checker requires synchronization.
 // Nil checker, symbol or enclosing declaration returns false.
 //
 // @evidence contracts/common.md#principled-implementation Upstream IsSymbolAccessible applies value-meaning accessibility in the supplied scope, including containing symbols, so the result answers semantic visibility rather than merely whether a name can be printed.
 // @evidence contracts/common.md#clear-and-simple-design One boolean query separates accessibility from value-string formatting, keeping visibility policy in the compiler.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper does not assume a qualified name is accessible because its text is known; actual checker accessibility must succeed.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains containing-symbol visibility and nil refusal, distinguishing this operation from an accessible-chain lookup.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isSymbolAccessibleAsValue acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isSymbolAccessibleAsValue performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isSymbolAccessibleAsValue computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isSymbolAccessibleAsValue computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The boolean projection does not retain its temporary accessibility result, but delegated lookup acquires visited-table maps and container/chain storage and can retain accessible-chain and declaration-visibility state in the supplied checker/resolver. Their owner controls the program lifetime; this bridge neither clears those caches nor promises a separate historical-state bound.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Scope-table lookup, recursive containing-symbol accessibility, declaration visibility and failure-name formatting are upstream checker algorithms. Their costs depend on scope depth, symbol tables, containers, declarations and generated text; the bridge only chooses value meaning and projects the result rather than owning those algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream accessible-chain cache keys include the symbol, relevant scope, meaning and external-alias policy, and resolver state owns declaration visibility. This bridge does not coordinate an independent visibility producer/cache or its invalidation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The query uses the supplied program's symbols, scopes and module authority; it does not independently choose filesystem, process or platform policy.
 func Checker_isSymbolAccessibleAsValue(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) bool {
   if recv == nil || symbol == nil || enclosingDeclaration == nil {
     return false
