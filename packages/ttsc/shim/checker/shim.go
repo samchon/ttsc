@@ -653,16 +653,18 @@ func Checker_getPropertiesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 
 // Checker_getApparentProperties returns the properties visible on t after
 // resolving primitive wrapper types (e.g. string to String).
+// Callable or constructable types also receive applicable global function
+// properties when the type does not already declare those names.
 // recv and t must be nonnil and belong to the same checker graph.
 //
 // @evidence contracts/common.md#principled-implementation Delegating apparent-property lookup preserves the compiler's apparent-type normalization before collecting visible semantic properties.
 // @evidence contracts/common.md#clear-and-simple-design Apparent lookup remains distinct from direct properties so callers select the actual semantic question without a duplicated normalization layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Primitive properties come from compiler apparent types, not a hardcoded wrapper-member inventory.
 // @evidence contracts/common.md#meaningful-documentation Native prose gives the primitive-wrapper example and nonnil same-graph conditions.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getApparentProperties acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getApparentProperties performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getApparentProperties computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getApparentProperties computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream augmentation creates a temporary name table and returns a symbol slice proportional to collected properties. The caller owns the returned slice lifetime and references into checker-owned semantic state; the wrapper stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no collection strategy. Upstream apparent-type/property/signature resolution, name hashing and function-member augmentation precede named-member filtering and sorting; their property counts and comparison costs belong to that checker implementation rather than fixed local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Semantic type/property reuse belongs to the supplied checker; the upstream augmentation builds its own per-query table and slice. The forwarding wrapper owns no additional cache or coordination of repeated queries.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Apparent-type and global-member interpretation use the supplied checker graph; this wrapper introduces no path, host or platform policy.
 func Checker_getApparentProperties(recv *innerchecker.Checker, t *innerchecker.Type) []*innerast.Symbol {
   return recv.GetApparentProperties(t)
 }
@@ -992,15 +994,17 @@ func checkerGetBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*in
 // Checker_getBaseTypes returns the list of base types (from `extends` clauses)
 // for a class or interface type. Returns nil if recv or t is nil.
 // A nonnil t must be a declared class/interface type, not its generic reference.
+// The result shares the checker's resolved-base slice; resolving it can update
+// type-resolution state and report invalid or circular heritage diagnostics.
 //
 // @evidence contracts/common.md#principled-implementation The upstream base-type helper resolves a declared class/interface's heritage in its producing checker; generic references must first use their declared class/interface representation.
 // @evidence contracts/common.md#clear-and-simple-design One inheritance query leaves heritage resolution with the compiler and states its narrower input domain explicitly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No base is inferred from a textual extends clause or guessed class name.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes heritage output, nil absence and the declared-type versus generic-reference distinction.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getBaseTypes acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getBaseTypes performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getBaseTypes computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getBaseTypes computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolved-base slices, resolution flags and diagnostics remain checker-owned; the returned slice references that type graph and the caller controls its additional retention. The wrapper stores no separate result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper only guards nil inputs and forwards. Upstream class/interface heritage resolution owns declaration and extends-element walks, type/signature processing and recursive base checks; uncached cost follows that graph rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The upstream baseTypesResolved flag and resolvedBaseTypes slice own reuse within the producing checker. The forwarding wrapper introduces no additional cache or coordination policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Heritage interpretation remains with the supplied checker/program; this wrapper adds no path, host or platform policy.
 func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type {
   if recv == nil || t == nil {
     return nil
