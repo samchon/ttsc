@@ -36,8 +36,8 @@ type LSPRange struct {
   End   LSPPosition `json:"end"`
 }
 
-// LSPDiagnosticSeverity values match the LSP enum exactly so editors
-// pick the right color/icon without translation.
+// LSPDiagnosticSeverity uses the LSP integer discriminants without translation.
+// Rendering remains the editor's policy.
 //
 // @evidence contracts/common.md#principled-implementation Integer values retain the LSP DiagnosticSeverity discriminants.
 // @evidence contracts/common.md#clear-and-simple-design Producers share one severity representation.
@@ -53,12 +53,11 @@ const (
   // LSPDiagnosticSeverityError is the most prominent severity; ttsc maps
   // build-blocking findings (lint errors, parse errors) to it.
   LSPDiagnosticSeverityError LSPDiagnosticSeverity = 1
-  // LSPDiagnosticSeverityWarning is rendered as a yellow squiggle in
-  // typical editor themes; ttsc maps lint warnings to it.
+  // LSPDiagnosticSeverityWarning represents a warning finding.
   LSPDiagnosticSeverityWarning LSPDiagnosticSeverity = 2
-  // LSPDiagnosticSeverityInformation is rendered as a blue squiggle.
+  // LSPDiagnosticSeverityInformation represents an informational finding.
   LSPDiagnosticSeverityInformation LSPDiagnosticSeverity = 3
-  // LSPDiagnosticSeverityHint is rendered as a faint underline or dots.
+  // LSPDiagnosticSeverityHint represents a hint finding.
   LSPDiagnosticSeverityHint LSPDiagnosticSeverity = 4
 )
 
@@ -80,10 +79,18 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnostic struct {
-  Range           LSPRange              `json:"range"`
-  Severity        LSPDiagnosticSeverity `json:"severity,omitempty"`
-  Code            any                   `json:"code,omitempty"`
-  CodeDescription *LSPCodeDescription   `json:"codeDescription,omitempty"`
+  // Range identifies the finding using the session's UTF-16 coordinates.
+  Range LSPRange `json:"range"`
+
+  // Severity carries the producer's severity code; zero omits the field.
+  Severity LSPDiagnosticSeverity `json:"severity,omitempty"`
+
+  // Code carries the producer's code value, normally a string or number.
+  // This representation does not validate that semantic restriction.
+  Code any `json:"code,omitempty"`
+
+  // CodeDescription optionally supplies the producer's documentation link.
+  CodeDescription *LSPCodeDescription `json:"codeDescription,omitempty"`
 
   // Tags classify the diagnostic (1 = unnecessary, 2 = deprecated). Carried
   // through so a plugin's tag is not silently dropped when the proxy re-encodes
@@ -103,7 +110,10 @@ type LSPDiagnostic struct {
   // proxy's re-encode.
   RelatedInformation []LSPDiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
 
-  Source  string `json:"source,omitempty"`
+  // Source is an optional producer label, independent of Code.
+  Source string `json:"source,omitempty"`
+
+  // Message is the diagnostic's required display text.
   Message string `json:"message"`
 }
 
@@ -121,8 +131,11 @@ type LSPDiagnostic struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnosticRelatedInformation struct {
+  // Location is the secondary site's protocol URI and UTF-16 range.
   Location LSPLocation `json:"location"`
-  Message  string      `json:"message"`
+
+  // Message explains that secondary site independently of the main finding.
+  Message string `json:"message"`
 }
 
 // LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a
@@ -299,7 +312,7 @@ type LSPProjectDiagnostics struct {
 // the current project publication so the proxy never copies a project finding
 // onto every open source document.
 //
-// @evidence contracts/common.md#principled-implementation Optional project state and fresh producer identities distinguish current contributions from retained aggregates.
+// @evidence contracts/common.md#principled-implementation Document and optional project lanes remain separate. The host-only producer set records receipt of a project publication, not acceptance of its generation or authentication of a fresh native capture; Project can be a mixed-generation retained aggregate.
 // @evidence contracts/common.md#clear-and-simple-design Host-only refresh bookkeeping is separate from serialized result fields.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A cached publication is not treated as newly computed merely because it is present.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain scope and the nonserialized producer set, following the documentation skill.
@@ -308,13 +321,17 @@ type LSPProjectDiagnostics struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnosticsResult struct {
-  Document []LSPDiagnostic        `json:"document"`
-  Project  *LSPProjectDiagnostics `json:"project,omitempty"`
+  // Document contributes findings for the requested source document.
+  Document []LSPDiagnostic `json:"document"`
+
+  // Project optionally carries the separately scoped retained publication.
+  Project *LSPProjectDiagnostics `json:"project,omitempty"`
 
   // projectUpdatedProducers names the sidecars that actually returned a
   // project publication during this call. It is deliberately not serialized:
-  // the proxy uses it to distinguish a current computation from last-good
-  // aggregate state retained for another producer.
+  // a receipt can still have been rejected by the generation-guarded store.
+  // It does not certify accepted current state or a common capture across the
+  // aggregate's retained producers.
   projectUpdatedProducers map[string]struct{}
 }
 
