@@ -8,6 +8,8 @@
  * `server.close()` and hold the test runner process open.
  */
 export interface IViteAdapterSession {
+  /** Actual prepared project and native compile log, retained for closed-session reuse. */
+  project: { root: string; runLog: string };
   /** End the driven Vite lifecycle and dispose its private cache. */
   close: () => Promise<void>;
   /** Deliver one module through the adapter's `transform` hook. */

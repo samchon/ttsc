@@ -18,10 +18,11 @@ import type { IViteAdapterSession } from "./IViteAdapterSession";
 export async function startViteAdapterSession(options: {
   fileCount?: number;
   watching: boolean;
+  project?: { root: string; runLog: string };
 }): Promise<IViteAdapterSession> {
   const plugin = await loadViteAdapterPlugin();
   const lifecycle = {};
-  const project = createCacheProject({ fileCount: options.fileCount ?? 4 });
+  const project = options.project ?? createCacheProject({ fileCount: options.fileCount ?? 4 });
   await settleFilesystemNotifications();
   invokeVitePluginHook(
     plugin.configResolved,
@@ -34,6 +35,7 @@ export async function startViteAdapterSession(options: {
   );
   await invokeVitePluginHook(plugin.buildStart, lifecycle);
   return {
+    project,
     close: async () => {
       await invokeVitePluginHook(plugin.buildEnd, lifecycle);
     },

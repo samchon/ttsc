@@ -20,22 +20,25 @@ import { touchUnrelatedInput } from "../../../../internal/unplugin/internal/adap
  * @evidence contracts/testing.md#distinguishing-cases Watching configuration on same edit as watcherless twin produces opposite freshness result.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_with_a_watcher_keeps_persistent_validation is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Driven watching Vite hooks connect native cache to persistent validation; live notifications are covered by server cases.
- * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Session closes in finally, including assertion failure; its changed inputs and compile log remain private. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#shared-execution The shared experiment borrows the original four-module descriptor/project/run log after watcherless hook closure and exact original descriptor-byte restoration. A new watching hook session retains the original one-replacement contrast; standalone still prepares its own project.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Borrowed inputs are restored before session start; count1/2 are deltas from the actual preceding native log length without resetting the log. First watching delivery validates the restored descriptor before the identical original touch invalidates it. Finally awaits close on success/failure; no later mutation follows this profile and hook completion is not descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: after plugin edit all remaining modules deliver with exactly two compiles, reusing replacement. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_with_a_watcher_keeps_persistent_validation(): Promise<void> {
-  const session = await startViteAdapterSession({ watching: true });
+export async function test_vite_serve_with_a_watcher_keeps_persistent_validation(
+  prepared?: { root: string; runLog: string },
+): Promise<void> {
+  const session = await startViteAdapterSession({ watching: true, project: prepared });
+  const baseline = session.projectCompiles();
   try {
     assert.ok(await session.deliver(session.modules[0]!));
-    assert.equal(session.projectCompiles(), 1);
+    assert.equal(session.projectCompiles() - baseline, 1);
 
     touchUnrelatedInput(session);
     for (const file of session.modules.slice(1)) {
       assert.ok(await session.deliver(file));
     }
     assert.equal(
-      session.projectCompiles(),
+      session.projectCompiles() - baseline,
       2,
       "a watching dev server must replace the generation the changed input invalidated, then reuse the replacement",
     );

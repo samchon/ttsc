@@ -12,6 +12,7 @@ import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runShar
 import { runSharedViteBuildWatchLifecycle } from "../internal/unplugin/runSharedViteBuildWatchLifecycle";
 import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unplugin/native-plugins/adapters/test_webpack_watch_reuses_the_generation_across_rebuilds";
 import { test_webpack_sequential_compilers_share_one_generation } from "./unplugin/native-plugins/adapters/test_webpack_sequential_compilers_share_one_generation";
+import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { test_vite_build_serves_wrapper_queries_from_the_host } from "./unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host";
@@ -342,7 +343,12 @@ export async function test_e2e_unplugin(): Promise<void> {
     failures.push(new Error("Vite SSR stack profile blocked: prior source-map contracts did not complete"));
   }
   try {
-    await Scenarios.invoke("shared-unplugin", "watcherless-vite-unseen-and-repeated-deliveries", runSharedWatcherlessViteDeliveries);
+    await Scenarios.invoke("shared-unplugin", "watcherless-vite-unseen-and-repeated-deliveries", runSharedWatcherlessViteDeliveries, async (prepared: { root: string; runLog: string; originalPlugin: Buffer }) => {
+      const plugin = path.join(prepared.root, "plugin.cjs");
+      fs.writeFileSync(plugin, prepared.originalPlugin);
+      assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
+      await Scenarios.invoke("shared-unplugin", "test_vite_serve_with_a_watcher_keeps_persistent_validation", test_vite_serve_with_a_watcher_keeps_persistent_validation, prepared);
+    });
   } catch (cause) {
     failures.push(new Error("watcherless Vite first and repeated deliveries", { cause }));
   }
