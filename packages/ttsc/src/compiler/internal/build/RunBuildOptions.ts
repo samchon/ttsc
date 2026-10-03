@@ -89,15 +89,16 @@ export type RunBuildOptions = TtscBuildOptions & {
 
   /**
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
-   * only by watch launchers; ordinary builds do not probe the optional sidecar
-   * command.
+   * when this internal callback is supplied, normally by watch launchers;
+   * ordinary calls without the callback do not probe the optional sidecar command.
    */
   onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
 
   /**
-   * Emit an external source map from the direct tsgo build lane even when the
-   * project configures none. Set by the ttsx runtime builds so a served emit
-   * carries a map to inline under the source URL. Applied only to
+   * Request an external source map in an emitting direct tsgo lane even when
+   * the project configures none. Later forwarded sourceMap assignments can
+   * override this default. Ttsx runtime builds use it to request a map for
+   * inlining under the source URL. Applied only to
    * the plain tsgo emit — never forwarded to a native plugin host, whose own
    * emit honours the project's `sourceMap` setting.
    */
