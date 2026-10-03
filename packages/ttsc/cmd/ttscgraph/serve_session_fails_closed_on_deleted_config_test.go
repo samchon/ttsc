@@ -12,9 +12,9 @@ import (
 // The boundary twin of the invalid-config case: deletion takes the
 // hashesChanged ErrNotExist branch and its forced reload fails at session
 // construction rather than config parsing. A byte-identical restore must then
-// report unchanged — the resident graph still matches the disk exactly — and
-// the compiler session must keep serving incremental edits, proving the
-// failed reload episode left no partial state behind.
+// report unchanged, and a later source rename must report incremental with
+// AfterEdit present. These selected recovery outcomes do not certify every
+// internal state field or every graph fact after the failed reload.
 //
 //  1. Build a valid initial graph, then delete tsconfig.json.
 //  2. Assert the snapshot fails with no dump.
