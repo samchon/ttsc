@@ -123,18 +123,21 @@ type NodeBuilderImpl = innerchecker.NodeBuilderImpl
 // Hold the producing checker's mutex, supply this emit round's context, and
 // use an enclosing declaration from that same program (or nil). The callback
 // must not retain the borrowed implementation or use it concurrently.
+// Checker, emit context and callback must be nonnil and valid for this round.
 //
 // The compiler's default serialization flags and tracker apply. Callback
 // errors are returned unchanged; compiler serialization errors return a nil
-// node. Context restoration runs on success, callback error and panic.
+// node. After context entry succeeds, restoration runs on success, callback
+// error and panic. Restoring the active context does not release the caller's
+// emit factory or invalidate a returned node; that lifetime remains its owner's.
 //
 // @evidence contracts/common.md#principled-implementation NewNodeBuilder and its real enter/exit operations establish the host, tracker and enclosing-file context before the generated private field accessor supplies the implementation.
 // @evidence contracts/common.md#clear-and-simple-design A scoped callback separates compiler-state acquisition from caller conversion while a fresh builder owns each nested invocation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No private layout is handwritten or patched, and no unusable raw getter is published as a producer; official generation derives the one required field access.
 // @evidence contracts/common.md#meaningful-documentation Native prose states synchronization, program and emit identity, default flags, borrowing limits, nil result and error/panic restoration.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The deferred pop restores the builder context on every return path, so no context outlives the call.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Constant work around one callback invocation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work It creates one node-builder context per call and shares none.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each call acquires a builder/implementation, context stack and semantic bookkeeping maps/slices. Deferred pop restores active context after callback failure or panic; exit restores it on normal completion. Borrowed implementation use ends at that boundary, while returned nodes and emit-factory allocations remain under caller ownership. This helper neither releases that factory's arenas nor bounds retained callback results.
+// @evidence contracts/performance.md#efficient-algorithms A fresh builder isolates nested callback contexts without cloning the semantic graph. Construction creates bookkeeping storage, context entry finds the enclosing source file through parent links, and the callback's conversion can traverse arbitrary supported type/AST graphs; total work is not constant merely because the callback is invoked once. The scoped wrapper avoids a separate serializer and leaves conversion algorithms upstream.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This helper coordinates a borrowed context lifetime rather than completed or in-flight conversion sharing. Active callback state is isolated per invocation; semantic reuse belongs to the supplied checker, and no independent context-result cache/invalidation policy is installed.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory compiler nodes only; it accesses no path or filesystem.
 func WithNodeBuilderContext(ch *Checker, emitContext *innerprinter.EmitContext, enclosing *innerast.Node, use func(*NodeBuilderImpl) (*innerast.Node, error)) (*innerast.Node, error) {
   builder := innerchecker.NewNodeBuilder(ch, emitContext)
