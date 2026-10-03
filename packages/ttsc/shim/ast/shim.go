@@ -1482,7 +1482,9 @@ func IsExpressionNode(node *Node) bool {
 }
 
 // IsTypeDeclaration reports whether node declares a type-level symbol.
-// Supply a nonnil node; import/export cases require their upstream parent chain.
+// Supply valid nonnil compiler payloads and parent links. Import clauses use
+// their phase flag; specifiers use their parent clause/declaration's type-only
+// flag, not the specifier's own flag.
 // This is syntactic classification rather than binding a checker symbol.
 //
 // @evidence contracts/common.md#principled-implementation Direct delegation retains upstream declaration kinds and parent-based type-only import/export classification.
@@ -1490,8 +1492,8 @@ func IsExpressionNode(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No declaration names or consumer type whitelists are substituted.
 // @evidence contracts/common.md#meaningful-documentation Native prose states syntactic purpose and parent/nonnil preconditions with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTypeDeclaration acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsTypeDeclaration performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTypeDeclaration computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent type-declaration classifier. Upstream checks fixed kinds and at most two parent links/type-only fields in O(1) time and space without binding symbols or scanning declarations.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of kind, parent and type-only payloads.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsTypeDeclaration computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTypeDeclaration(node *Node) bool {
   return innerast.IsTypeDeclaration(node)
@@ -1499,15 +1501,18 @@ func IsTypeDeclaration(node *Node) bool {
 
 // IsTypeDeclarationName reports whether node is the name of a type-level
 // declaration.
-// Supply a nonnil node with the parent relationships needed to inspect its declaration.
+// Supply a nonnil node with valid compiler payloads and the parent relationships
+// needed to inspect its declaration. Only an identifier equal to the selected
+// declaration name qualifies; alternate import/export alias names are not
+// resolved through bindings here.
 //
 // @evidence contracts/common.md#principled-implementation Delegation preserves upstream identifier, declaring-parent and name-identity checks for a linked node.
 // @evidence contracts/common.md#clear-and-simple-design Name ownership stays in the upstream predicate instead of a shim binding index.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No identifier spellings or fixture declaration names are hardcoded.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies declaration-name meaning and linked-parent input requirements.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTypeDeclarationName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsTypeDeclarationName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTypeDeclarationName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent type-name classifier. Upstream checks identifier kind, the fixed type-declaration predicate and selected name pointer identity in O(1) time and space for valid compiler payloads; it does not scan name text or resolve bindings.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of declaration selection and name identity.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsTypeDeclarationName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTypeDeclarationName(node *Node) bool {
   return innerast.IsTypeDeclarationName(node)
