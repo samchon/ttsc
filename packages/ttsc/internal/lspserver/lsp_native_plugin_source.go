@@ -623,28 +623,27 @@ func (s *NativePluginSource) CommandIDs() []string {
 // CompletionHints returns the corpus plugins published, or nil until it has
 // been fetched.
 //
-// Nil while loading is deliberate and is the whole reason the fetch is
-// asynchronous. Unlike lsp-command-ids and lsp-code-action-kinds — which ignore
-// their arguments and never build a Program — lsp-hints must load one, because
-// a corpus is a projection of what a project rule's Check found. Paying that on
-// the initialize path would delay every editor session for a feature most
-// projects do not use, and paying it on the first completion would freeze the
-// popup. Answering "no hints yet" degrades honestly: the editor still gets
-// tsgo's completion, and ours appear once they exist.
+// Nil while loading permits asynchronous acquisition. A project-rule hint
+// producer can load a Program to project its Check results; the producer owns
+// that work, and this accessor does not certify its internals. Acquisition is
+// scheduled outside initialization and completion reads. Nil does not distinguish
+// a pending fetch, successful empty publication or failed acquisition, and the
+// accessor supplies no producer-success status.
 //
 // The same reasoning carries to refresh. It answers the last known-good corpus
 // while a rediscovery scheduled by RefreshCompletionHints is running, so
-// completion never blocks on a producer and never observes a half-cleared
-// corpus.
+// completion does not wait for the producer request itself or observe a
+// half-cleared corpus. It can still wait for publication-lock ownership and pay
+// the ready-view copy cost.
 //
 // @evidence contracts/common.md#principled-implementation Locked publication reads return independent hint and item slices, preventing consumers from mutating producer state; failed refreshes retain last-good state explicitly.
 // @evidence contracts/common.md#clear-and-simple-design Writers materialize the ordered corpus, leaving completion reads to copy a ready view.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A retained corpus is described as last-good rather than falsely current after a failed producer call.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain asynchronous availability and refresh behavior, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor handles protocol data only; producer execution owns the native boundary.
-// @evidence contracts/performance.md#efficient-algorithms Copying H groups and I items is O(H+I) time and returned storage; the accessor does not rebuild producer ordering.
-// @evidence contracts/performance.md#reuse-equivalent-work All requests share the flattened last-good corpus until a successful producer refresh replaces its generation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices belong to the caller; corpus stores and source Close own retained state.
+// @evidence contracts/performance.md#efficient-algorithms Copying H group headers and I item records is O(H+I) processing and returned slice storage without rebuilding producer order or copying string bytes. The read lock can wait for a writer's corpus flattening; returning hints is not a zero-latency guarantee.
+// @evidence contracts/performance.md#reuse-equivalent-work Callers share a flattened view of per-producer last-good records. Successful stores publish individually, so a response can mix refresh generations; retained data does not certify current inputs after failures or missing notifications.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices transfer to the caller and share immutable string bytes with stored records. Corpus publication owns retained data; Close revokes scheduling but does not clear these fields while the source remains reachable.
 func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
   if s == nil {
     return nil
@@ -672,18 +671,19 @@ func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
 //
 // Asynchronous for the same reason the first fetch is (see CompletionHints):
 // the editor event that schedules a refresh must not wait for a Program load.
-// Concurrent requests coalesce into at most one queued rerun, so a save storm
-// costs one extra refresh rather than one per notification, and the previous
-// corpus keeps answering completion until the new one lands.
+// Requests arriving during one active cycle coalesce into one queued rerun.
+// Continued notifications across later cycles can schedule further reruns; there
+// is no fixed total refresh count for an entire save storm. Previous producer
+// records remain visible until their successful replacements arrive.
 //
-// @evidence contracts/common.md#principled-implementation Serial refresh generations update producer records only after successful decoding; a queued rerun observes changes reported during the active cycle.
+// @evidence contracts/common.md#principled-implementation Serial refresh generations publish producer records individually after successful decoding. A queued rerun requests later discovery rather than certifying that all reported input changes were captured or that all producers succeeded.
 // @evidence contracts/common.md#clear-and-simple-design One coalescing scheduler serves startup and later notifications.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Last-good retention follows explicit failed-refresh policy rather than masking a failure as a successful empty result.
 // @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain invalidation, nonblocking scheduling and coalescing, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native command execution owns executable/argv differences; scheduling does not derive filesystem capabilities from OS labels.
-// @evidence contracts/performance.md#efficient-algorithms A refresh queries distinct transports and flattens producer corpora; total work scales with producer responses and retained item population.
+// @evidence contracts/performance.md#efficient-algorithms A cycle hashes transport/context key bytes and serially queries distinct producers, including native work, reply decoding/grouping, possible fallback and logging/observer costs. Every successful store reselects manifest transports and flattens all currently retained groups under the publication lock, so this full view can be rebuilt once per successful producer rather than once per cycle.
 // @evidence contracts/performance.md#reuse-equivalent-work Concurrent notifications share one active cycle and at most one rerun, while successful stores expose the latest producer generation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one pending rerun per source bound scheduled refresh count; Close rejects new schedules and cancels native work. Corpus bytes have producer output caps but no separate aggregate budget.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one pending rerun bound simultaneous scheduler state, not total cycles or producer runtime. Close rejects schedules and requests native cancellation without joining the running task or observer. Replies have per-producer caps, but retained last-good corpora/string bytes have no aggregate age/byte budget and are not cleared by Close; callback completion also has no deadline here.
 func (s *NativePluginSource) RefreshCompletionHints() {
   if s == nil || len(s.plugins) == 0 {
     return
@@ -702,7 +702,7 @@ func (s *NativePluginSource) RefreshCompletionHints() {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Callback registration performs no native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Assigning an observer chooses no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Refresh scheduling owns coalesced work rather than this callback setter.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One function reference is retained, replaced or cleared under hintsMu; already running callback execution is not joined here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One function reference is retained, replaced or cleared under hintsMu, but its captured reachable data has no byte budget imposed here. Previously copied callbacks can still begin or finish after replacement; the setter does not join their execution or cancel their effects.
 func (s *NativePluginSource) SetCompletionHintsObserver(fn func()) {
   if s == nil {
     return
@@ -713,9 +713,9 @@ func (s *NativePluginSource) SetCompletionHintsObserver(fn func()) {
 }
 
 // completionHintRecord is one producer's corpus and the refresh generation that
-// produced it. The generation is what keeps a slow refresh from overwriting a
-// newer one: plugin fetches run sequentially inside a cycle, but two cycles can
-// still be in flight when a scheduled refresh outlives its successor's start.
+// produced it. Normal scheduled cycles are serial; the generation comparison
+// additionally refuses an older producer record if supplied to the store. It
+// does not certify that different producers share one filesystem capture.
 type completionHintRecord struct {
   hints      []LSPCompletionHint
   generation uint64
