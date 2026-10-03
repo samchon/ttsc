@@ -6,8 +6,8 @@ import "testing"
 // single-clause multi-type explode reflow synthesizes CRLF breaks under
 // endOfLine:"crlf".
 //
-// Regression shield for issue #616 on the multiTypeHeader builder: it emitted
-// a literal "\n" per exploded type, injecting lone LFs into a CRLF file. Bound
+// The multiTypeHeader builder must use the configured EOL per exploded type,
+// rather than inject lone LFs into this CRLF file. Bound
 // to the CRLF oracle (LF twin: format_declaration_header_breaks_multi_type_
 // interface_test.go); the helper asserts zero lone LFs.
 //

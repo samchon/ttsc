@@ -5,9 +5,9 @@ import "testing"
 // TestFormatDeclarationHeaderMultiClauseHonorsCRLFEndOfLine verifies the
 // multi-clause header reflow synthesizes CRLF breaks under endOfLine:"crlf".
 //
-// Regression shield for issue #616: the reflow builder hard-coded "\n", so a
-// broken class header on an otherwise-CRLF file gained lone LFs and persisted
-// mixed line endings. Bound to the CRLF oracle (the LF twin lives in
+// The reflow builder must use the configured layout EOL instead of adding lone
+// LFs to this CRLF class header. The direct assertions do not reproduce a past
+// mixed-ending result. Bound to the CRLF oracle (the LF twin lives in
 // format_declaration_header_breaks_multiple_clauses_test.go), and the helper
 // additionally asserts every "\n" belongs to a "\r\n".
 //

@@ -6,10 +6,10 @@ import "testing"
 // type-parameter explode reflow (including the break-after-`=` default hang)
 // synthesizes CRLF breaks under endOfLine:"crlf".
 //
-// Regression shield for issue #616 on the typeParamExplodeHeader and
-// renderExplodedTypeParam builders: both emitted literal "\n" for the `<`, the
-// per-parameter comma, and the default-hang split, injecting lone LFs into a
-// CRLF file. Bound to the CRLF oracle (LF twin: format_declaration_header_
+// The typeParamExplodeHeader and renderExplodedTypeParam builders must use the
+// configured EOL for the `<`, per-parameter and default-hang breaks rather than
+// inject lone LFs into this CRLF file. Bound to the CRLF oracle
+// (LF twin: format_declaration_header_
 // breaks_type_param_default_after_equals_test.go); the helper asserts zero
 // lone LFs.
 //
