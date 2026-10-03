@@ -48,7 +48,7 @@ type apiTransformResultWithGraph struct {
 // TestCLICommandOperationFamilies verifies original command preparations and
 // compiler result oracles with explicit immutable-fixture and Program ownership.
 //
-// The twenty-one original failure names remain named cases. Pure preparation
+// The twenty-one command-operation identities remain named cases. Pure preparation
 // observes original argv and selected defaults; separately named compiler
 // operations load the declared config variant. Shared API response work uses
 // one emit-capable Program while transform preparation still requires noEmit.
@@ -64,7 +64,7 @@ type apiTransformResultWithGraph struct {
 // @evidence contracts/testing.md#behavioral-verification Original CLI status/stream, JSON source/output/graph, diagnostic and disk/manifest oracles remain named; original argv preparation and selected semantic config variants are separate observations.
 // @evidence contracts/testing.md#independent-expectations Original literal argv, authored fixture bytes, JSON keys, source/export syntax, diagnostics and absence checks define expected behavior independently of actual output. Project aliases additionally assert literal normalized argv; API preparation asserts distinct ForceEmit versus ForceNoEmit policies.
 // @evidence contracts/testing.md#distinguishing-cases All twenty-one old TestNames remain named cases, including alias/help/version variants, positive project publication, semantic/syntax/unused/declaration failures, implicit cwd and outside keys. Nested alias rootDir/source-path changes are explicit fixture deltas.
-// @evidence contracts/testing.md#execution-ownership Actual private preparation is consumed by the real dispatcher; loaded response operations use real driver Programs with explicit owners. The family owns10 roots14 selected configs27 files and15 Programs; The twenty-one command-operation cases execute here; the separately registered OS transport success and nonzero-exit cases own the remaining two child connections. Nine case-owned TempDirs and one lazily acquired shared native workspace supply the ten roots. Counts are design expectations until actual validation.
+// @evidence contracts/testing.md#execution-ownership Actual private preparation is consumed by the real dispatcher; loaded response operations use real driver Programs with explicit owners. The family plans ten roots, fourteen selected config entries, twenty-seven fixture files and fifteen Program loads. Twenty-one named command-operation cases execute here; their returned statuses do not certify external OS exit transport or a child-process census. Nine case-owned TempDirs and one lazily acquired shared native workspace supply the ten roots. Counts are design expectations until actual validation, and the extended base config is an additional config file rather than a separately selected entry.
 func TestCLICommandOperationFamilies(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, "")
   var sharedWorkspace, sharedRoot string
