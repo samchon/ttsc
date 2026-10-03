@@ -9,7 +9,7 @@ import "testing"
 // a property key. Under `var` hoisting the earlier `({ x })` reads `undefined`;
 // rewriting the keyword to `let` turns that into a TDZ ReferenceError. The
 // safety gate must classify the shorthand name as a value reference so the
-// forward read forces an over-decline: the diagnostic fires but the source
+// forward read forces a decline: the diagnostic fires but the source
 // keeps its `var`.
 //
 //  1. Parse `({ x });` (object-literal shorthand) before `var x = 1;`.
