@@ -8,10 +8,10 @@ import (
 // TestLSPBanTsCommentSuggestionPreservesCRLFBlock verifies quickfix.ttsc
 // rewrites only the directive inside a block comment above a real type error.
 //
-// @evidence contracts/testing.md#behavioral-verification Signed quickfix changes only ts-ignore to ts-expect-error in a CRLF block above a real type error.
+// @evidence contracts/testing.md#behavioral-verification Fingerprint-bound quickfix changes only ts-ignore to ts-expect-error in a CRLF block above a real type error.
 // @evidence contracts/testing.md#independent-expectations Authored complete CRLF text retains the header, description, erroneous assignment and stringify call; literal title and command independently constrain discovery.
 // @evidence contracts/testing.md#distinguishing-cases A block directive with a description and CRLF detects whole-comment or line-ending replacement; the suggestion-only fix-all host owns automatic-application rejection.
-// @evidence contracts/testing.md#execution-ownership The native checker and LSP dispatch execute in the Go unit process against disposable JSON configuration, without running an external TypeScript compiler.
+// @evidence contracts/testing.md#execution-ownership The native parser, comment-rule walk and LSP dispatch execute in the Go unit process against disposable JSON configuration. This source-only rule does not request a checker, and the authored erroneous assignment is not semantically checked by this entry; no external TypeScript compiler is run.
 func TestLSPBanTsCommentSuggestionPreservesCRLFBlock(t *testing.T) {
   source := "/* header\r\n * @ts-ignore: Preserve this description */\r\nconst value: number = \"wrong\";\r\nJSON.stringify(value);\r\n"
   root := seedLintProject(t, source)
