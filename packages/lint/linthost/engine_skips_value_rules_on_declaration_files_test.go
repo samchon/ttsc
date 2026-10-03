@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Engine.Run skips no-debugger when the parsed source is marked as a declaration, and the identical source reports one error without that marker.
 // @evidence contracts/testing.md#independent-expectations The declaration-file eligibility contract excludes executable value rules; the literal debugger control independently establishes that the configured rule remains active on ordinary sources.
 // @evidence contracts/testing.md#distinguishing-cases Only IsDeclarationFile changes between the two calls, distinguishing declaration filtering from a missing rule or universally disabled dispatch.
-// @evidence contracts/testing.md#execution-ownership The actual no-debugger engine directly walks one parsed virtual source twice in one Go process; the input intentionally models the declaration marker rather than compiling a valid ambient declaration.
+// @evidence contracts/testing.md#execution-ownership The actual no-debugger engine receives the same parsed virtual source through Engine.Run twice in one Go process; declaration filtering skips the node walk in the first call, and the ordinary-source control walks it. The input models the declaration marker rather than compiling a valid ambient declaration.
 func TestEngineSkipsValueRulesOnDeclarationFiles(t *testing.T) {
   file := parseTS(t, "debugger;")
   file.IsDeclarationFile = true
