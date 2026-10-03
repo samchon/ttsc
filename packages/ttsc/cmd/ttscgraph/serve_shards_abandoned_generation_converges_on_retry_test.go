@@ -31,6 +31,9 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
+  if committed == nil || committed.Sequence != 1 || committed.Generation == "" {
+    t.Fatalf("initial committed generation = %#v", committed)
+  }
   file := filepath.Join(root, "src", "index.ts")
   indexSource := session.compiler.Program().SourceFile(file)
   if indexSource == nil {
@@ -49,7 +52,13 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if abandoned == nil || !changed || abandoned.BaseGeneration != committed.Generation {
     t.Fatalf("abandoned generation = snapshot:%#v changed:%v", abandoned, changed)
   }
+  if abandoned.Sequence != committed.Sequence+1 {
+    t.Fatalf("abandoned sequence = %d, want %d", abandoned.Sequence, committed.Sequence+1)
+  }
   abandonedKey := session.graphStore.sourceKeys[indexKeyFile]
+  if abandonedKey == "" {
+    t.Fatal("abandoned source has no committed shard key")
+  }
 
   // The producer moved on regardless. A later edit plus the client's retry has
   // to publish a generation that supersedes the abandoned one rather than
@@ -80,6 +89,23 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   }
   if !containsUpsertedShardKey(converged, convergedKey) {
     t.Fatalf("converged generation did not publish the latest shard %q", convergedKey)
+  }
+  foundConverged := false
+  for _, upsert := range converged.Upserts {
+    if upsert.Shard.Key != convergedKey {
+      continue
+    }
+    for _, node := range upsert.Shard.Nodes {
+      if node.Name == "Abandoned" {
+        t.Error("latest source shard retained the abandoned declaration")
+      }
+      if node.Name == "Converged" {
+        foundConverged = true
+      }
+    }
+  }
+  if !foundConverged {
+    t.Error("latest source shard omitted the literal Converged declaration")
   }
   if !containsString(converged.Deletes, abandonedKey) {
     t.Fatalf(
