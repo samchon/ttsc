@@ -5,7 +5,7 @@ import "testing"
 // TestFunctionalNoTryStatementsRejectsTry verifies functional/no-try-statements rejects try/catch.
 //
 // The rule treats try statements as exceptional control flow. This pins the
-// default branch where catch/finally are both disallowed.
+// default catch-rejection branch; this input contains no finally block.
 //
 // 1. Parse a try/catch statement.
 // 2. Enable only functional/no-try-statements.
