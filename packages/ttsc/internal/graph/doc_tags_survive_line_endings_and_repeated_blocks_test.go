@@ -11,11 +11,11 @@ import (
 // TestDocTagsSurviveLineEndingsAndRepeatedBlocks verifies the boundary cases
 // where one declaration's tags can be silently lost or doubled.
 //
-// Each is invisible when wrong. A CRLF checkout that joined a reason
+// A CRLF checkout that joined a reason
 // differently would make the same source produce different index entries on
 // Windows and POSIX, so a citation found on one machine would be missing on the
 // other. A merged identity declared twice keeps whichever declarations the walk
-// reached, and a `var` redeclaration is the one shape where the same identity
+// reached; the authored `var` redeclaration is one shape where the same identity
 // carries two documentation blocks that both have to survive. A link written
 // with trailing text inside its braces is reassembled from two fields, so the
 // text can be dropped without the target changing.
@@ -30,8 +30,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Verifies the boundary cases where one declaration's tags can be silently lost or doubled.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal and are asserted for the same source compiled with LF and with CRLF line terminators: a reason spread over two comment lines must be the single string docs/a.md#reason States the limit this section defines., a link tag keeps its trailing text, a var redeclared and documented twice keeps both tags, a multi-binding statement documents each binding, and a declaration with two documentation blocks keeps both tags.
 // @evidence contracts/testing.md#distinguishing-cases Build a fixture with CRLF sources, a redeclared `var` documented twice, a multi-binding statement, a declaration carrying two documentation blocks, and a link carrying trailing text; Assert the CRLF reason joins exactly as its LF twin does; Assert both blocks of the merged identity are kept, every binding of the statement carries its documentation, and the link keeps its text.
-// @evidence contracts/testing.md#execution-ownership TestDocTagsSurviveLineEndingsAndRepeatedBlocks is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes two separate native LF/CRLF projects, constructs and closes their driver compiler Programs in-process, and calls Build. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command runs. Each expected name/text/target-suffix pair must occur exactly once in each graph; full offset equivalence and other terminators are not certified.
 func TestDocTagsSurviveLineEndingsAndRepeatedBlocks(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
 
@@ -124,22 +125,26 @@ export function twoBlocks(): void {}
   }
 }
 
-// assertDocTagIn fails unless a tag with this name and text sits on the node
+// assertDocTagIn fails unless exactly one tag with this name and text sits on the node
 // whose id ends with suffix, naming the source spelling in the failure.
 func assertDocTagIn(t *testing.T, tags map[string][]*DocTag, spelling, suffix, name, text string) {
   t.Helper()
+  found := 0
+  reported := []string{}
   for target, list := range tags {
     if !suffixMatch(target, suffix) {
       continue
     }
+    reported = append(reported, renderDocTags(list))
     for _, tag := range list {
       if tag.Name == name && tag.Text == text {
-        return
+        found++
       }
     }
-    t.Fatalf("%s %s carries %s, want @%s %q", spelling, suffix, renderDocTags(list), name, text)
   }
-  t.Fatalf("%s %s recorded no tags at all, want @%s %q", spelling, suffix, name, text)
+  if found != 1 {
+    t.Fatalf("%s %s recorded %d matching tags, want one @%s %q; tags: %s", spelling, suffix, found, name, text, strings.Join(reported, " | "))
+  }
 }
 
 func renderDocTags(list []*DocTag) string {

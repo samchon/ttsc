@@ -9,7 +9,8 @@ import (
 )
 
 // TestDocTagsStopAtTheExternalBoundary verifies that a documentation tag written
-// in a dependency contributes nothing.
+// in the explicitly loaded node_modules fixture contributes no collected tag,
+// while the workspace citation remains present.
 //
 // The graph's boundary is the workspace: a dependency's declaration enters only
 // as a named endpoint, never walked into. A tag read from one would put a
@@ -25,11 +26,12 @@ import (
 //  2. Assert the workspace tag is recorded.
 //  3. Assert no tag is recorded from the dependency, under any target.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that a documentation tag written in a dependency contributes nothing.
+// @evidence contracts/testing.md#behavioral-verification The explicitly loaded raw dependency source is resident, but Build returns the literal workspace citation and no collected tag whose target names node_modules or whose text names docs/vendor.md.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over a workspace source with one tag and a node_modules dependency with another: the workspace tag must be recorded on its declaration, and no recorded tag may have a target containing node_modules or text naming docs/vendor.md.
 // @evidence contracts/testing.md#distinguishing-cases Build a fixture whose `node_modules` dependency carries a tag and whose workspace source carries another; Assert the workspace tag is recorded; Assert no tag is recorded from the dependency, under any target.
-// @evidence contracts/testing.md#execution-ownership TestDocTagsStopAtTheExternalBoundary is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native workspace/dependency fixture, constructs and closes a driver compiler Program in-process, and calls Build. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command runs. The dependency is an explicit compiler input, not an installed package lookup.
 func TestDocTagsStopAtTheExternalBoundary(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), nodeModulesGlobalFixtureTSConfig)
   writeFile(t, filepath.Join(root, "node_modules", "dep", "globals.ts"), `/** @evidence docs/vendor.md#theirs Written by the dependency. */
@@ -47,6 +49,9 @@ export function ours(): void {}
     t.Fatalf("unexpected diagnostics: %v", diags)
   }
   defer func() { _ = prog.Close() }()
+
+  // Exclusion must not pass merely because the dependency was never loaded.
+  sourceFile(t, prog, "node_modules/dep/globals.ts")
 
   tags := docTagsByTargetSuffix(Build(prog))
 
