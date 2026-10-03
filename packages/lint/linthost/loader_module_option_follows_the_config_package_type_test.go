@@ -8,32 +8,32 @@ import (
 )
 
 // TestLoaderModuleOptionFollowsTheConfigPackageType verifies the ephemeral
-// loader tsconfig derives `module` from the config file's package scope the way
-// Node resolves it.
+// loader tsconfig derives its `module` option from the nearest package manifest
+// and preserves the generator's explicit-extension and malformed-manifest policy.
 //
 // A `lint.config.ts` is a Node module, and Node decides its format from the
 // package scope it sits in. Hardcoding "ESNext" ran every ambiguous `.ts`
 // config as ESM, so `__dirname` threw in an ordinary CommonJS package (#1068).
-// Matching Node means matching the whole lookup, and the part that is easy to
-// get wrong is where it stops: the FIRST manifest found bounds the scope, so a
-// manifest declaring no "type" answers CommonJS instead of deferring to a
-// module-typed ancestor. An explicit `.cts`/`.mts` extension decides the format
-// downstream on its own, so those keep the ES-module setting either way.
+// The generator stops at the first readable manifest: a missing type or malformed
+// JSON selects CommonJS instead of deferring to a module-typed ancestor. That
+// malformed fallback is a synthesis policy, not Node runtime parity: Node's
+// package loader rejects invalid package JSON. Explicit `.cts`/`.mts` inputs keep
+// ESNext here; their extension-specific runtime behavior is not executed below.
 //
 //  1. Build a tree covering each step of the lookup: a manifest with no "type",
 //     a "type": "module" package, nested manifests that override an ancestor in
 //     both directions, a manifest that does not parse, and a directory with no
 //     manifest of its own.
 //  2. Synthesize the loader tsconfig for a config in each.
-//  3. Assert every `module` matches what Node would conclude.
+//  3. Assert every generated `module` matches the authored policy table.
 //
-// The wildcard `types` entry is pinned alongside, as a regression guard rather
-// than a proof: deleting it costs the loader Program every ambient type package
-// TypeScript 7 would otherwise withhold, and the behaviour that depends on it is
-// proved end to end by the lint suite's `__dirname` case.
+// The wildcard `types` entry is pinned alongside as a generated-setting guard.
+// This case does not compile ambient types; the separate `__dirname` consumer
+// case owns its typed config and runtime contribution, not an exhaustive ambient
+// type-package oracle supplied by this JSON comparison.
 //
-// @evidence contracts/testing.md#behavioral-verification typeScriptConfigLoaderTsconfig emits parseable JSON whose module option follows the nearest package type while explicit mts/cts inputs retain extension-driven behavior.
-// @evidence contracts/testing.md#independent-expectations Authored nearest manifests and literal CommonJS/ESNext options implement the package-scope contract; independent encoding/json decoding observes the generated result.
+// @evidence contracts/testing.md#behavioral-verification typeScriptConfigLoaderTsconfig emits parseable JSON whose module option follows the nearest readable manifest, including the CommonJS malformed-JSON fallback; explicit mts/cts inputs emit ESNext without proving downstream runtime behavior.
+// @evidence contracts/testing.md#independent-expectations Authored nearest manifests and literal CommonJS/ESNext options specify the loader synthesis policy; independent encoding/json decoding observes the generated result.
 // @evidence contracts/testing.md#distinguishing-cases Nearest scopes override opposite ancestors, absent manifests inherit, malformed manifests bound scope, and explicit mts/cts contrast with ambiguous ts/js extensions.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored temporary package scopes reach typeScriptConfigLoaderTsconfig, followed by independent JSON decoding in-process; generated module and types options are inspected without compiling or evaluating the generated loader.
 func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
