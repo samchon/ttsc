@@ -54,11 +54,12 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * child process the program spawns, and `ttsc/register` may install them again
  * in a process that already has them.
  *
- * The hooks give ttsx ts-node-style whole-graph reach without weakening the
- * compile gate. The owning entry project is type-checked and built up front (by
- * `prepareExecution`, with its transform plugins such as typia); these hooks
- * serve that build under the source URLs so `__dirname`/`import.meta.url` keep
- * pointing at the source tree. Three load paths:
+ * Prepared entries use their owner's build, including its selected transform
+ * plugins, under source URLs so `__dirname`/`import.meta.url` keep source-tree
+ * coordinates. Callback-prepared and direct prebuilt entry admission are distinct
+ * from dependency builds and orphan recovery; this installer does not certify
+ * that every dynamically loaded module has passed an entry type-check gate.
+ * Three load paths:
  *
  * 1. A `.ts` belonging to the entry project: serve the pre-built emitted JS
  *    (transform plugins already applied) under the producer's captured physical
@@ -78,25 +79,26 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
  * Both graphs go through `registerHooks`, the supported customization API. A
- * CommonJS module an ESM `import` reaches is served as an ESM facade that loads
+ * CommonJS module an ESM `import` reaches may need an ESM facade that loads
  * it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
  * loader with source, the module's own `require()` bypasses the hooks on some
  * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there.
- * The one reach the API lacks on some releases is
+ * Capability and entry predicates also admit direct CommonJS source lanes.
+ * One reach the API lacks on some releases is
  * `require.resolve`, which is probed before installation. Served CommonJS
  * bodies receive an owned require function whose resolve member applies the
  * same source policy on those releases. Its copied extension registry
  * advertises the supported source extensions; foreign resolver methods and
  * global extension registries are never replaced.
  *
- * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades retain Node's own evaluation and binding semantics; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
+ * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades delegate native evaluation and project detected own named exports under the selected namespace capability; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation mutates neither Module._resolveFilename nor require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
- * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes avoid a complete emit scan on each load; export discovery visits each graph node once per traversal, and config-chain validation scans its discovered inputs. Compiler identity validation streams B executable bytes per lookup because metadata cannot certify unchanged bytes. Native compilation is required for a new project or orphan; recursive graphs remain subject to the JavaScript stack limit.
- * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Hooks and memoized module roles/builds live for this process, growing with distinct loaded projects, roots and export scans without a fixed historical cap. Isolated output directories and publication staging belong to synchronous operations and are reclaimed on failure; WeakMap ownership indexes do not extend their build lifetime. Cross-process generations follow their cache owner's retention policy.
+ * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes replace repeated whole-emit scans with indexed source/native-identity queries. Export discovery processes source/emit bytes, reexport edges, native resolution and Set/name unions under traversal-local seen sets; separate roots can repeat traversal. Config-chain validation reads discovered inputs. Compiler identity brackets and streams executable bytes on valid lookups, refusing failed observations. Native build/name-scan/orphan paths add compilation, path/metadata/IO cost; recursive graphs remain subject to stack limits.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a helper-instance module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This installed helper retains hooks, callback and memoized module roles/builds, growing with distinct projects, roots and export scans without an eviction cap. Synchronous isolated output/publication staging paths attempt cleanup; failed native removal can propagate or add a causal cleanup error rather than certify release. WeakMap indexes do not independently retain their build keys. Node module caches and cross-process generations have their separate retention owners.
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (options.prepareEntry !== undefined) {
@@ -829,8 +831,8 @@ function load(
     served.moduleOptions,
   );
   // An ESM import of a CommonJS source gets the facade, which loads the module
-  // through the CommonJS loader, where the hooks see its own `require()` on
-  // every release (`commonJsImportFacade`).
+  // through the CommonJS loader, through the selected public CommonJS load boundary
+  // (`commonJsImportFacade`); entry predicates can instead admit served source.
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url))
       return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
