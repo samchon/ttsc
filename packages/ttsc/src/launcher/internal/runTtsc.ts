@@ -13,6 +13,7 @@ import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { cacheEntryExists } from "../../internal/cacheEntryExists";
+import { E2ETrace } from "../../internal/E2ETrace";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isFilesystemPathIdentityWithin } from "../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
@@ -759,6 +760,10 @@ function runWatch(
 
   const close = (): Promise<void> => {
     if (closing !== undefined) return closing;
+    E2ETrace.watchShutdown("close-start", {
+      residentSelected: resident !== undefined,
+      activeSelected: active !== undefined,
+    });
     closed = true;
     if (timer) clearTimeout(timer);
     timer = null;
@@ -772,10 +777,9 @@ function runWatch(
     } catch (error) {
       topologyError = error;
     }
-    closing = Promise.allSettled([
-      resident?.close() ?? Promise.resolve(),
-      active ?? Promise.resolve(),
-    ]).then((results) => {
+    const residentClosing = resident?.close() ?? Promise.resolve();
+    const activeClosing = active ?? Promise.resolve();
+    closing = Promise.allSettled([residentClosing, activeClosing]).then((results) => {
       const errors = results.flatMap((result) =>
         result.status === "rejected" ? [result.reason] : [],
       );
@@ -783,32 +787,64 @@ function runWatch(
       if (errors.length !== 0)
         throw new AggregateError(errors, `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`);
     });
+    if (process.env.TTSC_E2E_TRACE) {
+      // Observe the original promises without substituting their settlements.
+      void residentClosing.then(
+        () => E2ETrace.watchShutdown("resident-settled", { outcome: "fulfilled" }),
+        () => E2ETrace.watchShutdown("resident-settled", { outcome: "rejected" }),
+      );
+      void activeClosing.then(
+        () => E2ETrace.watchShutdown("active-settled", { outcome: "fulfilled" }),
+        () => E2ETrace.watchShutdown("active-settled", { outcome: "rejected" }),
+      );
+      void closing.then(
+        () => E2ETrace.watchShutdown("close-promise-settled", { outcome: "fulfilled" }),
+        () => E2ETrace.watchShutdown("close-promise-settled", { outcome: "rejected" }),
+      );
+    }
     void closing.catch(() => {});
     return closing;
   };
   const finish = async (id?: string): Promise<void> => {
+    E2ETrace.watchShutdown("finish-start", { stopId: id });
     try {
       await close();
+      E2ETrace.watchShutdown("close-settled", { stopId: id, outcome: "fulfilled" });
       process.exitCode = toExitCode(lastStatus);
       if (id !== undefined && process.connected && process.send !== undefined) {
+        E2ETrace.watchShutdown("ack-send", { stopId: id });
         await new Promise<void>((resolve, reject) => {
           process.send!(
             { type: "ttsc.watch.stopped", id, status: completedBuild ? lastStatus : null },
-            (error: Error | null) => (error === null ? resolve() : reject(error)),
+            (error: Error | null) => {
+              E2ETrace.watchShutdown("ack-callback", {
+                stopId: id, outcome: error === null ? "fulfilled" : "rejected",
+              });
+              error === null ? resolve() : reject(error);
+            },
           );
         });
       }
     } catch (error) {
+      E2ETrace.watchShutdown("finish-rejected", { stopId: id });
       process.stderr.write(`${formatError(error)}\n`);
       process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
     } finally {
       if (process.connected) {
-        try { process.disconnect?.(); }
+        E2ETrace.watchShutdown("disconnect-start", {
+          stopId: id, selected: process.disconnect !== undefined,
+        });
+        try {
+          process.disconnect?.();
+          E2ETrace.watchShutdown("disconnect-return", { stopId: id, outcome: "fulfilled" });
+        }
         catch (error) {
+          E2ETrace.watchShutdown("disconnect-return", { stopId: id, outcome: "rejected" });
           process.stderr.write(`${formatError(error)}\n`);
           process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
         }
       }
+      E2ETrace.watchShutdown("finish-end", { stopId: id, exitCode: process.exitCode });
     }
   };
   const onInterrupt = () => { void finish(); };
@@ -819,7 +855,10 @@ function runWatch(
       typeof message === "object" && message !== null &&
       "type" in message && message.type === "ttsc.watch.stop" &&
       "id" in message && typeof message.id === "string" && message.id.length !== 0
-    ) void finish(message.id);
+    ) {
+      E2ETrace.watchShutdown("ipc-stop-received", { stopId: message.id });
+      void finish(message.id);
+    }
   };
   const startRun = () => {
     active = runOnce();

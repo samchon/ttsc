@@ -6,7 +6,7 @@ import path from "node:path";
 
 /**
  * Private opt-in observations of maintained process primitives and separately
- * classified runtime source preparation inputs.
+ * classified runtime source preparation inputs and watch-shutdown phases.
  *
  * TTSC_E2E_TRACE selects coordinator-owned scratch. Each writer owns one JSONL
  * and its raw returned-buffer payloads. Returned strings are recorded as text,
@@ -16,7 +16,7 @@ import path from "node:path";
  * call bounds; a synchronous return does not reveal an exact OS start time or
  * descendant close. No trace output is written to product streams.
  *
- * @evidence contracts/common.md#principled-implementation Actual primitive call bounds and returned PID/status/signal/error/output remain separate from source-preparation input observations; failed admission or sink writes do not synthesize success or replace product results.
+ * @evidence contracts/common.md#principled-implementation Actual primitive call bounds and returned PID/status/signal/error/output remain separate from source-preparation inputs and caller-observed shutdown phases; failed admission or sink writes do not synthesize success or replace product results.
  * @evidence contracts/common.md#clear-and-simple-design A private token connects one attempt and returned result; per-process writer state owns serialization, payload budget and append-close IO.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper neither patches child_process nor infers launches from wrapper call counts; no tests/utils or public product API is introduced.
  * @evidence contracts/common.md#meaningful-documentation Native prose separates observation from lifecycle ownership and documents opt-in failure and time-bound limitations.
@@ -26,6 +26,44 @@ import path from "node:path";
  * @evidence contracts/performance.md#bound-retention-and-release-resources One writer retains root/nonce/counters until process exit. Each sink write closes in finally; payloads are capped at 64MiB each and writer output at 256MiB including reserved integrity metadata. Coordinator owns scratch reclamation and writer/child settlement; IO failure can leave partial files and missing evidence.
  */
 export namespace E2ETrace {
+  /**
+   * Record a watch-shutdown phase as a non-process observation.
+   * Callers report actual promise/callback outcomes and the received stop ID;
+   * observation time is not an OS exit time or proof of descendant termination.
+   * Disabled tracing performs no sink IO or metadata copying. Sink failures
+   * never replace the caller's promise, result, exception or protocol message.
+   *
+   * @evidence contracts/common.md#principled-implementation Actual caller-supplied phase metadata is recorded without treating observation as a join authority or synthesizing settlement.
+   * @evidence contracts/common.md#clear-and-simple-design One non-process event uses the existing private writer, invocation schema, budget and integrity path.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No promise or foreign process method is replaced; no product stream, public API, flag, configuration or test dependency is introduced.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes observed phase time and received stop ID from native lifecycle authority.
+   * @evidence contracts/portability.md#os-neutral-implementation Node supplies actual writer PID, argv, cwd and UTC metadata; the existing absolute native scratch admission owns path handling.
+   * @evidence contracts/performance.md#efficient-algorithms Enabled argv/metadata copying, JSON encoding and synchronous native sink IO scale with their text sizes and add latency; disabled mode returns before copying.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each phase occurrence describes a distinct caller observation; another occurrence cannot reuse an earlier outcome.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This call keeps no phase history or handle; the existing writer owns its 256MiB output limit, append-close writes and coordinator-owned scratch cleanup.
+   */
+  export function watchShutdown(
+    phase: string,
+    data: Readonly<Record<string, string | number | boolean | null | undefined>>,
+  ): void {
+    const selected = process.env.TTSC_E2E_TRACE;
+    if (!selected) return;
+    try {
+      if (!admit(selected)) return;
+      const token: Token = {
+        invocation: String(++ordinal),
+        argv: [...process.argv],
+        cwd: process.cwd(),
+        lower: new Date().toISOString(),
+        origin: "ttsc-watch-shutdown",
+        argv0: null,
+      };
+      event(token, "watch-shutdown-phase", process.pid, {
+        ...data, phase, origin: token.origin,
+      });
+    } catch { failed = true; }
+  }
+
   /**
    * Observe the actual source string before CommonJS preparation, not a launch.
    * UTF-16LE preserves JavaScript code units, including unpaired surrogates;
@@ -158,13 +196,13 @@ export namespace E2ETrace {
     /** Writer-local ordinal; writer pid and nonce complete its identity. */
     invocation: string;
 
-    /** Selected process inputs, or actual writer argv for source observation. */
+    /** Selected process inputs, or actual writer argv for a non-process observation. */
     argv: string[];
 
     /** Explicit cwd representation, or null for inherited cwd intent. */
     cwd: string | null;
 
-    /** UTC bound before the owning primitive or preparation observation. */
+    /** UTC bound before the owning primitive or non-process observation. */
     lower: string;
 
     /** Maintained observation owner, not an inferred child phase. */
