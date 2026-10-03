@@ -6,6 +6,7 @@ import webpack from "webpack";
 
 import { createTypeEdgeProject } from "../../../../internal/unplugin/internal/adapter-webpack/createTypeEdgeProject";
 import { createWebpackConfig } from "../../../../internal/unplugin/internal/adapter-webpack/createWebpackConfig";
+import { MYTYPE_V2 } from "../../../../internal/unplugin/internal/adapter-webpack/MYTYPE_V2";
 
 /**
  * Verifies a real webpack watch session reuses the generation across rebuilds
@@ -30,11 +31,13 @@ import { createWebpackConfig } from "../../../../internal/unplugin/internal/adap
  * @evidence contracts/testing.md#distinguishing-cases Changed timestamp with unchanged bytes and actual entry rebuild; changed content has the separate watch test.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_watch_reuses_the_generation_across_rebuilds is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual webpack timestamp watcher/make hook and native content proof distinguish host rebuild from native recompilation.
- * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations; native artifacts can be shared while timestamp/content transitions remain local.
+ * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations. The shared experiment additionally performs the original type-only content edit after builtModules proves same-byte redelivery; its initial ID: STRING and later AGE: NUMBER oracle borrow the same graph/source project and native reader.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. Tracked roots end at process exit.
- * @evidence contracts/e2e.md#preserved-coverage Retained assertions: cold polling build compiles once; same-byte type rewrite produces a compilation whose builtModules proves loader reran while compile count remains one. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
+ * @evidence contracts/e2e.md#preserved-coverage Cold count1 and same-byte rewrite/builtModules/count1 remain. Optional shared continuation retains test_webpack_watch_rebuilds_through_a_type_only_edge initial ID: STRING, MYTYPE_V2 bytes, successful webpack stats and eventual AGE: NUMBER within 120s, with persistent cache disabled. Its polling host uses the timestamp strategy already required by the preceding same-byte contrast. Standalone defaults and both donors remain; actual selected survival is unverified.
  */
-export async function test_webpack_watch_reuses_the_generation_across_rebuilds(): Promise<void> {
+export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
+  includeTypeEdit = false,
+): Promise<void> {
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-webpack-watch-log-"),
     "compiles.bin",
@@ -60,8 +63,12 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
   try {
     await new Promise<void>((resolve, reject) => {
       let builds = 0;
+      let contentEdited = false;
+      let finished = false;
       let watching: ReturnType<typeof compiler.watch> | undefined;
       const finish = (failure?: unknown) => {
+        if (finished) return;
+        finished = true;
         clearTimeout(timeout);
         const settle = (closeError?: Error | null) => {
           const error = failure ?? closeError;
@@ -80,7 +87,9 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
       const timeout = setTimeout(() => {
         finish(
           new Error(
-            "webpack watch did not rebuild after the type-only input was touched within 120s",
+            contentEdited
+              ? "webpack watch did not rebuild through the type-only edge within 120s"
+              : "webpack watch did not rebuild after the type-only input was touched within 120s",
           ),
         );
       }, 120_000);
@@ -97,6 +106,8 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
             );
             builds += 1;
             if (builds === 1) {
+              if (includeTypeEdit)
+                assert.match(fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8"), /ID: STRING/);
               assert.equal(
                 compiles(),
                 1,
@@ -105,6 +116,12 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
               // Same bytes, new timestamp: webpack's watcher sees a change, the
               // generation's recorded input does not.
               fs.writeFileSync(typeOnly, fs.readFileSync(typeOnly));
+              return;
+            }
+            if (contentEdited) {
+              if (!/AGE: NUMBER/.test(fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8")))
+                return;
+              finish();
               return;
             }
             // A compilation that did not rebuild the entry proves nothing:
@@ -129,7 +146,13 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
               1,
               "a rebuild that changed no compiler input must reuse the generation",
             );
-            finish();
+            if (includeTypeEdit) {
+              contentEdited = true;
+              fs.writeFileSync(typeOnly, MYTYPE_V2, "utf8");
+              timeout.refresh();
+            } else {
+              finish();
+            }
           } catch (failure) {
             finish(failure);
           }

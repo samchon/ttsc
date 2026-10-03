@@ -10,6 +10,7 @@ import { test_vite_build_tolerates_missing_resolution_candidates } from "./unplu
 import { test_vite_serve_first_request_survives_missing_resolution_candidates } from "./unplugin/native-plugins/adapters/test_vite_serve_first_request_survives_missing_resolution_candidates";
 import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runSharedWatcherlessViteDeliveries";
 import { runSharedViteBuildWatchLifecycle } from "../internal/unplugin/runSharedViteBuildWatchLifecycle";
+import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unplugin/native-plugins/adapters/test_webpack_watch_reuses_the_generation_across_rebuilds";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { test_vite_build_serves_wrapper_queries_from_the_host } from "./unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host";
@@ -345,6 +346,11 @@ export async function test_e2e_unplugin(): Promise<void> {
     failures.push(new Error("watcherless Vite first and repeated deliveries", { cause }));
   }
   let watcherlessCandidateReturned = false;
+  try {
+    await Scenarios.invoke("shared-unplugin", "webpack-watch-timestamp-and-type-edge", test_webpack_watch_reuses_the_generation_across_rebuilds, true);
+  } catch (cause) {
+    failures.push(new Error("webpack same-byte redelivery and type-edge replacement", { cause }));
+  }
   try {
     await Scenarios.invoke("shared-unplugin", "vite-watch-build-retention-and-close", runSharedViteBuildWatchLifecycle);
   } catch (cause) {
