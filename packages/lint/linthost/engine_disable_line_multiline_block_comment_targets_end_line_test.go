@@ -11,11 +11,10 @@ import (
 // multi-line block-comment `disable-line` suppresses the line where the comment
 // ends, not where it starts.
 //
-// `disable-next-line` keys on the comment's end line (endLine+1), but
-// `disable-line` historically keyed on the comment's start line, so a block
-// comment that spanned lines suppressed only its first line. This pins the
-// parity fix: a `disable-line` whose `*/` and the offending code share the end
-// line must suppress that statement.
+// `disable-next-line` keys on the comment's end line (endLine+1), while
+// `disable-line` targets the end line itself. A `disable-line` whose `*/` and
+// the offending code share that line must suppress that statement, retaining
+// the violations on neighboring lines.
 //
 //  1. Parse four var statements; a multi-line block-comment `disable-line` ends
 //     on the same line as the third statement.
