@@ -22,16 +22,16 @@ import { TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Thirty-one original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Thirty-three original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Thirty-one original roots become staged configurations on the one canonical allocation; forty-three native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
+ * @evidence contracts/e2e.md#shared-execution Thirty-three original roots become staged configurations on the one canonical allocation; fifty native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
- * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9. Actual surviving execution and donor removal remain pending.
+ * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs. Actual surviving execution and donor removal remain pending.
  */
 export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonicalRuntimeProfiles>[1] {
   const profiles: Parameters<typeof runCanonicalRuntimeProfiles>[1][number][] = [];
@@ -377,6 +377,68 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout.trim(), "area-9");
+    },
+  });
+  profiles.push({
+    name: "public-runtime-native-main-and-terminal-behavior",
+    files: FixtureFiles.read("ttsc/ttsx_runs_the_entry_as_the_main_module/inputs-1"),
+    run: (root, _persistent, spawn) => {
+      const run = (entry: string) => spawn(TestProject.TTSX_BIN, ["--cwd", root, entry], { cwd: root });
+      const failures: unknown[] = [];
+      try {
+        const cjs = run("src/cjs.ts");
+        assert.equal(cjs.status, 0, cjs.stderr);
+        const reported = JSON.parse(cjs.stdout.trim()) as { main: boolean; argv1: string };
+        assert.equal(reported.main, true);
+        assert.equal(fs.realpathSync.native(reported.argv1), fs.realpathSync.native(path.join(root, "src", "cjs.ts")));
+      } catch (error) { failures.push(error); }
+      try {
+        const esm = run("src/esm.mts");
+        assert.equal(esm.status, 0, esm.stderr);
+        const meta = JSON.parse(esm.stdout.trim()) as { main?: unknown; helperMain?: unknown };
+        if ("main" in import.meta) {
+          assert.equal(meta.main, true);
+          assert.equal(meta.helperMain, false);
+        } else {
+          assert.equal(meta.main, undefined);
+          assert.equal(meta.helperMain, undefined);
+        }
+      } catch (error) { failures.push(error); }
+      try {
+        const handled = run("src/handled.ts");
+        assert.equal(handled.status, 0, handled.stderr);
+        assert.deepEqual(handled.stdout.trim().split(/\r?\n/), ["handled: boom", "still alive"]);
+      } catch (error) { failures.push(error); }
+      try { assert.equal(run("src/exit.ts").status, 7); } catch (error) { failures.push(error); }
+      try {
+        const thrown = run("src/throws.ts");
+        assert.equal(thrown.status, 1, thrown.stdout);
+        assert.match(thrown.stderr, /unhandled/);
+      } catch (error) { failures.push(error); }
+      try {
+        const rejected = run("src/rejects.mts");
+        assert.equal(rejected.status, 1, rejected.stdout);
+        assert.match(rejected.stderr, /rejected/);
+      } catch (error) { failures.push(error); }
+      if (failures.length) throw new AggregateError(failures, "native main-module entry failures");
+    },
+  });
+  profiles.push({
+    name: "public-runtime-preserved-jsx-dependency-and-orphan",
+    files: {
+      ...JSX_RUNTIME_PACKAGE,
+      "package.json": JSON.stringify({ name: "jsx-lanes", private: true }),
+      "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, outDir: "lib", types: [] }, include: ["src"] }),
+      "src/main.ts": ['declare const require: (id: string) => { view: string };', 'declare const process: { exitCode: number };', 'try { console.log(require("../dep/view.tsx").view); } catch (error) { console.log("DEPENDENCY_FAILED:" + String(error)); process.exitCode = 1; }', 'try { console.log(require("orphan-view").view); } catch (error) { console.log("ORPHAN_FAILED:" + String(error)); process.exitCode = 1; }', 'export {};', ""].join("\n"),
+      "dep/tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "preserve", jsxImportSource: "myjsx", types: [] }, include: ["view.tsx"] }),
+      "dep/view.tsx": JSX_COMPONENT_SOURCE,
+      "node_modules/orphan-view/package.json": JSON.stringify({ name: "orphan-view", version: "1.0.0", main: "view.tsx" }),
+      "node_modules/orphan-view/view.tsx": ['/** @jsxImportSource myjsx */', 'export const view: string = <i>orphan</i>;', ""].join("\n"),
+    },
+    run: (root, _persistent, spawn) => {
+      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["<div>hello</div><b>world</b>", "<i>orphan</i>"]);
     },
   });
   return profiles;
