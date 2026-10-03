@@ -19,9 +19,9 @@ import (
 // 2. Parse them through the loader's option, filename and clean-rule readers.
 // 3. Assert each contract violation is reported with the fixture's name.
 // 4. Assert the well-formed neighbors apply: options upgrade the severity to a
-//    tuple, and a clean rule is enabled at error severity.
+//    tuple with its authored payload, and a clean directive returns its rule name.
 //
-// @evidence contracts/testing.md#behavioral-verification corpusApplyOptions, corpusResolveSourcePath and corpusParseClean are called on authored sources; malformed and duplicate forms must return an error naming the fixture, and the valid options and clean forms must return the [severity, options] tuple and the clean rule they declare. corpusResolveSourcePath is exercised only on its rejection paths.
+// @evidence contracts/testing.md#behavioral-verification corpusApplyOptions, corpusResolveSourcePath and corpusParseClean are called on authored sources; malformed and duplicate forms must return an error naming the fixture, and the valid options and clean forms must return the [severity, options] tuple with enabled:true and the clean rule name they declare. corpusResolveSourcePath is exercised only on its rejection paths.
 // @evidence contracts/testing.md#independent-expectations The directive grammar (`@ttsc-corpus-options: <rule> <json>`, `@ttsc-corpus-filename: <path>`, `@ttsc-corpus-clean: <rule>`, each at most once per target) is the specification; expected messages and the [severity, options] tuple are literals written from it.
 // @evidence contracts/testing.md#distinguishing-cases A missing colon beside a valid directive, a repeated options rule, a repeated filename, an options payload with invalid JSON, an options rule without any annotation, and an empty filename each isolate one rejection; the valid forms are the accepted controls.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusDirectivesRejectMalformedOrDuplicateMarkers is a discoverable Go unit entry that calls the loader's pure parsing functions on in-memory strings; no files, compiler or host are involved.
@@ -78,6 +78,10 @@ func TestLintCorpusDirectivesRejectMalformedOrDuplicateMarkers(t *testing.T) {
   tuple, ok := accepted["rule/name"].([]any)
   if !ok || len(tuple) != 2 || tuple[0] != "error" {
     t.Fatalf("options must upgrade the severity to a [severity, options] tuple, got %#v", accepted["rule/name"])
+  }
+  payload, ok := tuple[1].(map[string]any)
+  if !ok || len(payload) != 1 || payload["enabled"] != true {
+    t.Fatalf("options must retain the authored enabled payload, got %#v", tuple[1])
   }
   if clean, err := corpusParseClean("clean.ts", "// @ttsc-corpus-clean: a/b\nexport {};\n"); err != nil || clean != "a/b" {
     t.Fatalf("clean directive: %q %v", clean, err)
