@@ -31,10 +31,10 @@ type ResidentSample = {
  * @evidence contracts/testing.md#behavioral-verification Real watch produces two initial request samples through one PID, then two incremental samples with the exact load/update/reuse counters and no invalid-request framing.
  * @evidence contracts/testing.md#independent-expectations Two identical configured entries independently require two execution observations while binary/name/argv identity permits one process; literal sample counters distinguish lost or duplicated requests.
  * @evidence contracts/testing.md#distinguishing-cases Owns duplicate descriptor executions at startup and after one source edit, including distinct request buffering through a shared resident; it does not assert the diagnostic bodies beyond framing and counters.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export owns one actual native WatchSession with two configured entries in the Linux batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export owns one actual native WatchSession with two configured entries in the corpus-misc population; this body has no platform admission filter.
  * @evidence contracts/e2e.md#necessary-boundary Per-entry change delivery must survive process pooling and actual request framing; directly checking a deduplication key cannot prove both native requests are sent and parsed.
- * @evidence contracts/e2e.md#shared-execution The two entries share one unchanged lint binary, watcher and resident PID, with batch plugin/Go caches; no per-entry native producer is built.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The duplicate config and mutable source are local to this fixture, process identity is observed from telemetry rather than invented, and finally closes the watcher; exact sample cardinality remains strict.
+ * @evidence contracts/e2e.md#shared-execution Two configured entries use one watcher and assert equal resident telemetry PIDs. Shared cache locations are available, but no cache hit, binary-byte identity or total child/Program construction count is inferred. programLoads records successful cold/full loads and programUpdates known-source data reuse; reused does not imply the same compiler Program object.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The duplicate config and mutable source are local to this fixture, reported PID equality is observed from telemetry, not executable-image identity. The owned WatchSession close is awaited and body/close failures are retained separately; exact sample cardinality remains strict and arbitrary descendant termination is not certified.
  * @evidence contracts/e2e.md#preserved-coverage All original initial and updated sample cardinalities, complete counter tables and negative invalid-request assertions remain. Warning-rule semantics are owned by Go units rather than falsely certified by telemetry alone.
  */
 export async function test_plugin_corpus_check_watch_preserves_duplicate_resident_entries(): Promise<void> {
@@ -68,11 +68,13 @@ export async function test_plugin_corpus_check_watch_preserves_duplicate_residen
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     },
   });
+  const failures: unknown[] = [];
   try {
     await session.waitForBuilds(1, 300_000);
     let transcript = session.transcript();
     let samples = residentSamples(transcript);
     assert.equal(samples.length, 2, transcript);
+    assert.ok(Number.isSafeInteger(samples[0]!.pid) && samples[0]!.pid > 0 && samples[0]!.pid !== process.pid, transcript);
     assert.deepEqual(
       samples[0],
       {
@@ -125,9 +127,18 @@ export async function test_plugin_corpus_check_watch_preserves_duplicate_residen
       transcript,
     );
     assert.doesNotMatch(transcript, /invalid request/i);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session.close();
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Resident check watch and shutdown failed");
 }
 
 function residentSamples(transcript: string): ResidentSample[] {

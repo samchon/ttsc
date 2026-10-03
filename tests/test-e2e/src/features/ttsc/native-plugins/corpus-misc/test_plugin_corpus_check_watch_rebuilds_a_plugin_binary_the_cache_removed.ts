@@ -35,10 +35,10 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification Real watch restores the missing binary pathname and processes the edited source after the running binary is moved aside.
  * @evidence contracts/testing.md#independent-expectations The controlled rename makes the selected executable path absent, and filesystem existence plus the literal changed source line independently establish restoration and continued checking.
  * @evidence contracts/testing.md#distinguishing-cases Owns a binary disappearing after initial resolution, contrasting metadata refresh with an existing binary and ordinary compatible resident reuse.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export runs the real watcher and source-plugin resolver/cache in the Linux native batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export runs the real watcher and source-plugin resolver/cache in the corpus-misc population; this body has no platform admission filter.
  * @evidence contracts/e2e.md#necessary-boundary The persistent watch execution must detect a gone executable and return through native resolution before the next cycle can spawn it; direct cache-admission units cannot prove that reload connection.
- * @evidence contracts/e2e.md#shared-execution One isolated plugin cache and watcher preserve the missing-path transition; the restoration build shares unchanged compiler objects while the actual missing binary must be republished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The rename touches only this private cache, consumer edits are isolated and finally closes the watcher; actual native rename is used without asserting that Linux execution proves Windows open-executable rename behavior.
+ * @evidence contracts/e2e.md#shared-execution One isolated plugin cache and watcher preserve the missing-path transition with the suite Go-cache location available. Restored pathname availability is asserted; compiler-object reuse, build counts and loaded-image equality are not measured.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The rename touches only this private cache, which is an owned input root retained on uncertain WatchSession close. Body/close failures are retained separately. Actual native rename must succeed on the executing host, without certifying other platforms or arbitrary descendant termination.
  * @evidence contracts/e2e.md#preserved-coverage Original restored-path existence and edited-source checks remain with their bounded waits. They establish availability and continued checking, not a build-count or binary-content oracle absent from the original case.
  */
 export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed(): Promise<void> {
@@ -59,8 +59,10 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
   };
   const session = new WatchSession(root, {
     args: ["--noEmit", "--diagnostics"],
+    ownedInputRoots: [cacheDir],
     env,
   });
+  const failures: unknown[] = [];
   try {
     await session.waitForBuilds(1, 300_000);
     await session.waitForSettled();
@@ -72,6 +74,7 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
       tsconfig: path.join(root, "tsconfig.json"),
     }).nativePlugins.find((plugin) => plugin.name === "@ttsc/lint")!.binary;
     fs.renameSync(binary, `${binary}.removed`);
+    assert.equal(fs.existsSync(binary), false, "the selected binary path is absent after rename");
 
     // A cycle queued before the move may still run on the old binary; the
     // edit's own cycle is the one that must find it gone.
@@ -84,9 +87,18 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
       () => session.transcript().includes("var legacy = 2"),
       `the session checks the edit:\n${session.transcript()}`,
     );
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session.close();
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Resident check watch and shutdown failed");
 }
 
 async function waitFor(
