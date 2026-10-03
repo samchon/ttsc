@@ -19,7 +19,7 @@ import { pairE2eInvocationOutcomes } from "./internal/pairE2eInvocationOutcomes"
  * cacheRoots and independently selected boundary requirements. Optional named
  * coldArtifacts requirements must follow the actual selected CLI population; they
  * bind build-owner rows to observed writer PIDs, not certified process ancestry.
- * A cold output is observed after its actual build, never prewarmed. Producer/tool
+ * A cold output is observed after its actual build, never prewarmed. Native writer admission may use an explicit observed event/domain discriminator and producer-asset requirement; it retains every matched actual writer PID and does not certify ancestry or expected child totals. Producer/tool
  * paths are supplied by the prepared manifest, never resolved by a version probe.
  *
  * The final report is observed-only. This process close joins the runner's own
@@ -46,7 +46,7 @@ export async function measureLegacyE2e(): Promise<void> {
     assets: TracePhaseInput["assets"];
     cacheRoots: string[];
     afterSequences?: Record<string, number>;
-    boundaries: (Omit<TraceBoundaryRequirement, "writerPid"> & { writerPid: number | "coordinator" | "runner" })[];
+    boundaries: (Omit<TraceBoundaryRequirement, "writerPid"> & { writerPid: number | "coordinator" | "runner" | "observed" })[];
     coldArtifacts?: (Omit<Parameters<typeof pairE2eColdCommandArtifact>[1], "writerPid"> & { boundary: string })[];
     commandFiles?: (Omit<Parameters<typeof pairE2eCommandFileObservation>[1], "writerPid"> & { boundary: string })[];
     baselineReport?: string;
@@ -54,6 +54,16 @@ export async function measureLegacyE2e(): Promise<void> {
   };
   if (!Array.isArray(input.assets) || !Array.isArray(input.cacheRoots) || !Array.isArray(input.boundaries) || input.boundaries.length === 0)
     throw new Error("Measurement input requires explicit asset/cache/boundary arrays");
+  for (const boundary of input.boundaries) {
+    if (boundary.writerPid !== "observed") continue;
+    if (!boundary.data || typeof boundary.data !== "object" ||
+      Array.isArray(boundary.data) || Object.keys(boundary.data).length === 0 ||
+      !Array.isArray(boundary.producerAssets) || boundary.producerAssets.length === 0)
+      throw new Error("Observed writer admission requires explicit domain/primitive and producer-asset requirements");
+    for (const value of Object.values(boundary.data))
+      if (value !== null && !["string", "number", "boolean"].includes(typeof value))
+        throw new Error("Observed writer discriminator must contain scalar values");
+  }
   if (consolidated) {
     if (!input.baselineReport || !path.isAbsolute(input.baselineReport) ||
       !input.producerLabels || typeof input.producerLabels !== "object")
@@ -174,11 +184,31 @@ export async function measureLegacyE2e(): Promise<void> {
       });
     });
   });
-  const pairing = pairE2eTraceWriterManifest(phase, input.boundaries.map(boundary => ({
-    ...boundary,
-    writerPid: boundary.writerPid === "coordinator" ? process.pid :
-      boundary.writerPid === "runner" ? runnerPid ?? 0 : boundary.writerPid,
-  })));
+  const observedRequirements: TraceBoundaryRequirement[] = [];
+  for (const boundary of input.boundaries) {
+    if (boundary.writerPid !== "observed") {
+      observedRequirements.push({
+        ...boundary,
+        writerPid: boundary.writerPid === "coordinator" ? process.pid :
+          boundary.writerPid === "runner" ? runnerPid ?? 0 : boundary.writerPid,
+      });
+      continue;
+    }
+    const actualWriterPids = new Set<number>();
+    for (const row of phase.traces?.writerObservations ?? []) {
+      if (row.observation.event !== boundary.event) continue;
+      let matches = true;
+      for (const [key, value] of Object.entries(boundary.data!))
+        if (row.observation.data?.[key] !== value) matches = false;
+      if (matches) actualWriterPids.add(row.observation.writerPid);
+    }
+    if (actualWriterPids.size === 0)
+      observedRequirements.push({ ...boundary, writerPid: 0 });
+    else
+      for (const writerPid of actualWriterPids)
+        observedRequirements.push({ ...boundary, writerPid });
+  }
+  const pairing = pairE2eTraceWriterManifest(phase, observedRequirements);
   const coldArtifacts = (input.coldArtifacts ?? []).map(requirement => {
     const actualWriterPids = new Set((phase.traces?.writerObservations ?? [])
       .filter(row => row.observation.event === "native-artifact" &&
