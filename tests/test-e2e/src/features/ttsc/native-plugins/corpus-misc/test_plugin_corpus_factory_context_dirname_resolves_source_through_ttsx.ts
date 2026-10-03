@@ -32,10 +32,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Real native uppercase or prefix output and exact context-file assertions prove the selected descriptor receives its own file and directory identities.
  * @evidence contracts/testing.md#independent-expectations Expected output literals and the independently resolved descriptor filename establish behavior independently of factory serialization.
  * @evidence contracts/testing.md#distinguishing-cases Owns ESM TypeScript barrel via the actual ttsx evaluator; the other evaluator mode remains its separate necessary transport connection.
- * @evidence contracts/testing.md#execution-ownership The matching named native export executes one descriptor consumer through the actual CLI in the shared Linux boundary population.
+ * @evidence contracts/testing.md#execution-ownership The matching named native export executes one descriptor consumer through the actual CLI in the generic corpus-misc population; this body has no platform admission filter.
  * @evidence contracts/e2e.md#necessary-boundary The actual descriptor evaluator must supply context identities that the factory uses to locate and invoke its native source; pure descriptor guards cannot exercise this connection.
- * @evidence contracts/e2e.md#shared-execution The consumer-relative Go source is a filesystem link to the immutable canonical transformer, so production realpath normalization shares the native binary rather than compiling copied modules.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Descriptor and observation file remain temporary consumer state; only immutable Go source is linked, and source/toolchain/contributor keys govern reuse. No cold build or mutation is asserted.
+ * @evidence contracts/e2e.md#shared-execution The consumer-relative Go source is a filesystem link to the immutable canonical transformer, preserving common physical producer inputs rather than copied Go modules. This does not observe a cache hit, count builds or prove binary-image equivalence.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Descriptor and observation file remain temporary consumer state; only immutable Go source is linked, and source/toolchain/contributor keys govern reuse. No cold build, cache hit or mutation is asserted. Actual directory link/junction creation must succeed on the executing host; direct synchronous result and TestProject cleanup do not certify arbitrary descendants.
  * @evidence contracts/e2e.md#preserved-coverage All original CLI success, transformed output and exact context/ambient/physical filename assertions remain; the factory still derives its source from context.dirname.
  */
 export function test_plugin_corpus_factory_context_dirname_resolves_source_through_ttsx(): void {
@@ -130,6 +130,8 @@ export default (context: {
         TTSC_FACTORY_PROBE: probe,
       },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr || result.stdout);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(
       fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),

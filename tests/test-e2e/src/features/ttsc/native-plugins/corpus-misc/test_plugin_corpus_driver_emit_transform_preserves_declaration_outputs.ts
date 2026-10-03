@@ -29,17 +29,20 @@ import {
  *    transformed, and the declaration map points back at `src/main.ts`.
  *
  * @evidence contracts/testing.md#behavioral-verification Exercises a cold driver-backed native host compiling and executing its transformed output; requires a real source-build log; JS, JS map, declaration and declaration map; native output manifest; generated member access; executed value; and declaration/map contents, distinguishing discarded emit diagnostics or incomplete native publication from valid transformed output.
- * @evidence contracts/testing.md#independent-expectations Compiler declaration semantics and the fixture's literal transform establish required TS4094 failure or generated output; executable and declaration/map expectations are written independently of the launcher result.
+ * @evidence contracts/testing.md#independent-expectations The authored Payload/payload API, member transform and GO DRIVER EMIT PLUGIN runtime literal independently establish successful output expectations. TS4094 refusal is the separate failing owner, not exercised here; map version/source/nonempty mappings are a limited source-map oracle.
  * @evidence contracts/testing.md#distinguishing-cases This case pins a standalone-factory transform must preserve executable meaning and every declaration/source-map output lane; the strict-host single-file case separately covers private emit provenance consumption.
  * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_driver_emit_transform_preserves_declaration_outputs entry executes in the native corpus E2E batch against the actual source-built Go host, preserving the original fixture/assertion ownership.
  * @evidence contracts/e2e.md#necessary-boundary The native fixture calls driver.EmitWithPluginTransformers and publishes through a real filesystem writer; only the real source-plugin loader/host connection can reveal failed assembly or discarded native diagnostics.
- * @evidence contracts/e2e.md#shared-execution This is the one cold-build assembly case for the driver-emit fixture, with an isolated plugin-artifact cache and shared Go-object cache. Other driver consumers reuse the canonical producer; the independent cold lifetime verifies that building the published Go-source integration remains viable.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each consumer has separate mutable compiler configuration and output state, while unchanged source/toolchain identity permits object reuse. Cold binary state stays isolated where asserted; TestProject owns temporary directories until process exit and each synchronous child finishes before output is inspected.
- * @evidence contracts/e2e.md#preserved-coverage Retains a real source-build log; JS, JS map, declaration and declaration map; native output manifest; generated member access; executed value; and declaration/map contents; the fixture additionally records actual successful final writes through the compiler-owned emit provenance recorder rather than deriving owners from output filenames.
+ * @evidence contracts/e2e.md#shared-execution This is the one cold-build assembly case for the driver-emit fixture, with an explicitly empty isolated plugin-artifact cache and shared Go-cache location. The source-build log is required, but object-cache hits, internal build counts, compiler Program totals and minimality across independent cases are not measured. Other driver consumers reuse the canonical producer; the independent cold lifetime verifies that building the published Go-source integration remains viable.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each consumer has separate mutable compiler configuration and output state, with private cache emptiness and fresh output/manifest absence asserted before launch. Each compiler/runtime synchronous result must be error-free and nonsignal before success. TestProject owns exit cleanup; arbitrary descendants and loaded-image identity remain unverified.
+ * @evidence contracts/e2e.md#preserved-coverage Retains a real source-build log; JS, JS map, declaration and declaration map; native output manifest; generated member access; executed value; and declaration/map contents; the native manifest assertion here requires a declaration output member, not the complete emit-provenance ownership table. The fixture supports compiler-owned recording, whose private protocol consumption is a separate boundary obligation.
  */
 export function test_plugin_corpus_driver_emit_transform_preserves_declaration_outputs() {
     const root = copyProject("go-driver-emit-plugin");
     const cacheDir = TestProject.tmpdir("ttsc-driver-emit-plugin-cache-");
+    assert.deepEqual(fs.readdirSync(cacheDir), []);
+    assert.equal(fs.existsSync(path.join(root, "dist")), false);
+    assert.equal(fs.existsSync(path.join(root, "manifest.json")), false);
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: {
@@ -48,6 +51,8 @@ export function test_plugin_corpus_driver_emit_transform_preserves_declaration_o
         TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
       },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr || result.stdout);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(
       result.stderr,
@@ -80,6 +85,8 @@ export function test_plugin_corpus_driver_emit_transform_preserves_declaration_o
         cwd: root,
       },
     );
+    assert.ifError(executed.error);
+    assert.equal(executed.signal, null, executed.stderr);
     assert.equal(executed.status, 0, executed.stderr);
     assert.equal(executed.stdout.trim(), "GO DRIVER EMIT PLUGIN");
 
