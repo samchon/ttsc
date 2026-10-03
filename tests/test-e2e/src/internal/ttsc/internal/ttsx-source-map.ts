@@ -108,15 +108,17 @@ export interface CoverageRun {
 /**
  * Run `ttsx <entry>` under `NODE_V8_COVERAGE` and return the run result plus a
  * reader over the coverage JSON. The coverage directory is a fresh tracked temp
- * dir, so parallel cases never share one another's recordings.
+ * dir by default; the shared assembler may supply its own fresh recorder path
+ * and receipt-gated actual spawn. Parallel cases never share recordings.
  */
 export function runTtsxWithCoverage(
   root: string,
   entry: string,
   env: Record<string, string> = {},
+  spawn: typeof TestProject.spawn = TestProject.spawn,
+  coverageDir: string = TestProject.tmpdir("ttsx-v8-coverage-"),
 ): CoverageRun {
-  const coverageDir = TestProject.tmpdir("ttsx-v8-coverage-");
-  const result = TestProject.spawn(
+  const result = spawn(
     TestProject.TTSX_BIN,
     ["--cwd", root, entry],
     { cwd: root, env: { ...env, NODE_V8_COVERAGE: coverageDir } },
