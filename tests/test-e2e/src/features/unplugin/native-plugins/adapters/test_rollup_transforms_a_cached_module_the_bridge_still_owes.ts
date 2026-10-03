@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
+import type { IRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/IRealNativeEnvelopeFixture";
 
 /**
  * Verifies the Rollup adapter refuses Rollup's cache for every module while the
@@ -42,11 +43,11 @@ import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/i
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_transforms_a_cached_module_the_bridge_still_owes is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Rollup cached-module hook links real native observer/record movement to captured cached metadata.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. The finally block releases modeled lifecycle owner; tracked roots end at process exit. Captured host does not establish live-host cancellation cleanup.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution creates a private envelope fixture. Supplied shared inputs retain the same modules and declaration; the parent restores the captured declaration only after this finally block awaits closeWatcher. Tracked roots end at process exit. Captured host does not establish live-host cancellation or descendant cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: cached-hook answer changes null to true after declaration edit for both modules, remains true for stale same-pass delivery and recovery passes, then returns null once acknowledged. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_transforms_a_cached_module_the_bridge_still_owes(): Promise<void> {
-  const fixture = createRealNativeEnvelopeFixture();
+export async function test_rollup_transforms_a_cached_module_the_bridge_still_owes(prepared?: IRealNativeEnvelopeFixture): Promise<void> {
+  const fixture = prepared ?? createRealNativeEnvelopeFixture();
   const root = fs.realpathSync.native(fixture.root);
   const at = (file: string) =>
     path.join(root, path.relative(fixture.root, file));

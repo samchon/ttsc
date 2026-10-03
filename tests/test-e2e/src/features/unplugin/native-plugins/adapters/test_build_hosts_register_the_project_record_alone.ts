@@ -8,6 +8,7 @@ import { projectRecordFile } from "../../../../../../../packages/unplugin/lib/co
 import { readProjectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
+import type { IRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/IRealNativeEnvelopeFixture";
 
 /**
  * Verifies every build host is handed the project's record as a module's one
@@ -44,11 +45,11 @@ import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/i
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_build_hosts_register_the_project_record_alone is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real native envelope and record observer connect to captured host channels, not four live bundlers.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. The finally block releases modeled lifecycle owner; tracked roots end at process exit. Captured host does not establish live-host cancellation cleanup.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution creates a private envelope fixture. A supplied shared root follows prior closeWatcher and exact original declaration restoration, before these candidate/root/unrelated-write mutation profiles. The finally block releases the captured Rollup owner; tracked roots end at process exit. Captured hosts do not establish live-host cancellation or descendant cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: webpack/Rspack file channels and Rolldown/Rollup watch channels receive only record; declaration and candidate/membership changes move it, unrelated package write does not, redelivery stops movement and close keeps record. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_build_hosts_register_the_project_record_alone(): Promise<void> {
-  const fixture = createRealNativeEnvelopeFixture();
+export async function test_build_hosts_register_the_project_record_alone(prepared?: IRealNativeEnvelopeFixture): Promise<void> {
+  const fixture = prepared ?? createRealNativeEnvelopeFixture();
   const root = fs.realpathSync.native(fixture.root);
   const at = (file: string) =>
     path.join(root, path.relative(fixture.root, file));

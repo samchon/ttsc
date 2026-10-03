@@ -16,6 +16,9 @@ import { test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge } from 
 import { test_webpack_filesystem_cache_control_serves_stale_without_a_graph } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_control_serves_stale_without_a_graph";
 import { test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge } from "./unplugin/native-plugins/adapters/test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge";
 import { test_rollup_disposes_at_the_right_boundary } from "./unplugin/native-plugins/adapters/test_rollup_disposes_at_the_right_boundary";
+import { test_rollup_transforms_a_cached_module_the_bridge_still_owes } from "./unplugin/native-plugins/adapters/test_rollup_transforms_a_cached_module_the_bridge_still_owes";
+import { test_build_hosts_register_the_project_record_alone } from "./unplugin/native-plugins/adapters/test_build_hosts_register_the_project_record_alone";
+import { createRealNativeEnvelopeFixture } from "../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_bun_register_preload_only_registers_a_single_default_plugin } from "./unplugin/native-plugins/adapters/test_bun_register_preload_only_registers_a_single_default_plugin";
@@ -65,6 +68,10 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * After both Turbopack workers close, their original two-module root serves
  * captured Rollup teardown; its interval counts remain 1/1/2/3 and finally
  * awaits closeWatcher before any owner can complete.
+ * A separate real-envelope root serves captured Rollup bridge debt, followed
+ * only after its awaited closeWatcher by exact declaration restoration and
+ * the original build-host record channels. Native observer and record literals
+ * remain independent of the captured host metadata; mutation profiles end last.
  * After that bundle closes, esbuild adds its original run-counter configuration.
  * Its completed lifecycle permits the real watcherless startup server, whose actual close gates exact main/config byte restoration and lazy-input removal, then the original raw/url/plain Vite wrapper build; its actual return and entry removal precede the original out-of-program delivery and
  * default-options, plain/reporting project records, explicit prefix,
@@ -466,6 +473,17 @@ export async function test_e2e_unplugin(): Promise<void> {
     failures.push(new Error("watcherless Vite first and repeated deliveries", { cause }));
   }
   let watcherlessCandidateReturned = false;
+  try {
+    const recordFixture = createRealNativeEnvelopeFixture();
+    TestProject.retainTemporaryDirectory(recordFixture.root, "Shared real-envelope bridge debt and record channel inputs retained");
+    const originalDeclaration = fs.readFileSync(recordFixture.declaration);
+    await Scenarios.invoke("shared-unplugin", "test_rollup_transforms_a_cached_module_the_bridge_still_owes", test_rollup_transforms_a_cached_module_the_bridge_still_owes, recordFixture);
+    fs.writeFileSync(recordFixture.declaration, originalDeclaration);
+    assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
+    await Scenarios.invoke("shared-unplugin", "test_build_hosts_register_the_project_record_alone", test_build_hosts_register_the_project_record_alone, recordFixture);
+  } catch (cause) {
+    failures.push(new Error("real-envelope Rollup bridge debt and host record channels", { cause }));
+  }
   try {
     await Scenarios.invoke("shared-unplugin", "webpack-watch-timestamp-and-type-edge", test_webpack_watch_reuses_the_generation_across_rebuilds, true, async (prepared: { root: string; runLog: string; originalType: Buffer }) => {
       const typeOnly = path.join(prepared.root, "src", "mytype.ts");
