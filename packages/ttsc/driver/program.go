@@ -777,15 +777,19 @@ func ApplySourcePreamble(text string, preamble string) string {
 // Imported implementation files from source-distributed dependencies can be
 // present; consumers that need project-owned files must apply their own root
 // predicate.
+// First use can dispatch linked program hooks; this accessor ignores their
+// latched error and returns the currently resident AST references, so obtaining
+// a list does not certify successful transformation. A nil or unloaded Program
+// yields an empty slice, and the returned slice does not clone the ASTs.
 //
 // @evidence contracts/common.md#principled-implementation Resident dependency sources remain distinct from project-owned files.
 // @evidence contracts/common.md#clear-and-simple-design One hook owner runs before one declaration-file filter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler files replace guessed directory exclusions or fabricated entries.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains declaration filtering and caller ownership following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Resident AST enumeration performs no native operation.
-// @evidence contracts/performance.md#efficient-algorithms One pass collects non-declaration sources.
-// @evidence contracts/performance.md#reuse-equivalent-work The generation-wide hook latch prevents repeated transformation during enumeration.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result borrows program ASTs without another cache or resource.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This accessor filters resident AST flags without interpreting native paths or platform capabilities; any effects of initial plugin dispatch belong to the hooks rather than to an encoded filesystem policy in this filter.
+// @evidence contracts/performance.md#efficient-algorithms After any initial delegated hook work, one resident-file pass filters declarations into a new reference slice, with storage proportional to returned files. AST nodes are not traversed or cloned, and hook callback work remains part of first-use cost rather than constant enumeration overhead.
+// @evidence contracts/performance.md#reuse-equivalent-work The Program's serial hook latch prevents repeated dispatch; resident filtering and reference-slice allocation repeat on each call rather than sharing a cached list or claiming equivalence across generations.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The new slice transfers to its caller and retains borrowed mutable AST references while reachable. It owns no historical result cache or native handle; discarding the Program reference does not release trees still held by the caller, and this accessor supplies no file/AST-byte cap or explicit disposal operation.
 func (p *Program) SourceFiles() []*ast.SourceFile {
   // Discarded on purpose; see SourceFile. `Diagnostics` carries the failure.
   _ = p.ApplyLinkedPlugins()
@@ -808,20 +812,24 @@ func (p *Program) sourceFilesRaw() []*ast.SourceFile {
   return out
 }
 
-// ApplyLinkedPlugins runs registered linked ProgramPlugin hooks exactly once.
-// A hook failure is latched and returned on every subsequent call: SourceFiles
+// ApplyLinkedPlugins attempts registered linked ProgramPlugin hooks in order,
+// stopping at the first missing registration or hook error. Serial calls do
+// not repeat dispatch: the applied bit is set before hooks run. Reentrant calls
+// return the current stored error, which can still be nil during dispatch;
+// this bit/error pair supplies no concurrent-call synchronization.
+// A returned hook failure is latched for later calls: SourceFiles
 // swallows the error by contract, so without the latch a lookup that happened
 // to run first would consume the only report and let a later emit proceed over
 // the half-applied program as if nothing failed.
 //
-// @evidence contracts/common.md#principled-implementation Success and failure are generation-wide outcomes shared by all later consumers.
+// @evidence contracts/common.md#principled-implementation Completed dispatch success or failure is latched for later serial consumers of that Program; setting applied before callbacks prevents reentrant redispatch without pretending reentry waits for the final outcome.
 // @evidence contracts/common.md#clear-and-simple-design One applied bit and stored error define the once-only transition.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is neither retried through compensating mutations nor converted to later success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains latching and lookup/emit consequences following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Hook scheduling performs no native path operation.
-// @evidence contracts/performance.md#efficient-algorithms Subsequent calls return the stored result in constant time.
+// @evidence contracts/performance.md#efficient-algorithms Nil/already-applied calls return the stored outcome without entry traversal. First dispatch scans linked entries until failure, performs registry/interface checks and creates per-hook input/declaration contexts; callbacks can do arbitrary work. Context metadata/report bytes and plugin effects have no processing ceiling supplied by this scheduler.
 // @evidence contracts/performance.md#reuse-equivalent-work Setting the bit before dispatch prevents reentrant or later repeated mutation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The stored outcome expires with its Program generation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Applied/error state remains on the caller-owned Program; per-hook input scopes/declarations created by dispatch join that generation's ledger and can grow with reported inputs. Separately retained returned errors or plugin-held context callbacks can outlive the Program reference. This scheduler imposes no report-byte/population cap or automatic caller-lifetime reclamation policy.
 func (p *Program) ApplyLinkedPlugins() error {
   if p == nil {
     return nil
@@ -843,7 +851,7 @@ func (p *Program) ApplyLinkedPlugins() error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual interfaces replace package-name or test-case classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the fresh-generation requirement following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Registry inspection performs no native boundary operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Registry classification owns iteration; this function forwards the result.
+// @evidence contracts/performance.md#efficient-algorithms A nil Program short-circuits. Otherwise delegated classification scans linked entries with bounds/registration/interface checks until the first ProgramPlugin match; delegation does not remove the O(entry-count) worst-case scan. It allocates no output collection or AST traversal.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate owns no shared-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or resource is created.
 func (p *Program) HasLinkedProgramPlugins() bool {
