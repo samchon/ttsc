@@ -397,10 +397,10 @@ type PluginSource interface {
 // LSPCompletionHint is one group of completion items a plugin offers, together
 // with the declarative rule saying where they apply.
 //
-// The rule has to be data rather than a callback because the plugin that
-// produced it is a subprocess that has already exited. Asking it per keystroke
-// would mean a process spawn and a Program reload per character; the corpus
-// therefore travels once and the proxy answers from memory.
+// The rule travels as data across the plugin protocol. Completion requests
+// match a retained corpus without another producer query; explicit refreshes
+// may replace it. Acquisition can use a resident or direct transport, so this
+// shape does not imply that the producer exited or loaded a Program per request.
 //
 // @evidence contracts/common.md#principled-implementation Scope and a literal trigger select an ordered corpus without executing callbacks in the editor path.
 // @evidence contracts/common.md#clear-and-simple-design Declarative matching inputs and items form one transportable group.
@@ -411,16 +411,16 @@ type PluginSource interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCompletionHint struct {
-  // Scope names the syntactic region the cursor must sit in.
+  // Scope names the syntactic region the cursor must sit in. This host admits
+  // only "jsdoc"; an unknown scope produces no matching items.
   Scope string `json:"scope"`
 
   // After is a literal the line prefix must contain. The text following its
   // LAST occurrence is what the editor filters on and what Insert replaces.
   //
-  // Deliberately a literal and not a pattern. A regex would be unvalidatable at
-  // discovery time and a pathological one run per keystroke could hang the
-  // editor. When several hints match one line, the occurrence nearest the
-  // cursor wins; at that occurrence the longest After wins, and only the same
+  // Matching is literal, without a regex dialect or callback. When several
+  // hints match one line, the occurrence nearest the cursor wins; at that
+  // occurrence the longest After wins, and only the same
   // trigger merges. That is enough to layer a corpus without hiding a later
   // trigger behind an earlier one.
   After string `json:"after"`
@@ -431,9 +431,9 @@ type LSPCompletionHint struct {
 
 // LSPCompletionItem is one plugin-contributed completion.
 //
-// Fully resolved on arrival: the producer is never asked again, because it
-// answers once with its whole corpus. The proxy answers an editor's
-// completionItem/resolve for such an item itself, by echoing it back.
+// Its supported fields are resolved on arrival. The proxy echoes a marked
+// plugin item's completionItem/resolve payload locally rather than querying
+// the producer. A later corpus refresh can still acquire replacement items.
 //
 // @evidence contracts/common.md#principled-implementation Required Insert and optional display fields retain completion insertion and presentation distinctions.
 // @evidence contracts/common.md#clear-and-simple-design Fully resolved data avoids a second producer request.
@@ -444,8 +444,14 @@ type LSPCompletionHint struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCompletionItem struct {
+  // Insert supplies plain insertion and filter text; the proxy uses it as the
+  // label too when Label is empty.
   Insert string `json:"insert"`
-  Label  string `json:"label,omitempty"`
+
+  // Label optionally replaces Insert as the editor-visible label.
+  Label string `json:"label,omitempty"`
+
+  // Detail is optional display context included only when nonempty.
   Detail string `json:"detail,omitempty"`
 }
 
