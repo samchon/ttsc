@@ -14,6 +14,7 @@ const registered = {
   metro: "test_e2e_metro_host.ts",
   graph: "test_e2e_graph.ts",
   installation: "test_e2e_installation.ts",
+  unplugin: "test_e2e_unplugin.ts",
 } as const;
 const argument = process.argv.find((value) => value.startsWith("--family="));
 const selected = argument

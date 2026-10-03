@@ -43,6 +43,9 @@ const locations = [
             : location;
         })
       : (selectedPackages ?? packages).map((name) => {
+          // The new shared host is admitted only by consolidatedE2eIndex;
+          // the instrumented legacy baseline keeps its original donor tree.
+          if (name === "unplugin") return path.join(features, name);
           const owner = ["banner", "paths", "strip"].includes(name)
             ? "utilities"
             : name;

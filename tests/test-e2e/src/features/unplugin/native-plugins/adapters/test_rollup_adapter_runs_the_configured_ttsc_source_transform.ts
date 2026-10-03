@@ -22,10 +22,13 @@ const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Bundles close in finally; mutable sources and retained caches belong to this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real Rollup bundle generates ESM chunks carrying PLUGIN before bundle close. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
+export async function test_rollup_adapter_runs_the_configured_ttsc_source_transform(
+  preparedRoot?: string,
+  observeClosed?: () => void,
+): Promise<void> {
   const unpluginRollup =
     await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
-  const root = TestUnpluginProject.createProject();
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const bundle = await rollup({
     input: TestUnpluginProject.mainFile(root),
     plugins: [unpluginRollup()],
@@ -37,5 +40,6 @@ export async function test_rollup_adapter_runs_the_configured_ttsc_source_transf
     );
   } finally {
     await bundle.close();
+    observeClosed?.();
   }
 }

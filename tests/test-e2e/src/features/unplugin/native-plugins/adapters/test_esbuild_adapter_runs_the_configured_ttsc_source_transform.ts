@@ -31,10 +31,10 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Contexts dispose in finally; held replacement builds are released and awaited on failure. Public onDispose witnesses bound reuse validity. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real context builds return PLUGIN at count one despite failed setup/other disposal; last-context disposal forces count two, overlapping one-shots share two, final disposal forces three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_esbuild_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
+export async function test_esbuild_adapter_runs_the_configured_ttsc_source_transform(preparedRoot?: string): Promise<void> {
   const unpluginEsbuild =
     await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");
-  const root = TestUnpluginProject.createProject();
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const runLog = path.join(root, "dist", "compiles.bin");
   fs.mkdirSync(path.dirname(runLog), { recursive: true });
   const tsconfig = path.join(root, "tsconfig.json");
