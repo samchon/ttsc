@@ -13,7 +13,8 @@ type Profile = {
   files: Files;
   // The actual owning body supplies literal assertions and genuine commands.
   // An emission prediction or metadata simulator is not an admissible body.
-  run(root: string, persistent: string, spawn: typeof TestProject.spawn, ownAsyncProcess: () => () => void): void | Promise<void>;
+  run(root: string, persistent: string, spawn: typeof TestProject.spawn,
+    ownAsyncProcess: () => () => void, abortReuse: (cause: unknown) => never): void | false | Promise<void | false>;
 };
 
 /**
@@ -37,8 +38,8 @@ type Profile = {
  * @evidence contracts/testing.md#distinguishing-cases Ordinary status zero and negative exits permit independent later profiles; error, null status, signal and invalid process identity retain inputs. Collision and staged-move failures remain failures.
  * @evidence contracts/testing.md#execution-ownership The existing discoverable CommonJS corpus owns callers, authored maps and native launch lifetimes. This exported helper allocates no replacement consumer or hidden test host.
  * @evidence contracts/e2e.md#necessary-boundary Native compilation, runtime loading and output ownership must pass through real launchers; source metadata classification alone cannot prove those connections.
- * @evidence contracts/e2e.md#shared-execution The default parent supplies ten former consumer allocations and nineteen original requests; consolidated selection adds five response-file decorator profiles/five requests and up to seventy-nine language profiles/one hundred twenty-eight public-worker requests plus two bounded departed-owner setup sequences (the compiler-wrapper profile retains its original POSIX-only selection) on the same root. Programs and nested children await independent measurement, not inference from callback totals.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Shallow holding removes prior profile config/cache aliases from active authority. Unknown processes or unacknowledged owning async joins keep the current graph and held originals without restoring or deleting inputs.
+ * @evidence contracts/e2e.md#shared-execution The default parent supplies ten former consumer allocations and nineteen original requests; consolidated selection adds five response-file decorator profiles/five requests and up to eighty language profiles/one hundred twenty-nine public-worker requests plus two bounded departed-owner setup sequences (the compiler-wrapper profile retains its original POSIX-only selection) on the same root. Programs and nested children await independent measurement, not inference from callback totals.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Shallow holding removes prior profile config/cache aliases from active authority. Unknown processes, unacknowledged async joins or the owning callback's explicit failed-restoration abort keep current and held graphs without moving or deleting inputs. Actual false results remain named skipped observations rather than capability coverage.
  * @evidence contracts/e2e.md#preserved-coverage Each owning callback retains its original literal assertions and failure identity; the assembler does not replace compiler, source-race, map or output evidence.
  */
 export async function runCanonicalRuntimeProfiles(
@@ -180,9 +181,13 @@ export async function runCanonicalRuntimeProfiles(
             pendingOwnedProcesses--;
           };
         };
+        const abortReuse = (cause: unknown): never => {
+          safeForCleanup = false;
+          throw cause;
+        };
         try {
           await Scenarios.invoke("runtime-canonical", profile.name, profile.run,
-            root, persistent, spawn, ownAsyncProcess);
+            root, persistent, spawn, ownAsyncProcess, abortReuse);
         } finally {
           // A callback acknowledges only its real owned join. Failure or absence
           // of that acknowledgment retains the exact live input graph.
