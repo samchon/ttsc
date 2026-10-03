@@ -13,8 +13,8 @@ import (
 // The empty answer is the contract, not an edge case. A project that does not
 // use the citation convention is the common case, and a consumer must be able
 // to tell "nothing to index" from "the project is broken"; a nonzero exit here
-// would read as the second. The verb also must not build a Program to reach
-// that answer, which is what keeps such a project paying nothing for it.
+// would read as the second. This entry observes the response after real
+// config resolution; it does not measure Program allocation or zero cost.
 //
 //  1. Seed a valid TypeScript project with an unrelated rule enabled.
 //  2. Run graph-nodes through the command dispatcher and decode its JSON.

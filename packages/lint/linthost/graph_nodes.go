@@ -58,8 +58,8 @@ func computeGraphNodes(opts *lspCommandOptions) ([]publicrule.GraphNode, int) {
   publishes, needsChecker := engine.hasGraphPublisher()
   if !publishes {
     // Nothing the config declared can publish artifacts, so there is no
-    // projection to take and the Program is never built. This is what keeps a
-    // project that does not use the convention paying nothing for the verb.
+    // projection to take, so this branch skips Program acquisition. Rule/config
+    // resolution above has still run; this is not a zero-cost invocation.
     return []publicrule.GraphNode{}, 0
   }
   prog, parseDiags, closeProgram, err := acquireProgram(opts, needsChecker)
