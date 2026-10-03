@@ -7,8 +7,8 @@ import "testing"
 // positive twin of the comment bail-out.
 //
 // A comment INSIDE the argument's own span survives the splice verbatim, so
-// declining there would be an over-match that turns a perfectly safe fix
-// report-only. This pins that the #362 bail-out scans only the discarded
+// declining there would be an over-match that withholds a perfectly safe
+// automatic edit. This pins that the #362 bail-out scans only the discarded
 // gaps of the replaced span, not the kept text.
 //
 // 1. Snapshot `const y = !Boolean(a && /* mid */ b);` source.
