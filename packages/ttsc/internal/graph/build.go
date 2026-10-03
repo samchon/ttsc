@@ -8,11 +8,14 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Build walks the program's workspace source files and records a node for
-// each top-level declaration. The checker can load a dependency's raw `.ts`
+// Build walks the program's workspace source files and records modeled
+// declarations, members and nested closures. The checker can load a dependency's raw `.ts`
 // entry, so IsWorkspaceSourceFile owns the declaration boundary instead of
 // assuming every non-declaration source is authored here. External boundary
 // leaves enter the graph only as the resolved target of an edge (see Resolve).
+// A loaded non-nil Program is required and its generation must remain stable
+// during the build. SourceFiles may first apply pending linked hooks; their
+// latched failure remains in Program diagnostics rather than this return value.
 //
 // @evidence contracts/common.md#principled-implementation Declarations are indexed before checker-resolved relations, so every workspace endpoint uses one Program's symbols and identities.
 // @evidence contracts/common.md#clear-and-simple-design The complete build delegates to BuildFiles with nil selection and releases scratch state at one completion boundary.
@@ -20,8 +23,8 @@ import (
 // @evidence contracts/common.md#meaningful-documentation The native comment identifies the producing Program and complete-build responsibility; separated tags follow the documentation skill.
 // @evidence contracts/performance.md#efficient-algorithms Work scales with resident source ASTs, emitted facts and repeated enclosing-container traversals; memoized resolution avoids repeating checker lookups.
 // @evidence contracts/performance.md#reuse-equivalent-work Per-build AST resolution, doc-host and edge identity maps share equivalent work only within this immutable Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned graph owns its facts; releaseBuildState drops AST-keyed and base-node scratch maps before the completed generation escapes.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Build computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned graph retains emitted facts without a population cap; releaseBuildState drops the explicitly build-only AST-keyed and endpoint scratch fields, while the caller owns the graph and Program lifetimes and other aliases.
+// @evidence contracts/portability.md#os-neutral-implementation Build delegates native source-name classification and the compiler-reported case policy to BuildFiles. Program.SourceFiles may execute pending linked hooks, whose native effects belong to that owner; this wrapper does not prove per-directory physical identity.
 func Build(prog *driver.Program) *Graph {
   return BuildFiles(prog, nil, nil)
 }
@@ -35,15 +38,20 @@ func Build(prog *driver.Program) *Graph {
 // asks the new checker only about its invalidated closure instead of walking
 // every declaration again, while cross-file targets retain the exact stable IDs
 // established by the preceding committed generation.
+// The caller supplies a loaded non-nil Program and serializes mutation of its
+// generation and the borrowed base index during the build. Selection uses exact
+// compiler FileName strings, not native alias discovery or case-normalization of
+// the supplied selection. Even a partial build enumerates all resident source
+// files in both passes before limiting declaration and relation work.
 //
 // @evidence contracts/common.md#principled-implementation Selected workspace files supply replacement facts while committed base nodes resolve unchanged cross-file endpoints without mutating the previous generation.
 // @evidence contracts/common.md#clear-and-simple-design Selection and base-node context extend the same build pipeline instead of a second graph implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The invalidation owner supplies selected paths; no heuristic file quota, cooldown or fixture exception weakens the replacement set.
 // @evidence contracts/common.md#meaningful-documentation The native comment states partial ownership and committed endpoint reuse, applying documentation-skill spacing to these acknowledgments.
-// @evidence contracts/performance.md#efficient-algorithms File selection is indexed once; declaration and relation walks cover only selected files while base endpoint lookup is constant expected time.
+// @evidence contracts/performance.md#efficient-algorithms Selection indexing and both resident-file enumerations include filename hashing and text classification. Selected files receive declaration and multiple relation traversals, checker resolution and enclosing-container work; endpoint lookup includes key bytes rather than population-only constant cost.
 // @evidence contracts/performance.md#reuse-equivalent-work The supplied committed map reuses unchanged endpoints and build-local memoization reuses checker answers within the replacement Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Base nodes are borrowed during the transaction and released from scratch at completion; only emitted replacement facts remain owned by the returned graph.
-// @evidence contracts/portability.md#os-neutral-implementation pathCaseInsensitive copies the compiler program's own file-name case policy (UseCaseSensitiveFileNames) instead of guessing it from the operating system.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Source-list copies, selection and build maps scale with resident/selected populations without a cap. releaseBuildState drops borrowed base-node and explicit scratch fields; emitted facts, ExportedTargets and ImplementationSources remain caller-owned in the returned graph.
+// @evidence contracts/portability.md#os-neutral-implementation Native filename classification and the compiler's reported UseCaseSensitiveFileNames policy are retained, without certifying physical per-directory equivalence. Exact FileName selection is caller-supplied; pending linked-hook native effects remain with Program.SourceFiles.
 func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*Node) *Graph {
   selectedFiles := map[string]bool{}
   if selected != nil {

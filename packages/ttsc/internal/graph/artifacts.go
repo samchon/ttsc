@@ -145,21 +145,25 @@ func ParseArtifacts(data []byte) ([]Artifact, error) {
 //
 // An address that collides with an existing node loses: a checker-resolved
 // declaration is a fact of this Program, and a published artifact is not.
+// Equal published addresses retain caller order; the first accepted record
+// wins. Aliases cannot replace canonical nodes, and parents resolve only among
+// accepted artifacts, excluding self-parent links. This is not schema or cycle
+// validation of the supplied publication.
 //
 // @evidence contracts/common.md#principled-implementation Only accepted canonical records publish aliases and parent facts; compiler identities and canonical addresses win collisions before documentation references resolve.
 // @evidence contracts/common.md#clear-and-simple-design Ordered acceptance, alias registration, containment and citation projection keep each identity decision in a separate pass over the accepted publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown producer kinds and colliding records are rejected consistently instead of compensating through aliases or mutating compiler declarations.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state opaque IDs, collision precedence, containment ownership and edge deduplication, separated under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Addresses remain opaque; physical File locations pass unchanged to the dump's shared native path boundary.
-// @evidence contracts/performance.md#efficient-algorithms Sorting costs O(A log A); accepted aliases and existing edges/tags each receive linear scans with expected constant-time identity lookup.
+// @evidence contracts/portability.md#os-neutral-implementation Addresses remain opaque; supplied File strings pass unchanged to the dump's native path boundary without this function certifying their physical identity.
+// @evidence contracts/performance.md#efficient-algorithms Stable sorting includes address-text comparisons and record swaps; subsequent scans include all aliases, existing edges and tags, with string hashing/comparison and leading-token scans. Population-only constant-time lookup or O(A log A) does not describe the full byte and stable-swap costs.
 // @evidence contracts/performance.md#reuse-equivalent-work A shared canonical/alias map resolves every citation consistently and an edge-key set reuses existing relationship identity instead of appending equivalent edges.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Sorting, acceptance and lookup scratch are call-local; accepted artifact nodes and new relationships transfer into the caller-owned graph generation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Sorting, acceptance and lookup scratch scale with the supplied population and have no size cap; accepted artifact strings, nodes and new relationships remain in the caller-owned graph generation until the caller releases it and other aliases.
 func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   if g == nil || len(artifacts) == 0 {
     return
   }
-  // Sorted so the emitted node and edge order is a function of the addresses
-  // rather than of the order a plugin happened to walk its documents.
+  // Sort distinct addresses while retaining input order for duplicate addresses,
+  // whose first accepted record supplies the node and publication metadata.
   sorted := make([]Artifact, len(artifacts))
   copy(sorted, artifacts)
   sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Address < sorted[j].Address })
