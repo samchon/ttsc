@@ -7,9 +7,9 @@ import "testing"
 //
 // The decorated-member declaration-line pass must not fight a canonical
 // layout: when the decorator line and the declaration line both already sit
-// at member depth, the rule must emit nothing, otherwise the cascade would
-// oscillate. This pins idempotency for the decorator path added alongside
-// the half-indent fix.
+// at member depth, the rule must emit nothing. This literal no-finding
+// oracle protects both lines without asserting a formatter cascade's
+// pass sequence or convergence.
 //
 //  1. Parse a class whose decorator and declaration lines are both at two
 //     spaces.
