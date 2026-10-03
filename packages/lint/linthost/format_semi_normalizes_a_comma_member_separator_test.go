@@ -14,8 +14,8 @@ import "testing"
 // separator normalization rather than a terminator insert. The flat literal
 // is the half that proves it: its bare last member stays bare (Prettier
 // prints no trailing separator in a flat list) while its inter-member `,`
-// still becomes `;`. This replaces the earlier expectation that the comma
-// was left as written, which was short of the oracle by one owner.
+// still becomes `;`. The complete expected output independently specifies
+// comma normalization and the two final-member termination decisions.
 //
 //  1. Parse a broken interface and a flat type literal, each separated
 //     with `,`.

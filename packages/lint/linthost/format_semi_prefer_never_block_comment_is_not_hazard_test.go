@@ -8,13 +8,13 @@ import (
 )
 
 // TestFormatSemiPreferNeverBlockCommentIsNotHazard verifies that a block
-// comment between two statements is skipped during hazard detection, so
-// the preceding semicolon stays removable.
+// comment on a separate line is skipped during hazard detection. The next
+// significant token is a safe declaration start, so the semicolon is removable.
 //
 //  1. Parse two statements separated by a block comment.
 //  2. Run format/semi configured `prefer: "never"`.
-//  3. Assert two findings: a block comment is trivia, never an ASI
-//     hazard, so both terminators are strippable.
+//  3. Assert two findings: the scanner crosses a newline and skips the
+//     comment before the safe declaration; the final statement reaches EOF.
 //  4. Assert the fixed output removes both `;` and keeps the comment
 //     intact.
 //

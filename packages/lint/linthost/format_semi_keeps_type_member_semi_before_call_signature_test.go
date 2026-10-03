@@ -9,8 +9,8 @@ import "testing"
 // In interface/type context a leading `[` is an index signature (safe to
 // strip before), but a leading `(` is a call signature that would
 // re-associate with the prior member's type, so Prettier keeps the `;`.
-// This pins the type-member hazard set `(` / `<`, distinct from the
-// class-field set.
+// This pins the `(` arm of the type-member hazard set; it does not
+// exercise the generic call-signature `<` arm or class-field hazards.
 //
 //  1. Parse an interface whose first member precedes a call signature.
 //  2. Apply format/semi with prefer:"never".
