@@ -31,9 +31,15 @@ func TestResidentCacheReplacesACheckerFreeProgramWhenACheckerArrives(t *testing.
   if err != nil || checkerFree == nil || len(diags) > 0 {
     t.Fatalf("warm acquire failed: err=%v prog=%v diags=%d", err, checkerFree, len(diags))
   }
+  if checkerFree.checker != nil {
+    t.Fatal("checker-free acquisition unexpectedly created a checker")
+  }
   withChecker, _, _, err := cache.acquire(opts, true)
   if err != nil || withChecker == nil {
     t.Fatalf("checker acquire failed: err=%v prog=%v", err, withChecker)
+  }
+  if withChecker == checkerFree || withChecker.checker == nil {
+    t.Fatal("checker acquisition must replace the Program and provide a checker")
   }
   if len(cache.entries) != 1 {
     t.Fatalf("cache holds %d Programs for one project, want 1", len(cache.entries))
