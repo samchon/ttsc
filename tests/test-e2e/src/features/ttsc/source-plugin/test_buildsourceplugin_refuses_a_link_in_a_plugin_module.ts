@@ -32,12 +32,13 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Included directory symlink/junction is refused, copied real files are accepted, and a link below excluded node_modules is ignored.
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_refuses_a_link_in_a_plugin_module entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
- * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin names an included source link and invokes no build, then succeeds after replacing it with files while an excluded node_modules link remains. These assertions stay in test_buildsourceplugin_refuses_a_link_in_a_plugin_module with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#shared-execution One module/root/responder implementation feeds included-link refusal then copied-file admission; original build closure recreates the fake tool each request. Logged build-prefixed rows are independently asserted empty after refusal, not total child count: key metadata queries may still occur. Recovery changes keyed topology and cannot claim same-key warm reuse/native Go compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before native link preparation. Actual Windows junction/POSIX directory symlink and excluded node_modules alias remain until their observations; only included alias is removed before copying sibling files. Environments are call-local, no ambient mutation/restoration is claimed. Direct synchronous result does not join arbitrary descendants; unexpected failure remains aggregated, not hidden by wholesale reset.
+ * @evidence contracts/e2e.md#preserved-coverage Original six files/sibling shared file/two native aliases, contains-link plus exact included path, independently filtered build[] and copied-file binary-exists control remain; refusal/log/recovery failures are independently collected. Existing direct owner tests/test-ttsc/src/features/source-plugin/test_source_collection_refuses_contributing_links_and_admits_owned_files.ts owns collector/digest native-link refusal and exact copied paths/bytes, not builder invocation ordering/publication or runtime certification. Prior mapped body reused without reread; new callable0, runtime/selection/survival unverified and donor retained.
  */
 export const test_buildsourceplugin_refuses_a_link_in_a_plugin_module = () => {
   const root = TestProject.tmpdir("ttsc-plugin-module-link-");
+  TestProject.retainTemporaryDirectory(root, "Source link admission tool descendants are not joined");
   const plugin = path.join(root, "plugin");
   const shared = path.join(root, "shared");
   write(path.join(plugin, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
@@ -76,21 +77,35 @@ export const test_buildsourceplugin_refuses_a_link_in_a_plugin_module = () => {
       tsgoVersion: "7.0.0-dev",
     });
 
-  assert.throws(build, (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes("contains a link at") && message.includes(link);
-  });
-  const built = fs.existsSync(invocations)
-    ? fs
-        .readFileSync(invocations, "utf8")
-        .split("\n")
-        .filter((line) => line.startsWith("build"))
-    : [];
-  assert.deepEqual(built, [], "no build ran for a refused module");
+  const failures: unknown[] = [];
+  try {
+    assert.throws(build, (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      return message.includes("contains a link at") && message.includes(link);
+    });
+  } catch (error) {
+    failures.push(new Error("Included link refusal", { cause: error }));
+  }
+  try {
+    const built = fs.existsSync(invocations)
+      ? fs
+          .readFileSync(invocations, "utf8")
+          .split("\n")
+          .filter((line) => line.startsWith("build"))
+      : [];
+    assert.deepEqual(built, [], "no build ran for a refused module");
+  } catch (error) {
+    failures.push(new Error("Refused module build invocation population", { cause: error }));
+  }
 
-  fs.rmSync(link, { force: true, recursive: false });
-  fs.cpSync(shared, link, { recursive: true });
-  assert.ok(fs.existsSync(build()), "the module with its own files builds");
+  try {
+    fs.rmSync(link, { force: true, recursive: false });
+    fs.cpSync(shared, link, { recursive: true });
+    assert.ok(fs.existsSync(build()), "the module with its own files builds");
+  } catch (error) {
+    failures.push(new Error("Owned-file recovery with excluded link retained", { cause: error }));
+  }
+  if (failures.length) throw new AggregateError(failures, "Source link admission outcomes");
 };
 
 function write(file: string, content: string): void {
