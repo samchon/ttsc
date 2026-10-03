@@ -5,9 +5,9 @@ import "testing"
 // TestFixNoVarSkipsCrossCaseReference verifies no-var declines the fix for a
 // `var` declared in one switch case and referenced from a later case.
 //
-// A `let` in a case clause hoists to the whole switch block, so the rewrite
-// still compiles — but when the later case executes without the declaring
-// case having run, the read flips from `var`'s `undefined` to a runtime TDZ
+// A `let` in a case clause has the whole switch block as its lexical scope.
+// When the later case executes without the declaring case having run,
+// the read flips from `var`'s `undefined` to a runtime TDZ
 // ReferenceError. The gate bounds the scope at the CaseClause itself, so a
 // cross-case reference declines (over-declining never corrupts).
 //
