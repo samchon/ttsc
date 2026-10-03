@@ -59,10 +59,10 @@ const membersOf = (result: ToolResult, name: string): Member[] => {
  * @evidence contracts/testing.md#behavioral-verification MCP details exposes sixteen direct object members in authored order with kinds, lines and declaration-head signatures, excludes nested/spread/dynamic members and body markers, then reflects a replacement object.
  * @evidence contracts/testing.md#independent-expectations The fixture's static direct keys, expected line coordinates and literal signature fragments supply independent expectations; eight private body markers must never appear in the response.
  * @evidence contracts/testing.md#distinguishing-cases Methods, accessors, shorthand, literal and callable values contrast spread/dynamic/nested keys; editing the same source replaces the outline rather than retaining stale members.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_details_object_members_follow_compiler_snapshot borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_details_object_members_follow_compiler_snapshot borrows the experiment's shared built workspace MCP/native session and drives its actual stdio connection with the explicit workspace binary override; this is not a consumer-local packed SDK installation. It remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Compiler object-member metadata, source coordinates and a changed resident generation must reach details over MCP; a hand-built outline cannot detect missing native snapshot fields.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
+ * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and built workspace decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients. Sharing the client/project is not proof of Program-object reuse, total construction or packed publication identity.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. This case captures object-outline.ts bytes before replacement and requires the actual client's mutation authority before both edit and finally restoration; operation and restore failures are collected, and failed restore withdraws input reuse. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
  * @evidence contracts/e2e.md#preserved-coverage All original ordered names/kinds, signatures, line bounds, private-marker exclusions and replacement assertions survive. No source-text layout check substitutes for returned behavior.
  */
 export const case_ttscgraph_details_object_members_follow_compiler_snapshot =
@@ -134,21 +134,37 @@ export const case_ttscgraph_details_object_members_follow_compiler_snapshot =
           `${forbidden}: ${JSON.stringify(original)}`,
         );
 
-      fs.writeFileSync(
-        path.join(root, "src", "object-outline.ts"),
-        "export const shape = { replacement: 2 };\n",
-      );
-      const refreshed = membersOf(
-        (await client.request("tools/call", {
-          name: "inspect_typescript_graph",
-          arguments: detailsArguments("shape"),
-        })) as ToolResult,
-        "shape",
-      );
-      assert.deepEqual(
-        refreshed.map((member) => member.name),
-        ["replacement"],
-      );
-      assert.equal(refreshed[0]?.signature, "replacement: 2");
+      const sourceFile = path.join(root, "src", "object-outline.ts");
+      const originalSource = fs.readFileSync(sourceFile);
+      const failures: unknown[] = [];
+      try {
+        client.assertInputMutationAllowed();
+        fs.writeFileSync(sourceFile, "export const shape = { replacement: 2 };\n");
+        const refreshed = membersOf(
+          (await client.request("tools/call", {
+            name: "inspect_typescript_graph",
+            arguments: detailsArguments("shape"),
+          })) as ToolResult,
+          "shape",
+        );
+        assert.deepEqual(
+          refreshed.map((member) => member.name),
+          ["replacement"],
+        );
+        assert.equal(refreshed[0]?.signature, "replacement: 2");
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        try {
+          client.assertInputMutationAllowed();
+          fs.writeFileSync(sourceFile, originalSource);
+        } catch (error) {
+          client.preventInputReuse("Object outline source restoration failed");
+          failures.push(error);
+        }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Object outline request and reset failed");
     });
   };
