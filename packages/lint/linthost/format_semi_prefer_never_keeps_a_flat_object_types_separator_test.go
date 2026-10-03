@@ -8,11 +8,10 @@ import "testing"
 //
 // Prettier prints a member separator as `ifBreak(semi, ";")`, and the flat
 // branch of that `ifBreak` is a literal `";"` whatever `semi` says. So
-// semi:false silences a separator only in a list it breaks: Prettier 3.8.3
-// returns `type Flat = { alpha: number;\n  bravo: string };` with its `;`
-// intact (collapsed onto one line, which this rule does not reflow) and
-// `type Broken = {…}` with none. Reading only the newline at the member,
-// which is what the strip did before, dropped a separator the oracle keeps.
+// The direct rule uses the opening-brace wrap decision to keep a flat-opened
+// interior separator, even when a later member starts on a new line. The
+// independently authored output retains that layout; it does not assert
+// a complete Prettier reflow or a historical implementation result.
 // memberListBreaks is the same question insertMemberSemicolon asks from the
 // other end, so the two directions now share one model of the wrap.
 //

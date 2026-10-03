@@ -8,9 +8,8 @@ import "testing"
 // ASI only fires at a line terminator, end of input, or before `}`.
 // With `else` on the same line nothing can re-terminate the then-branch
 // once the `;` is gone, so `if (a) b() else c()` is a SyntaxError. The
-// hazard scan used to treat `\n` as skippable whitespace and never
-// required one, so it judged `else` safe and corrupted the source; this
-// pins the sawNewline discipline in nextStatementHasASIHazard.
+// fixture pins the current sawNewline discipline in
+// nextStatementHasASIHazard: same-line `else` prevents removal.
 //
 //  1. Parse `if (a) b(); else c();` (single line).
 //  2. Apply format/semi with prefer:"never".
