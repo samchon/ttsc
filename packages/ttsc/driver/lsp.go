@@ -335,10 +335,12 @@ type CompletionHintRefresher interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CompletionHintObserverSource interface {
-  // SetCompletionHintsObserver registers notification after a new corpus is published.
+  // SetCompletionHintsObserver registers notification after a refresh cycle.
+  // The proxy re-reads the current corpus; notification alone does not certify
+  // a successful changed publication, since a refresh may keep previous hints.
   //
   // @evidence contracts/common.md#principled-implementation Publication notification enables the proxy to refresh completion capabilities when hint triggers change.
-  // @evidence contracts/common.md#clear-and-simple-design One callback observes publication separately from scheduling and corpus retrieval.
+  // @evidence contracts/common.md#clear-and-simple-design One callback reports refresh completion separately from scheduling and current-corpus retrieval, without carrying a publication-success result.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported notification replaces polling guessed refresh timing or modifying proxy initialization globally.
   // @evidence contracts/common.md#meaningful-documentation Native prose states observer registration and publication timing following the documentation skill.
   // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SetCompletionHintsObserver declares a signature only; the implementation owns acquisition and release of resources.
