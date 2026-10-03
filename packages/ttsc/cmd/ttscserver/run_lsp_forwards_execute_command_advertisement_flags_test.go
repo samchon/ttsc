@@ -23,8 +23,10 @@ import (
 // @evidence contracts/testing.md#behavioral-verification runLSP passes the suppress-execute-command-provider and command-prefix flags into the LSPServerOptions given to the LSP host.
 // @evidence contracts/testing.md#independent-expectations The expected option values are the literal flag values supplied on the command line.
 // @evidence contracts/testing.md#distinguishing-cases Both a suppression flag and a prefix flag are supplied so a handoff that drops either is detected.
-// @evidence contracts/testing.md#execution-ownership TestRunLSPForwardsExecuteCommandAdvertisementFlags is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls runLSP in-process with its owning runLSPServer seam replaced and package-owned writers captured; it does not replace getwd or foreign process streams. Both ambient plugin-manifest transports are cleared with restoring test environment controls, so native source construction has no selected plugin child and the host is not started.
 func TestRunLSPForwardsExecuteCommandAdvertisementFlags(t *testing.T) {
+  t.Setenv("TTSC_LSP_PLUGINS_FILE", "")
+  t.Setenv("TTSC_LSP_PLUGINS_JSON", "")
   prev := runLSPServer
   var captured lspserver.LSPServerOptions
   runLSPServer = func(_ context.Context, opts lspserver.LSPServerOptions) error {
