@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { collectServeWatchRegistrations } from "../../../../internal/unplugin/internal/adapter-vite-serve/collectServeWatchRegistrations";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
+import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 
 /**
  * Verifies the Vite adapter registers no watch inputs when serve runs without a
@@ -25,8 +26,10 @@ import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/inte
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The linked fixture has private project identity. collectServeWatchRegistrations ends its lifecycle in finally even on failed transform; tracked roots end at process exit. No live server or cancellation path is exercised.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: driven serve hooks configured watch:null collect an empty watch registration array. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_registers_no_watch_inputs_without_a_watcher(): Promise<void> {
-  const fixture = createLinkedWorkspaceFixture();
+export async function test_vite_serve_registers_no_watch_inputs_without_a_watcher(
+  preparedFixture?: IViteServeCandidateFixture,
+): Promise<void> {
+  const fixture = preparedFixture ?? createLinkedWorkspaceFixture();
   const watched = await collectServeWatchRegistrations(fixture, {
     watching: false,
   });

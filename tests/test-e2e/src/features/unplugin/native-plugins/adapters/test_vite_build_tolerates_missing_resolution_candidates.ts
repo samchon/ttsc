@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { buildFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/buildFixture";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
+import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 
 /**
  * Verifies a Vite production build succeeds while resolution candidates are
@@ -25,8 +26,10 @@ import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/inte
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: vite bundles linked workspace with linked binding despite absent compiler resolution candidates. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_build_tolerates_missing_resolution_candidates(): Promise<void> {
-  const fixture = createLinkedWorkspaceFixture();
+export async function test_vite_build_tolerates_missing_resolution_candidates(
+  preparedFixture?: IViteServeCandidateFixture,
+): Promise<void> {
+  const fixture = preparedFixture ?? createLinkedWorkspaceFixture();
   const code = await buildFixture(fixture);
   assert.match(code, /linked/);
 }

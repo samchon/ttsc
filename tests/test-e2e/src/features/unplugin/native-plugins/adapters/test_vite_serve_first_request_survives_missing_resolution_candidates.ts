@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { assertFixtureDerivesMissingCandidate } from "../../../../internal/unplugin/internal/adapter-vite-serve/assertFixtureDerivesMissingCandidate";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
+import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 import { mainModuleNode } from "../../../../internal/unplugin/internal/adapter-vite-serve/mainModuleNode";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { requestMainModule } from "../../../../internal/unplugin/internal/adapter-vite-serve/requestMainModule";
@@ -36,8 +37,10 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Server closes in finally on success/failure. Independent phase errors are collected; replacement failure explicitly blocks its dependent positive phases. Each positive phase refetches before mutation and observes a new HMR client. The type-root member remains valid during candidate creation; no expected candidate or reload is inferred from the earlier phase. Tracked roots end at runner exit.
  * @evidence contracts/e2e.md#preserved-coverage Cold, type-root, unrelated-creation, unchanged-candidate restart and preferred-candidate assertions execute here. The three original companion entries remain selectable until this combined lifetime passes actual validation; no boundary is certified by this implementation alone.
  */
-export async function test_vite_serve_first_request_survives_missing_resolution_candidates(): Promise<void> {
-  const fixture = createLinkedWorkspaceFixture();
+export async function test_vite_serve_first_request_survives_missing_resolution_candidates(
+  preparedFixture?: IViteServeCandidateFixture,
+): Promise<void> {
+  const fixture = preparedFixture ?? createLinkedWorkspaceFixture();
   await assertFixtureDerivesMissingCandidate(fixture);
   const server = await startViteServer(fixture);
   const failures: Error[] = [];
