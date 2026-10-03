@@ -1255,15 +1255,17 @@ func IsImplicitlyExportedJSDocDeclaration(node *Node) bool {
 }
 
 // IsNamedEvaluationSource classifies syntax that can supply an assigned name
-// to a class, function or arrow function. node must be nonnil.
+// to a class, function or arrow function. Supply a nonnil node with valid
+// compiler payloads; this does not evaluate an initializer or certify a runtime
+// name assignment.
 //
 // @evidence contracts/common.md#principled-implementation Upstream kind, initializer and assignment-operator checks retain ECMAScript named-evaluation distinctions.
 // @evidence contracts/common.md#clear-and-simple-design One classification bridge avoids a second syntax-kind table in plugin consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler classifies actual nodes without guessing runtime names from source text.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the assigned-name role and nonnil node premise.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsNamedEvaluationSource acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsNamedEvaluationSource performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsNamedEvaluationSource computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent named-evaluation classifier. Upstream checks fixed kinds, initializer/rest presence and assignment operators, plus a fixed nine-byte __proto__ name comparison, in O(1) time and space without traversing initializers.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of kind, name and initializer payloads.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsNamedEvaluationSource computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsNamedEvaluationSource(node *Node) bool {
   return innerast.IsNamedEvaluationSource(node)

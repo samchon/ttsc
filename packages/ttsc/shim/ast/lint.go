@@ -1362,8 +1362,8 @@ func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) 
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper retains compiler position semantics rather than broadening recognition to silence rule reports.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies parent-link requirements and important classification boundaries, using a separated tag block as the documentation skill requires.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsPartOfTypeNode acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsPartOfTypeNode performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsPartOfTypeNode computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent type-context classifier. Upstream uses fixed nearby kind/payload checks, except call/new/tagged-template parents can scan A type arguments for pointer membership in O(A) time and O(1) temporary space; no recursive ancestor search is performed.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of parent positions and type-argument membership.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsPartOfTypeNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsPartOfTypeNode(node *Node) bool { return innerast.IsPartOfTypeNode(node) }
 
