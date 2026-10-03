@@ -5,7 +5,7 @@ import "testing"
 // TestFormatTrailingCommaInsertsAfterNonRestObjectAssignmentTarget is the
 // over-suppression twin on the target axis: a destructuring assignment
 // target WITHOUT a trailing rest (`({ a, b } = obj)`) legally takes a
-// trailing comma (Node `--check` exits 0 on `({ a, b, } = obj)`).
+// trailing comma under the ordinary-property assignment grammar.
 //
 // An ordinary property at the end of an object assignment target permits a trailing comma. Target ownership alone must not disable the rule.
 //
