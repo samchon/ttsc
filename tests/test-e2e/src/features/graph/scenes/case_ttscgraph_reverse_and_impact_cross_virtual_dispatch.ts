@@ -9,6 +9,7 @@ interface ToolResult {
 
 interface TraceResult {
   type: "trace";
+  start?: { id: string; name: string; file: string };
   hops: { from: string; to: string; kind: string; depth: number }[];
   reached: { id: string; name: string; roles?: string[] }[];
   truncated: boolean;
@@ -42,11 +43,11 @@ const HUB_IMPLEMENTATIONS = 12;
  *    forward policy, and that bounds and cycles behave as before.
  *
  * @evidence contracts/testing.md#behavioral-verification MCP reverse/impact traversal crosses valid dispatch to ReversePipeline, ReverseRunner and main, carries public/test roles, deduplicates cyclic seams and excludes incompatible/unrelated/hub/type-only paths.
- * @evidence contracts/testing.md#independent-expectations Authored valid and invalid implementations, literal caller names, roles, depth bound and twelve-way hub define expected inclusions and exclusions independently of traversal output.
+ * @evidence contracts/testing.md#independent-expectations Authored valid and invalid implementations, literal caller names, roles, depth bound and twelve-way hub define expected inclusions and exclusions independently of traversal output. The hub controls require exact paint/ReverseWidget0.draw start names, src/reverse.ts and a real resolved id before zero-dispatch checks; ambiguous empty traces cannot stand in for these authored starts.
  * @evidence contracts/testing.md#distinguishing-cases Execution/all focus, abstract overrides, invalid ReverseBad, unrelated solo, external inclusion, hub suppression, depth one and types-only walks distinguish the reverse seam; forward ReverseGood remains a control.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_reverse_and_impact_cross_virtual_dispatch borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_reverse_and_impact_cross_virtual_dispatch borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker implementation relations and original edge direction must survive transport for reverse/impact consumers; hand-built reverse edges cannot certify checker eligibility.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
+ * @evidence contracts/e2e.md#shared-execution The unchanged reverse corpus supplies valid/invalid member, role, cycle, external, twelve-way hub, depth, type and forward requests through one identity MCP/native session. Neighboring cached CLI facts are not these traversal responses; client/input reuse is not Program/count or packed-installation proof.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
  * @evidence contracts/e2e.md#preserved-coverage Original caller identities (with fixture collision renames), dispatch edges, roles, hop uniqueness, all negative exclusions, external policy, truncation and forward control assertions remain intact.
  */
@@ -201,18 +202,24 @@ export const case_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
         maxDepth: 3,
         maxNodes: 16,
       });
+      assert.equal(hubForward.start?.name, "paint");
+      assert.equal(hubForward.start?.file, "src/reverse.ts");
+      assert.ok(hubForward.start?.id, "forward hub control must resolve its authored start");
       assert.equal(
         dispatchHops(hubForward),
         0,
         `a hub declaration stays a leaf going forward: ${JSON.stringify(hubForward.hops)}`,
       );
       const hubReverse = await call({
-        from: "Widget0.draw",
+        from: "ReverseWidget0.draw",
         direction: "reverse",
         focus: "execution",
         maxDepth: 3,
         maxNodes: 16,
       });
+      assert.equal(hubReverse.start?.name, "ReverseWidget0.draw");
+      assert.equal(hubReverse.start?.file, "src/reverse.ts");
+      assert.ok(hubReverse.start?.id, "reverse hub control must resolve its authored implementation");
       assert.equal(
         dispatchHops(hubReverse),
         0,
