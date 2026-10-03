@@ -2,18 +2,16 @@ package linthost
 
 import "testing"
 
-// TestFormatBraceContinuationWaitsForAStatementToOwnItsLine verifies a statement sharing its line pushes no keyword until it owns one.
+// TestFormatBraceContinuationWaitsForAStatementToOwnItsLine verifies this rule abstains when a statement shares its line.
 //
-// A statement that shares its line has no column of its own, and nothing would
-// repair a keyword pushed to column zero: format/indent visits statement-list
-// members, closing-brace lines, and member headers, and a continuation-keyword
-// line is none of the three. Pushing anyway produced a dedented `else` that
-// survived as ttsc format's own fixed point, so a later `ttsc check` blessed a
-// shape Prettier rewrites.
+// The prefix before `if` contains `foo();`, not just indentation or labels.
+// braceContinuationIndent therefore declines to infer a column for `else`.
+// The command-level companion owns the final split and placement; this direct
+// rule case observes neither later passes nor another formatter's output.
 //
 //  1. Parse a one-line `if`/`else` that follows another statement on the same line.
 //  2. Run format/brace-continuation.
-//  3. Assert the rule reports nothing and leaves the split to a later pass.
+//  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must emit no finding while an if shares its physical line with a preceding foo statement and has no independent indentation.
 // @evidence contracts/testing.md#independent-expectations The fixed literal requires this single rule to preserve the shared-line source; its supported deferral policy leaves statement splitting to the cascade rather than inventing an incorrect else column.

@@ -6,19 +6,20 @@ import (
   "testing"
 )
 
-// TestFormatBraceContinuationSettlesASharedLineThroughTheCascade verifies the deferred push lands at the right column on a later pass.
+// TestFormatBraceContinuationSettlesASharedLineThroughTheCascade verifies the command resolves a shared line at the enclosing column.
 //
-// The abstention is only correct if the cascade finishes the job. format/statement-split
-// gives the `if` its own line first, and the next pass then reads a real column.
-// This is the command-level proof that deferring is not dropping.
+// The single-rule companion requires abstention while `if` shares a line with
+// `foo`. This command-level case requires the complete final output to contain
+// separate statements and the enclosing indentation. It does not observe
+// intermediate passes or attribute each change to a particular rule.
 //
 //  1. Seed a project whose `if`/`else` shares a line with a preceding statement.
 //  2. Run `ttsc format`.
 //  3. Assert `else` lands at the enclosing body's column, not at zero.
 //
-// @evidence contracts/testing.md#behavioral-verification The in-process format command must split the preceding foo statement, then place the formerly deferred if/else at the enclosing two-space column.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command must finish with foo on its own line and if/else at the enclosing two-space column.
 // @evidence contracts/testing.md#independent-expectations The complete disk-output literal preserves function f and calls foo/x/y and condition a; exact successful status and empty streams require the actual command path to finish as well as write that output.
-// @evidence contracts/testing.md#distinguishing-cases This cascading positive complements the single-rule shared-line negative, proving deferral is later resolved. The labeled-prefix command positive distinguishes a prefix that must remain attached.
+// @evidence contracts/testing.md#distinguishing-cases This command-output positive complements the single-rule shared-line negative, requiring the final split and placement without certifying intermediate pass order. The labeled-prefix command positive distinguishes a prefix that must remain attached.
 // @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationSettlesASharedLineThroughTheCascade is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the seeded project/config fixtures and all exit, stream and full disk-output assertions. It calls the real formatter command and cascade in the same Go process; no consumer install, native product build or product host is started.
 func TestFormatBraceContinuationSettlesASharedLineThroughTheCascade(t *testing.T) {
   root := seedLintProject(t, "function f() {\n  foo(); if (a) x(); else y();\n}\n")

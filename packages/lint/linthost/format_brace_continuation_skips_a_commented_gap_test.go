@@ -6,10 +6,10 @@ import "testing"
 //
 // The gap rewrite would delete the comment. The rule detects it by requiring the
 // first non-whitespace byte after the clause to be the keyword itself, so a
-// comment fails the match instead of being swallowed. Prettier leaves the same
-// source alone.
+// comment fails the match instead of being swallowed. The assertions cover this
+// rule's refusal, not the complete output of another formatter.
 //
-//  1. Parse an `if`/`else` with a line comment between the brace and `else`.
+//  1. Parse line-comment and block-comment gaps between the brace and `else`.
 //  2. Run format/brace-continuation.
 //  3. Assert the rule reports nothing.
 //
