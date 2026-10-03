@@ -140,7 +140,7 @@ export namespace DependencyBuildGeneration {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This fixed byte-to-hex calculation carries no native filesystem or process representation.
    *
-   * @evidence contracts/performance.md#efficient-algorithms One fixed 16-byte draw and hex encoding have constant input size.
+   * @evidence contracts/performance.md#efficient-algorithms One 16-byte native cryptographic draw and hex encoding have fixed output size; native entropy latency or failure is not bounded by that byte count. No generation history is scanned.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every acquisition needs a new identity; reusing a prior draw would violate the generation premise.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns a small identifier and retains no random buffer or native handle.
@@ -186,10 +186,9 @@ export namespace DependencyBuildGeneration {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Filesystem observations establish identity; no OS-name lowercasing or source-name exception substitutes for the shared resolver.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish root metadata from actual emitted-source proof and deletion authority, explaining physical resolution and its best-effort fallback.
    * @evidence contracts/portability.md#os-neutral-implementation The shared resolver observes native links and surviving-ancestor case capabilities; this adapter preserves the returned native spelling.
-   * @evidence contracts/performance.md#efficient-algorithms Existing roots take one native realpath; missing tails delegate ancestor probing and directory inspection rather than scanning emitted source trees.
-   *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Link and ancestor capabilities are mutable; this adapter owns no independent validity proof for remembered path identities.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The adapter returns a string and acquires no independent retained resource.
+   * @evidence contracts/performance.md#efficient-algorithms Delegation creates a fresh identity context; path text and ancestor observations grow its maps, and native case observations may scan directory entries or invoke a Windows query. Fixed adapter steps do not bound that native work, and emitted source trees are not traversed by this adapter.
+   * @evidence contracts/performance.md#reuse-equivalent-work The delegated context shares equivalent path and case observations within this invocation, then later invocations observe current filesystem state again. This adapter adds no historical identity cache or independent validity proof.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The delegated context owns call-local path/ancestor/case maps and native observations, including a possible Windows case-query child. Only the resulting string escapes after success or caught failure; the adapter holds no historical registry or directory handle.
    */
   export function resolvePhysicalPath(location: string): string {
     return resolvePhysicalPathIdentity(location);
@@ -204,7 +203,7 @@ export namespace DependencyBuildGeneration {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate observes actual emit presence rather than a marker's claim or a known filename, without treating a partial generation as published.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines JavaScript presence at any depth; the completion reader separately documents why presence alone does not establish ownership.
    * @evidence contracts/portability.md#os-neutral-implementation Native Dirent classification and path joins preserve host filesystem semantics; suffix grammar describes JavaScript outputs rather than host case policy.
-   * @evidence contracts/performance.md#efficient-algorithms An early-exit depth-first walk visits at most E entries; one listing per directory uses space for active directory listings and recursion depth D, without allocating a full flattened tree.
+   * @evidence contracts/performance.md#efficient-algorithms An early-exit depth-first walk visits at most E entries, with path joins and suffix tests also processing directory/name text and native listing costs. Temporary space includes all listings retained along the active recursion path, constructed path strings and depth D; it does not allocate a flattened tree.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller determines immutable generation publication; this predicate does not cache a result while a build may still be writing.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads retain no handle or history; generation storage belongs to its cache container.
