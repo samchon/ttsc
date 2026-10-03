@@ -3,11 +3,13 @@ package linthost
 import "testing"
 
 // TestNoLoopFuncAllowsSafeBindingsAndExcludedHeaders verifies the official
-// negative twins for closures that cannot observe a later mutable value.
+// negative twins for the rule's exempt bindings and reference positions.
 //
 // Const bindings, iteration-created lets, no-capture closures, type-only uses,
 // unresolved runtime names, functions in excluded loop-header positions, and
-// computed method names are safe even though each sits beneath a loop node.
+// computed method names are excluded even though each sits beneath a loop node.
+// A loop-local let can still change within its iteration; exemption does not
+// assert runtime immutability or that its closure cannot observe that change.
 //
 // 1. Exercise each safe binding class plus destructuring and shadowing.
 // 2. Place closures in a for initializer and for-in/of right-hand expressions.

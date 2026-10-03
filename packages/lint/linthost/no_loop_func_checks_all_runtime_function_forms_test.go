@@ -9,7 +9,7 @@ import "testing"
 // TypeScript-Go kinds. Treating only arrow and `function` syntax as functions
 // would leave the same unsafe closure reachable through these equivalent forms.
 //
-// 1. Declare every runtime function form inside one loop.
+// 1. Declare the authored declaration/method/accessor/constructor forms in a loop.
 // 2. Capture an outer binding that is reassigned after the loop.
 // 3. Assert every function-shaped range receives the same unsafe diagnostic.
 //
