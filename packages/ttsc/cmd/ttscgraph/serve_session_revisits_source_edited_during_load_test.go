@@ -13,8 +13,9 @@ import (
 //
 // Hashing the raw disk bytes at capture time would bless content the resident
 // program never parsed: disk and graph would disagree until an unrelated
-// change. The capture must hash the resident text instead, so the next
-// snapshot sees the disk mismatch and applies the missed edit.
+// change. Capture compares decoded disk text with resident text and marks a
+// mismatch for revisiting, so the next snapshot applies the missed edit. This
+// unit observes the resulting declarations and convergence, not hash values.
 //
 //  1. Load a session, then rewrite the source before capturing state.
 //  2. Take a snapshot and assert it refreshes to the on-disk declaration.
@@ -33,10 +34,6 @@ func TestServeSessionRevisitsSourceEditedDuringLoad(t *testing.T) {
   if compiler == nil {
     t.Fatalf("NewSession returned nil session (diagnostics: %v)", diags)
   }
-  file := filepath.Join(root, "src", "index.ts")
-  if err := os.WriteFile(file, []byte("export class EditedDuringLoad {}\n"), 0o644); err != nil {
-    t.Fatal(err)
-  }
   session := &graphSession{
     cwd:         root,
     tsconfig:    "tsconfig.json",
@@ -44,6 +41,14 @@ func TestServeSessionRevisitsSourceEditedDuringLoad(t *testing.T) {
     initialized: true,
   }
   defer session.Close()
+  file := filepath.Join(root, "src", "index.ts")
+  resident, ok := compiler.SourceText(file)
+  if !ok || resident != "export class BeforeEdit {}\n" {
+    t.Fatalf("resident source before disk edit = found:%v text:%q", ok, resident)
+  }
+  if err := os.WriteFile(file, []byte("export class EditedDuringLoad {}\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
   if err := session.captureState(); err != nil {
     t.Fatal(err)
   }
