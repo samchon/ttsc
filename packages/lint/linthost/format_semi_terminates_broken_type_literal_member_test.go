@@ -8,9 +8,10 @@ import "testing"
 // Prettier preserves an object type's authored wrap: a literal whose `{`
 // is followed by a line break stays broken and terminates its members,
 // and one written inline stays inline and leaves its last member bare.
-// Keying the insert on the member's own line structure reproduces both
-// halves without a second layout model, so the two literals below must
-// come out differently from one run of the same rule.
+// The direct insert checks both a break after the member and the type
+// list's opening-brace wrap before a final-member insertion. These two
+// fixtures distinguish broken and inline inputs; half-wrapped companions
+// own the independent opening-versus-closing boundary distinction.
 //
 //  1. Parse a broken type literal and an inline one.
 //  2. Apply format/semi through the disk-backed fixer.

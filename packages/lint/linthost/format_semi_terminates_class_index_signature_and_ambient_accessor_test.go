@@ -6,10 +6,9 @@ import "testing"
 // class-body spellings of the member kinds take the same terminator.
 //
 // An index signature and a bodiless `declare` accessor are class members
-// written as type members, and format/indent breaks them onto their own
-// lines exactly as it breaks an interface member, so leaving them out of
-// the insert would keep the same unterminated shape samchon/ttsc#1166
-// reports for interfaces. Prettier terminates both.
+// written as type members. Both are already on their own lines in this
+// fixture, and the direct semicolon path terminates both. No indent rule
+// or interface failure reproduction runs in this entry.
 //
 //  1. Parse a class with an index signature and an ambient class with a
 //     bodiless getter, each unterminated on its own line.

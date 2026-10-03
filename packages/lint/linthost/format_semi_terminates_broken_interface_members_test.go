@@ -5,12 +5,11 @@ import "testing"
 // TestFormatSemiTerminatesBrokenInterfaceMembers verifies the always
 // direction reaches every interface member kind, the last one included.
 //
-// The member kinds sat in `Visits()` and then short-circuited before the
-// insert branch, so `ttsc format` split a one-line interface body and left
-// its members bare (samchon/ttsc#1166). Prettier 3.8.3 terminates each of
-// the seven member spellings once the body is broken across lines, so one
-// interface holding all of them pins the whole kind set in one edit pass.
-//
+// The direct member insert path reaches all seven authored signature
+// spellings in this broken interface, including the last setter. The full
+// literal output specifies those edits; this entry does not execute body
+// splitting or establish an earlier rule failure.
+
 //  1. Parse an interface whose seven members are each on their own line
 //     with no terminator.
 //  2. Apply format/semi through the disk-backed fixer.
