@@ -5,10 +5,10 @@ import "testing"
 // TestFixNoWrapperObjectTypesReplacesTypename verifies the noWrapperObjectTypes fixer.
 //
 // The fixer must rewrite the boxed wrapper type identifier in place (`String`
-// → `string`) while leaving every surrounding token alone. ESLint omits the
-// `Object` → `object` rewrite because the semantics shift meaningfully; the
-// native fixer mirrors that policy by emitting a finding without an edit for
-// `Object`, so this test pins only the primitive-wrapper subset.
+// → `string`) while leaving every surrounding token alone. The native fixer
+// deliberately withholds `Object` → `object`, whose semantics differ; upstream
+// TypeScript-ESLint offers that edit for type references. This test pins only
+// the native primitive-wrapper subset, not whole upstream fix parity.
 //
 // 1. Parse a source file with a `String`-typed annotation.
 // 2. Apply the noWrapperObjectTypes finding through the disk-backed fixer.
