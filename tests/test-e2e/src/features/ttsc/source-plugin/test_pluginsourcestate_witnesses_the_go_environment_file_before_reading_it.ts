@@ -25,18 +25,19 @@ import { pluginSourceState } from "../../../../../../packages/ttsc/lib/plugin/in
  * 2. Take the process's reading of a plugin directory's state.
  * 3. Assert it equals a fresh reading of the file as it now is.
  *
- * @evidence contracts/testing.md#behavioral-verification pluginSourceState retries a real go env read whose wrapper edits GOENV afterward and equals the explicit fresh reading.
- * @evidence contracts/testing.md#independent-expectations The wrapper edit marker proves the race happened; the explicit-env call rereads the now-current state without ambient memo reuse.
+ * @evidence contracts/testing.md#behavioral-verification After a successful real go env query, the wrapper edits GOENV once; the marker is present and the kept state equals an explicit fresh reading. These assertions do not count internal retries.
+ * @evidence contracts/testing.md#independent-expectations The marker is written only after status0 for the relevant env query, distinguishing an actual successful read followed by the authored edit from a failed Go query. The explicit-env call provides a fresh comparison path, not an independent fingerprint algorithm or literal GOFLAGS-value oracle.
  * @evidence contracts/testing.md#distinguishing-cases One post-read environment edit is compared with a fresh stable reading; this is an independent read path, not an independent hash algorithm.
- * @evidence contracts/testing.md#execution-ownership The exported test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
- * @evidence contracts/e2e.md#necessary-boundary The source-state witness must agree with actual go env output from the installed tool behind a mutable wrapper and GOENV file. The wrapper places a deliberate mutation at the read boundary; in-memory state comparisons cannot prove ordering against that external read. This case builds no native plugin.
+ * @evidence contracts/testing.md#execution-ownership This legacy features/ttsc/source-plugin entry directly calls the owning state operation. Its exact source-unit counterpart is tests/test-ttsc/src/features/source-plugin/test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it.ts, authored with actual Go/Node wrapper inputs and the status0 marker guard. That body remains unexecuted; this donor is retained until actual selected survivor coverage is established.
+ * @evidence contracts/e2e.md#necessary-boundary Real Go and a Node wrapper supply native read-order inputs to the direct owning operation; no shipped ttsc consumer, plugin compilation or product-host protocol is involved. The source unit preserves that actual preparation rather than replacing it with in-memory digest arithmetic. Its existence does not certify native transport or runtime coverage.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The selected wrapper invokes the installed Go metadata tool and is reused for each observation; no plugin compilation is needed.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
- * @evidence contracts/e2e.md#preserved-coverage pluginSourceState retries a real go env read whose wrapper edits GOENV afterward and equals the explicit fresh reading. These assertions stay in test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root is retained before preparation. The first TTSC_GO_BINARY/GOENV writes occur inside try and finally restores exact prior absence or values. Empty GOENV and a private absent marker preserve the one-shot transition; the fresh state uses an explicit environment rather than the ambient memo path. Returned synchronous commands are not arbitrary descendant joins.
+ * @evidence contracts/e2e.md#preserved-coverage The exact source-unit counterpart in c0835b1da320cc965d4c7fbc2f057998a93373aa preserves the original plugin bytes, real Go query, Node one-shot edit, marker/equality expectations and both environment restores, adding the successful-query guard. It is authored, not executed survival proof; original donor observations remain until actual survivor coverage permits removal.
  */
 export const test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it =
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-goenv-witness-");
+    TestProject.retainTemporaryDirectory(root);
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(
@@ -67,7 +68,7 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
         `const result = spawnSync(${JSON.stringify(realGo)}, args, { stdio: "inherit" });`,
         // The edit lands after `go env` read the file and before its caller
         // can look at the file again.
-        `if (args[0] === "env" && args.includes("-json") && args.includes("GOENV") && !fs.existsSync(${JSON.stringify(edited)})) {`,
+        `if (result.status === 0 && args[0] === "env" && args.includes("-json") && args.includes("GOENV") && !fs.existsSync(${JSON.stringify(edited)})) {`,
         `  fs.writeFileSync(${JSON.stringify(goEnvFile)}, "GOFLAGS=-tags=ttsc_goenv_witness\\n");`,
         `  fs.writeFileSync(${JSON.stringify(edited)}, "");`,
         "}",
@@ -91,9 +92,9 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
       binary: process.env.TTSC_GO_BINARY,
       goenv: process.env.GOENV,
     };
-    process.env.TTSC_GO_BINARY = wrapper;
-    process.env.GOENV = goEnvFile;
     try {
+      process.env.TTSC_GO_BINARY = wrapper;
+      process.env.GOENV = goEnvFile;
       const kept = pluginSourceState(plugin);
       assert.equal(fs.existsSync(edited), true, "the edit landed");
       assert.equal(
