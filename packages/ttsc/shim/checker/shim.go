@@ -427,17 +427,19 @@ func Checker_isValidClassMemberOverridePair(
   return false
 }
 
-// NewChecker creates a checker that owns its complete type graph for program.
-// The returned mutex is the upstream checker-pool synchronization primitive;
+// NewChecker binds the supplied program and initializes a checker with its
+// source files, global symbols and semantic caches. Later queries can resolve
+// more of its type graph lazily and produce diagnostics.
+// The returned mutex belongs to that newly created upstream checker;
 // callers that share the checker must serialize access through it.
 //
 // @evidence contracts/common.md#principled-implementation Delegating construction keeps the checker, its program-dependent type graph and returned synchronization primitive paired under the upstream program interface.
 // @evidence contracts/common.md#clear-and-simple-design One constructor returns the semantic object and its lock together without a duplicate graph or locking layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Construction uses the actual supplied program and optional tracer rather than a foreign checker replacement or synthetic semantic result.
-// @evidence contracts/common.md#meaningful-documentation Native prose states type-graph ownership and caller serialization through the paired mutex.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The checker and its mutex are returned to the caller, who owns their lifetime.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Delegates directly to the upstream constructor, which owns its cost.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds one checker; any sharing is the caller's decision.
+// @evidence contracts/common.md#meaningful-documentation Native prose states binding/initialization, lazy semantic work and caller serialization through the checker's own mutex without claiming an already complete graph or a pool-owned lock.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Construction transfers a checker and its mutex to the caller. The checker retains its program/source ASTs, symbol/type state, caches, diagnostics and optional tracer; later semantic work can grow that population. The caller/program owner controls their lifetime, and this constructor supplies no independent cache eviction or disposal bound.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream construction owns program binding, source-file indexing, global-symbol merging, augmentation and intrinsic/global type initialization. File, declaration and symbol populations drive that work; this shim delegates without selecting a second initialization algorithm or claiming constant cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Program binding and checker semantic caches own upstream reuse. This constructor does not coordinate a separate checker pool, shared producer or cross-program invalidation policy; callers determine whether the transferred checker is shared under its mutex.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates to the upstream checker constructor; the shim handles no path or file.
 func NewChecker(program Program, tracer *Tracer) (*Checker, *sync.Mutex) {
   return innerchecker.NewChecker(program, tracer)
@@ -1162,27 +1164,24 @@ func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *inn
   return recv.GetReturnTypeOfSignature(signature)
 }
 
-// Signature_parameterCount returns the number of declared value parameters of a
-// call/construct signature. A rest parameter counts as one and the `this`
+// Signature_parameterCount returns the number of stored value parameters of a
+// call/construct signature, including synthesized signatures. A rest parameter
+// counts as one and the `this`
 // parameter is excluded (it is held separately from the value parameters).
 //
 // Checker_getMinArgumentCount alone cannot tell a zero-parameter signature
 // (`()` minimum 0) from a single-optional-parameter one (`(x?)` also
-// minimum 0). A type-transform plugin needs that distinction to replicate the
-// type-level "single meaningful argument" rule: a FIRST parameter must exist
-// and every later parameter must be optional or rest, as
-// `Signature_parameterCount(sig) >= 1 && Checker_getMinArgumentCount(c, sig) <= 1`.
-// Without it the `new C(x)` / `C.from(x)` strategies silently fall back to field
-// copy for every optional-first constructor or factory. Returns 0 if signature
-// is nil.
+// minimum 0). This length query does not select a consumer's constructor or
+// factory strategy, nor replace overload/call validation. Returns 0 if
+// signature is nil.
 //
-// @evidence contracts/common.md#principled-implementation The compiler stores value parameters separately from this, so their slice length counts declared parameters, including a rest declaration once, independently of minimum call arity.
-// @evidence contracts/common.md#clear-and-simple-design A direct length query answers declaration count without conflating it with Checker_getMinArgumentCount.
+// @evidence contracts/common.md#principled-implementation The compiler stores value parameters separately from this; their slice length counts actual stored entries, including one rest entry, independently of minimum call arity or declaration versus synthesized signature origin.
+// @evidence contracts/common.md#clear-and-simple-design A direct length query answers stored parameter count without conflating it with Checker_getMinArgumentCount.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No constructor convention alters the count; it is computed from the actual signature parameter slice.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rest/this counting, the distinction from minimum arity and nil zero with useful examples.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_parameterCount acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_parameterCount performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_parameterCount computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This projection reads the existing upstream parameter slice length after a nil guard and owns no parameter construction, traversal or semantic arity-validation algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The length projection coordinates no completed or in-flight producer, cache or invalidation across requests; the signature owner supplies the already constructed parameter list.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_parameterCount computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_parameterCount(signature *innerchecker.Signature) int {
   if signature == nil {
@@ -1191,24 +1190,23 @@ func Signature_parameterCount(signature *innerchecker.Signature) int {
   return len(signature.Parameters())
 }
 
-// Signature_parameters returns the declared value-parameter symbols of a
-// call/construct signature, in declaration order, excluding the synthetic
-// `this` parameter. The first element is the seed parameter of a `new C(seed)`
-// constructor or a `C.from(seed)` factory; feeding it to Checker_getTypeOfSymbol
-// yields the seed TYPE the plugin must decode before constructing the instance.
+// Signature_parameters returns a call/construct signature's stored ordered
+// value-parameter symbols, including synthesized signature parameters. `this`
+// is held separately upstream. This accessor does not select a consumer's
+// constructor/factory seed or validate its type.
 //
 // Signature_parameterCount is len() of this slice; the slice itself is needed
-// because detection (count + min-args) is not enough; emission requires the
-// seed parameter's type. Returns nil if signature is nil.
+// for consumers that need the actual symbols rather than an arity projection.
+// Returns nil if signature is nil.
 // The returned slice is compiler-owned; callers must not mutate it.
 //
-// @evidence contracts/common.md#principled-implementation Returning the signature's existing ordered value-parameter symbols preserves their declaration order and checker identity, with this represented separately upstream.
+// @evidence contracts/common.md#principled-implementation Returning the signature's existing value-parameter symbols preserves stored order and checker identity, including synthesized lists, with this represented separately upstream.
 // @evidence contracts/common.md#clear-and-simple-design One accessor exposes the same slice counted by Signature_parameterCount, avoiding a copied shim parameter representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The accessor does not create synthetic seed parameters or filter parameters for a particular consumer strategy.
-// @evidence contracts/common.md#meaningful-documentation Native prose states value/this separation, declaration order, nil behavior and compiler-owned immutable-by-caller slice use.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_parameters acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_parameters performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_parameters computes one result per call, so there is no repeated work to share.
+// @evidence contracts/common.md#meaningful-documentation Native prose states value/this separation, stored order, synthesized-list and consumer-policy limits, nil behavior and compiler-owned immutable-by-caller slice use.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives the signature-owned slice without copying it; retaining that slice can retain its backing store, symbols and semantic graph. The supplied signature/checker owner controls their lifetime, and callers must not mutate the shared contents. This bridge keeps no additional parameter history or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The upstream accessor returns existing parameter storage directly. The guarded forwarding shim chooses no traversal, filtering, copying or parameter-construction algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature owner supplies an already constructed list; this bridge coordinates no completed or in-flight producer, parameter cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_parameters computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol {
   if signature == nil {
@@ -1217,29 +1215,21 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
   return signature.Parameters()
 }
 
-// Signature_hasRestParameter reports whether the signature's last value
-// parameter is a rest parameter (`...xs: S[]`). It is the signal a from/new
-// transform needs to tell a rest-only single-seed call `(...xs: S[])`, whose
-// seed is the ELEMENT S, from a genuine array-typed parameter `(seed: S[])`,
-// whose seed is the array S[]: getTypeOfSymbol yields `S[]` for BOTH, so without
-// this flag they are indistinguishable and the rest case decodes the wrong
-// shape.
+// Signature_hasRestParameter reads the upstream signature's rest flag, which
+// declaration checking and synthesized/composite signature construction set.
+// For ordinary declarations it distinguishes a rest parameter (`...xs: S[]`)
+// from an array-typed ordinary parameter (`xs: S[]`); an earlier required
+// parameter does not make a later rest parameter disappear. This predicate
+// does not choose a consumer's seed or compute its rest element type.
+// Returns false if signature is nil.
 //
-// The rest ELEMENT is the seed ONLY when the rest parameter is the sole value
-// parameter, i.e. `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`.
-// A leading-required + rest-tail signature `(s: S, ...r: R[])` also has a rest
-// parameter (this returns true), but its seed is the FIRST parameter S. Read it
-// from Signature_parameters(sig)[0], NOT the rest element, matching
-// ClassifiableSeed, whose `[infer P, ...Rest]` arm picks P=S there. Returns
-// false if signature is nil.
-//
-// @evidence contracts/common.md#principled-implementation Upstream rest-parameter flags distinguish a spread parameter declaration from an ordinary array-typed parameter, independent of whether it is the sole parameter.
+// @evidence contracts/common.md#principled-implementation Reading the actual signature flag preserves upstream declaration and synthesized-signature rest semantics; array typing alone and a consumer's seed policy do not replace that flag.
 // @evidence contracts/common.md#clear-and-simple-design One predicate exposes declaration shape separately from parameter count and rest element typing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Array typing is not used as a shortcut for rest syntax; actual signature flags decide the result.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rest-only versus leading-required cases, array ambiguity and nil false without replacing the actual predicate's domain.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains signature-flag provenance, ordinary rest-versus-array distinction, consumer-policy limits and nil false.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_hasRestParameter acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_hasRestParameter performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_hasRestParameter computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream HasRestParameter owns direct signature-flag inspection; this shim only guards nil and chooses no parameter traversal or rest-type calculation algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate reads an existing signature and coordinates no completed or in-flight producer, cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_hasRestParameter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
   if signature == nil {
