@@ -22,9 +22,9 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One command switch owns parsing for all three real utility plugin entrypoints; compiler work remains in the existing build, transform and check operations.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts All three production entrypoints call this dispatch; no test callback or alternate predicate duplicates command classification, and unknown tokens do not fall through to a compiler operation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states package metadata provenance, borrowed writer requirements, no-project aliases, usage status and the retained metadata write-error limitation separately from these tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunCommandWithIO acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunCommandWithIO performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunCommandWithIO computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This dispatcher borrows argv and writers without acquiring an independent handle or program lease; writer-retained output and host-owned program/artifact lifetimes belong to their existing owners, with no dispatcher-held historical state.
+// @evidence contracts/performance.md#efficient-algorithms A bounded command switch selects from the first token and passes a slice of remaining argv without copying it. Metadata and usage formatting scale with package/version/token bytes and the supplied writer's work; host commands additionally incur their delegated argument, compiler and output costs, rather than constant work implied by the switch size.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The dispatcher owns no keyed producer, result cache or in-flight request coordinator; selected host operations retain responsibility for their compiler-generation and hook reuse.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Dispatches on args[0] and writes usage text to the supplied writers; the commands it dispatches to own their path and process handling.
 func RunCommandWithIO(packageName, version string, args []string, stdout, stderr io.Writer) int {
   if len(args) == 0 {

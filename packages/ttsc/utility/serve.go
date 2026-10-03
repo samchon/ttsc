@@ -49,8 +49,8 @@ type serveUpdateResponse struct {
 
 // RunServe is the resident transform host. It transforms the whole project once
 // (the expensive compile plus linked-plugin pass) over an in-memory overlay,
-// caches every file's transformed text, then answers newline-delimited requests
-// read from in by writing one JSON reply per line to out, until in reaches EOF:
+// caches every file's transformed text, then answers nonblank newline-delimited
+// request lines with one JSON reply to out, until in reaches EOF:
 //
 //   - {"file":"<path>"} returns that file's transformed TypeScript.
 //   - {"update":"<path>","content":"<text>"} applies new content for the file
@@ -61,20 +61,22 @@ type serveUpdateResponse struct {
 // across separate worker processes (a Metro worker pool) is not supported.
 //
 // in and out are explicit so the request loop is testable; the utility-host
-// command wires them to os.Stdin and os.Stdout.
+// command wires them to os.Stdin and os.Stdout. Both must be usable nonnil
+// streams; the caller owns closing them.
 // Read or response-write failure terminates the request stream with status 2.
-// Replies preserve any explicit incomplete-observation declaration from the
-// committed generation. This limitation does not erase actual input conflicts
-// or turn an absent declaration into complete reuse proof.
+// Well-formed file/update replies preserve explicit incomplete observations
+// from the committed generation; malformed JSON receives an empty not-found
+// response without that field. Neither omission nor a cached reply establishes
+// complete input observation or continuing equivalence with external files.
 //
 // @evidence contracts/common.md#principled-implementation Requests share committed transformed text and its explicit observation limitation; each accepted edit rebuilds fresh mutable plugin ASTs, while a failed edit restores the previous overlay, output and limitation state.
 // @evidence contracts/common.md#clear-and-simple-design One overlay, one current transformed-text cache, and one request loop own the resident protocol.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Mutated ASTs are not incrementally reused as clean compiler input, failed responses do not return success, and failed edits do not leave poisoned overlay state.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain request forms, committed caching, updates, stream termination and the observation limitation's meaning following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Overlay keys use the compiler's native cwd resolution and actual filesystem case policy; input and output are explicit stream boundaries.
-// @evidence contracts/performance.md#efficient-algorithms File requests index the current text map directly; updates require a fresh whole-program transform because plugin hooks can mutate arbitrary resident ASTs.
+// @evidence contracts/performance.md#efficient-algorithms File requests use one current-text map lookup after request-line reading, JSON decoding and lexical path/key processing; response encoding and stream work grow with returned text bytes. Updates load and diagnose a fresh whole program, apply generation-latched hooks and print all resident source files, including upstream trivia/handler work, because program hooks can mutate resident ASTs. This is not constant request work or compilation limited to the edited file.
 // @evidence contracts/performance.md#reuse-equivalent-work Repeated file requests share the committed cache until an update replaces it; equivalent mutable AST work is not presumed safe across edits.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Each rebuild closes its Program and replaces the prior text cache; overlay state persists for updated file paths until the stream ends, so retained bytes scale with all distinct edited files rather than only current compiler members.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each successfully loaded rebuild defers Program checker-lease release; only a successful rebuild replaces the prior text cache, while a failed edit restores its overlay entry and retains committed output. Current output and overlay values for all distinct edited paths live until the stream ends, with old/new cache and request/JSON buffers overlapping during updates. There is no line, edited-path or output-byte cap; callers retain stream and any writer-buffer ownership, and lease Close does not immediately destroy all graph memory.
 func RunServe(in io.Reader, out io.Writer, args []string) int {
   opts, ok := parseHostOptions("serve", args, out, os.Stderr)
   if !ok {
