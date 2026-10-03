@@ -29,7 +29,7 @@ import { isolatedCacheEnvironment } from "../../../../internal/ttsc/internal/iso
  * @evidence contracts/testing.md#execution-ownership The named os-boundaries/compiler export is called by the existing installed Windows batch with its SDK launcher; it executes actual native path/process behavior and shares that installation.
  * @evidence contracts/e2e.md#necessary-boundary Actual kernel short-name identities must pass through the installed launcher and filesystem output resolution; synthetic string path units cannot prove Windows supplies and resolves both spellings.
  * @evidence contracts/e2e.md#shared-execution The caller supplies its already installed SDK launcher and consumer root; the fixture reuses that consumer installation's TypeScript dependency; one native short-name query and two product commands share one private project and no extra install or Go build is performed. Clean and emit have different effects and require separate command lifetimes.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the fresh project and cleanup lifetime; isolatedCacheEnvironment confines cleanup targets. Workspace compiler overrides are removed so the supplied installed launcher resolves its own binaries, and each synchronous child finishes before observation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns and retains the private project/owned ancestry before child launch; isolatedCacheEnvironment confines intended clean targets. Workspace compiler overrides are removed. Actual synchronous error/signal/status is distinct from arbitrary descendant join or loaded-image identity; unavailable alias returns false without coverage certification.
  * @evidence contracts/e2e.md#preserved-coverage All original cache-removal transcript, exact emitted-path stdout and actual file assertions remain. A false result explicitly reports unavailable short-name coverage; only a true result follows every real clean/emit assertion.
  */
 export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
@@ -39,6 +39,7 @@ export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
   ): boolean => {
     if (process.platform !== "win32") return false;
     const root = TestProject.tmpdir("ttsc-short-cwd-", consumerRoot);
+    TestProject.retainTemporaryDirectory(root, "installed short-cwd synchronous children have no descendant join acknowledgement");
     const files = FixtureFiles.read("ttsc/ttsc_relates_output_paths_through_a_windows_short_cwd/inputs-1");
     for (const [relative, content] of Object.entries(files)) {
       const file = path.join(root, relative);
@@ -54,6 +55,8 @@ export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
         windowsVerbatimArguments: true,
       },
     );
+    assert.equal(queried.error, undefined, "short-name query launch error");
+    assert.equal(queried.signal, null, "short-name query terminated by signal");
     assert.equal(queried.status, 0, queried.stderr);
     const short = queried.stdout.trim();
     const long = fs.realpathSync.native(root);
@@ -77,6 +80,8 @@ export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
       cwd: short,
       env: isolatedCacheEnvironment(root),
     });
+    assert.equal(clean.error, undefined, "installed clean launch error");
+    assert.equal(clean.signal, null, "installed clean terminated by signal");
     assert.equal(clean.status, 0, clean.stderr);
     assert.ok(
       clean.stdout
@@ -88,6 +93,8 @@ export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
     const build = spawn(ttscBinary, ["--cwd", short, "src/index.ts"], {
       cwd: short,
     });
+    assert.equal(build.error, undefined, "installed positional emit launch error");
+    assert.equal(build.signal, null, "installed positional emit terminated by signal");
     assert.equal(build.status, 0, `${build.stdout}${build.stderr}`);
     assert.equal(build.stdout.trim(), path.join("lib", "src", "index.js"));
     assert.equal(

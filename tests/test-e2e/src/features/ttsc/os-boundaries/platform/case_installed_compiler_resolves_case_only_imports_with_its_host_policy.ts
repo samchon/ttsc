@@ -24,12 +24,12 @@ import type { compilerUsesCaseSensitiveFileNames as compilerCaseOperation } from
  *
  * @evidence contracts/testing.md#behavioral-verification The installed ttsc compiler accepts ./VALUE.js where its ordinary host policy ignores case and reports TS2307 where it is sensitive; source module bytes remain unchanged.
  * @evidence contracts/testing.md#independent-expectations Authored value.ts exports a known value while main.ts imports ./VALUE.js. Actual native alias existence independently observes the ordinary input volume; Windows' pinned compiler policy is explicitly insensitive. Successful resolution or TS2307 comes from the candidate native compiler, separately from the SDK policy proxy.
- * @evidence contracts/testing.md#distinguishing-cases One case-only module selection crosses the actual supported installation platform: sensitive hosts must reject it while insensitive hosts must accept it. Parsed Program source units own both controlled policies and the four paths lookup/emit forms; this fixture does not claim mixed-volume or directory-override coverage.
- * @evidence contracts/testing.md#execution-ownership This named os-boundaries/platform entry receives the installed SDK policy operation and launcher from test_e2e_installation in the sole six-row installation matrix; it is separate from portable paths units.
+ * @evidence contracts/testing.md#distinguishing-cases One case-only selection compares the supplied SDK policy with candidate resolution: sensitive rejects, insensitive accepts. Native alias existence is separately asserted outside Windows, whose pinned policy is insensitive. This does not independently classify arbitrary volume/directory policy or execute every controlled lookup/emit form.
+ * @evidence contracts/testing.md#execution-ownership This named entry receives the installed SDK policy operation/launcher from test_e2e_installation. Its policy and compiler request are distinct observations; historical matrix size is not currently executed installation/Program/process coverage.
  * @evidence contracts/e2e.md#necessary-boundary The installed SDK's predicted compiler policy must agree with a real candidate compiler module-resolution request on its ordinary installation volume; controlled source units cannot prove native candidate assembly and volume interpretation.
  * @evidence contracts/e2e.md#shared-execution One compiler request consumes the already installed candidate binary and a private fixture; no additional installation, Go build or native plugin producer is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A TestProject-owned child of the installed consumer separates compiler inputs and its cache policy key while reusing the parent installation's TypeScript dependency. Workspace compiler/runtime overrides are removed from the child environment so the supplied launcher resolves the candidate binaries, and synchronous completion ends its child before assertions.
- * @evidence contracts/e2e.md#preserved-coverage This ordinary-volume connection accompanies the transfer of case-only paths lookup/emit assertions to their controlled source unit owner; it adds no skipped supported platform and does not replace the actual file-identity or Windows directory-authority cases.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A TestProject-owned child separates inputs/cache policy key while retaining parent installation dependency resolution. The tracked child/root ancestry is retained before policy preparation and compiler request. Workspace overrides are removed; synchronous error/signal/status does not certify arbitrary descendant termination or loaded-image equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original lowercase value7, uppercase import, boolean policy/Windows false or native alias contrast, TS2307-versus-zero result and unchanged source bytes remain. This installed connection does not itself execute controlled source lookup/emit transfers; separate survival and mixed-volume/directory-authority coverage are not certified here.
  */
 export function case_installed_compiler_resolves_case_only_imports_with_its_host_policy(
   compilerUsesCaseSensitiveFileNames: typeof compilerCaseOperation,
@@ -37,6 +37,7 @@ export function case_installed_compiler_resolves_case_only_imports_with_its_host
   consumerRoot: string,
 ): void {
   const root = TestProject.tmpdir("ttsc-compiler-case-policy-", consumerRoot);
+  TestProject.retainTemporaryDirectory(root, "installed compiler policy/request has no descendant join acknowledgement");
   const files = FixtureFiles.read("ttsc/installed_compiler_resolves_case_only_imports_with_its_host_policy/inputs-1");
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(root, name), body, "utf8");
   const cacheDir = path.join(root, "cache");
