@@ -7,11 +7,9 @@ import "testing"
 // single bare-identifier parameter: `(x,) => x` becomes `x => x`, matching
 // Prettier.
 //
-// Before the trailing-comma-aware wrappedness detection this input was
-// silently skipped (the `,` byte aborted the forward paren scan, so the
-// parameter looked bare and "avoid" had nothing to strip). The fix must delete
-// the comma together with the parens — replacing only `(x)` would leave the
-// invalid `x, => x`.
+// The current edit replaces the enclosing parameter span with the name alone,
+// including removal of the trailing comma. Each full expected source forbids
+// retaining that comma, which is not part of bare-identifier arrow syntax.
 //
 //  1. Parse a trailing-comma single-parameter arrow (plain, async, and
 //     multiline variants).
