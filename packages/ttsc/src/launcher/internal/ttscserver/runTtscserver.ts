@@ -40,14 +40,14 @@ import { needsStdio } from "./needsStdio";
  * - Delegate with inherited stdio and convert a reported POSIX signal to an exit
  *   status. Windows termination has no POSIX signal number.
  *
- * @evidence contracts/common.md#principled-implementation Native arguments remain an argv vector; startup accepts only matching repeated plugin selections and current reload fingerprints, then delegates protocol ownership to the Go host and propagates its status or reported signal.
+ * @evidence contracts/common.md#principled-implementation Native arguments remain an argv vector. A discovered project uses repeated selection and current reload-fingerprint checks before manifest handoff; meta commands skip that preparation, and failed implicit config reading leaves native discovery without a JS plugin manifest. After successful disposal the final host's status or reported signal is propagated, not certified as protocol or descendant completion.
  * @evidence contracts/common.md#clear-and-simple-design Resolution, selection confirmation, snapshot parsing and manifest transport are private responsibilities beneath one synchronous launcher; native help and version dispatch remain in the binary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounded confirmation addresses real startup filesystem drift and fails explicitly when unstable; native process and environment APIs carry the selected plugins without foreign patching or test-specific branches.
  * @evidence contracts/common.md#meaningful-documentation The native description names setup responsibilities and platform-specific termination meaning; private context/member documentation records ownership with paragraph and tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge/removal resolves Windows variable aliases while POSIX names remain exact; native paths and argv avoid shell quoting, and chmod plus signal status are isolated to their supported native platforms.
- * @evidence contracts/performance.md#efficient-algorithms Startup work scales with selected plugins and fingerprinted filesystem inputs, bounded to three confirmation attempts; transport keys deduplicate identical binary/context project-input queries within each capture.
+ * @evidence contracts/performance.md#efficient-algorithms Project startup allows three confirmation attempts, each containing two plugin loads and project-input captures. Native config/source/environment/runtime observations, delegated builds/queries, manifest/argv/result bytes, fingerprint reads and sorted snapshot serialization contribute work beyond plugin counts. Transport keys deduplicate binary/context-mode queries within one capture; attempt count is not a total time or child-count bound.
  * @evidence contracts/performance.md#reuse-equivalent-work Each capture reuses one project-input snapshot per binary/context mode; plugin loader and binary owners supply validated persistent reuse, while confirmation must observe current selection rather than reuse an unchecked snapshot.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The launcher owns one synchronous child invocation and one manifest disposer in finally; attempt maps are replaced rather than accumulated. Disposal failures remain observable and forced termination cannot guarantee cleanup.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The launcher owns the final synchronous host invocation and, when allocated, its manifest disposer in finally. Startup helpers own their additional native children/files; selected and confirmation maps coexist during an attempt and serialized records have no input-size ceiling here. Disposal failures remain observable and can prevent status return; abnormal interruption does not guarantee cleanup or descendant settlement.
  */
 export function runTtscserver(
   argv: readonly string[] = process.argv.slice(2),
@@ -115,8 +115,8 @@ type LSPExecutionContext = {
   projectContext?: ITtscProjectIdentity;
 
   /**
-   * What the plugin selection was loaded from, which ends the session when it
-   * changes (`captureLSPPluginSelectionInputs`).
+   * Reported selection inputs checked by the native host; observed mismatch
+   * requests session reload (`captureLSPPluginSelectionInputs`).
    */
   selectionInputs?: ILSPPluginSelectionInputs;
 
