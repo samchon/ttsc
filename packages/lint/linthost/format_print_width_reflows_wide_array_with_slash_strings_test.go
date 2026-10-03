@@ -10,11 +10,10 @@ import "testing"
 // `hasNonChildComments` scans the node's byte range for `//`/`/*` and abstains
 // when one falls OUTSIDE every child range, so `inChild` must correctly mask
 // the `//` inside each `"http://…"` string element (those are children). The
-// predicate was refactored from a per-byte linear scan to a binary search over
-// the source-ordered, non-overlapping child ranges; this case proves the
-// refactor still reflows the array (rather than mistaking an in-string `//`
-// for a comment and abstaining) and produces exactly the multi-line form it
-// produced before — a pure-speedup, output-preserving change.
+// current predicate binary-searches source-ordered child ranges. This
+// changing fixture distinguishes masked string bytes from a comment
+// that would suppress reflow; the full authored layout preserves every
+// URL. It does not measure an earlier scanner or a speed improvement.
 //
 //  1. Configure printWidth=40 so the 3-element array overflows.
 //  2. Run formatPrintWidth on an array of `"http://…"` strings.
