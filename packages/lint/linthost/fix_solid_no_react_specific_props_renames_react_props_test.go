@@ -6,12 +6,11 @@ import "testing"
 // `solid/no-react-specific-props` applies the 1:1 rename it already names in
 // its message, and leaves the `key` arm diagnostic-only.
 //
-// `className` and `class` are the same prop to a Solid DOM element, as are
-// `htmlFor` and `for`, so the rewrite is a pure substitution of the name token
-// and cannot change what the attribute does. `key` is not a rename at all —
-// Solid DOM elements do not consume it — so its resolution is a deletion that
-// would have to take the surrounding whitespace with it, and the rule declines
-// to guess that span.
+// Solid's DOM aliases map `className` to `class` and `htmlFor` to `for`.
+// This test checks the name-token substitution and unchanged value text, not
+// rendered DOM behavior for every value shape. The rule reports React-style
+// `key` without editing it; this test does not assert that a `key` attribute is
+// unobservable in the DOM or test a deletion span.
 //
 //  1. Fix a `<label>` carrying both React prop names and assert both are
 //     renamed while string, expression, and bare boolean shapes survive.

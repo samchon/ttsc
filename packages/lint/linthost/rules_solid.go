@@ -752,15 +752,15 @@ func (s *solidState) reportReactSpecificProps(ctx *Context) {
 
 // solidAttrRenameEdits rewrites a JSX attribute's name token and nothing else.
 //
-// `className` and `class` mean the same thing to a Solid DOM element, as do
-// `htmlFor` and `for`, so the rename is a pure 1:1 substitution and safe to
-// impose. Leaving the value untouched is what makes it safe for every value
-// shape at once: a string, an expression container, and a shorthand boolean
-// attribute all keep whatever follows the name.
+// Solid's DOM aliases map `className` to `class` and `htmlFor` to `for`.
+// The edit preserves the source following the name, including string,
+// expression-container and shorthand-boolean attribute shapes. This helper
+// does not evaluate the attribute or establish rendered equivalence for every
+// possible value and surrounding prop combination.
 //
-// The `key` arm has no counterpart here on purpose. Solid DOM elements do not
-// consume `key` at all, so the resolution is deletion, not a rename, and the
-// deletion has to take the surrounding whitespace with it to leave valid JSX.
+// The `key` arm has no counterpart here: the caller reports React-style `key`
+// without offering a rename or deletion. It does not prove that the DOM cannot
+// expose a `key` attribute.
 //
 // Returns nil when the name token cannot be located, which downgrades the
 // caller to a plain diagnostic.
