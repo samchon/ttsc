@@ -7,8 +7,8 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestJsxA11yRulesSurviveSpreadAttributes verifies no jsx-a11y rule panics or
-// misfires on JSX spread attributes.
+// TestJsxA11yRulesSurviveSpreadAttributes verifies registered jsx-a11y rules
+// produce no findings on the eleven authored spread-bearing element shapes.
 //
 // The shared jsxAttrs helper used to cast every attribute-list member with
 // AsJsxAttribute, so a `{...props}` member (a JsxSpreadAttribute) crashed
@@ -16,8 +16,8 @@ import (
 // *ast.JsxSpreadAttribute, not *ast.JsxAttribute" — the engine surfaced the
 // recovered panic as a finding on real-world shadcn/ui components. A spread
 // also means the prop set is unknown, so absence-predicated rules must not
-// report either. Running the whole family here seals the class instead of
-// pinning one rule.
+// report either. Running every registered family member detects a shared
+// extractor regression on these shapes without certifying every spread input.
 //
 //  1. Parse a component whose elements all carry `{...props}`, mirroring the
 //     shadcn/ui `<Comp {...props} />` repro.

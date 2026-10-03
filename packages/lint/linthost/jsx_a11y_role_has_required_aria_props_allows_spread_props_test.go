@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yRoleHasRequiredAriaPropsAllowsSpreadProps verifies spread props
-// satisfy role-has-required-aria-props.
+// TestJsxA11yRoleHasRequiredAriaPropsAllowsSpreadProps verifies unknown spread
+// props prevent a missing required-property report.
 //
 // The required aria-checked may come through the `{...props}` spread, so the
 // rule must not report while the prop set is unknown — `@ttsc/lint` findings
