@@ -3,8 +3,8 @@ package linthost
 import "testing"
 
 // TestFormatArrowParensIdempotentOnWrapped verifies prefer:"always" is a
-// no-op on an already-parenthesized single parameter, so the cascade reaches
-// a fixed point.
+// no-op on an already-parenthesized single parameter. This observes the rule's
+// canonical input, not convergence of a complete multi-rule fix cascade.
 //
 //  1. Parse `(x) => x`.
 //  2. Run format/arrow-parens with prefer:"always".
