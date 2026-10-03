@@ -80,79 +80,106 @@ const source = (implementations: number): string =>
  * @evidence contracts/testing.md#behavioral-verification The real MCP launcher and native graph return the path through eleven dispatch implementations, and for twelve return no path with a details continuation about the withheld fanout while details at its largest dependency limit lists declared implementations.
  * @evidence contracts/testing.md#independent-expectations The authored eleven and twelve implementation populations bracket the documented hub cut, and the expected hop kind, continuation action and implementation names come from the authored source, not from the returned selection.
  * @evidence contracts/testing.md#distinguishing-cases Eleven implementations are the followed positive, twelve the withheld boundary, and the outside verdict is the negative the withheld result must not take; the depth-bound scenario owns the maxDepth boundary.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, this exported scene borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; runTrace's walk is only observable together with the compiler's dispatch facts.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, this exported scene borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; runTrace's walk is only observable together with the compiler's dispatch facts.
  * @evidence contracts/e2e.md#necessary-boundary Real compiler heritage facts must reach the graph before the path walk can distinguish a withheld fanout from an exhausted graph, and the continuation must name a request that the same session can answer.
  * @evidence contracts/e2e.md#shared-execution Runs inside the experiment's single identity project and MCP session: the scene edits one source file and scopes the include to it, then restores the configuration after settled requests. The same MCP/native process handles changed compiler generations; no Program-reuse count is claimed.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity withIdentityBoundary restores include/config bytes after settled requests, and each population overwrites only this scene's source. Unconfirmed transport freezes edits/reset and retains project and external receipts; the experiment attempts the shared MCP/native joins afterwards.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scene captures its source bytes or actual ENOENT absence before the first population, checks the real client mutation authority before every write and guarded restoration, and restores that state after all three operations; reset failure withdraws reuse and is collected with operation failure. withIdentityBoundary separately restores include/config bytes after settled requests. Unconfirmed transport freezes edits/reset and retains project and external receipts; the experiment attempts the shared MCP/native joins afterwards.
  * @evidence contracts/e2e.md#preserved-coverage Adds the path-mode counterpart of the suppressed-trace scenario; the former open-trace assertions remain in their own scene.
  */
 export async function case_ttscgraph_path_reports_a_hub_withheld_walk_instead_of_an_absence(): Promise<void> {
-  const call = async (
-    implementations: number,
-    request: Record<string, unknown>,
-  ): Promise<unknown> => {
-    let structured: unknown;
-    await withIdentityBoundary(async (client, root) => {
-      fs.writeFileSync(
-        path.join(root, "src", "dispatch-hub.ts"),
-        source(implementations),
-        "utf8",
+  await withIdentityBoundary(async (owner, root) => {
+    const sourceFile = path.join(root, "src", "dispatch-hub.ts");
+    let originalSource: Buffer | undefined;
+    try {
+      originalSource = fs.readFileSync(sourceFile);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const failures: unknown[] = [];
+    try {
+      const call = async (
+        implementations: number,
+        request: Record<string, unknown>,
+      ): Promise<unknown> => {
+        let structured: unknown;
+        await withIdentityBoundary(async (client, root) => {
+          client.assertInputMutationAllowed();
+          fs.writeFileSync(
+            path.join(root, "src", "dispatch-hub.ts"),
+            source(implementations),
+            "utf8",
+          );
+          const response = (await client.request("tools/call", {
+            name: "inspect_typescript_graph",
+            arguments: graphArguments(request),
+          })) as ToolResult;
+          structured = response.structuredContent;
+        }, ["src/dispatch-hub.ts"]);
+        return structured;
+      };
+      const route = {
+        type: "trace",
+        from: "Runner.run",
+        to: "Impl3.execute",
+        focus: "execution",
+        maxDepth: 6,
+      };
+    
+      const followed = (await call(11, route)) as PathStructure;
+      assert.equal(
+        followed.next?.action,
+        "answer",
+        `below the hub cut the walk enters the fanout and returns the path: ${JSON.stringify(followed)}`,
       );
-      const response = (await client.request("tools/call", {
-        name: "inspect_typescript_graph",
-        arguments: graphArguments(request),
-      })) as ToolResult;
-      structured = response.structuredContent;
-    }, ["src/dispatch-hub.ts"]);
-    return structured;
-  };
-  const route = {
-    type: "trace",
-    from: "Runner.run",
-    to: "Impl3.execute",
-    focus: "execution",
-    maxDepth: 6,
-  };
-
-  const followed = (await call(11, route)) as PathStructure;
-  assert.equal(
-    followed.next?.action,
-    "answer",
-    `below the hub cut the walk enters the fanout and returns the path: ${JSON.stringify(followed)}`,
-  );
-  assert.ok(
-    followed.result?.hops.some((hop) => hop.kind === "dispatches"),
-    `the returned path crosses a dispatch hop: ${JSON.stringify(followed.result?.hops)}`,
-  );
-
-  const withheld = (await call(12, route)) as PathStructure;
-  assert.equal(withheld.result?.hops.length, 0, "no path crosses the withheld fanout");
-  assert.notEqual(
-    withheld.next?.action,
-    "outside",
-    "a walk the hub cut stopped is not evidence the graph holds no connection",
-  );
-  assert.equal(withheld.next?.action, "inspect");
-  assert.equal(
-    withheld.next?.request,
-    "details",
-    "the continuation asks for the implementations, which a trace cannot list",
-  );
-  assert.match(
-    withheld.next?.reason ?? "",
-    /dispatch fanout of 12 or more implementations/,
-    "the reason names the fanout the walk did not follow",
-  );
-
-  const details = (await call(12, {
-    type: "details",
-    handles: ["Hub.execute"],
-    dependencyLimit: 4,
-  })) as DetailsStructure;
-  const listed = (details.result?.nodes[0]?.implementedBy ?? []).map(
-    (reference) => reference.name ?? "",
-  );
-  assert.ok(listed.length >= 2, `details lists implementations: ${JSON.stringify(listed)}`);
-  for (const name of listed)
-    assert.match(name, /^Impl(?:\d|1[01])\.execute$/, "a listed implementation is one the source declares");
+      assert.ok(
+        followed.result?.hops.some((hop) => hop.kind === "dispatches"),
+        `the returned path crosses a dispatch hop: ${JSON.stringify(followed.result?.hops)}`,
+      );
+    
+      const withheld = (await call(12, route)) as PathStructure;
+      assert.equal(withheld.result?.hops.length, 0, "no path crosses the withheld fanout");
+      assert.notEqual(
+        withheld.next?.action,
+        "outside",
+        "a walk the hub cut stopped is not evidence the graph holds no connection",
+      );
+      assert.equal(withheld.next?.action, "inspect");
+      assert.equal(
+        withheld.next?.request,
+        "details",
+        "the continuation asks for the implementations, which a trace cannot list",
+      );
+      assert.match(
+        withheld.next?.reason ?? "",
+        /dispatch fanout of 12 or more implementations/,
+        "the reason names the fanout the walk did not follow",
+      );
+    
+      const details = (await call(12, {
+        type: "details",
+        handles: ["Hub.execute"],
+        dependencyLimit: 4,
+      })) as DetailsStructure;
+      const listed = (details.result?.nodes[0]?.implementedBy ?? []).map(
+        (reference) => reference.name ?? "",
+      );
+      assert.ok(listed.length >= 2, `details lists implementations: ${JSON.stringify(listed)}`);
+      for (const name of listed)
+        assert.match(name, /^Impl(?:\d|1[01])\.execute$/, "a listed implementation is one the source declares");
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try {
+        owner.assertInputMutationAllowed();
+        if (originalSource === undefined) fs.rmSync(sourceFile, { force: true });
+        else fs.writeFileSync(sourceFile, originalSource);
+      } catch (error) {
+        owner.preventInputReuse("Hub path source restoration failed");
+        failures.push(error);
+      }
+    }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Hub path operations and reset failed");
+  });
 }
