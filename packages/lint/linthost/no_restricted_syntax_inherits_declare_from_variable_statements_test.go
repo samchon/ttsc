@@ -11,7 +11,7 @@ import (
 // A declarator is ambient only through the enclosing declare statement; the
 // local initialized statement has no declare modifier.
 //
-//  1. Parse a declare var statement beside a local initialized var.
+//  1. Parse a declare const statement beside a local initialized const.
 //  2. Run selectors requiring declare true and declare false.
 //  3. Assert each selector reports exactly its own declarator range.
 //

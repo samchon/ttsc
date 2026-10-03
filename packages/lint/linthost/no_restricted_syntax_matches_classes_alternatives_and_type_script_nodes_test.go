@@ -13,7 +13,7 @@ import (
 //
 //  1. Parse as and satisfies expressions, a function with a return, and true and
 //     null literals beside typed declarations.
-//  2. Run alternatives, a case-insensitive FUNCTION:function selector and
+//  2. Run alternatives, case-insensitive :FUNCTION:has(ReturnStatement) and
 //     Literal:expression.
 //  3. Assert both assertion forms, the returning function and the true and null
 //     literals report and unrelated typed declarations do not.
