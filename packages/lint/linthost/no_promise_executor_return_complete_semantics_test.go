@@ -8,7 +8,7 @@ import (
 )
 
 // TestNoPromiseExecutorReturnCompleteSemantics verifies the rule follows the
-// global Promise binding through every executor return scope.
+// global Promise binding through the authored executor return scopes.
 //
 // The old implementation only inspected concise arrow bodies and matched the
 // callee by text. These cases pin explicit returns in nested control flow,
