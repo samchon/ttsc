@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalPreferTacitCheckMemberExpressionsFalseSkipsMemberCallee verifies functional/prefer-tacit honors checkMemberExpressions: false.
 //
-// A member callee is the wrapper whose tacit form loses its receiver, so the
-// published key exists to keep the rule off it. It decoded nothing before
-// #1132.
+// Removing a member-call wrapper can lose its receiver binding. The
+// published switch exempts this service.handler wrapper while leaving
+// the separately owned bare-identifier wrapper checked.
 //
 // 1. Parse an arrow that forwards its parameter to a member call.
 // 2. Enable only functional/prefer-tacit with `checkMemberExpressions: false`.

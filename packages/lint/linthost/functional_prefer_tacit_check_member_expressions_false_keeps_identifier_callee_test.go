@@ -4,7 +4,7 @@ import "testing"
 
 // TestFunctionalPreferTacitCheckMemberExpressionsFalseKeepsIdentifierCallee verifies checkMemberExpressions: false leaves a bare callee checked.
 //
-// The negative twin. The key narrows the callee shape, not the rule, so a
+// The reporting twin. The key narrows the callee shape, not the rule, so a
 // wrapper around a plain identifier must still report while the key is off.
 //
 // 1. Parse an arrow that forwards its parameter to a bare identifier call.

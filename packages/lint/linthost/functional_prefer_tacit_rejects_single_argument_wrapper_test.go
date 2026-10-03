@@ -4,8 +4,9 @@ import "testing"
 
 // TestFunctionalPreferTacitRejectsSingleArgumentWrapper verifies functional/prefer-tacit rejects needless wrappers.
 //
-// A single-argument arrow that only forwards into another call is the safest
-// point-free style candidate and avoids semantic changes from arity-sensitive functions.
+// This single-argument arrow forwards to Number and is reported as a
+// potential style simplification. No autofix is offered, and the syntax
+// comparison does not certify replacing arbitrary arity-sensitive callees.
 //
 // 1. Parse a forwarding arrow function.
 // 2. Enable only functional/prefer-tacit.
