@@ -5,7 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Private opt-in observations of maintained synchronous process primitives.
+ * Private opt-in observations of maintained process primitives and separately
+ * classified runtime source preparation inputs.
  *
  * TTSC_E2E_TRACE selects coordinator-owned scratch. Each writer owns one JSONL
  * and its raw returned-buffer payloads. Returned strings are recorded as text,
@@ -15,7 +16,7 @@ import path from "node:path";
  * call bounds; a synchronous return does not reveal an exact OS start time or
  * descendant close. No trace output is written to product streams.
  *
- * @evidence contracts/common.md#principled-implementation Only actual primitive call bounds and returned PID/status/signal/error/output are observed; failed admission or sink writes do not synthesize success or replace command results.
+ * @evidence contracts/common.md#principled-implementation Actual primitive call bounds and returned PID/status/signal/error/output remain separate from source-preparation input observations; failed admission or sink writes do not synthesize success or replace product results.
  * @evidence contracts/common.md#clear-and-simple-design A private token connects one attempt and returned result; per-process writer state owns serialization, payload budget and append-close IO.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper neither patches child_process nor infers launches from wrapper call counts; no tests/utils or public product API is introduced.
  * @evidence contracts/common.md#meaningful-documentation Native prose separates observation from lifecycle ownership and documents opt-in failure and time-bound limitations.
@@ -25,6 +26,53 @@ import path from "node:path";
  * @evidence contracts/performance.md#bound-retention-and-release-resources One writer retains root/nonce/counters until process exit. Each sink write closes in finally; payloads are capped at 64MiB each and writer output at 256MiB including reserved integrity metadata. Coordinator owns scratch reclamation and writer/child settlement; IO failure can leave partial files and missing evidence.
  */
 export namespace E2ETrace {
+  /**
+   * Observe the actual source string before CommonJS preparation, not a launch.
+   * UTF-16LE preserves JavaScript code units, including unpaired surrogates;
+   * these bytes represent the consumed string, not original disk or emit bytes.
+   * Disabled tracing performs no sink IO or source conversion. Observer failure
+   * leaves the caller's preparation and exception behavior untouched.
+   *
+   * @evidence contracts/common.md#principled-implementation The caller supplies its already-read source, filename and selected format; the observation precedes the unchanged preparation without certifying parsing success or executable identity.
+   * @evidence contracts/common.md#clear-and-simple-design One non-process event and bounded raw-string payload use the existing private writer, invocation schema and integrity policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No source is reconstructed, product result replaced, syntax admitted, or launch inferred from this observation; no public product API or test dependency is introduced.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes consumed UTF-16 code units from disk bytes, process starts and preparation success.
+   * @evidence contracts/portability.md#os-neutral-implementation Native filenames and selected format remain caller metadata; Node's explicit utf16le encoding preserves source code units without filesystem case or module-format guessing.
+   * @evidence contracts/performance.md#efficient-algorithms Enabled source conversion and payload IO scale with twice the source code-unit count; metadata encoding and synchronous sink IO add latency. Disabled tracing returns before conversion, and oversized source is rejected before allocation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each preparation observation concerns its actual caller input, not a shared compilation or historical execution answer.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation retains no source history or handle; the existing writer owns bounded payload writes, failure metadata and coordinator-owned scratch cleanup.
+   */
+  export function runtimePreparation(
+    source: string,
+    filename: string,
+    selectedFormat: string,
+    origin: string,
+  ): void {
+    const selected = process.env.TTSC_E2E_TRACE;
+    if (!selected) return;
+    try {
+      if (!admit(selected)) return;
+      const token: Token = {
+        invocation: String(++ordinal),
+        argv: [...process.argv],
+        cwd: process.cwd(),
+        lower: new Date().toISOString(),
+        origin,
+        argv0: null,
+      };
+      if (source.length > PAYLOAD_LIMIT / 2) {
+        integrity(token, "payload-budget-exceeded");
+        return;
+      }
+      const sourcePayload = payload(token, "runtime-source", Buffer.from(source, "utf16le"));
+      event(token, "runtime-source-preparation", process.pid, {
+        origin, filename, selectedFormat, source: sourcePayload,
+        sourceEncoding: "utf16le", sourceCodeUnits: source.length,
+        representation: "consumed-javascript-string",
+      });
+    } catch { failed = true; }
+  }
+
   /**
    * Observe supported child events without taking transport or kill ownership.
    * Error monitoring preserves Node's ordinary unhandled-error behavior. Close
@@ -110,16 +158,16 @@ export namespace E2ETrace {
     /** Writer-local ordinal; writer pid and nonce complete its identity. */
     invocation: string;
 
-    /** Selected executable spelling followed by unchanged argument values. */
+    /** Selected process inputs, or actual writer argv for source observation. */
     argv: string[];
 
     /** Explicit cwd representation, or null for inherited cwd intent. */
     cwd: string | null;
 
-    /** UTC bound captured before the owning primitive is invoked. */
+    /** UTC bound before the owning primitive or preparation observation. */
     lower: string;
 
-    /** Maintained primitive owner, not an inferred child phase. */
+    /** Maintained observation owner, not an inferred child phase. */
     origin: string;
 
     /** Explicit argv[0] override, or null for the primitive's default. */

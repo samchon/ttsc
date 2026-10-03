@@ -16,6 +16,7 @@ import { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
@@ -834,8 +835,10 @@ function load(
   // through the CommonJS loader, through the selected public CommonJS load boundary
   // (`commonJsImportFacade`); entry predicates can instead admit served source.
   if (format === "commonjs" && !hasCondition(context, "require")) {
-    if (servesCommonJsFromSource(url))
+    if (servesCommonJsFromSource(url)) {
+      E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-import");
       return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
+    }
     return {
       format: "module",
       shortCircuit: true,
@@ -851,6 +854,8 @@ function load(
       ),
     };
   }
+  if (format === "commonjs")
+    E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-load");
   return { format, shortCircuit: true, source: format === "commonjs" ? CommonJsRuntimeSource.prepare(served.source, filename) : served.source };
 }
 
@@ -885,11 +890,15 @@ function loadJavaScript(
     hasCondition(context, "require") ||
     RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
     servesCommonJsFromSource(url)
-  ) return {
-    ...loaded,
-    shortCircuit: true,
-    source: CommonJsRuntimeSource.prepare(inlineServedSourceMap(source, filename, filename), filename),
-  };
+  ) {
+    const preparedSource = inlineServedSourceMap(source, filename, filename);
+    E2ETrace.runtimePreparation(preparedSource, filename, loaded.format, "ttsx-commonjs-javascript-load");
+    return {
+      ...loaded,
+      shortCircuit: true,
+      source: CommonJsRuntimeSource.prepare(preparedSource, filename),
+    };
+  }
   return {
     format: "module",
     shortCircuit: true,
