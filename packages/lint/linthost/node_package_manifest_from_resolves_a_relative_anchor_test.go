@@ -47,9 +47,9 @@ func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
     t.Fatalf("nodePackageManifestFrom = %q, want the absolute manifest %q", got, want)
   }
   // The negative twin: resolving the ancestry is not the same as inventing it.
-  // A package nothing installed stays unresolved even now that the walk is
-  // longer. The name is scoped and fictional so no ambient install above the
-  // temp dir can answer for it.
+  // A package absent from the authored fixture remains unresolved while the walk is
+  // longer. The scoped fictional name reduces accidental ambient matches; it
+  // does not isolate ancestors outside the temp fixture.
   if got := nodePackageManifestFrom("lint.config.ts", "@ttsc/fixture-package-that-is-never-installed"); got != "" {
     t.Fatalf("nodePackageManifestFrom resolved an absent package to %q", got)
   }
