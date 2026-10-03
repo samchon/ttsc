@@ -1,6 +1,14 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { E2eProcessTrace } from "./E2eProcessTrace";
+
+const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
+  begin(): string | undefined;
+  record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+};
 
 /** Discovers and runs the named feature exports of the package-shaped suites. */
 export namespace TestExecutor {
@@ -18,12 +26,12 @@ export namespace TestExecutor {
    *
    * @evidence contracts/common.md#principled-implementation A single walk selects the TypeScript file prefix and substring filters before the exported-function loop. Native ESM imports retain real file URL and module identity. Import and invocation failures remain errors while independent entries continue.
    * @evidence contracts/common.md#clear-and-simple-design One walk and two loops own discovery and execution without another runner or per-file directory rescans; existing package entries still provide locations and named exports.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No failure is retried or replaced. Returned false is reported as skipped without coverage; an empty selection or unfinished process is an error.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No failure is retried or replaced. Returned false is reported as skipped without coverage; an empty selection or unfinished process is an error. Opt-in actual file/export invocation and outcome markers do not certify assertions or count native children.
    * @evidence contracts/common.md#meaningful-documentation Documents selection before import, the file-level failure boundary and immediate nested error output; callers supply feature locations.
    * @evidence contracts/portability.md#os-neutral-implementation Native paths address directories and pathToFileURL supplies the module URL on Windows and POSIX. Directory links are not traversed, matching the former lstat-based discovery.
-   * @evidence contracts/performance.md#efficient-algorithms One traversal visits each directory entry and each selected file is imported once. Executions run sequentially; retained paths grow with selected files and errors with failed entries.
+   * @evidence contracts/performance.md#efficient-algorithms One traversal visits each directory entry and each selected file is imported once. Executions run sequentially; retained paths grow with selected files and errors with failed entries. Enabled observation adds two events proportional to actual file/name text; disabled tracing performs no sink IO.
    * @evidence contracts/performance.md#reuse-equivalent-work Node module caching shares imported helpers across cases and discovery runs once per location; test results are never reused.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads leave no handle open. Test children belong to their case owners. Paths and errors last through this run and the exit guard is removed on normal completion; nested error output is not separately capped.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads leave no handle open; enabled marker files append/close through the bounded private runtime. Test children belong to their case owners. Paths and errors last through this run and the exit guard is removed on normal completion; nested error output is not separately capped and markers do not prove descendant closure.
    */
   export const main = async (props: IProps): Promise<void> => {
     const include = getArguments("include");
@@ -75,13 +83,30 @@ export namespace TestExecutor {
           if (!name.startsWith("test_") || typeof run !== "function") continue;
           const before = Date.now();
           executed++;
+          const invocation = trace.begin();
+          trace.record("test-invocation", invocation, {
+            pid: process.pid,
+            data: { writerRuntime: process.version, file, name },
+          });
           try {
             const value = await run();
+            trace.record("test-result", invocation, {
+              pid: process.pid,
+              data: { writerRuntime: process.version, file, name,
+                outcome: value === false ? "skipped" : "returned", assertionCoverageCertified: false },
+            });
             if (value === false) {
               skipped++;
               console.log(`  - ${name}: SKIPPED (returned false; no coverage claimed)`);
             } else console.log(`  - \x1b[32m${name}\x1b[0m: \x1b[33m${(Date.now() - before).toLocaleString()} ms\x1b[0m`);
-          } catch (error) { fail(`Test failed: ${name} (${file})`, error); }
+          } catch (error) {
+            trace.record("test-result", invocation, {
+              pid: process.pid,
+              data: { writerRuntime: process.version, file, name,
+                outcome: "threw", assertionCoverageCertified: false },
+            });
+            fail(`Test failed: ${name} (${file})`, error);
+          }
         }
       }
     }
