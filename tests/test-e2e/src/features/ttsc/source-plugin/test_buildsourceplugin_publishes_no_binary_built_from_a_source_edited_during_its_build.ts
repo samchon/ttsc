@@ -1,5 +1,6 @@
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
+import { once } from "node:events";
 
 import {
   assert,
@@ -41,12 +42,13 @@ import {
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Barrier-driven builds must retain their own initially cold publication state; the subsequent stable/reuse call consumes the same case cache. Mutations require another proof and cannot borrow a warm binary from a different case.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases. Barrier files establish the race before assertions; each auxiliary editor receives kill in finally even if its build or assertion throws; actual kernel termination still follows Node process semantics.
- * @evidence contracts/e2e.md#preserved-coverage A paused fake build reads the proven overlay copy as FIRST, restoring it reuses the binary, and a module edit after key reading rejects publication. These assertions stay in test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before preparation. Existing editWhenPaused now attaches actual error/close observers before any blocking build, and each phase awaits actual spawn. Both editor barriers and the wrapper key-read release wait are bounded120s. Shared joinEditor preserves kill then independently awaits close60s and aggregates operation/error/join failures; same-root overlay restore/module mutation cannot follow unresolved close. Call-local env and distinct extra.go state preserve cold refusal. Direct close is not arbitrary descendant join.
+ * @evidence contracts/e2e.md#preserved-coverage Original // replace nothing metadata barrier, module/generated files, FIRST-to-SECOND overlay race, actual go.work-selected copy output FIRST, cache population1, restore-to-same snapshot path and extra.go cold key-read module edit/source-path rejection remain. Final failure has no independent no-extra-binary count; fake output is not native Go semantics. Actual spawn/close/barrier deadlines strengthen ownership before mutable input reuse. New join helper1/inline observer callbacks5 are separate AUTHORED/UNEXECUTED, not original686 additions. Runtime/selection/survival unverified and donor retained.
  */
 export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build =
-  () => {
+  async () => {
     const root = TestProject.tmpdir("ttsc-plugin-source-race-");
+    TestProject.retainTemporaryDirectory(root, "Source race editor or build descendants are not joined");
     const plugin = path.join(root, "plugin");
     const overlay = path.join(root, "overlay");
     const overlayFile = path.join(overlay, "value.go");
@@ -86,7 +88,9 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
         "const pause = process.env.PAUSE_KEY_READ_BARRIER;",
         'if (pause && args[0] === "mod" && args[1] === "edit" && args[2] === "-json" && !fs.existsSync(pause)) {',
         '  fs.writeFileSync(pause, "");',
+        "  const deadline = Date.now() + 120_000;",
         "  while (!fs.existsSync(process.env.PAUSE_KEY_READ_RELEASE)) {",
+        '    if (Date.now() >= deadline) throw new Error("Source key-read barrier was not released");',
         "    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);",
         "  }",
         "}",
@@ -124,20 +128,53 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       release: string,
       file: string,
       text: string,
-    ): child_process.ChildProcess =>
-      child_process.spawn(
+    ) => {
+      const child = child_process.spawn(
         process.execPath,
         [
           "-e",
           [
             'const fs = require("node:fs");',
-            `while (!fs.existsSync(${JSON.stringify(barrier)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);`,
+            `const deadline = Date.now() + 120_000;`,
+            `while (!fs.existsSync(${JSON.stringify(barrier)})) { if (Date.now() >= deadline) throw new Error("Source edit barrier not reached"); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); }`,
             `fs.writeFileSync(${JSON.stringify(file)}, ${JSON.stringify(text)});`,
             `fs.writeFileSync(${JSON.stringify(release)}, "");`,
           ].join("\n"),
         ],
         { stdio: "ignore", windowsHide: true },
       );
+      const failures: unknown[] = [];
+      child.once("error", (error) => failures.push(error));
+      const closed = new Promise<void>((resolve) => {
+        child.once("close", () => resolve());
+      });
+      return { child, closed, failures };
+    };
+    /** Kill remains an attempt; only bounded actual close permits input reuse. */
+    const joinEditor = async (
+      editor: ReturnType<typeof editWhenPaused>,
+      label: string,
+    ): Promise<void> => {
+      try {
+        editor.child.kill();
+      } catch (error) {
+        editor.failures.push(error);
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          editor.closed,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => reject(new Error(`${label} did not close`)), 60_000);
+          }),
+        ]);
+      } catch (error) {
+        editor.failures.push(error);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
+      if (editor.failures.length) throw new AggregateError(editor.failures, `${label} operation and close failed`);
+    };
     const build = (env: NodeJS.ProcessEnv): string =>
       buildSourcePlugin({
         baseDir: root,
@@ -167,14 +204,17 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       overlayFile,
       "package overlay // SECOND\n",
     );
-    let snapshot: string;
+    let snapshot!: string;
     try {
+      await once(overlayEditor.child, "spawn");
       snapshot = build({
         FAKE_GO_BUILD_BARRIER_FILE: buildBarrier,
         FAKE_GO_BUILD_RELEASE_FILE: buildRelease,
       });
+    } catch (error) {
+      overlayEditor.failures.push(error);
     } finally {
-      overlayEditor.kill();
+      await joinEditor(overlayEditor, "Overlay editor");
     }
     assert.equal(
       fs.readFileSync(snapshot, "utf8"),
@@ -200,6 +240,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       "package main\n\n// edited\n",
     );
     try {
+      await once(moduleEditor.child, "spawn");
       assert.throws(
         () =>
           build({
@@ -211,8 +252,10 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
             `source ${plugin} changed while it was being built`,
           ),
       );
+    } catch (error) {
+      moduleEditor.failures.push(error);
     } finally {
-      moduleEditor.kill();
+      await joinEditor(moduleEditor, "Module editor");
     }
   };
 
