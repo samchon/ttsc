@@ -88,8 +88,9 @@ const utf8BOM = "\uFEFF"
 // the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
 // editor stdio plus those pipe ends.
 //
-// Run owns one source session and closes an io.Closer source on cancellation or
-// completion. Transport owners must close blocked streams on cancellation.
+// Run owns one source session and invokes Close once for an io.Closer source on
+// cancellation or completion. This does not certify that custom Close joins its
+// work. Transport owners must close blocked streams on cancellation.
 //
 // @evidence contracts/common.md#principled-implementation Separate editor and upstream streams model both directions; optional source/provider values and advertisement policy preserve contribution ownership.
 // @evidence contracts/common.md#clear-and-simple-design One options value injects dependencies without global transport or provider mutation.
@@ -98,13 +99,23 @@ const utf8BOM = "\uFEFF"
 // @evidence contracts/portability.md#os-neutral-implementation io streams abstract native transport; OS-dependent stream closability remains the transport owner's explicit responsibility.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Options choose no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Source and proxy operations own computation sharing.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Run acquires tasks and controls release, not the dependency value.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This dependency value executes no acquisition or release; Run and transport/source owners perform cleanup under their own lifetime contracts.
 type ProxyOptions struct {
-  EditorIn    io.Reader
-  EditorOut   io.Writer
-  UpstreamIn  io.Writer // we write here; the tsgo LSP process reads
-  UpstreamOut io.Reader // the tsgo LSP process writes here; we read
-  Source      PluginSource
+  // EditorIn supplies client frames; its owner must unblock native reads when
+  // cancellation requires the editor pump to return.
+  EditorIn io.Reader
+
+  // EditorOut receives serialized client-bound frames.
+  EditorOut io.Writer
+
+  // UpstreamIn receives frames consumed by the upstream LSP process.
+  UpstreamIn io.Writer
+
+  // UpstreamOut supplies frames produced by the upstream LSP process.
+  UpstreamOut io.Reader
+
+  // Source provides plugin contributions; nil selects NullPluginSource.
+  Source PluginSource
 
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the
   // initialize response for clients that register wrapper commands themselves.
@@ -139,9 +150,11 @@ type ProxyOptions struct {
 // the message types ttsc cares about (publishDiagnostics merge, code
 // action augmentation, executeCommand for ttsc-owned commands).
 //
-// One instance serves one session. Pending requests are removed on reply or
-// cancellation; document text is discarded on close. Generation histories remain
-// for the session so a late result cannot regain validity after a document closes.
+// One instance serves one session. Tracked editor requests have response and
+// cancellation cleanup; proxy-originated client callbacks have separate response
+// and send-failure cleanup. A peer that never responds may leave an entry for
+// the session. Document text is discarded on close, while generation histories
+// remain to prevent late work from regaining the closed generation's validity.
 //
 // @evidence contracts/common.md#principled-implementation Pending IDs preserve string/numeric distinctions; diagnostic generations revoke even a first unpublished computation, while formatting captures live text with its document generation and permits dirty text only until that generation changes.
 // @evidence contracts/common.md#clear-and-simple-design Locks separate frame serialization, request correlation, diagnostic state and watcher reconciliation; helpers own method-specific wire handling.
@@ -150,7 +163,7 @@ type ProxyOptions struct {
 // @evidence contracts/portability.md#os-neutral-implementation Native disk and URI boundaries use shared decoding/path APIs, while protocol positions and CRLF framing do not depend on native text conventions.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Run and method handlers choose processing algorithms; this type represents protected state.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Query and refresh owners establish sharing validity rather than the state declaration.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Run owns session teardown and handlers own entry acquisition/reclamation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This type groups retained state without executing acquisition or release; Run and handlers own cleanup attempts, and unacknowledged entries and generation histories can remain for the session.
 type Proxy struct {
   sourceCloseOnce                sync.Once
   editorIn                       io.Reader
