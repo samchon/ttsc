@@ -26,8 +26,8 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * @evidence contracts/testing.md#distinguishing-cases Typed config top-level logging and JSON package require-time logging cover two different redirection connections; failure forwarding and envelope-less exit have separate owners.
  * @evidence contracts/testing.md#execution-ownership This named entry spawns the descriptor through the actual built package and supplied real launcher/compiler pair; each result's status, parsed payload and stderr are asserted.
  * @evidence contracts/e2e.md#necessary-boundary Real module-load logs must be redirected before the host machine protocol starts; source units cannot establish child stdout isolation or package require-time side effects.
- * @evidence contracts/e2e.md#shared-execution Both logging routes share one project, contributor source and emitted factory artifacts. Two separately captured outer stdout payloads preserve independent protocol assertions; neither invocation builds a Go binary or starts a native host.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The second route names a separate JSON config and logging package, preventing the first config's module cache from deciding its logs; fixture ownership ends in finally and stream buffers remain invocation-local.
+ * @evidence contracts/e2e.md#shared-execution Both logging routes share one project, contributor source and emitted factory artifacts. Two separately captured outer stdout payloads preserve independent protocol assertions; each built-factory call uses its actual isolated evaluator/selected compiler route, without starting the native lint rule host. The two outer invocations do not establish fixed inner child/Program totals or loaded artifact identity.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The second route names a separate JSON config and logging package, preventing the first config's module cache from deciding its logs; fixture cleanup is attempted in finally and original observation/cleanup failures are aggregated; stream buffers remain invocation-local. Returned sync capture is not arbitrary descendant join or image identity certification.
  * @evidence contracts/e2e.md#preserved-coverage Both original successful statuses, exact JSON contributor arrays and four preserved log markers remain executable, including JSON string package loading.
  */
 export function test_descriptor_redirects_executable_config_stdout_to_stderr(): void {
@@ -36,6 +36,7 @@ export function test_descriptor_redirects_executable_config_stdout_to_stderr(): 
       pluginConfig: { configFile: "./lint.config.ts" },
       source: "export const value = 1;\n",
     });
+    const failures: unknown[] = [];
     try {
       const contributor = path.join(project.tmpdir, "contributor");
       fs.mkdirSync(contributor, { recursive: true });
@@ -108,9 +109,16 @@ export function test_descriptor_redirects_executable_config_stdout_to_stderr(): 
       ]);
       assert.match(jsonResult.stderr, /loading JSON contributor/);
       assert.match(jsonResult.stderr, /JSON contributor warning/);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      project.cleanup();
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Descriptor stdout observations or owned cleanup failed");
   }
 
 function runDescriptor(context: Record<string, unknown>) {

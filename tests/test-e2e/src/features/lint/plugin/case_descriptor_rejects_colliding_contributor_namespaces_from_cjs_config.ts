@@ -19,16 +19,16 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * 3. Check both original namespace names, the shared Go name and config path.
  *
  * Collision permutations, exact repetition, independent names and empty input
- * now execute in the authored normalization unit without evaluator processes.
+ * have authored direct normalization-unit owners without evaluator processes; current selection/runtime survival must be checked separately before further removal.
  *
  * @evidence contracts/testing.md#behavioral-verification The built descriptor evaluates a real CJS config with a-b and a_b contributors, and the thrown diagnostic must name the config, both namespaces and shared Go name.
  * @evidence contracts/testing.md#independent-expectations Distinct user namespaces cannot map to one Go subpackage; literal original spellings and a_b follow the supported hyphen-to-underscore naming contract.
- * @evidence contracts/testing.md#distinguishing-cases This surviving CJS case owns one distinct-name collision across evaluator transport. Permutations, three-way collisions, exact repetition, valid independent names and empty entries are preserved in test_contributor_namespace_normalization_preserves_every_registration.
+ * @evidence contracts/testing.md#distinguishing-cases This surviving CJS case owns one distinct-name collision across evaluator transport. Permutations, three-way collisions, exact repetition, valid independent names and empty entries are authored in tests/test-lint/src/features/plugin/test_contributor_namespace_normalization_preserves_every_registration.ts, whose direct normalizeContributors body compares independent name/source/message literals without real evaluator transport.
  * @evidence contracts/testing.md#execution-ownership The named E2E entry loads the built factory and real isolated config evaluator; portable normalization decisions execute in the separate source-unit population.
  * @evidence contracts/e2e.md#necessary-boundary CJS evaluation must carry original namespace spellings and resolved source paths into the descriptor resolver and propagate its collision error; direct normalization calls cannot verify that serialization and error connection.
- * @evidence contracts/e2e.md#shared-execution Only one CJS fixture and one evaluator call remain. The removed per-input evaluator lifetimes now share the in-process normalization unit, while the TypeScript case separately checks its compiler/loader connection.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns two contributor source directories and a CJS config, none of which mutates during evaluation. Its project is removed in finally, and no native artifact or warm plugin cache substitutes for the evaluator boundary.
- * @evidence contracts/e2e.md#preserved-coverage The original first CJS collision retains its path/name/shared-Go diagnostic assertions. Every other meaningful original CJS decision has the executable authored normalization-unit owner, including deterministic reverse order and first-source repetition precedence.
+ * @evidence contracts/e2e.md#shared-execution This named boundary uses one CJS fixture/factory call through the isolated evaluator/selected compiler route; parent call count does not certify fixed inner children or Program totals. The direct normalization matrix needs no evaluator, while the TypeScript case separately preserves its format/loader connection.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns two contributor source directories and a CJS config, none of which mutates during evaluation. Its project cleanup is attempted in finally; an original helper failure is retained alongside cleanup failure. Workspace artifact/cache paths do not certify image identity or substitute a previous evaluator result; sync return is not arbitrary descendant join.
+ * @evidence contracts/e2e.md#preserved-coverage The original first CJS collision retains its path/name/shared-Go diagnostic assertions. The exact direct normalization-unit body retains reverse-order equality, three spellings, first-source exact repetition, independent names, singleton/empty and sorted two-group diagnostics. Its source selection/body existence is not current runtime survival, and no real evaluator connection is certified by that matrix.
  */
 export function test_descriptor_rejects_colliding_contributor_namespaces_from_cjs_config(): void {
   assertCollision(["a-b", "a_b"], "a_b");
@@ -40,6 +40,7 @@ function assertCollision(namespaces: string[], goName: string): string {
     source: "export const value = 1;\n",
     pluginConfig: { configFile: "./lint.config.cjs" },
   });
+  const failures: unknown[] = [];
   try {
     writeCjsConfig(
       project.tmpdir,
@@ -66,8 +67,16 @@ function assertCollision(namespaces: string[], goName: string): string {
     const markerIndex = message.indexOf(marker);
     assert.notEqual(markerIndex, -1);
     return message.slice(markerIndex);
+  } catch (error) {
+    failures.push(error);
+    throw error;
   } finally {
-    project.cleanup();
+    try {
+      project.cleanup();
+    } catch (error) {
+      failures.push(error);
+      throw new AggregateError(failures, "Contributor collision observation or owned cleanup failed");
+    }
   }
 }
 
