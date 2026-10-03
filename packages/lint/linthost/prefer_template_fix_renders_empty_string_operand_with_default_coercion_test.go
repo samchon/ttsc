@@ -7,10 +7,9 @@ import "testing"
 //
 // The empty string contributes zero cooked characters, so the merged
 // literal run is empty and the renderer's flush must emit nothing —
-// the template collapses to a single placeholder. This pins the
-// `literal.Len() > 0` guard in `renderConcatAsTemplate`; an
-// unconditional flush would still work here, so the case doubles as
-// the smallest single-expression template output the fixer produces.
+// the template collapses to a single placeholder. This exercises the empty
+// literal-run boundary without distinguishing the renderer's length guard:
+// an unconditional flush of an empty string would produce the same output.
 //
 // 1. Snapshot a concat whose only literal is the empty string.
 // 2. Apply `prefer-template` fix.

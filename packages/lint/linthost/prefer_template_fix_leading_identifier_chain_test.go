@@ -6,9 +6,9 @@ import "testing"
 // leading-identifier shape `a + "b"` → “ `${"" + (a)}b` “.
 //
 // The placeholder must appear as the FIRST template segment, which is
-// a distinct emit branch from the trailing-identifier case — the
-// rewriter has to inject the opening backtick before the first
-// `${"" + (...)}` rather than after a literal prefix.
+// a distinct output position from the trailing-identifier case. The renderer
+// writes the opening backtick first, then the dynamic slot without a literal
+// prefix; the same sequence also handles string-leading operands.
 //
 // 1. Snapshot a chain whose leftmost operand is an identifier.
 // 2. Apply `prefer-template` fix.
