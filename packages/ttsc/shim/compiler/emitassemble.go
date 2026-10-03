@@ -30,7 +30,9 @@ import (
 func GetSourceFilesToEmit(host innercompiler.SourceFileMayBeEmittedHost, targetSourceFile *innerast.SourceFile, forceDtsEmit bool) []*innerast.SourceFile
 
 // OutputPaths holds the resolved output file paths for one source file.
-// Empty fields represent outputs disabled by the compiler options.
+// Empty fields represent outputs disabled or suppressed by upstream policy,
+// such as a JSON script destination identical to its source location. Resolved
+// destinations do not certify that later emit or writing succeeds.
 //
 // @evidence contracts/common.md#principled-implementation The exact upstream output-path alias preserves separate script, declaration and map destinations, including absent outputs, without losing compiler-resolved path distinctions.
 // @evidence contracts/common.md#clear-and-simple-design One compiler-owned result groups related outputs for a source file, avoiding independently recomputed paths at each sink.

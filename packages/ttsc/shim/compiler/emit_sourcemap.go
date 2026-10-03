@@ -35,11 +35,11 @@ import (
 )
 
 // PrintedFile is the rendered output of one source file in the plugin-transform
-// emit path. JS is the JavaScript text, already carrying a trailing
-// `//# sourceMappingURL=` comment when a map was produced and a leading UTF-8
-// byte order mark when `emitBOM` is on. MapText/MapPath are the external
-// source-map file and its path; both are empty when no external map is written
-// (source maps disabled, or an inline map encoded into the JS).
+// emit path. JS is the script text, carrying a sourceMappingURL trailer when
+// its selected URL is nonempty and a leading UTF-8 BOM when emitBOM is on.
+// MapText/MapPath contain external map text and its selected destination only
+// when mapping is enabled, maps are not inline and that destination is nonempty.
+// They are otherwise empty. These are returned artifacts, not write receipts.
 //
 // @evidence contracts/common.md#principled-implementation The record separates emitted script, optional external map and map destination, retaining the pinned emitter's pre-BOM trailer coordinate rather than mixing file bytes with writer positions.
 // @evidence contracts/common.md#clear-and-simple-design One per-file result carries related output artifacts; absent external maps use empty values and absent trailers use the documented negative sentinel.
