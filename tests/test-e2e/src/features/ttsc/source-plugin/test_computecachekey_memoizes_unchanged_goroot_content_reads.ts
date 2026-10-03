@@ -12,9 +12,9 @@ import {
 /**
  * Verifies computeCacheKey reuses an unchanged GOROOT content identity.
  *
- * A bundled toolchain contributes roughly 140 MiB to every source-plugin key.
- * Re-reading those bytes for every plugin dominates startup, while reusing a
- * stale identity after an in-place SDK patch would select the wrong binary.
+ * SDK contents contribute to source-plugin identity. This small fixture checks
+ * reuse and invalidation through an injected content reader; it measures
+ * neither a bundled SDK's size nor startup time.
  *
  * 1. Compute a key and assert the initial GOROOT contents were read.
  * 2. Recompute unchanged and assert no GOROOT content file was read again.
@@ -24,19 +24,19 @@ import {
  *    content and changes the key.
  *
  * @evidence contracts/testing.md#behavioral-verification computeCacheKey initially reads SDK bytes, reuses unchanged identity without reads, preserves that reuse through builds, and rereads after edit/add/rename/delete.
- * @evidence contracts/testing.md#independent-expectations An injected byte-reading adapter counts actual reads independently of the fingerprint algorithm; unchanged versus deliberately changed manifest determines reuse.
+ * @evidence contracts/testing.md#independent-expectations The supplied adapter increments only when its readFile operation receives a path under this physical SDK. Literal alpha/bravo and added/renamed/deleted paths provide independent input transitions. Zero counts exclude those adapter reads, not all filesystem or child-process work.
  * @evidence contracts/testing.md#distinguishing-cases Cold/warm computation, production permission repair, content edit and three membership transitions are all retained.
- * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_memoizes_unchanged_goroot_content_reads entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_memoizes_unchanged_goroot_content_reads entry is discovered from features/ttsc/source-plugin by the E2E TestExecutor. Its reader and local fixture helpers execute beneath that owner; the two builder calls retain a real orchestration connection distinct from the direct fingerprint policy.
  * @evidence contracts/e2e.md#necessary-boundary The cache identity owner resolves actual tool paths and consumes the Go metadata process result when goBinary is supplied. The handwritten fake producer or intentionally unusable compiler files constrain that connection; these assertions establish identity selection, not native binary compatibility by execution.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Repeated keys and builds share the same fake SDK and process cache; edits and membership transitions intentionally trigger new reads rather than a new installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases. The read counter resets between observations without deleting the SDK identity cache.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked temporary spelling is retained before resolving its physical path. The prior fake GOROOT response value or absence is restored in finally; builder environments are call-local. The counter resets without deleting memoized identity. Successive edits depend on the preceding manifest and key; two returned builds and zero adapter reads do not independently establish permission changes, total IO, cache-hit counts or descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage computeCacheKey initially reads SDK bytes, reuses unchanged identity without reads, preserves that reuse through builds, and rereads after edit/add/rename/delete. These assertions stay in test_computecachekey_memoizes_unchanged_goroot_content_reads with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_computecachekey_memoizes_unchanged_goroot_content_reads =
   () => {
-    const root = TestProject.physicalPath(
-      TestProject.tmpdir("ttsc-source-plugin-"),
-    );
+    const temporary = TestProject.tmpdir("ttsc-source-plugin-");
+    TestProject.retainTemporaryDirectory(temporary);
+    const root = TestProject.physicalPath(temporary);
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(
