@@ -32,7 +32,7 @@ type DecoratorArgument struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms This declaration represents collected facts rather than selecting a traversal algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse is owned by the graph generation that contains these facts.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record has no independent cache or handle lifecycle.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+// @evidence contracts/portability.md#os-neutral-implementation File and the path-bearing Target preserve reported compiler spelling until dump projection; this record does not resolve native aliases or authenticate physical source identity.
 type Decorator struct {
   Target    string
   Name      string

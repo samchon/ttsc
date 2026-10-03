@@ -8,7 +8,7 @@ import (
 )
 
 // DocTag is one documentation tag TypeScript itself does not recognize, written
-// on a workspace declaration and captured verbatim.
+// on a workspace declaration, with comment text rendered into one line.
 //
 // A convention attaches a declaration to something outside the type system — a
 // specification section, an API operation, a reference document — and writes
@@ -32,12 +32,12 @@ import (
 //
 // @evidence contracts/common.md#principled-implementation Unknown-tag AST nodes preserve their written name and text while target identity associates the fact with its declaration.
 // @evidence contracts/common.md#clear-and-simple-design Source coordinates support collection deduplication without adding convention judgments to the record.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's unknown-tag classification admits all conventions; no handpicked tag allowlist or fixture answer is encoded.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The collector admits usable compiler-classified unknown tags without a handpicked convention allowlist; recognized tag kinds remain outside this population.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain unknown versus recognized tags, uninterpreted text and collection-only positions, using the documentation skill's separated members and tags.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This record represents tag facts; traversal and deduplication belong to collection operations.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The enclosing graph build owns shared AST reads.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record does not own retention or native resources.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+// @evidence contracts/portability.md#os-neutral-implementation The path-bearing Target uses graph node-ID encoding and later shared dump projection; this record does not resolve native aliases or certify physical identity.
 type DocTag struct {
   // Target is the id of the graph node the tag was written on.
   Target string
