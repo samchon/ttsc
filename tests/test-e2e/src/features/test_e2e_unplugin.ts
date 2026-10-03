@@ -11,6 +11,7 @@ import { test_vite_serve_first_request_survives_missing_resolution_candidates } 
 import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runSharedWatcherlessViteDeliveries";
 import { runSharedViteBuildWatchLifecycle } from "../internal/unplugin/runSharedViteBuildWatchLifecycle";
 import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unplugin/native-plugins/adapters/test_webpack_watch_reuses_the_generation_across_rebuilds";
+import { test_webpack_sequential_compilers_share_one_generation } from "./unplugin/native-plugins/adapters/test_webpack_sequential_compilers_share_one_generation";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { test_vite_build_serves_wrapper_queries_from_the_host } from "./unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host";
@@ -347,7 +348,12 @@ export async function test_e2e_unplugin(): Promise<void> {
   }
   let watcherlessCandidateReturned = false;
   try {
-    await Scenarios.invoke("shared-unplugin", "webpack-watch-timestamp-and-type-edge", test_webpack_watch_reuses_the_generation_across_rebuilds, true);
+    await Scenarios.invoke("shared-unplugin", "webpack-watch-timestamp-and-type-edge", test_webpack_watch_reuses_the_generation_across_rebuilds, true, async (prepared: { root: string; runLog: string; originalType: Buffer }) => {
+      const typeOnly = path.join(prepared.root, "src", "mytype.ts");
+      fs.writeFileSync(typeOnly, prepared.originalType);
+      assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
+      await Scenarios.invoke("shared-unplugin", "test_webpack_sequential_compilers_share_one_generation", test_webpack_sequential_compilers_share_one_generation, prepared);
+    });
   } catch (cause) {
     failures.push(new Error("webpack same-byte redelivery and type-edge replacement", { cause }));
   }

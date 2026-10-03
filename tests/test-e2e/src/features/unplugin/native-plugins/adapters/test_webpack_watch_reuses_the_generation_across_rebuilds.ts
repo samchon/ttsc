@@ -32,11 +32,12 @@ import { MYTYPE_V2 } from "../../../../internal/unplugin/internal/adapter-webpac
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_watch_reuses_the_generation_across_rebuilds is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual webpack timestamp watcher/make hook and native content proof distinguish host rebuild from native recompilation.
  * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations. The shared experiment additionally performs the original type-only content edit after builtModules proves same-byte redelivery; its initial ID: STRING and later AGE: NUMBER oracle borrow the same graph/source project and native reader.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. The optional shared continuation runs only after successful watcher and compiler close; original type bytes are supplied for exact restoration before sequential compiler reuse. Close errors now propagate and block that continuation. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Cold count1 and same-byte rewrite/builtModules/count1 remain. Optional shared continuation retains test_webpack_watch_rebuilds_through_a_type_only_edge initial ID: STRING, MYTYPE_V2 bytes, successful webpack stats and eventual AGE: NUMBER within 120s, with persistent cache disabled. Its polling host uses the timestamp strategy already required by the preceding same-byte contrast. Standalone defaults and both donors remain; actual selected survival is unverified.
  */
 export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
   includeTypeEdit = false,
+  afterClose?: (prepared: { root: string; runLog: string; originalType: Buffer }) => Promise<void>,
 ): Promise<void> {
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-webpack-watch-log-"),
@@ -48,6 +49,7 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
   // rebuilt entry is therefore recognized by identity.
   const entry = fs.realpathSync.native(TestUnpluginProject.mainFile(root));
   const typeOnly = path.join(root, "src", "mytype.ts");
+  const originalType = afterClose === undefined ? undefined : fs.readFileSync(typeOnly);
   const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
   const config = await createWebpackConfig(root);
   // Watch invalidation is the channel under test, so the persistent cache must
@@ -160,8 +162,10 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
       );
     });
   } finally {
-    await new Promise<void>((resolve) => {
-      compiler.close(() => resolve());
+    await new Promise<void>((resolve, reject) => {
+      compiler.close((error) => error ? reject(error) : resolve());
     });
   }
+  if (afterClose !== undefined && originalType !== undefined)
+    await afterClose({ root, runLog, originalType });
 }
