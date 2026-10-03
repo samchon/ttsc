@@ -28,7 +28,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
   owner := node.Parent
   ownedByStatement := owner != nil && owner.Kind == shimast.KindVariableStatement
   // `declare var x` describes an existing binding instead of creating one;
-  // like ESLint, the rule leaves ambient declarations alone. Only a
+  // the native rule leaves ambient declarations alone. Only a
   // VariableStatement can carry the modifier — loop headers cannot be
   // ambient outside declaration files, which returned above.
   if ownedByStatement && owner.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
