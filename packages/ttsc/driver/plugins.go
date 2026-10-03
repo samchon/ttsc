@@ -106,17 +106,20 @@ func PluginConfigBaseDir(cwd, tsconfigPath string) string {
 }
 
 // PluginEntry is the manifest shape ttsc passes to driver-level plugins.
+// The linked-host loader decodes JSON into this shape; Config is the decoded
+// object (or nil for JSON null), not the original JavaScript object's identity
+// or arbitrary non-JSON values. Standard Go JSON number decoding applies.
 //
-// @evidence contracts/common.md#principled-implementation Manifest identity, stage, and plugin-owned configuration pass through without reinterpretation.
+// @evidence contracts/common.md#principled-implementation Manifest labels/stage and decoded object configuration remain separate; registration pairing uses order rather than treating Name as executable or filesystem identity. The loader's JSON projection/decoding is distinct from preserving an original JavaScript object or its non-JSON values.
 // @evidence contracts/common.md#clear-and-simple-design One serialized registration excludes runtime hook state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The schema has no fixture or plugin-package specialization.
 // @evidence contracts/common.md#meaningful-documentation Native field comments and JSON tags explain the boundary following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation The manifest value owns no native path operation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Name/Stage labels and opaque decoded JSON configuration define no native executable, argument quoting or filesystem-identity policy. Hooks own any path interpretation of their configuration; this schema does not choose platform behavior.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type PluginEntry struct {
-  // Config is the launcher-evaluated configuration passed through to the plugin.
+  // Config is the JSON-decoded configuration object, or nil for JSON null.
   Config map[string]any `json:"config"`
 
   // Name identifies the configured plugin entry; registration pairing uses order.
@@ -752,14 +755,16 @@ var pluginRegistry []any
 // RegisterPlugin registers a driver-level plugin implementation. Linked Go
 // packages call this from init(); ttsc pairs registrations with linked manifest
 // entries by build order, not by package name.
+// The guard rejects a nil interface, not every typed-nil implementation.
+// Registry mutation has no concurrent-call synchronization or reset/cap policy.
 //
-// @evidence contracts/common.md#principled-implementation Init registration preserves ordered manifest pairing and rejects nil implementations.
+// @evidence contracts/common.md#principled-implementation Init registration preserves ordered manifest pairing and rejects a nil interface. A nonnil interface wrapping a typed-nil implementation is not structurally validated by this append boundary.
 // @evidence contracts/common.md#clear-and-simple-design One guarded append owns registration; dispatch owns capability classification.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registry entries come from linked init calls rather than guessed names or test fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose states init use and order-based pairing following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation In-process insertion performs no native path or process operation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The registry keeps every registered plugin for the process lifetime; the set is bounded by the plugins a host links.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Appends one value to the registry slice in amortized constant time.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The process-global registry retains every appended interface and reachable implementation state for the process lifetime. Linked init calls normally determine the population, but this exported function enforces no registration-count/transitive-byte cap, deduplication or reset/release operation.
+// @evidence contracts/performance.md#efficient-algorithms The nil-interface check precedes one ordered append. Appending is amortized constant entry work; capacity growth can allocate/copy the existing registration references, without cloning implementation payloads or scanning them for duplicate identity.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration performs no per-call computation that a later call could reuse.
 func RegisterPlugin(plugin any) {
   if plugin == nil {
