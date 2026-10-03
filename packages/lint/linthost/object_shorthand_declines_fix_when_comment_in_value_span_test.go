@@ -4,11 +4,11 @@ import "testing"
 
 // TestObjectShorthandDeclinesFixWhenCommentInValueSpan verifies the
 // object-shorthand autofix is withheld when a comment sits inside the `: value`
-// span it would delete, so the comment survives the collapse to shorthand.
+// span it would delete, so automatic fixing preserves the original long form.
 //
 // The fix deletes from the key name's end through the initializer's end, so a
 // comment there (`{ x: /* keep */ x }`) would be erased. ESLint's
-// object-shorthand declines via `commentsExistBetween`; the port imposes no
+// object-shorthand declines when the property contains comments; the port imposes no
 // edit either and routes the collapse to the opt-in suggestion channel instead
 // (pinned by `TestObjectShorthandOffersWithheldCollapseAsSuggestion`).
 // The negative twin — the same property
@@ -22,7 +22,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The shorthand rule reports the commented long-form property but automatic fixing preserves all bytes; its comment-free twin must collapse to shorthand.
 // @evidence contracts/testing.md#independent-expectations The original source is the independent preservation oracle and the literal target { x } specifies the valid no-comment rewrite.
 // @evidence contracts/testing.md#distinguishing-cases Comment inside the deleted value span withholds an automatic edit; removing only that comment permits the normal rewrite. The suggestion test owns opt-in comment removal.
-// @evidence contracts/testing.md#execution-ownership TestObjectShorthandDeclinesFixWhenCommentInValueSpan owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestObjectShorthandDeclinesFixWhenCommentInValueSpan runs the two literal sources through assertNoFixSnapshot and assertFixSnapshot: the parser/Engine and automatic edit applier use temp files and compare complete unchanged or authored shorthand output bytes. No consumer install, native build or product host runs.
 func TestObjectShorthandDeclinesFixWhenCommentInValueSpan(t *testing.T) {
   assertNoFixSnapshot(
     t,

@@ -1377,9 +1377,9 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   // that range.
   //
   // A comment inside that range (`{ x: /* c */ x }`) would be dropped by the
-  // deletion, so the autofix declines. Mirrors ESLint object-shorthand's
-  // `commentsExistBetween` guard. The shorthand rewrite is still correct, so
-  // the same edit is offered as an opt-in suggestion that names the loss.
+  // deletion, so the autofix declines. ESLint object-shorthand also withholds
+  // edits when the identifier property contains comments. The edit is instead
+  // offered as an opt-in suggestion that names the loss.
   edit := TextEdit{Pos: prop.Name().End(), End: prop.Initializer.End(), Text: ""}
   if hasCommentBetween(ctx.File.Text(), prop.Name().End(), prop.Initializer.End()) {
     ctx.ReportSuggestion(
