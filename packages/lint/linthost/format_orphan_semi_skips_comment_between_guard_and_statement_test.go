@@ -4,8 +4,8 @@ import "testing"
 
 // TestFormatOrphanSemiSkipsCommentBetweenGuardAndStatement verifies the
 // rule abstains when a comment sits between the leading-semicolon guard and
-// the statement it would protect. Gluing across the comment would move the
-// `;` past it and reorder the trivia, so the rule leaves the gap alone.
+// the statement it would protect. Removing that intervening span would
+// discard comment trivia, so the rule leaves the gap alone.
 //
 //  1. Parse a semicolon guard separated by a block or line comment
 //     from a parenthesis-leading statement.
