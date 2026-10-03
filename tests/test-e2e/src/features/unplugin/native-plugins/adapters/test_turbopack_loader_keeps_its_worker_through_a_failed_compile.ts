@@ -1,5 +1,6 @@
 import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/internal/adapter-turbopack/runTurbopackLoaderWithContext";
@@ -45,10 +46,16 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: compile failure emits one helper.ts error and executable throw module with the same message; lacking emitError rejects, and absent config rejects before compilation. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_keeps_its_worker_through_a_failed_compile(): Promise<void> {
-  const root = TestUnpluginProject.createProject({
-    plugins: [{ transform: "./plugin.cjs", operation: "read-helper" }],
-  });
+export async function test_turbopack_loader_keeps_its_worker_through_a_failed_compile(preparedRoot?: string): Promise<void> {
+  const plugins = [{ transform: "./plugin.cjs", operation: "read-helper" }];
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
+  if (preparedRoot) {
+    assert.equal(fs.existsSync(path.join(root, "src", "helper.ts")), false, "original missing helper input");
+    const filename = path.join(root, "tsconfig.json");
+    const config = JSON.parse(fs.readFileSync(filename, "utf8"));
+    config.compilerOptions.plugins = plugins;
+    fs.writeFileSync(filename, JSON.stringify(config, null, 2), "utf8");
+  }
   const props = {
     resourcePath: TestUnpluginProject.mainFile(root),
     source: TestUnpluginProject.mainSource(root),
