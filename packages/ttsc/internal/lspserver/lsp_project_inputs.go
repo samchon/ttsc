@@ -13,27 +13,44 @@ import (
   "strings"
 )
 
-// LSPProjectInputSnapshot is the normalized external filesystem topology
-// published by project-rule contributors.
+// LSPProjectInputSnapshot carries contributor-declared dependencies and host
+// selection inputs. Incoming wire values require host normalization before
+// storage; the representation alone does not authenticate a filesystem capture.
 //
 // Files and Globs describe dependencies; reload paths and digests describe the
 // executable-selection baseline whose change requires a launcher restart.
 //
 // @evidence contracts/common.md#principled-implementation Dependency populations remain distinct from reload fingerprints; host-only watcher directories cannot enter through contributor JSON.
-// @evidence contracts/common.md#clear-and-simple-design One normalized snapshot carries root, dependencies and selection baseline without a watcher backend.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Reload state comes from actual contributors and launcher selection rather than known project filenames.
+// @evidence contracts/common.md#clear-and-simple-design One snapshot shape separates root, dependencies and selection baseline from the watcher backend; accepting and normalizing it are host operations.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Contributor reload declarations and launcher selection inputs supply the baseline rather than a fixed list of known project filenames; accepting their shape is not producer authenticity proof.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains dependency versus restart meaning and host-only fields, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native paths and digest keys are normalized by host identity helpers rather than interpreted as URI spelling or blindly folded by OS name.
+// @evidence contracts/portability.md#os-neutral-implementation Fields carry absolute native paths and native-keyed digests, not protocol URI spelling. Host normalization validates path syntax and attempts physical identity/case queries, with lexical or unknown-case fallbacks when observation fails. Supplied fingerprints and sequential native comparisons do not authenticate one atomic capture.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Normalization and matching choose processing algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This value carries baseline inputs without coordinating reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Source stores and watcher registration own lifetimes, not this wire value.
 type LSPProjectInputSnapshot struct {
-  Root                   string            `json:"root"`
-  Files                  []string          `json:"files"`
-  Globs                  []string          `json:"globs"`
-  ReloadFiles            []string          `json:"reloadFiles,omitempty"`
-  ReloadDirectories      []string          `json:"reloadDirectories,omitempty"`
-  ReloadFileDigests      map[string]string `json:"reloadFileDigests,omitempty"`
+  // Root is an absolute local project root, checked against the selected root
+  // when the normalization caller supplies that expectation.
+  Root string `json:"root"`
+
+  // Files declares exact dependency paths for input membership routing.
+  Files []string `json:"files"`
+
+  // Globs declares absolute dependency patterns interpreted by host matching.
+  Globs []string `json:"globs"`
+
+  // ReloadFiles declares file inputs whose baseline affects session selection.
+  ReloadFiles []string `json:"reloadFiles,omitempty"`
+
+  // ReloadDirectories declares entry topology used by restart selection.
+  ReloadDirectories []string `json:"reloadDirectories,omitempty"`
+
+  // ReloadFileDigests maps selected file paths to their supplied baseline hash;
+  // an omitted map lets normalization acquire that baseline on the host.
+  ReloadFileDigests map[string]string `json:"reloadFileDigests,omitempty"`
+
+  // ReloadDirectoryDigests maps selected directories to topology baselines;
+  // an omitted map lets normalization acquire them on the host.
   ReloadDirectoryDigests map[string]string `json:"reloadDirectoryDigests,omitempty"`
 
   // WatchDirectories are directories whose entries the client must report

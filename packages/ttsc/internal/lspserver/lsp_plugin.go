@@ -32,8 +32,11 @@ type LSPPosition struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPRange struct {
+  // Start is the inclusive endpoint in session UTF-16 coordinates.
   Start LSPPosition `json:"start"`
-  End   LSPPosition `json:"end"`
+
+  // End is the exclusive endpoint; equal endpoints represent an empty range.
+  End LSPPosition `json:"end"`
 }
 
 // LSPDiagnosticSeverity uses the LSP integer discriminants without translation.
@@ -294,19 +297,24 @@ type LSPDocumentVersion struct {
   Version *int
 }
 
-// LSPProjectDiagnostics is one project-scoped diagnostic publication. URI is
-// the logical selected config URI and Diagnostics use a zero-width start range.
+// LSPProjectDiagnostics is one separately scoped diagnostic publication.
+// Producers use the selected config URI and start-of-config ranges for project
+// findings. The representation itself does not validate URI ownership or force
+// zero-width ranges; the host can restate a matching selected config URI.
 //
-// @evidence contracts/common.md#principled-implementation A distinct project URI keeps project findings off unrelated source documents; an empty slice can clear a publication.
+// @evidence contracts/common.md#principled-implementation A separate publication URI avoids copying project findings onto each open document. The producer supplies that URI and diagnostic ranges; the shape does not authenticate their scope. An empty slice can clear the selected publication.
 // @evidence contracts/common.md#clear-and-simple-design Project publications reuse diagnostics while remaining separate from document results.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Project findings retain their own scope instead of being copied onto open files.
-// @evidence contracts/common.md#meaningful-documentation Native prose states logical config identity and project range placement, following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes producer config/range convention from representation validation, and members describe publication identity and empty clearing under the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPProjectDiagnostics struct {
-  URI         string          `json:"uri"`
+  // URI selects the publication's protocol document, normally the config.
+  URI string `json:"uri"`
+
+  // Diagnostics contains its findings; an empty list represents clearing.
   Diagnostics []LSPDiagnostic `json:"diagnostics"`
 }
 
