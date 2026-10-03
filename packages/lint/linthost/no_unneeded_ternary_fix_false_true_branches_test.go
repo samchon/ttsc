@@ -17,7 +17,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification The actual fixer must produce exactly !x from the original false/true ternary while preserving all surrounding source bytes.
 // @evidence contracts/testing.md#independent-expectations Boolean branch truth values independently establish negation of x; an identifier needs no added precedence parentheses.
-// @evidence contracts/testing.md#distinguishing-cases This owns false/true with an identifier; the low-precedence companion owns required parentheses, the true/false companion owns Boolean conversion, and the corpus owns a necessary non-boolean ternary.
+// @evidence contracts/testing.md#distinguishing-cases This owns false/true with an identifier and a necessary non-boolean ternary with zero findings; companions own low-precedence grouping and true/false conversion.
 // @evidence contracts/testing.md#execution-ownership TestFixNoUnneededTernaryRewritesFalseTrueBranches is selected in the shared Go unit population. It calls assertFixSnapshot for no-unneeded-ternary, runs the actual Engine/fix application and compares the full authored target source. No installed consumer, native artifact build or real product host runs.
 func TestFixNoUnneededTernaryRewritesFalseTrueBranches(t *testing.T) {
   assertFixSnapshot(
@@ -25,5 +25,10 @@ func TestFixNoUnneededTernaryRewritesFalseTrueBranches(t *testing.T) {
     "no-unneeded-ternary",
     "function f(x: any) {\n  return x ? false : true;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  return !x;\n}\nJSON.stringify(f);\n",
+  )
+  assertRuleSkips(
+    t,
+    "no-unneeded-ternary",
+    "function f(x: any) { return x ? 1 : 2; }\nJSON.stringify(f);\n",
   )
 }
