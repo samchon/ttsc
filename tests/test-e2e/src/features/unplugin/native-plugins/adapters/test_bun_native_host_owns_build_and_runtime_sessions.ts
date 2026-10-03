@@ -31,12 +31,14 @@ import { promisify } from "node:util";
  * @evidence contracts/testing.md#distinguishing-cases Repeated completed builds versus fresh preload runtime process.
  * @evidence contracts/testing.md#execution-ownership The test-e2e runner discovers test_bun_native_host_owns_build_and_runtime_sessions under unplugin/native-plugins/adapters. Its actual Bun --preload process owns public bun-register forwarding to the ambient runtime and transformed execution. Portable registration assertions execute at tests/test-unplugin/src/features/adapters/test_bun_register_preloads_the_runtime_transform_plugin.ts through source APIs.
  * @evidence contracts/e2e.md#necessary-boundary Actual Bun processes test IPC shutdown and preload ordering that captured setup cannot prove.
- * @evidence contracts/e2e.md#shared-execution One Bun process runs both builds; second preload process is required for independent runtime ownership. Native build artifacts can remain shared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.
+ * @evidence contracts/e2e.md#shared-execution One Bun process runs both original builds; second preload process remains required for independent runtime ownership. The shared experiment supplies the unchanged default native fixture project under its owner. Its source producer/cache are shared with other native fixture profiles, but separate cold options/root preserve this actual Bun process contrast.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Default standalone prepares its own project. Borrowed root has original default source/options before this profile adds its original count plugin and build/runtime scripts. Both execFile operations are awaited with original120s timeout, and no later family mutation reuses the root. This does not independently certify arbitrary descendants, loaded images or abrupt cancellation.
  * @evidence contracts/e2e.md#preserved-coverage Two real Bun.build passes still produce PLUGIN and total two compiles; a separate preload process still prints PLUGIN and raises the count to three, preserving actual public-entry-to-Bun forwarding. The five portable function/error/single-plugin/name/setup assertions formerly in the fake-global registration E2E execute at tests/test-unplugin/src/features/adapters/test_bun_register_preloads_the_runtime_transform_plugin.ts without modifying a foreign global.
  */
-export async function test_bun_native_host_owns_build_and_runtime_sessions(): Promise<void> {
-  const root = fs.realpathSync.native(TestUnpluginProject.createProject());
+export async function test_bun_native_host_owns_build_and_runtime_sessions(
+  preparedRoot?: string,
+): Promise<void> {
+  const root = fs.realpathSync.native(preparedRoot ?? TestUnpluginProject.createProject());
   const log = path.join(root, "dist", "compiles.bin");
   fs.mkdirSync(path.dirname(log), { recursive: true });
   const configuration = JSON.parse(
