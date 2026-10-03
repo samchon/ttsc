@@ -6,13 +6,12 @@ import (
 )
 
 // TestServeSessionTracksDiamondProjectReferencesOnce verifies the config
-// traversal terminates and deduplicates when two references share a child.
+// traversal completes over a diamond and tracks its shared child config.
 //
-// A diamond (root -> left, root -> right, both -> shared) visits the shared
-// config twice; without the seen-set the traversal would duplicate tracked
-// state, and on a reference cycle it would never terminate. The shared leaf
-// must appear in the freshness state exactly once and the session must stay
-// stable across untouched snapshots.
+// Root references left and right, which both reference shared. The shared
+// config must be hash-tracked and an untouched follow-up must be unchanged.
+// The path-keyed map cannot distinguish repeated visits or prove once-only
+// traversal, and this fixture contains no reference cycle.
 //
 //  1. Open a session over a diamond of project references.
 //  2. Assert the shared leaf config is hash-tracked.

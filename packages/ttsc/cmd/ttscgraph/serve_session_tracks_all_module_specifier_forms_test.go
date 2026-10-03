@@ -5,9 +5,9 @@ import (
   "testing"
 )
 
-// TestServeSessionTracksAllModuleSpecifierForms verifies that every TypeScript
-// syntax which can trigger module resolution contributes missing-file
-// candidates to the freshness snapshot.
+// TestServeSessionTracksAllModuleSpecifierForms verifies missing-file tracking
+// for four authored module-specifier forms. Other resolution syntax and later
+// snapshot reload behavior are not observed here.
 //
 // 1. Load import-equals require, export-from, import-type and dynamic-import literals with missing targets.
 // 2. Construct the resident session and inspect captured auxiliary candidates without requesting a snapshot.
