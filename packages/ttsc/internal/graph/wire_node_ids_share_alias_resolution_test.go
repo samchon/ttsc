@@ -3,19 +3,20 @@ package graph
 import "testing"
 
 // TestWireNodeIDsShareAliasResolution verifies the public resident shard
-// helper keeps declarations from one physical source distinct and stable.
+// helper keeps two supplied declaration IDs from one path distinct and gives
+// both the literal relative source coordinate.
 //
-// External declarations commonly share a package source file. Mapping the IDs
-// as one batch must preserve the shared source coordinate without collisions.
+// No source file or alias is authored here. Physical ownership, repeated-run
+// stability, symlink resolution, and exact full wire-ID spellings are unasserted.
 //
-//  1. Build two declaration IDs owned by one physical dependency source.
+//  1. Supply two declaration IDs naming the same dependency path.
 //  2. Map both IDs through the public batch helper.
 //  3. Require distinct IDs with the same portable source coordinate.
 //
 // @evidence contracts/testing.md#behavioral-verification WireNodeIDs maps two node IDs that name different declarations in one dependency source file to two different wire IDs that both carry the same project-relative source coordinate; the test uses a single project-root-relative spelling and does not build an alias, so it does not exercise symlink canonicalization.
 // @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish distinct IDs with the same portable source coordinate.
-// @evidence contracts/testing.md#distinguishing-cases Build two declaration IDs owned by one physical dependency source; Map both IDs through the public batch helper; Require distinct IDs with the same portable source coordinate.
-// @evidence contracts/testing.md#execution-ownership TestWireNodeIDsShareAliasResolution is a Go source-unit entry. nodeID supplies the input identities; WireNodeIDs maps their source coordinates and nodeFile reads the resulting coordinates. These owning operations run directly in this process, without consumer installation or a native product build or host.
+// @evidence contracts/testing.md#distinguishing-cases First and Second share one supplied source path but must have different resulting IDs and the literal node_modules/pkg/index.d.ts coordinate. No actual alias, repeated invocation, physical file ownership, or full-ID literal comparison is exercised.
+// @evidence contracts/testing.md#execution-ownership Directly supplies strings through nodeID and calls WireNodeIDs; nodeFile uses the shared decoder for coordinate observations. Host-compatible canonicalization can inspect native path/ancestor metadata even though the test creates no fixture. It does not load a Program, install a consumer, build a product, start a process, or authenticate physical source identity.
 func TestWireNodeIDsShareAliasResolution(t *testing.T) {
   source := "C:/checkout/app/node_modules/pkg/index.d.ts"
   first := nodeID(source, "First", NodeClass)
