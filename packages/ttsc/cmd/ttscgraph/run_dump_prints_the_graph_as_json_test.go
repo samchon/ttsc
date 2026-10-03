@@ -72,8 +72,9 @@ export function main(): void {
   if len(dump.Nodes) == 0 || len(dump.Edges) == 0 {
     t.Fatalf("expected nodes and edges, got %d/%d", len(dump.Nodes), len(dump.Edges))
   }
-  // Each edge carries its endpoints and kind, and nothing more — the graph is
-  // wholly checker-resolved, so there is no per-edge trust flag to negotiate.
+  // This shape check covers only the first edge's from and kind string fields.
+  // It does not assert their values, a to field, optional evidence, every edge
+  // or whether all relationships were resolved by the checker.
   edge := dump.Edges[0]
   if _, ok := edge["from"].(string); !ok {
     t.Fatalf("edge missing from: %v", edge)
