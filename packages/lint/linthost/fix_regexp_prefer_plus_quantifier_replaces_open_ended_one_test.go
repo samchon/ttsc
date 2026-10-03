@@ -7,8 +7,8 @@ import "testing"
 //
 // `+` and `{1,}` are the same quantifier with the same binding, so a trailing
 // lazy `?` keeps applying to the rewritten quantifier rather than turning into
-// a second one. The scan already located each brace run; only the span was
-// thrown away.
+// a second one. The scan retains each brace run's span, so the repair replaces
+// only the quantifier and leaves the following lazy marker unchanged.
 //
 //  1. Fix a literal carrying two `{1,}` runs, one of them lazy, so the atomic
 //     multi-edit group and the lazy-marker survival are pinned together.
