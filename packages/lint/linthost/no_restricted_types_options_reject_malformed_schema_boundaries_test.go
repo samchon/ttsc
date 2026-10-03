@@ -10,14 +10,14 @@ import (
 //
 // A later syntax walk cannot rescue invalid configuration; every malformed declaration must fail closed during rule binding.
 //
-// 1. Supply sixteen malformed payloads spanning JSON syntax, containers and nested field types.
+// 1. Supply eighteen malformed payloads spanning JSON syntax, containers and nested field types.
 // 2. Bind each payload through InlineRuleResolver into the production engine.
 // 3. Require the authored field diagnostic, rule identity and absence from enabled rules.
 //
-// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver rejects sixteen authored malformed JSON/container/key/value cases, preserves each expected field diagnostic plus rule identity, and leaves the rule out of dispatch.
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver rejects eighteen authored malformed JSON/container/key/value cases, preserves each expected field diagnostic plus rule identity, and leaves the rule out of dispatch.
 // @evidence contracts/testing.md#independent-expectations The declared restriction schema requires an object, a types object, and Boolean/string/null/structured restrictions with typed message/fixWith/suggest fields; literal case-specific error fragments supply independent failure expectations.
-// @evidence contracts/testing.md#distinguishing-cases Owns malformed JSON, null/scalar/array root, unknown outer key, bad types container, numeric restriction, unknown nested key, Boolean/null message and fix, and null/scalar/mixed-array suggestions; the acceptance entry exercises valid neighboring forms.
-// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns sixteen named malformed-payload subcases; InlineRuleResolver and NewEngineWithResolver reach the owning option validator in the shared process, so no native compilation or independently installed consumer is needed to observe rejection.
+// @evidence contracts/testing.md#distinguishing-cases Owns malformed JSON, null/scalar/array root, unknown outer key, bad types container, numeric restriction, unknown nested key, Boolean/null message and fix, and null/scalar/mixed-array and null-element suggestions; the acceptance entry exercises valid neighboring forms.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns eighteen named malformed-payload subcases; InlineRuleResolver and NewEngineWithResolver reach the owning option validator in the shared process, so no native compilation or independently installed consumer is needed to observe rejection.
 func TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary(t *testing.T) {
   tests := []struct {
     name    string
@@ -40,6 +40,8 @@ func TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary(t 
     {name: "suggest is null", options: json.RawMessage(`{"types":{"Banned":{"message":"Use Safe.","suggest":null}}}`), want: "suggest must be a string array"},
     {name: "suggest is string", options: json.RawMessage(`{"types":{"Banned":{"message":"Use Safe.","suggest":"Safe"}}}`), want: "suggest must be a string array"},
     {name: "suggest has non-string", options: json.RawMessage(`{"types":{"Banned":{"message":"Use Safe.","suggest":["Safe",1]}}}`), want: "suggest must be a string array"},
+    {name: "suggest has null", options: json.RawMessage(`{"types":{"Banned":{"suggest":[null]}}}`), want: "suggest must be a string array"},
+    {name: "suggest has null after string", options: json.RawMessage(`{"types":{"Banned":{"suggest":["Safe",null]}}}`), want: "suggest must be a string array"},
   }
 
   for _, test := range tests {
