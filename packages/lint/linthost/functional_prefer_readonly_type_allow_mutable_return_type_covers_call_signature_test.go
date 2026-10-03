@@ -4,10 +4,10 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeAllowMutableReturnTypeCoversCallSignature verifies allowMutableReturnType covers a call signature's return type.
 //
-// A return-type position is a return-type position however the signature is
-// spelled. The first implementation listed six declaration kinds and left call
-// signatures, construct signatures, constructor types, and get accessors
-// reporting, so the same option answered differently for the same position.
+// The interface's bare call signature owns its string-array return type.
+// The return exemption must recognize that annotation without disabling
+// parameter annotations. This fixture observes only the call-signature
+// return owner, not other signature kinds or an earlier implementation.
 //
 // 1. Parse an interface whose call signature returns a mutable array.
 // 2. Enable only functional/prefer-readonly-type with `allowMutableReturnType: true`.

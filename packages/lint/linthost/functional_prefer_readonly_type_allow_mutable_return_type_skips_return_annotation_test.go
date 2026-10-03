@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeAllowMutableReturnTypeSkipsReturnAnnotation verifies functional/prefer-readonly-type honors allowMutableReturnType.
 //
-// The key exists so a function may hand back a fresh mutable value while its
-// parameters stay readonly. It decoded nothing before #1132, so the return
-// annotation reported like any other position.
+// The option exempts this function's declared mutable array return type.
+// The authored body returns a fresh array, while parameter positions
+// remain checked by the separately owned reporting twin.
 //
 // 1. Parse a function whose declared return type is a mutable array.
 // 2. Enable only functional/prefer-readonly-type with `allowMutableReturnType: true`.

@@ -4,7 +4,7 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeAllowMutableReturnTypeKeepsParameterAnnotation verifies allowMutableReturnType leaves parameter annotations checked.
 //
-// The negative twin, and the one the key's own wording depends on: parameters
+// The reporting twin, and the one the key's own wording depends on: parameters
 // stay readonly while the return type is permitted to be mutable. A position
 // test that matched any annotation on a function would erase that difference.
 //
