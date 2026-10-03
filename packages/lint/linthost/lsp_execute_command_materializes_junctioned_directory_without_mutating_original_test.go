@@ -11,9 +11,9 @@ import (
 // TestLSPExecuteCommandMaterializesJunctionedDirectoryWithoutMutatingOriginal
 // verifies an NTFS junction source directory still yields a fix-all edit.
 //
-// A Windows junction (`mklink /J`) is the privilege-free directory link used by
-// pnpm/nx/Docker mounts, so it runs on every Windows machine rather than only an
-// elevated symlink runner. The command target arrives under the junction's
+// A Windows junction (`mklink /J`) supplies this directory-link fixture without
+// requesting an elevated symlink runner. Preparation failure is fatal here; the
+// entry does not certify availability on every Windows environment. The command target arrives under the junction's
 // LOGICAL name (`src`), which the temp workspace must materialize under that
 // same name and index by it — resolving the target to the junction's physical
 // destination (`real-src`) would match zero findings and silently return no
