@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalNoMixedTypesCheckInterfacesFalseSkipsInterface verifies functional/no-mixed-types honors checkInterfaces: false.
 //
-// `checkInterfaces` was published, documented as a working gate, and never
-// decoded, so a project that turned interfaces off still got the diagnostic
-// (#1132). This pins the interface arm of the gate.
+// The published interface switch controls this mixed interface without
+// changing the separate type-literal switch. This input observes the
+// interface arm of the configured gate.
 //
 // 1. Parse an interface that mixes a property and a method.
 // 2. Enable only functional/no-mixed-types with `checkInterfaces: false`.
