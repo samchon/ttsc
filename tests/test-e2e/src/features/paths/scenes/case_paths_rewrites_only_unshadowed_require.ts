@@ -20,9 +20,9 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#independent-expectations Lexical binding semantics and the .cts to .cjs output suffix fix the expected specifiers and the literal runtime array; no paths helper computes them.
  * @evidence contracts/testing.md#distinguishing-cases Ambient and unbound loaders change, parameter, local and imported bindings must not, and the executed results distinguish a rewritten shadow from a preserved one.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; the compiler emit and the Node child both run to completion in the scenario directory.
- * @evidence contracts/e2e.md#necessary-boundary The native rewrite, emitted files and the Node module loader meet here; in-process assertions on emitted text cannot show that the published program still executes the intended bindings.
- * @evidence contracts/e2e.md#shared-execution One launcher emit and one Node child serve all five modules; no further compiler start is made.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario directory is its own sibling in the workspace with its own manifest, so no configuration of another scenario reaches it, and Node reads only files this emit wrote.
+ * @evidence contracts/e2e.md#necessary-boundary The linked native plugin's rewrite, actual emitted files and Node module loading meet here; text assertions alone do not establish the exact executed bindings. This is a checkout-linked consumer, not a packed installation.
+ * @evidence contracts/e2e.md#shared-execution One emit invocation and one Node invocation serve all five modules. These parent calls do not count internal compiler starts, Program constructions or cache hits.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario owns its manifest and dist directory; its authored runner loads the emitted modules. Sibling configurations are not on its ancestor path, but shared cache and environment remain shared. Synchronous command returns do not establish arbitrary descendant shutdown or loaded-image identity; the utility parent owns workspace cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former emitted-text rewrite and preservation checks and the Node-executed result array.
  */
 export function case_paths_rewrites_only_unshadowed_require(

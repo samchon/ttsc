@@ -47,14 +47,14 @@ export namespace UtilityWorkspace {
    * another scenario's ancestor path, and the workspace root itself carries
    * neither a manifest nor a plugin configuration.
    *
-   * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus three real package links, so scenarios observe the same upward tsconfig, package and node_modules resolution an installed consumer has; no compiler result is synthesized.
+   * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus three real package links, so scenarios exercise upward tsconfig, package and node_modules resolution through checkout links, not a packed installation; no compiler result is synthesized.
    * @evidence contracts/common.md#clear-and-simple-design One function owns copy, link and the per-scenario process environment; scenarios own their assertions and expected strings, and no executor framework is introduced beyond the failure collector.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither the launcher nor plugin cache is replaced or stubbed. The cache directory is the content-keyed shared owner, and cold-cache behavior is not asserted by these scenarios.
    * @evidence contracts/common.md#meaningful-documentation Describes the shared tree, the three package links and the manifest rule that keeps scenario discovery independent.
    * @evidence contracts/portability.md#os-neutral-implementation The link is a junction type on Windows and a directory symlink elsewhere through Node's single call; paths use path.join and the Go toolchain directory is prepended with the platform delimiter.
    * @evidence contracts/performance.md#efficient-algorithms Copying visits each fixture entry once, so cost is linear in authored files.
-   * @evidence contracts/performance.md#reuse-equivalent-work One copy, three package links and one environment serve all utility scenes; the content-keyed shared cache supplies plugin binaries. The combined CommonJS scenes explicitly share one completed emit and runtime, while distinct configuration states emit fresh results.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The copy is a tracked temporary directory that the experiment releases through close; an interrupted process still removes it at exit.
+   * @evidence contracts/performance.md#reuse-equivalent-work One copy, three package links and one environment serve all utility scenes; the content-keyed shared cache is available but a cache hit is not asserted. The combined CommonJS scenes explicitly share one completed emit and runtime, while distinct configuration states emit fresh results.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The copy is a tracked temporary directory that the experiment releases through close; normal cleanup attempts removal; forced termination is not a cleanup guarantee.
    */
   export function open(): IWorkspace {
     const root = TestProject.tmpdir("ttsc-utilities-e2e-");
@@ -122,9 +122,9 @@ export namespace UtilityWorkspace {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The command is not stubbed, its output is returned unmodified and failures are not retried.
    * @evidence contracts/common.md#meaningful-documentation States the working directory and environment inputs.
    * @evidence contracts/portability.md#os-neutral-implementation Node launchers run through the current Node executable inside the spawn helper, avoiding shebang and executable-bit differences between platforms.
-   * @evidence contracts/performance.md#efficient-algorithms One process per call; cost is the command's own.
+   * @evidence contracts/performance.md#efficient-algorithms One synchronous spawn invocation per call; internal starts and command cost are not counted here.
    * @evidence contracts/performance.md#reuse-equivalent-work The only shared inputs are the toolchain path and the content-keyed plugin cache; results are never reused between calls.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous process is joined before returning, so no child outlives the call.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous primitive returns its direct result before assertions; this does not establish arbitrary descendant termination.
    */
   export function run(
     workspace: IWorkspace,
@@ -146,9 +146,9 @@ export namespace UtilityWorkspace {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No flag, plugin or result is substituted.
    * @evidence contracts/common.md#meaningful-documentation States the command and that the process is joined.
    * @evidence contracts/portability.md#os-neutral-implementation Delegates process launch to run and passes the directory as a native path.
-   * @evidence contracts/performance.md#efficient-algorithms One compiler process per call.
-   * @evidence contracts/performance.md#reuse-equivalent-work Plugin binaries come from the shared content-keyed cache; each call is a distinct configuration state and is not memoized.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The process is joined before return.
+   * @evidence contracts/performance.md#efficient-algorithms One launcher invocation per call; native child starts and Program constructions are separate observations.
+   * @evidence contracts/performance.md#reuse-equivalent-work The shared cache is passed to each fresh invocation, without certifying cache hits or binary-image equality; results are not memoized.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The direct synchronous command returns before assertions; arbitrary descendant shutdown is not established.
    */
   export function emit(workspace: IWorkspace, scenario: string): Result {
     const result = run(
