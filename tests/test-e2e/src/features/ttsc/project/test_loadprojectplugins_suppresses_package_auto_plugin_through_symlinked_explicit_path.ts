@@ -24,18 +24,19 @@ import {
  *    `./node_modules/linked-plugin/index.cjs`.
  * 3. Invoke `loadProjectPlugins` and assert exactly one native plugin is loaded.
  *
- * @evidence contracts/testing.md#behavioral-verification A package explicitly selected through its linked path is loaded exactly once despite also declaring auto-discovery metadata.
+ * @evidence contracts/testing.md#behavioral-verification The returned nativePlugins population has length1 for explicit linked-path selection plus auto-discovery metadata; actual execution/start counts are not asserted.
  * @evidence contracts/testing.md#independent-expectations The authored explicit descriptor and manifest name the same physical package, so a single loaded plugin is the independent deduplication expectation.
  * @evidence contracts/testing.md#distinguishing-cases 1. Create a fake package at `packages/linked-plugin` that carries `ttsc.plugin` metadata, then symlink it into `project/node_modules/`. 2. Write a tsconfig that references the package via the symlinked relative path `./node_modules/linked-plugin/index.cjs`. 3. Invoke `loadProjectPlugins` and assert exactly one native plugin is loaded.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls the workspace loader with actual native package alias and real configured Go publication. This case supplies no fake Go executable; returned plugin length is not a measured launch or execution total.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage A package explicitly selected through its linked path is loaded exactly once despite also declaring auto-discovery metadata. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution One load uses a fresh linked package/project/explicit cache. Actual configured Go preparation remains part of this original; no scripted replacement, warm hit, avoided build or Program reuse is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before actual directory-link/module preparation. No ambient env is changed here; owner defaults still select real tools. Synchronous return does not establish descendant join or loaded-image equality before later reset.
+ * @evidence contracts/e2e.md#preserved-coverage The returned nativePlugins population has length1 for explicit linked-path selection plus auto-discovery metadata; actual execution/start counts are not asserted. Original real alias, two-file Go source and length1 remain; no name/start-count assertion is added. Actual selection/runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_suppresses_package_auto_plugin_through_symlinked_explicit_path =
   () => {
     const root = TestProject.tmpdir("ttsc-project-");
+    TestProject.retainTemporaryDirectory(root, "Linked discovery descendants are not joined");
     const realPackage = path.join(root, "packages", "linked-plugin");
     const project = path.join(root, "project");
     const linkedPackage = path.join(project, "node_modules", "linked-plugin");

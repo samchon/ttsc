@@ -20,11 +20,11 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#distinguishing-cases Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
  * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
  *
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner performs a selected Bun availability query, a workspace loader call with explicit Bun evaluator, then a real Bun parent worker importing the built loader. Scripted Go is source publication fixture input, not real compiler semantics. Original nonzero availability result returns false/no coverage.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Node-parent and Bun-parent loads share authored sources and private cache while evaluator authority differs: explicit TTSC_NODE_BINARY versus Bun process runtime. One version query/outer parent spawn are not total nested child counts, cache-hit proof or Program reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before setup. First evaluator env and worker env exclude inherited TTSC_BUN_DESCRIPTOR_SOURCE by call-local copies; actual .env.local/bunfig preload contrasts remain. Ambient env is untouched, sync success checks error/signal separately and does not establish descendant join.
+ * @evidence contracts/e2e.md#preserved-coverage Original first name/source, selected JS identity, case-folded basename plus native-parent candidate match, ambient tsconfig exclusion, explicit.ts null proof and manifest memberships remain. Worker repeats only selected/candidate memberships, not all first-load assertions. Matching helper is not independent missing-file or native case-policy proof; actual runtime/manifest/survival unverified/donor retained.
  */
 export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
   (): void | false => {
@@ -34,8 +34,11 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
       windowsHide: true,
     });
     if (bun.status !== 0) return false;
+    assert.equal(bun.error, undefined);
+    assert.equal(bun.signal, null);
 
     const root = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
+    TestProject.retainTemporaryDirectory(root, "Bun descriptor descendants are not joined");
     const project = path.join(root, "project");
     const source = path.join(root, "plugin-go");
     const ambientSource = path.join(root, "ambient-plugin-go");
@@ -155,16 +158,18 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
 
     const fakeGo = path.join(root, "fake-go");
     fs.mkdirSync(fakeGo, { recursive: true });
+    const evaluatorEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+      TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+      TTSC_NODE_BINARY: bunBinary,
+    };
+    delete evaluatorEnv.TTSC_BUN_DESCRIPTOR_SOURCE;
     const loaded = loadProjectPlugins({
       binary: "",
       cacheDir: path.join(root, "cache"),
       cwd: project,
-      env: {
-        ...process.env,
-        TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
-        TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
-        TTSC_NODE_BINARY: bunBinary,
-      },
+      env: evaluatorEnv,
       tsconfig: selectedConfig,
     });
 
@@ -226,6 +231,8 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
       env: workerEnv,
       windowsHide: true,
     });
+    assert.equal(fromBunParent.error, undefined);
+    assert.equal(fromBunParent.signal, null);
     assert.equal(fromBunParent.status, 0, fromBunParent.stderr);
     const parentInputs = JSON.parse(fromBunParent.stdout) as string[];
     const parentSelection = parentInputs.find((input) =>
@@ -245,7 +252,9 @@ function sameExistingFile(left: string, right: string): boolean {
     const leftStats = fs.statSync(left);
     const rightStats = fs.statSync(right);
     return leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino;
-  } catch {
+  } catch (error) {
+    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+      throw error;
     return false;
   }
 }
