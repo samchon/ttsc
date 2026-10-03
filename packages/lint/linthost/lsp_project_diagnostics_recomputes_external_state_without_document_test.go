@@ -46,7 +46,8 @@ func (externalStateProjectRule) Check(ctx *publicrule.ProjectContext) {
 //
 // A declared data edit must retain the Program while each request receives a
 // new Engine and ProjectRule cycle. The successful empty publication clears the
-// previous failure at the config URI.
+// previous failure at the config URI. This entry observes publications, not
+// Program identity or an editor actually applying the replacement.
 //
 //  1. Compare a failing cold publication with the first resident publication.
 //  2. Rewrite only the external file and classify it as external.
@@ -54,7 +55,7 @@ func (externalStateProjectRule) Check(ctx *publicrule.ProjectContext) {
 //  4. Create, change, and delete Swagger data with cold/resident equivalence.
 //
 // @evidence contracts/testing.md#behavioral-verification Resident project diagnostics replace prior failing findings with empty results after external-only changes without a document URI and retain cold parity across Swagger create/change/delete.
-// @evidence contracts/testing.md#independent-expectations Authored valid/invalid external fixtures establish the nonempty/empty transition independently. Cold publication is a differential oracle for full payloads and cannot independently certify all rule semantics.
+// @evidence contracts/testing.md#independent-expectations Authored valid/invalid external fixtures establish the nonempty/empty transition independently, and literal ordinary finding messages and error severity reject recovered rule failures. Cold publication is a differential oracle for full payloads and cannot independently certify all rule semantics.
 // @evidence contracts/testing.md#distinguishing-cases A registered project rule reads two external files: the spec file starts invalid and becomes valid, and the Swagger file is absent, then created invalid (one finding), changed to valid (zero) and deleted (zero). After each declared external change the warm resident publication must equal a cold computation, and the clearing publication must keep the same config URI.
 // @evidence contracts/testing.md#execution-ownership Registers a project rule in registeredProjectRules, calls computeLSPProjectDiagnostics directly with and without a resident program cache and drives residentPrograms.applyChanges while editing files in a temporary project; no daemon or host process is started.
 func TestLSPProjectDiagnosticsRecomputesExternalStateWithoutDocument(t *testing.T) {
@@ -96,6 +97,9 @@ func TestLSPProjectDiagnosticsRecomputesExternalStateWithoutDocument(t *testing.
   cold, code := computeLSPProjectDiagnostics(opts)
   if code != 0 || cold == nil || len(cold.Diagnostics) != 1 {
     t.Fatalf("cold project diagnostics: code=%d publication=%#v", code, cold)
+  }
+  if cold.Diagnostics[0].Message != "external project input is invalid" || cold.Diagnostics[0].Severity != 1 {
+    t.Fatalf("cold publication lost the ordinary external finding: %#v", cold.Diagnostics)
   }
   residentPrograms = newResidentProgramCache()
   t.Cleanup(func() {
@@ -143,6 +147,9 @@ func TestLSPProjectDiagnosticsRecomputesExternalStateWithoutDocument(t *testing.
         code,
         resident,
       )
+    }
+    if want == 1 && (resident.Diagnostics[0].Message != "external Swagger input is invalid" || resident.Diagnostics[0].Severity != 1) {
+      t.Fatalf("%s lost the ordinary Swagger finding: %#v", label, resident.Diagnostics)
     }
     cache := residentPrograms
     residentPrograms = nil
