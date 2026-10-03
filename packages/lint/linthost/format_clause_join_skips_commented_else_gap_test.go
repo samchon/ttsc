@@ -6,7 +6,8 @@ import "testing"
 //
 // The gap walk stops at the first non-whitespace byte and requires the clause's
 // own header token there, so a comment in the gap fails the anchor test rather
-// than being swallowed by the rewrite. Prettier leaves the same source alone.
+// than being swallowed by the rewrite. These assertions observe this rule's
+// abstention, not the complete output of an external formatter.
 //
 //  1. Parse else bodies preceded by a line comment and a block comment.
 //  2. Run format/clause-join with printWidth 80.
