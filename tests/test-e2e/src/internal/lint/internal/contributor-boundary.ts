@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createLintProject, runLintProject } from "./config-file";
 
-/** One immutable contributor producer and one real project load for three wire consumers. */
+/** One unchanged contributor fixture and cached launcher result for three wire consumers; construction totals remain separately observed. */
 let completed: ReturnType<typeof runLintProject> | undefined;
 let failed: { error: unknown } | undefined;
 
