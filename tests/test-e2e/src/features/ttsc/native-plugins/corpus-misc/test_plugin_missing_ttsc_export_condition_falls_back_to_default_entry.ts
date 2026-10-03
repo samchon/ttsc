@@ -32,8 +32,8 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Absent opt-in condition is the negative twin of the runtime-free ttsc export-condition case.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary The CLI interprets a consumer package exports map, resolves the default entry and evaluates its throwing barrel. The literal barrel exception proves the selected package entry reaches evaluation; neither rule-unit calls nor an unused committed manifest establish that resolution.
- * @evidence contracts/e2e.md#shared-execution One temporary consumer and one invocation of the already built CLI suffice for this descriptor/discovery rejection. No native build is required or claimed; sharing the built launcher does not share mutable package exports, contributor modules or config absence across consumers.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution One temporary consumer and one invocation of the already built CLI suffice for this descriptor/discovery rejection. This throwing descriptor defines no Go source; the body does not independently count all earlier runtime/native preparation. Sharing the built launcher does not share mutable package exports, contributor modules or config absence across consumers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the authored package consumer while the selected shared cache remains suite-owned. Package exports and throwing entry belong only to this consumer. Child-specific environment leaves ambient state unchanged; direct synchronous return precedes stderr inspection without certifying arbitrary descendants or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage ttsc reaches a package default entry without a ttsc export condition and reports its deliberate barrel exception. These assertions stay in test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry =
@@ -81,6 +81,9 @@ export const test_plugin_missing_ttsc_export_condition_falls_back_to_default_ent
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null);
+    assert.equal(typeof result.status, "number");
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /TTSC_TEST_RUNTIME_BARREL_LOADED/);
   };
