@@ -8,7 +8,7 @@ import "testing"
 //
 // The fix deletes the rename tail from the property name's end through the
 // local name's end, so a comment there (`{ a as /* keep */ a }`) would be
-// erased. ESLint's no-useless-rename declines via `commentsExistBetween`; the
+// erased. ESLint's no-useless-rename also declines edits that discard comments; the
 // port imposes no edit either and routes the collapse to the opt-in suggestion
 // channel instead (pinned by
 // `TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion`). The negative twin — the

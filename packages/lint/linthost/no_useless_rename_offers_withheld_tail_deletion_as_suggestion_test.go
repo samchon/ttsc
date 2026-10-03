@@ -8,7 +8,7 @@ import "testing"
 //
 // Deleting from the property name's end through the local name's end removes
 // the comment with the redundant alias, so the autofix declines exactly as
-// ESLint's `commentsExistBetween` guard does. The collapse itself stays
+// ESLint also withholds edits that discard comments. The collapse itself stays
 // correct, so the author is offered it rather than left with a diagnostic that
 // names a problem and hands over no way to act on it.
 //

@@ -1333,7 +1333,7 @@ func reportUselessRenameFix(ctx *Context, node, propertyName, name *shimast.Node
   edit := TextEdit{Pos: propertyName.End(), End: name.End(), Text: ""}
   // A comment between the two names (`{ a as /* c */ a }`) sits inside the
   // deleted rename tail; imposing that loss is unacceptable, so the autofix
-  // declines. Mirrors ESLint no-useless-rename's `commentsExistBetween` guard.
+  // declines. ESLint no-useless-rename also withholds comment-discarding edits.
   // The collapse is still what the author wants, so the same edit is offered
   // as an opt-in suggestion whose title states that the comment goes with it.
   if hasCommentBetween(ctx.File.Text(), propertyName.End(), name.End()) {
