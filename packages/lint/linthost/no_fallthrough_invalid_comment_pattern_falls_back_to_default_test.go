@@ -4,9 +4,9 @@ import "testing"
 
 // TestNoFallthroughInvalidCommentPatternFallsBackToDefault verifies an uncompilable commentPattern degrades to the default marker.
 //
-// ESLint throws at rule creation on a bad regex; this host cannot fail the
-// whole run for one rule's option, so rules_no_fallthrough.go documents the
-// fallback: keep the default marker pattern rather than silently disabling
+// ESLint throws at rule creation on a bad regex. This rule's documented
+// invalid-pattern policy retains the default marker pattern as a fallback,
+// rather than silently disabling
 // marker recognition (which would flood marked code with false positives).
 //
 // 1. Mark the transition with the standard `// falls through`.
