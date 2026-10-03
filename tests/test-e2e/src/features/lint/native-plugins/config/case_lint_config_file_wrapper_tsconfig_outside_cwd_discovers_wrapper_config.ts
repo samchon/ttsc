@@ -34,10 +34,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Real TtscCompiler compiles from a separate wrapper containing no-var config while the cwd project contains competing no-console config; exactly the wrapper's rendered no-var error must result.
  * @evidence contracts/testing.md#independent-expectations The authored source triggers both potential rules, but independent competing configs enable one each; the literal full no-var message/category list proves wrapper selection and rejects the cwd decoy finding.
  * @evidence contracts/testing.md#distinguishing-cases Both search origins hold eligible configs, so accidental cwd-only selection cannot pass; the paired config-less wrapper case covers fallback rather than precedence.
- * @evidence contracts/testing.md#execution-ownership This named entry invokes the emitted compiler API with wrapper tsconfig and project cwd; Go discovery units own internal origin selection but not the compiler-to-host context transfer.
+ * @evidence contracts/testing.md#execution-ownership This named entry invokes the emitted compiler API with wrapper tsconfig and project cwd; packages/lint/linthost/find_lint_config_file_uses_tsconfig_directory_when_outside_cwd_test.go::TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd owns the direct wrapper-versus-cwd path decision with restored empty explicit-origin channel. Its untagged root Go selection does not certify this compiler-to-host transfer or current runtime survival.
  * @evidence contracts/e2e.md#necessary-boundary The compiler must convey a wrapper-root configuration selection through real plugin/native compilation to its public diagnostic result; direct resolver inputs do not prove that context is preserved by the compiler adapter.
- * @evidence contracts/e2e.md#shared-execution One wrapper compile covers both winning no-var and losing no-console origins. Unchanged builtin source/compiler artifacts reuse sharedPluginCache and sharedGoBuildCache; no additional contributor producer is created.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary wrapper and consumer are independently owned and removed in finally; config and source stay fixed during compilation, and no result from the fallback-origin scenario is reused.
+ * @evidence contracts/e2e.md#shared-execution One wrapper compile covers both winning no-var and losing no-console origins. The invocation supplies sharedPluginCache and sharedGoBuildCache paths without certifying an actual cache hit, loaded artifact image or total native Program construction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary wrapper and consumer have independent cleanup attempts in finally, with original operation and cleanup failures aggregated; LintWorkspace owns their parent through preparation failure. Fixed inputs reuse no fallback result. The compiler preserves absent pluginConfigDir and clears undeclared inherited origin through BuildExecution; the sync compile return does not certify arbitrary descendant join.
  * @evidence contracts/e2e.md#preserved-coverage Original failure type and exact rendered no-var message/category list remain executable, including absence of the competing cwd no-console finding.
  */
 export function test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config() {
@@ -48,6 +48,7 @@ export function test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wra
       extraSources: FixtureFiles.read("lint/lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config/inputs-1"),
     });
     const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
+    const failures: unknown[] = [];
     try {
       const tsconfig = path.join(wrapper, "tsconfig.json");
       fs.writeFileSync(
@@ -84,8 +85,19 @@ export function test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wra
           ],
         ],
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
-      fs.rmSync(wrapper, { recursive: true, force: true });
-      project.cleanup();
+      try {
+        fs.rmSync(wrapper, { recursive: true, force: true });
+      } catch (error) {
+        failures.push(error);
+      }
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Wrapper lint configuration or owned cleanup failed");
   }

@@ -39,10 +39,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification A real TtscCompiler compiles through an out-of-tree wrapper with no lint config; it must discover the cwd config and produce exactly main.ts no-var/no-console errors while inherited generated-file findings stay absent.
  * @evidence contracts/testing.md#independent-expectations Authored main and generated sources plus explicit base/local rules and global ignores define two allowed findings; exact basename, rule prefix and category tuples and an empty generated-file list are asserted independently of discovery code.
  * @evidence contracts/testing.md#distinguishing-cases The wrapper lies outside the project and has no config, requiring cwd fallback. Included dot-directory and declaration sources test global ignores; the complementary wrapper-config case owns wrapper precedence.
- * @evidence contracts/testing.md#execution-ownership This named entry invokes the built compiler API and actual native host; TestLoadRuleConfigResolvesLinearExtendsChain and TestLoadRuleConfigExtendsWithIgnoresAndRulesIgnoresGlobally own exact config-fold semantics in the Go unit batch.
+ * @evidence contracts/testing.md#execution-ownership This named entry invokes the built compiler API and actual native host; packages/lint/linthost/load_rule_config_resolves_linear_extends_chain_test.go and load_rule_config_extends_with_ignores_and_rules_ignores_globally_test.go separately own direct resolver/engine config folding with exact source controls. Their untagged root Go selection is not current runtime or compiler-to-host assembly certification.
  * @evidence contracts/e2e.md#necessary-boundary The built compiler's generated wrapper context must reach native discovery with the original project/cwd and ignored-file selection intact; direct Go config calls cannot establish that wrapper-to-native connection.
- * @evidence contracts/e2e.md#shared-execution One compiler invocation verifies wrapper fallback, inherited rules and ignores together. The builtin producer uses sharedPluginCache and sharedGoBuildCache rather than another rule-specific native compilation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project and a distinct config-less wrapper are removed in finally; the compile result belongs to this wrapper/context, while immutable builtin compiler/plugin source identity can reuse cached artifacts.
+ * @evidence contracts/e2e.md#shared-execution One compiler invocation verifies wrapper fallback, inherited rules and ignores together. The invocation supplies sharedPluginCache and sharedGoBuildCache paths; this does not certify actual cache hits, loaded-image identity or total native Program construction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh project and distinct config-less wrapper have independent cleanup attempts in finally, and operation/cleanup failures are aggregated. LintWorkspace owns their parent through preparation failure. The compile result belongs to this wrapper/context; its sync return does not certify arbitrary descendant join. BuildExecution clears inherited config origin when no caller anchor was supplied, so the wrapper/cwd contrast is not an ambient explicit-origin claim.
  * @evidence contracts/e2e.md#preserved-coverage Original failure type, no ignored findings and exact main.ts rule/category tuples remain executable; direct Go owners retain the original JSON/source distinctions and add valid and unignored controls.
  */
 export function test_lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery() {
@@ -54,6 +54,7 @@ export function test_lint_config_file_out_of_tree_tsconfig_honors_project_ignore
       extraSources: FixtureFiles.read("lint/lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery/inputs-1"),
     });
     const wrapper = LintWorkspace.caseRoot("ttsc-lint-out-of-tree-", true);
+    const failures: unknown[] = [];
     try {
       const tsconfig = path.join(wrapper, "tsconfig.json");
       fs.writeFileSync(
@@ -98,8 +99,19 @@ export function test_lint_config_file_out_of_tree_tsconfig_honors_project_ignore
         ],
         JSON.stringify(result.diagnostics, null, 2),
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
-      fs.rmSync(wrapper, { recursive: true, force: true });
-      project.cleanup();
+      try {
+        fs.rmSync(wrapper, { recursive: true, force: true });
+      } catch (error) {
+        failures.push(error);
+      }
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Out-of-tree lint configuration or owned cleanup failed");
   }
