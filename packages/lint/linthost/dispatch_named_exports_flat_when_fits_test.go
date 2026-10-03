@@ -9,14 +9,12 @@ import (
 // TestDispatchNamedExportsFlatWhenFits verifies the named-exports
 // per-node printer keeps short `export { a, b };` clauses flat.
 //
-// NamedExports shares listShape with NamedImports, but a regression
-// in the dispatcher's NamedExports branch — e.g. mis-routing to a
-// different list helper — would only surface here, because the
-// surrounding ExportDeclaration is not modeled by the rule's
-// printer set.
+// NamedExports shares listShape with NamedImports. This test calls its
+// printer directly and checks the complete fitting clause; it does not
+// exercise PrintNode routing or the surrounding ExportDeclaration.
 //
 //  1. Parse `export { a, b };`.
-//  2. Dispatch the NamedExports node directly.
+//  2. Call printNamedExports directly on the clause node.
 //  3. Assert the result is `{ a, b }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must keep { a, b } flat with spaces inside its braces.

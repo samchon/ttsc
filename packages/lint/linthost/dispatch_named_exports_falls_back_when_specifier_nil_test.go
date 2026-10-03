@@ -37,7 +37,7 @@ func TestDispatchNamedExportsFallsBackWhenSpecifierNil(t *testing.T) {
   doc, _ := printNamedExports(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "export { a, b };\n")
