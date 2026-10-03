@@ -53,9 +53,11 @@ type Rewrite struct {
   ConsumeParens bool
 }
 
-// RewriteSet groups rewrites by file, preserving source order.
+// RewriteSet groups rewrites by slash-normalized AST filename, preserving
+// registration order. Callers supply the source-call order required by emit;
+// the container neither sorts positions nor validates descriptor contents.
 //
-// @evidence contracts/common.md#principled-implementation Per-file ordered descriptors preserve the call-site order expected by the emit cursor.
+// @evidence contracts/common.md#principled-implementation Per-file descriptor lists preserve registration order for the emit cursor; correct source-call ordering and descriptor contents remain the registering caller's responsibility.
 // @evidence contracts/common.md#clear-and-simple-design One path-to-list map stores registrations; emit-local state is not mixed into it.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registrations describe recognized source calls rather than fixture-only output patches.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies file grouping and order following the documentation skill.
@@ -76,19 +78,21 @@ type RewriteSet struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Map allocation performs no native operation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This constructor selects no collection-processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work It owns no repeated-work coordinator.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned set is caller-owned without an external resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Construction transfers an empty map to the caller-owned set. Later registrations retain source AST references, descriptor slices and strings without a cap or removal API; releasing the set drops its ownership, while other consumers may retain the same values. No native handle is acquired.
 func NewRewriteSet() *RewriteSet { return &RewriteSet{byPath: map[string][]Rewrite{}} }
 
-// Add registers a rewrite under the absolute path of its source file.
+// Add registers a rewrite under its source file's slash-normalized filename.
+// It preserves registration order, without sorting by call position or
+// validating that the caller's filename is absolute.
 //
-// @evidence contracts/common.md#principled-implementation A descriptor with no source is ignored; valid descriptors append in call-site order under their real source filename.
+// @evidence contracts/common.md#principled-implementation A descriptor with no source is ignored; other descriptors append under their supplied AST filename. Callers must register recognized calls in the order expected by emitted-call matching; this operation does not validate or sort them.
 // @evidence contracts/common.md#clear-and-simple-design One nil guard, key normalization, and append own registration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The map key comes from the source AST, not an inferred output basename.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies source-path registration following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.ToSlash normalizes actual native filenames without guessing host separators.
-// @evidence contracts/performance.md#efficient-algorithms Map indexing appends to one source's list without scanning all registered files.
+// @evidence contracts/performance.md#efficient-algorithms Filename slash conversion and key hashing process path bytes before appending to one source list, without scanning other registered files. Slice growth may copy that list's descriptors and map growth depends on the distinct source-key population.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration owns no shared computation or cache validity decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Entries remain in the caller-owned set; no independent resource is acquired.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each append retains descriptor/source-AST references and supplied slices/strings in the set. Registration count and retained bytes have no configured bound or removal API; ownership ends when the caller releases the set, without releasing independently retained aliases or native handles.
 func (rs *RewriteSet) Add(r Rewrite) {
   if r.File == nil {
     return
