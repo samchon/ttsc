@@ -285,12 +285,14 @@ func collectClosures(g *Graph, path string, declaration *shimast.Node) {
 // inside two different callbacks of one file would otherwise key the same id and
 // merge into a node that is neither, fabricating edges between unrelated scopes.
 // Such a closure stays out of the graph.
+// The supplied closure must be non-nil and belong to a stable compiler AST;
+// this helper does not validate or freeze its symbols and parent links.
 //
 // @evidence contracts/common.md#principled-implementation Lexical binding and enclosing callable identity distinguish local closures without source offsets or unstable counters.
 // @evidence contracts/common.md#clear-and-simple-design Owner and binding helpers compose one declaration identity, returning presence separately from the resulting string.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler AST binding determines supported closures; unnamed callbacks are not fabricated from fixture text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states named-local scope and positional stability, following the documentation skill's prose/tag separation.
-// @evidence contracts/performance.md#efficient-algorithms Cost follows the enclosing callable chain and constructed name length, not the whole source file.
+// @evidence contracts/performance.md#efficient-algorithms Cost includes AST ancestor and binding-wrapper walks, qualified symbol-container recursion and text checks. Each enclosing owner prefixes the accumulated string again, so allocation/copy work includes intermediate names rather than only the final length.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This identity helper does not coordinate consumers; callers reuse indexed closure nodes within the graph generation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a result string is returned; no AST or cache is retained.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ClosureName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
@@ -385,14 +387,18 @@ func bindingOf(fn *shimast.Node) *shimast.Node {
 //
 // A binding that holds no function is not one. A local `const i = 0` is a value,
 // not a place code runs.
+// This returns syntactic candidates; ClosureName separately admits their symbol
+// and enclosing-owner names. Unrecognized anonymous callable nodes do not stop
+// this walk. The caller supplies a non-nil declaration and stable AST and owns
+// the returned slice and its borrowed AST references.
 //
-// @evidence contracts/common.md#principled-implementation The AST walk selects named function-like declarations inside the owning body and stops at each selected closure's boundary.
+// @evidence contracts/common.md#principled-implementation The AST walk selects supported closure syntax inside the owning body and stops at each selected candidate; symbol and enclosing-name admission remain with ClosureName.
 // @evidence contracts/common.md#clear-and-simple-design One local collector supplies both declaration indexing and relation attribution with the same closure membership.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native AST kinds and binding syntax determine selection without parsed-text approximations.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains body scope and nested-closure ownership, with tags separated under the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Each AST node in the current owner's body is visited once until a selected closure boundary; output space follows selected closures.
+// @evidence contracts/performance.md#efficient-algorithms The recursive child walk stops at selected closure candidates; callable-variable classification additionally unwraps initializer expressions. Work and stack/slice allocation include visited AST depth, wrapper checks and selected population, not a constant traversal bound.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This collection does not own cross-phase caching; Build's immutable AST and indexed nodes establish generation-level reuse.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result borrows AST pointers and transfers its slice to the caller without retaining a Program.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Recursion depth and the returned candidate slice have no explicit cap. The caller owns the slice and borrowed AST references, keeps their generation valid while using them and releases them when no longer needed; this helper retains no separate cache or native handle.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ClosuresIn computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
   body := functionBody(declaration)
