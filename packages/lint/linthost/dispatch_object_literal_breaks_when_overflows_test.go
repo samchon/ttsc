@@ -10,8 +10,8 @@ import (
 // flat projection exceeds the column budget renders broken across
 // lines with a trailing comma and proper indentation.
 //
-// The case pins the headline reflow behavior: the same input flips
-// from flat to broken purely based on `printWidth`. A regression that
+// The case requires this three-property object to break at width twenty;
+// it does not compare the same input at multiple widths. A regression that
 // failed to inject the trailing comma in broken mode (Prettier's
 // `trailingComma: "all"` default) would fail this assertion.
 //

@@ -7,7 +7,7 @@ import (
 // TestDispatchObjectLiteralReturnsEmptyForNilNode verifies the nil-node
 // guard in printObjectLiteral returns an empty Doc without panicking.
 //
-// The nil guard is a defensive layer present in every per-node printer.
+// The nil guard is this direct printer's defensive layer.
 // Because the dispatch loop calls PrintNode (which already filters nils),
 // this branch is only reachable through a direct printObjectLiteral call.
 // Pinning it here ensures the guard survives future cleanups.

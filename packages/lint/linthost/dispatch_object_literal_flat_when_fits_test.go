@@ -9,10 +9,9 @@ import (
 // TestDispatchObjectLiteralFlatWhenFits verifies the object-literal
 // per-node printer keeps short objects on a single line.
 //
-// `{ a: 1 }` is well under any reasonable printWidth, so reflow must
-// produce the same bytes (modulo bracket-spacing whitespace). The case
-// pins the "fit" branch end-to-end: parse → dispatch → render →
-// compare to the canonical flat form.
+// `{ a: 1 }` fits the default eighty-column budget. This case parses the
+// source, calls printObjectLiteral directly and compares the full rendered
+// clause; it does not exercise PrintNode's branch selection.
 //
 //  1. Parse a one-statement source containing a small object literal.
 //  2. Walk the file to grab the literal's Node.

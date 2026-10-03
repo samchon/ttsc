@@ -12,9 +12,9 @@ import (
 //
 // A nil property inside Properties.Nodes would surface as `a, , b` in
 // the printed output. The guard `if prop == nil { return verbatim }` in
-// printObjectLiteral catches this case. Because the TypeScript-Go parser
-// never produces nil entries in a NodeList, this test exercises the guard
-// through a synthetically constructed node.
+// printObjectLiteral catches this case. This test supplies both a factory
+// list and a parsed list with its public Nodes replaced by a nil entry;
+// it does not establish parser guarantees.
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build an ObjectLiteralExpression whose Properties
@@ -38,7 +38,7 @@ func TestDispatchObjectLiteralFallsBackWhenPropertyNil(t *testing.T) {
   doc, _ := printObjectLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "const values = { a: 1, b: 2 };\n")

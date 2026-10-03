@@ -31,11 +31,11 @@ func TestDispatchObjectLiteralFallsBackWhenPropertiesNil(t *testing.T) {
   ctx := NewPrintContext(file, DefaultPrintOptions())
   factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
   node := factory.NewObjectLiteralExpression(nil, false)
-  // Should not panic; verbatim on a synthetic node returns an empty text.
+  // Should not panic; verbatim on this undefined-range node renders empty.
   doc, _ := printObjectLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "const values = { a: 1, b: 2 };\n")
