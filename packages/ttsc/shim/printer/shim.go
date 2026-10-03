@@ -130,14 +130,16 @@ func NewEmitContext() *EmitContext {
 
 // EmitSourceFile renders the full source file through the printer and returns
 // the emitted text.
+// The supplied printer must be nonnil and used according to its upstream
+// state and handler contract; this adapter adds no concurrent-use guard.
 //
 // @evidence contracts/common.md#principled-implementation Delegating to the supplied upstream printer preserves AST-aware source emission; callers provide a real source file and a printer constructed for their emit context.
 // @evidence contracts/common.md#clear-and-simple-design A single rendering adapter returns text while printer configuration and context construction retain their separate owners.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source text is produced by compiler AST printing rather than guessed textual substitution or fixture-specific output.
 // @evidence contracts/common.md#meaningful-documentation Native prose states full-file rendering and the returned text, distinct from the source-map companion operation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources EmitSourceFile acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms EmitSourceFile performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work EmitSourceFile computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned string retains emitted bytes for its consumers; the borrowed printer owns its reusable writer object and emit context. On normal completion upstream clears the writer's builder, while context and any prior printer state remain caller-owned, with no adapter-owned historical cache or byte cap.
+// @evidenceExclude contracts/performance.md#efficient-algorithms AST traversal, source trivia and handler work, and output-byte construction belong to the supplied upstream Printer.Emit path; this adapter chooses no independent emission algorithm, and delegation does not make those input-dependent costs constant.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The supplied printer owns writer reuse and emit context; this adapter coordinates no equivalent requests or completed-output cache and always asks that printer to render the supplied source.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation EmitSourceFile computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func EmitSourceFile(p *Printer, sourceFile *ast.SourceFile) string {
   return p.EmitSourceFile(sourceFile)
