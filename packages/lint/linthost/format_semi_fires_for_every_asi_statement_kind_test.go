@@ -11,10 +11,10 @@ import (
 // fourteen ASI statement and class-field spellings in this fixture.
 //
 // The rule's Visits() list is the load-bearing contract: dropping a kind
-// silently strips its diagnostics and fixes. This scenario walks one
-// terminator-less example per declared kind and asserts the rule fires on
-// each, so a future refactor that thins the kind list cannot regress without
-// updating this fixture.
+// silently strips its diagnostics and fixes. This scenario owns fourteen
+// terminator-less statement/class-field spellings, not every visited kind.
+// Additional type-member and mapped-type kinds have separate hosts. Each
+// insertion here must match its independently authored statement ending.
 //
 // 1. Parse a source file with one of each ASI statement kind missing `;`.
 // 2. Run the engine with formatSemi enabled.

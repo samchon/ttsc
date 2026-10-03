@@ -2,14 +2,12 @@ package linthost
 
 import "testing"
 
-// TestFormatSemiIdempotentOnTerminatedMembers verifies the member insert is
-// idempotent on its own output.
+// TestFormatSemiIdempotentOnTerminatedMembers verifies zero findings
+// on independently authored, already-terminated member spellings.
 //
-// The inserted `;` is folded back into the member's range by the next
-// parse, so the second pass must read it at End()-1 and abstain. A rule
-// that re-reported here would spin the format cascade to its pass cap and
-// exit non-zero, and would break the fixed point an already-Prettier-shaped
-// file is entitled to.
+// The parsed member includes its written semicolon, so the insert path
+// reads End()-1 and abstains. This direct rule input does not come from
+// a previous formatter result and does not execute a convergence cascade.
 //
 //  1. Parse a Prettier-shaped interface, type literal, and class body.
 //  2. Run format/semi with default options.

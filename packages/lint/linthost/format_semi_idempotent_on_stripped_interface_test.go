@@ -6,9 +6,9 @@ import "testing"
 // path is idempotent: an interface already free of member semicolons
 // produces zero findings under prefer:"never".
 //
-// Idempotency is the format cascade's convergence guarantee. Once the
-// member `;` is gone there is no terminator to locate, so the rule must
-// not re-report (which would loop the cascade).
+// Once the member terminators are absent, the direct rule must report
+// no further removal. This authored no-findings assertion does not run
+// a second format command or establish whole-cascade convergence.
 //
 //  1. Parse an interface whose members already lack `;`.
 //  2. Run format/semi with prefer:"never".

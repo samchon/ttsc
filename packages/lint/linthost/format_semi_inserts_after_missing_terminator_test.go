@@ -5,9 +5,9 @@ import "testing"
 // TestFormatSemiInsertsAfterMissingTerminator verifies formatSemi inserts a
 // missing trailing semicolon on a simple expression statement.
 //
-// The rule must be a zero-width insertion at the statement's End position so
-// the edit cannot collide with another rule's edit on the same line. This
-// scenario pins the happy path: one ExpressionStatement with no trailing
+// The rule inserts at the statement's End position. This full-output
+// assertion owns placement, not interaction with every other rule's edit.
+// One ExpressionStatement with no trailing
 // semicolon becomes the same statement with the terminator appended.
 //
 // 1. Parse a source file with one terminator-less expression statement.
