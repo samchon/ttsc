@@ -5,9 +5,9 @@ import "testing"
 // TestGetterReturnFollowsEveryPathThroughSwitchTryAndLoops verifies that
 // getter-return judges whole control flow, not only a getter's last statement.
 //
-// A getter whose every path returns through a `switch` with a `default`, a
-// `try`/`catch`, a `finally` or a never-ending loop cannot produce `undefined`,
-// while a path that falls off the end can.
+// Returning switch/try/finally paths and loops that do not complete leave
+// no implicit undefined result. A fallthrough path or an explicit bare
+// return does permit that result; these are distinct reporting cases.
 //
 //  1. Run the rule over getters that return on every path through a switch with
 //     default, try and catch, a returning finally, `while (true)` and `for (;;)`.
@@ -16,9 +16,9 @@ import "testing"
 //     out, whose catch falls through, whose loop breaks and whose return is bare,
 //     and assert each reports exactly once.
 //
-// @evidence contracts/testing.md#behavioral-verification getter-return must accept getters that return a value on every path through switch, try, finally and infinite loops and must report each getter that has a path leaving the body.
-// @evidence contracts/testing.md#independent-expectations ECMAScript control flow decides the expectations: a switch with a default whose last clause returns, a try and catch that both return, a returning finally and a constant-true loop without break never complete normally, and the negative sources each have a reachable path to the end of the body.
-// @evidence contracts/testing.md#distinguishing-cases Each accepted shape has a negative twin that removes the one property that made it exhaustive: the default clause, the escaping break, the returning catch, the loop break and the return value.
+// @evidence contracts/testing.md#behavioral-verification getter-return must accept the authored returning switch/try/finally and non-completing loop getters. It must report each authored fallthrough/break/catch case and the separate bare return that implicitly returns undefined.
+// @evidence contracts/testing.md#independent-expectations The authored control-flow oracles distinguish value returns and non-completing loops from body fallthrough. Missing switch default, escaping switch/loop break and falling-through catch permit body completion; the separate bare return yields undefined without reaching the body end.
+// @evidence contracts/testing.md#distinguishing-cases The switch controls remove its default or add an escaping break, the catch control falls through, and the loop control breaks. Returning finally and for(;;) are additional accepted shapes; the bare-return source independently covers implicit undefined rather than a one-to-one twin for every accepted shape.
 // @evidence contracts/testing.md#execution-ownership TestGetterReturnFollowsEveryPathThroughSwitchTryAndLoops parses virtual sources and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
 func TestGetterReturnFollowsEveryPathThroughSwitchTryAndLoops(t *testing.T) {
   clean := []string{
