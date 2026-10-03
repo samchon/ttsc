@@ -11,8 +11,8 @@ import (
 // saved with a leading UTF-8 BOM retain the same JSONC and formatting behavior
 // as settings saved without one.
 //
-// The loader previously passed the BOM through to encoding/json, which silently
-// discarded every editor override. These cases pin the document boundary,
+// The transport prefix must be removed before decoding JSONC while a BOM
+// inside a string remains data. These cases pin that document boundary,
 // malformed-input fallback, ancestor discovery, and command-level output.
 //
 //  1. Load BOM-prefixed JSONC and boundary cases through the real ancestor walk.
@@ -20,7 +20,7 @@ import (
 //  3. Run the format command and assert the editor indentation reaches the file.
 //
 // @evidence contracts/testing.md#behavioral-verification Writes `.vscode/settings.json` files (with and without a leading UTF-8 BOM) into temp directories and calls editorFormatOverrides and loadNearestVSCodeSettings: BOM-prefixed JSONC with comments and trailing commas resolves from an ancestor directory, a BOM `{}` parses empty, BOM and plain copies give equal overrides, an embedded BOM stays string data, a BOM-only or malformed file reports not-ok with no overrides, and the format command applies a BOM-prefixed tabSize 4.
-// @evidence contracts/testing.md#independent-expectations Expected values are authored literals from the editor-setting mapping (tabSize 4 to tabWidth 4, insertSpaces false to useTabs true, `\r\n` to crlf) and from the format command output `function f() {\n    return 1;\n}\n`; they are not derived from the resolver's traversal.
+// @evidence contracts/testing.md#independent-expectations Expected values are authored literals from the editor-setting mapping (tabSize 4 to tabWidth 4, insertSpaces false to useTabs true, `\r\n` to crlf, and tabSize 3 with insertSpaces true to tabWidth 3/useTabs false for both parity inputs) and from the format command output `function f() {\n    return 1;\n}\n`; they are not derived from the resolver's traversal or merely from agreement between two resolver results.
 // @evidence contracts/testing.md#distinguishing-cases Separate subcases distinguish a BOM from no BOM, a BOM at the start from one inside a string value, valid from malformed or empty-after-BOM input, nearest-ancestor discovery from a nested directory, and resolver output from the full format command.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls editorFormatOverrides, loadNearestVSCodeSettings and run (format subcommand) against temp-dir settings files; no VS Code, child process, built binary or installed consumer.
 func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
@@ -78,6 +78,13 @@ func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
     writeSettings(t, plainRoot, []byte(text))
     bomOverrides := editorFormatOverrides(bomRoot, "typescript")
     plainOverrides := editorFormatOverrides(plainRoot, "typescript")
+    want := map[string]any{"tabWidth": float64(3), "useTabs": false}
+    if !reflect.DeepEqual(bomOverrides, want) {
+      t.Fatalf("BOM literal overrides: want %#v, got %#v", want, bomOverrides)
+    }
+    if !reflect.DeepEqual(plainOverrides, want) {
+      t.Fatalf("plain literal overrides: want %#v, got %#v", want, plainOverrides)
+    }
     if !reflect.DeepEqual(bomOverrides, plainOverrides) {
       t.Fatalf("BOM parity mismatch: BOM %#v, plain %#v", bomOverrides, plainOverrides)
     }
