@@ -74,6 +74,7 @@ jobs:
               'tests/test-e2e/src/features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts',
               'tests/test-e2e/src/features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts',
               'tests/test-e2e/src/features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts',
+              'tests/test-e2e/src/features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts',
             ] : process.env.TTSC_TEST_DIRS.split(',').map(file => 'tests/test-e2e/src/' + file)),
             'packages/ttsc/driver/program.go', 'packages/ttsc/internal/e2etrace/e2etrace.go',
           ];
@@ -89,6 +90,7 @@ jobs:
             'packages/ttsc/lib',
             'tests/test-e2e/src/internal/ttsc/internal',
             ...(family === 'compiler' ? [
+              'packages/factory/src',
               'tests/test-e2e/fixtures/ttsc/api',
               'tests/test-e2e/fixtures/ttsc/compiler/corpus',
               'tests/test-e2e/fixtures/ttsc/compiler/watch',
@@ -137,7 +139,7 @@ jobs:
           TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
           TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
           TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
-          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts,features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts
         run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
       - name: Bind actual retained baseline report
         id: compiler-baseline-report
@@ -166,7 +168,7 @@ jobs:
           TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
           TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
           TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
-          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts,features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts
         run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=compiler
       - name: Retain actual compiler comparison observations
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
