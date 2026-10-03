@@ -28,17 +28,17 @@ const traceOf = (result: ToolResult): TraceResult => {
  * code the interface call could never invoke.
  *
  * 1. Build one valid and one signature-incompatible CheckedPipeline implementation.
- * 2. Require the shipped binary dump to retain TS2416 and only the valid member
+ * 2. Require the selected real native binary dump to retain TS2416 and only the valid member
  *    edge.
  * 3. Trace an interface call and require dispatch into Good/accepted while Bad and
  *    rejected remain unreachable.
  *
  * @evidence contracts/testing.md#behavioral-verification The real native dump reports TS2416 yet retains all members, publishes Good's valid implements relation and excludes Bad's incompatible one; MCP dispatch reaches only accepted.
- * @evidence contracts/testing.md#independent-expectations The authored return types independently make Good compatible and Bad incompatible; literal diagnostics, edge presence/absence and accepted/rejected names establish both facts and consequence.
+ * @evidence contracts/testing.md#independent-expectations The authored number versus string parameter types independently make Good compatible and Bad incompatible; literal diagnostics, edge presence/absence and accepted/rejected names establish both facts and consequence.
  * @evidence contracts/testing.md#distinguishing-cases Valid and incompatible methods share one contract, so name equality cannot pass the negative control; the graph remains usable despite the compiler diagnostic.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_member_relations_follow_checker_dispatch borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_member_relations_follow_checker_dispatch borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual checker assignability, dump diagnostics and subsequent MCP traversal must agree; a synthetic implements edge cannot test whether the producer rejected Bad.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
+ * @evidence contracts/e2e.md#shared-execution This immutable checked-dispatch corpus supplies both the cached native CLI diagnostics/member-edge assertions and the resident MCP execution trace. They are distinct actual observations over the same authored input; sharing inputs/client does not certify identical Program objects, construction count or packed installation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
  * @evidence contracts/e2e.md#preserved-coverage TS2416, retained members, valid-edge positive, invalid-edge negative, Good dispatch/accepted and Bad/rejected exclusions all remain executable.
  */
