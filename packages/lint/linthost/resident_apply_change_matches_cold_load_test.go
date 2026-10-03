@@ -25,26 +25,23 @@ func (residentVarStatementRule) Check(ctx *publicrule.Context, node *shimast.Nod
   ctx.Report(node, "variable statement")
 }
 
-// TestResidentApplyChangeMatchesColdLoad verifies that updating a warm Program
-// with applyChange after a file changes yields the same findings a cold load of
-// the edited project would — the correctness property the resident daemon rests
-// on.
+// TestResidentApplyChangeMatchesColdLoad verifies the aggregate variable-statement
+// finding count after a warm Program edit against an independently authored count
+// and a cold load of the edited project.
 //
-// applyChange re-parses only the changed file and reuses every other file's AST.
-// If the reused ASTs or the rebuilt checker drifted from a fresh compile, the
-// resident daemon would report stale or wrong findings that a one-shot run never
-// would. This pins that an incremental update equals a rebuild, and that the
-// edit actually took effect (the count rises), so the test cannot pass by the
-// update silently doing nothing.
+// Appending one declaration must raise the aggregate from two to three. This
+// distinguishes an ignored edit; cold-count equality is supplementary. The case
+// does not compare finding locations, AST object identity or checker-dependent
+// diagnostics.
 //
-//  1. Load a two-file project cold; assert one finding per file.
+//  1. Load a two-file project cold; assert two findings in total.
 //  2. Append a statement to one file on disk and applyChange it.
 //  3. Assert the warm Program now reports the new count, equal to a fresh cold
-//     load of the edited project, with the other file's findings intact.
+//     load of the edited project; the other file is left unchanged on disk.
 //
-// @evidence contracts/testing.md#behavioral-verification applyChange updates only the edited source and the synthetic variable rule must count two statements before and three after, retaining the other file.
+// @evidence contracts/testing.md#behavioral-verification After applyChange on an appended declaration, the synthetic variable rule must report two findings before and three after, matching the edited cold-load count.
 // @evidence contracts/testing.md#independent-expectations Literal counts 2 and 3 come from counting authored top-level declarations, independently of either warm or cold compiler result; cold equality is supplementary.
-// @evidence contracts/testing.md#distinguishing-cases Edits to one of two files must raise the warm count from two to three, which also shows the untouched file's finding survived and the edit was not a silent no-op, and the warm count must equal a freshly loaded Program over the edited files. Only an appended statement is exercised; deletions, renames and type-dependent rules are not covered.
+// @evidence contracts/testing.md#distinguishing-cases Appending a declaration in one of two files must raise the warm total from two to three and match a fresh cold total. This distinguishes an ignored edit; file-specific finding survival, AST identity, deletions, renames and type-dependent rules are not asserted.
 // @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, updates one with program.applyChange and runs an Engine through runLintCycle over temporary files in one process; the synthetic contributor rule is registered in the in-process registry and removed on cleanup.
 func TestResidentApplyChangeMatchesColdLoad(t *testing.T) {
   metadata, err := inspectContributor(residentVarStatementRule{})
