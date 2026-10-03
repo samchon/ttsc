@@ -5,7 +5,7 @@ import "testing"
 // TestFilterFormatFindingsKeepsOnlyFormatRuleFindings verifies the
 // format-side filter.
 //
-// `ttsc format` and the LSP format and fix-all actions call
+// `ttsc format` and LSP format requests call
 // `filterFormatFindings` to narrow the engine's mixed finding stream to the
 // format-rule subset with attached edits, so formatting never applies
 // lint-class edits and never drops a fixable format finding silently. The lint-side
@@ -23,7 +23,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification filterFormatFindings admits format/semi and format/quotes only when fixes are attached, rejecting lint entries, nil and format-without-fix. Original-pointer membership also rejects a duplicated survivor while permitting either output order.
 // @evidence contracts/testing.md#independent-expectations The hand-authored mixed slice determines exactly two admissible original findings under the write-only format contract, independently of the filtering implementation.
 // @evidence contracts/testing.md#distinguishing-cases A six-entry slice separates the four decision outcomes: a lint finding with a fix, a nil entry, a lint finding without a fix and a format finding without edits are dropped, while the two format findings with edits (format/semi, format/quotes) are kept as the original pointers.
-// @evidence contracts/testing.md#execution-ownership TestFilterFormatFindingsKeepsOnlyFormatRuleFindings owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership TestFilterFormatFindingsKeepsOnlyFormatRuleFindings owns its fixture cases as an in-process Go test selected by the root test:go package population. It calls filterFormatFindings directly rather than launching a separately built product host or executing an LSP action.
 func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
   withFix := []TextEdit{{Pos: 0, End: 1, Text: ""}}
   findings := []*Finding{
