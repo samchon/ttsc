@@ -5,7 +5,7 @@ import "testing"
 // TestFixPreferConstReplacesWhollyStableDestructuringKeyword verifies shared-keyword fixing.
 //
 // Each binding in one initialized destructuring declaration is const-eligible,
-// so their identical findings may safely share one deduplicated `let` edit.
+// so their distinct findings may safely share one deduplicated `let` edit.
 // The pattern, initializer, and references must otherwise remain untouched.
 //
 //  1. Declare and read two stable leaves in one destructuring declaration.

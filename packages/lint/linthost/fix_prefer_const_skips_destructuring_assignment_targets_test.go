@@ -5,14 +5,12 @@ import "testing"
 // TestFixPreferConstSkipsDestructuringAssignmentTargets verifies preferConst
 // does not flag a `let` reassigned through a destructuring-assignment target.
 //
-// The reassignment scan used to count only simple `=`, compound-assignment,
-// and `++`/`--` writes; a destructuring-assignment left-hand side parses as an
-// ArrayLiteralExpression / ObjectLiteralExpression, not a binding pattern, so
-// its identifiers were never marked reassigned. preferConst then flagged the
-// binding and `ttsc fix` rewrote it to `const`, producing code that fails to
-// compile (TS2588). `assignmentTargetNames` now walks those patterns —
-// elements, property values, nested patterns, defaults, and rest — so the
-// binding is correctly left as `let`.
+// A destructuring-assignment left-hand side parses as an array or object
+// expression, not a binding pattern. The actual assignmentTargetIdentifiers
+// traversal collects element, property-value, nested, default, and rest
+// targets; checker symbols connect them to the mutable declarations. The
+// zero-finding oracle forbids changing those bindings to const, without
+// asserting a compiler diagnostic or executing the rewritten program.
 //
 //  1. Parse `let` bindings reassigned only via array, object, and nested
 //     destructuring-assignment patterns.

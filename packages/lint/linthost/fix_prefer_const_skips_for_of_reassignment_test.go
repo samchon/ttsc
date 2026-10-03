@@ -5,12 +5,11 @@ import "testing"
 // TestFixPreferConstSkipsForOfReassignment verifies prefer-const declines a
 // `let` reassigned as the bare target of a `for…of` loop.
 //
-// The reassignment walk counted only BinaryExpression / `++` / `--` /
-// destructuring targets, so a pre-existing `let` used as the bare identifier
-// target of `for (x of …)` was never marked assigned. Rewriting it to `const`
-// makes the loop an assignment to a const (TS error and runtime TypeError).
-// The fix treats a for-of/for-in initializer that is NOT a
-// VariableDeclarationList as a reassignment of its target names.
+// A pre-existing `let` used as the bare identifier in `for (x of …)` is an
+// assignment target rather than a fresh loop declaration. Rewriting it to
+// const would make the loop write an immutable binding. The native rule
+// records non-declaration loop targets by checker symbol; this test requires
+// zero findings without running rewritten JavaScript or compiler diagnostics.
 //
 //  1. Parse `let x = 0;` then `for (x of [1, 2, 3]) console.log(x);`.
 //  2. Run the prefer-const rule.
