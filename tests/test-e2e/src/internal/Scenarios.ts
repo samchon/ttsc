@@ -13,7 +13,7 @@ export namespace Scenarios {
    * Observe one actual named callback without collecting or changing its result.
    * The caller decides which settled inputs and resource gates admit the call.
    *
-   * @evidence contracts/common.md#principled-implementation Records invocation before the actual callback and returned/threw after its awaited result; the original return value or exception is propagated unchanged.
+   * @evidence contracts/common.md#principled-implementation Records invocation before the actual callback and returned/skipped/threw after its awaited result. An actual false result is skipped, matching the test runner's capability outcome; the original value or exception is propagated unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One invocation token connects a named callback to its terminal observation. Failure collection and reuse admission remain caller responsibilities.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not retry, synthesize a successful verdict, infer process counts or certify assertion coverage from a returned callback.
    * @evidence contracts/common.md#meaningful-documentation Separates actual callback observation from behavioral and resource-lifetime proof.
@@ -37,7 +37,7 @@ export namespace Scenarios {
       const result = await run(...args);
       trace.record("profile-result", invocation, {
         pid: process.pid,
-        data: { writerRuntime: process.version, label, name, outcome: "returned",
+        data: { writerRuntime: process.version, label, name, outcome: result === false ? "skipped" : "returned",
           assertionCoverageCertified: false },
       });
       return result;

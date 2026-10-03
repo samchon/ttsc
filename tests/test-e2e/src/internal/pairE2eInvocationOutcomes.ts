@@ -88,8 +88,7 @@ export function pairE2eInvocationOutcomes(measurements: TraceMeasurements | unde
         continue;
       }
       const outcome = event.data?.outcome;
-      if ((outcome !== "returned" && outcome !== "skipped" && outcome !== "threw") ||
-        (kind === "profile" && outcome === "skipped")) {
+      if (outcome !== "returned" && outcome !== "skipped" && outcome !== "threw") {
         output.problems.push("Invalid named result outcome: " + key);
         continue;
       }
