@@ -8,7 +8,7 @@ import (
 )
 
 // TestLoaderRootDirContainsLoaderAndConfig verifies the ephemeral loader
-// tsconfig's rootDir contains both of its `files` entries on every platform.
+// tsconfig's rootDir contains both authored `files` entries under the host's path grammar.
 //
 // The loader tsconfig lists two absolute inputs — the generated loader script
 // and the user's config — and tsgo rejects any input outside rootDir with
