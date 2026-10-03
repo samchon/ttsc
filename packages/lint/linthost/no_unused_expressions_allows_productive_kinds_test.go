@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestNoUnusedExpressionsAllowsProductiveKinds verifies no-unused-expressions ignores every productive statement shape.
+// TestNoUnusedExpressionsAllowsProductiveKinds verifies no-unused-expressions accepts the authored productive statement shapes.
 //
 // Locks the disallow-list polarity of `noUnusedExpressionsDisallows`: upstream
 // ESLint flags only a fixed list of side-effect-free shapes and ignores
