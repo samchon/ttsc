@@ -3,8 +3,9 @@ import type { TracePhaseObservation } from "./captureE2eTracePhase";
 import { readE2eTracePayload } from "./readE2eTracePayload";
 
 /**
- * Binds a before-call file observation and synchronous command result to an
- * independently prepared executable. Async child close remains a separate owner.
+ * Binds a before-call file observation and synchronous result or actual async
+ * start/exit/close to an independently prepared executable. Close certifies only
+ * this direct child's stdio boundary, not arbitrary descendant termination.
  * Go retained artifacts and test-owned direct-file hashes have different native
  * identity fields; neither is treated as an OS-loaded-image certificate.
  *
@@ -46,6 +47,9 @@ export function pairE2eCommandFileObservation(
       candidate.observation.invocation === event.invocation);
     const attempt = sameCall.find(candidate => candidate.observation.event === "process-attempt");
     const result = sameCall.find(candidate => candidate.observation.event === "process-result");
+    const start = sameCall.find(candidate => candidate.observation.event === "process-start");
+    const exit = sameCall.find(candidate => candidate.observation.event === "process-exit");
+    const close = sameCall.find(candidate => candidate.observation.event === "process-close");
     if (data.outcome !== "complete" || !before || data.realPath !== before.realPath || data.sha256 !== before.sha256)
       problems.push("Selected command file does not match its independent preparation: " + event.invocation);
     if (!phase.traces?.writerRuntimeVersions[row.writerFile])
@@ -76,10 +80,21 @@ export function pairE2eCommandFileObservation(
     const selectedPath = attempt?.observation.data?.selectedPath;
     const requestedArgv = (attempt?.observation as (typeof event & { argv?: unknown[] }))?.argv;
     const selectedCommand = input.event === "native-artifact" ? selectedPath : requestedArgv?.[0];
-    if (!attempt || !result || event.sequence >= attempt.observation.sequence ||
-      attempt.observation.sequence >= result.observation.sequence ||
-      selectedCommand !== data.requestedPath || actualStarted !== true || actualExitObserved !== true ||
-      !(Number(result.observation.pid) > 0) || !successful)
+    const synchronous = result !== undefined && attempt !== undefined &&
+      attempt.observation.sequence < result.observation.sequence &&
+      actualStarted === true && actualExitObserved === true &&
+      Number(result.observation.pid) > 0 && successful;
+    const asyncExit = exit?.observation as typeof resultFields;
+    const asyncClose = close?.observation as typeof resultFields;
+    const asynchronous = input.event === "selected-file-observation" && result === undefined &&
+      attempt !== undefined && start !== undefined && exit !== undefined && close !== undefined &&
+      attempt.observation.sequence < start.observation.sequence &&
+      start.observation.sequence < exit.observation.sequence && exit.observation.sequence < close.observation.sequence &&
+      Number(start.observation.pid) > 0 && start.observation.pid === exit.observation.pid &&
+      exit.observation.pid === close.observation.pid && asyncExit.status === 0 && asyncExit.signal === null &&
+      asyncClose.status === 0 && asyncClose.signal === null;
+    if (!attempt || event.sequence >= attempt.observation.sequence ||
+      selectedCommand !== data.requestedPath || !(synchronous || asynchronous))
       problems.push("Missing later successful actual command for file observation: " + event.invocation);
     else invocations.push(event.invocation);
   }
