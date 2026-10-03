@@ -7,15 +7,16 @@ import (
 )
 
 // TestDispatchCallExplodesWhenHuggedCallbackHeaderOverflows verifies a
-// call whose hugged opening line would overflow printWidth falls back to
-// the fully exploded argument list instead of hugging anyway.
+// process call whose hugged opening line would overflow printWidth falls
+// back to the fully exploded argument list instead of hugging anyway.
 //
 // Hugging keeps the leading arguments and the callback header on one
 // line. When that header itself exceeds printWidth, hugging cannot help
 // — the line is already too wide before the body even begins. The
 // ConditionalGroup the argument list emits lets the engine reject the
-// hugged option and pick the exploded shape, which is what Prettier
-// does.
+// hugged option and pick the exploded shape. This case is not a
+// test-framework call that forces callback hugging; no independent
+// Prettier process is run by this test.
 //
 //  1. Parse a call with two leading arguments and a block callback whose
 //     `process(alphaArgument, betaArgument, () => {` header is 44 wide.
