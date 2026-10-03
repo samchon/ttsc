@@ -21,9 +21,9 @@ import (
 // 3. Execute `ttsc.lint.fixAll` for that outside URI.
 // 4. Assert the error names the project-boundary rejection, not a read failure.
 //
-// @evidence contracts/testing.md#behavioral-verification Fix-all rejects an unreadable target outside cwd with the workspace-boundary error rather than attempting a read and surfacing its failure.
-// @evidence contracts/testing.md#independent-expectations The authored outside URI and required boundary error distinguish authorization ordering independently of the platform read error.
-// @evidence contracts/testing.md#distinguishing-cases The outside file has mode 0000, so a read attempted before the boundary check would surface a permission error instead of the required outside-cwd message; the test requires a nonzero status and that message. It is skipped on Windows, where chmod read checks differ, so it is POSIX-only.
+// @evidence contracts/testing.md#behavioral-verification Fix-all rejects a mode-0000 target outside cwd with the authored workspace-boundary error. This observes the rejection response, not a count of filesystem reads.
+// @evidence contracts/testing.md#independent-expectations The authored outside URI and required outside-cwd error establish project-boundary rejection independently of platform-specific permission error text.
+// @evidence contracts/testing.md#distinguishing-cases The outside file has mode 0000, which can deny an unprivileged read; privileged runners may still read it. The test requires nonzero status and the outside-cwd message, without proving read denial or detecting an ignored earlier read. It is skipped on Windows, where chmod read checks differ, so it is POSIX-only.
 // @evidence contracts/testing.md#execution-ownership Calls run lsp-execute-command with fix-all in process on a URI for a mode 0000 file outside the project and inspects the captured stderr; the test is skipped on Windows, and no editor or built host is started.
 func TestLSPExecuteCommandRejectsTargetOutsideCwdBeforeRead(t *testing.T) {
   if runtime.GOOS == "windows" {

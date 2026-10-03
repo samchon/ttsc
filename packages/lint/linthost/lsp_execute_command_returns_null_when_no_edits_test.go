@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Fix-all on a const-only source exits successfully with JSON null and no stderr rather than an empty WorkspaceEdit.
 // @evidence contracts/testing.md#independent-expectations Literal null protocol output, zero exit and empty stderr are authored expectations independent of edit serialization internals.
 // @evidence contracts/testing.md#distinguishing-cases Enabled no-var on an already valid source distinguishes a handled no-op from disabled rules or a positive rewrite, which the split-edits companion owns.
-// @evidence contracts/testing.md#execution-ownership The native Go LSP command and checker execute directly in the shared unit process with a disposable fixture and no subprocess.
+// @evidence contracts/testing.md#execution-ownership The native Go LSP command and fresh Program execute directly in the shared unit process with a disposable fixture and no subprocess; the AST-only no-var engine requests no type checker.
 func TestLSPExecuteCommandReturnsNullWhenNoEdits(t *testing.T) {
   root := seedLintProject(t, "const stable = 1;\nJSON.stringify(stable);\n")
   seedLintRules(t, root, map[string]string{
