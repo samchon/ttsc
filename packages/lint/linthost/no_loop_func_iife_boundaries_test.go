@@ -2,19 +2,19 @@ package linthost
 
 import "testing"
 
-// TestNoLoopFuncIIFEBoundaries verifies which immediately invoked functions
-// are execution boundaries and which can outlive the current iteration.
+// TestNoLoopFuncIIFEBoundaries verifies the rule's IIFE exemption boundaries.
 //
-// Only unreferenced synchronous non-generator IIFEs execute completely in the
-// iteration. Returned nested closures, referenced named IIFEs, async functions,
-// and generators retain the ordinary unsafe-capture analysis.
+// The rule exempts unreferenced synchronous non-generator IIFEs. Returned
+// nested closures, referenced named IIFEs, async functions, and generators
+// retain ordinary unsafe-capture analysis. These inputs distinguish that
+// conservative policy, not actual escape or deferred execution of each closure.
 //
 // 1. Invoke safe arrow and named synchronous functions inside a loop.
 // 2. Add a returned closure, self-reference, async IIFE, and generator IIFE.
-// 3. Assert only the four escaping/deferred function ranges are reported.
+// 3. Assert only the four nonexempt function ranges are reported.
 //
-// @evidence contracts/testing.md#behavioral-verification Checker-backed findings must match precisely the four original escaping/deferred function ranges and unsafe-variable message.
-// @evidence contracts/testing.md#independent-expectations An unreferenced synchronous non-generator IIFE finishes during the iteration; returned closures, self-reference, async execution and generators independently lack that completion exemption.
+// @evidence contracts/testing.md#behavioral-verification Checker-backed findings match the four authored nonexempt function ranges and unsafe-variable message.
+// @evidence contracts/testing.md#independent-expectations The supported policy exempts an unreferenced synchronous non-generator IIFE. Literal nested-closure, self-reference, async and generator categories retain capture checking; the authored ranges/messages specify this policy independently of findings, without proving actual escape or suspension.
 // @evidence contracts/testing.md#distinguishing-cases Immediate arrow and unreferenced named sync call stay clean; returned closure, referenced self, async IIFE and generator IIFE report.
 // @evidence contracts/testing.md#execution-ownership TestNoLoopFuncIIFEBoundaries is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestNoLoopFuncIIFEBoundaries(t *testing.T) {
