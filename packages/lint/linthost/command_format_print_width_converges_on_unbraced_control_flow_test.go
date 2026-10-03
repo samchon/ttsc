@@ -22,9 +22,9 @@ import (
 // 3. Require long calls in braced bodies and standalone calls to reflow.
 //
 // @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command twice (printWidth 80) on an over-wide unbraced `if`, `else if`, `else`, `while`, `for(;;)`, `for-of`, `for-in`, `do-while` and `with` form, requiring exit 0, the condition fragment and the throw branch still present, and the second output equal to the first; a final project at width 40 requires exactly five `standalone(` calls to be broken across lines with a stable second pass.
-// @evidence contracts/testing.md#independent-expectations Each pass compares token kinds and exact token text with the authored input, preserving control-flow keywords, operators, bindings, argument order and literal values; only a trailing comma immediately before a closing parenthesis is ignored in the braced fixture. The throw fragment independently preserves the exact interpolated template. The five broken-call count and second-pass equality are separate layout and convergence assertions, not the semantic oracle.
-// @evidence contracts/testing.md#distinguishing-cases Separates nine unbraced control-flow forms from braced bodies and a standalone call that must reflow. Original-token equality rejects stable deletion or mutation of control-flow and call operands, while the broken-call count rejects complete abstention in the braced fixture. No full canonical whitespace layout is asserted; these explicit-semicolon fixtures do not cover whitespace-sensitive automatic semicolon insertion.
-// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand twice; no child process, built binary or installed consumer.
+// @evidence contracts/testing.md#independent-expectations Each pass compares token kinds and exact token text with the authored input, preserving control-flow keywords, operators, bindings, argument order and literal values; only a trailing comma immediately before a closing parenthesis is ignored in the braced fixture. A literal token table independently pins template heads/middles/tails across nested interpolation and following code; whitespace inside template tokens remains significant. The throw fragment independently preserves the exact interpolated template. The five broken-call count and second-pass equality are separate layout and convergence assertions, not the semantic oracle.
+// @evidence contracts/testing.md#distinguishing-cases Separates nine unbraced control-flow forms from braced bodies and a standalone call that must reflow. Original-token equality rejects stable deletion or mutation of control-flow and call operands, while the broken-call count rejects complete abstention in the braced fixture. The template-token-oracle subcase preserves nested braces/templates and multiple interpolations, while distinguishing template data from following code trivia. No full canonical whitespace layout is asserted; these explicit-semicolon fixtures do not cover whitespace-sensitive automatic semicolon insertion.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each format subcase seeds a temp-dir project and calls run with the format subcommand twice; this entry also owns the named template-token-oracle scanner subcase. No child process, built binary or installed consumer.
 func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
   type token struct {
     kind shimast.Kind
@@ -35,7 +35,23 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
     scanner.SetText(text)
     scanner.SetSkipTrivia(true)
     var result []token
+    braceDepth := 0
+    var templateDepths []int
     for kind := scanner.Scan(); kind != shimast.KindEndOfFile; kind = scanner.Scan() {
+      if kind == shimast.KindCloseBraceToken && len(templateDepths) > 0 &&
+        braceDepth == templateDepths[len(templateDepths)-1] {
+        kind = scanner.ReScanTemplateToken(false)
+      }
+      switch kind {
+      case shimast.KindTemplateHead:
+        templateDepths = append(templateDepths, braceDepth)
+      case shimast.KindTemplateTail:
+        templateDepths = templateDepths[:len(templateDepths)-1]
+      case shimast.KindOpenBraceToken:
+        braceDepth++
+      case shimast.KindCloseBraceToken:
+        braceDepth--
+      }
       if allowTrailingComma && kind == shimast.KindCloseParenToken && len(result) > 0 && result[len(result)-1].kind == shimast.KindCommaToken {
         result = result[:len(result)-1]
       }
@@ -56,6 +72,37 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
       }
     }
   }
+  t.Run("template-token-oracle", func(t *testing.T) {
+    source := "`left ${ { key: `inner ${value}` } } middle ${other} right`; after();\n"
+    expected := []token{
+      {kind: shimast.KindTemplateHead, text: "`left ${"},
+      {kind: shimast.KindOpenBraceToken, text: "{"},
+      {kind: shimast.KindIdentifier, text: "key"},
+      {kind: shimast.KindColonToken, text: ":"},
+      {kind: shimast.KindTemplateHead, text: "`inner ${"},
+      {kind: shimast.KindIdentifier, text: "value"},
+      {kind: shimast.KindTemplateTail, text: "}`"},
+      {kind: shimast.KindCloseBraceToken, text: "}"},
+      {kind: shimast.KindTemplateMiddle, text: "} middle ${"},
+      {kind: shimast.KindIdentifier, text: "other"},
+      {kind: shimast.KindTemplateTail, text: "} right`"},
+      {kind: shimast.KindSemicolonToken, text: ";"},
+      {kind: shimast.KindIdentifier, text: "after"},
+      {kind: shimast.KindOpenParenToken, text: "("},
+      {kind: shimast.KindCloseParenToken, text: ")"},
+      {kind: shimast.KindSemicolonToken, text: ";"},
+    }
+    actual := tokens(source, false)
+    if len(actual) != len(expected) {
+      t.Fatalf("template tokens: want=%+v got=%+v", expected, actual)
+    }
+    for index, want := range expected {
+      if actual[index] != want {
+        t.Fatalf("template token %d: want=%+v got=%+v", index, want, actual[index])
+      }
+    }
+    requireOriginalTokens(t, source, strings.Replace(source, "; after", ";\nafter", 1), false)
+  })
   condition := "!fs.existsSync(entry)"
   branch := "throw new Error(`Typia preparation entrypoint not found: ${entry}`);"
   sources := []string{
