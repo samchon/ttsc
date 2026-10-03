@@ -7,18 +7,15 @@ import (
   "testing"
 )
 
-// TestResidentWholeCorpusMatchesColdLoad verifies the ENTIRE built-in rule
-// corpus reports identically after an incremental update and after a cold load.
+// TestResidentWholeCorpusMatchesColdLoad enables every registered rule and
+// compares the observed finding fingerprints after an incremental edit and a
+// cold load of the edited project.
 //
-// The sibling test proves the incremental mechanism with one synthetic rule.
-// That is not enough to trust the resident daemon: the corpus is ~743 rules, and
-// a rule that cached anything derived from the pre-edit Program — a node, a
-// symbol, a per-file table — would keep answering from it after applyChange
-// swapped the Program and rebuilt the checker. Such a rule would be correct in
-// the one-shot path (fresh process every verb) and silently wrong only under
-// residence, which is exactly the class of bug no existing test could catch.
-// This runs every rule over the same source both ways and demands the same
-// findings.
+// The two paths share rule implementations. Their nonempty and changed-result
+// guards distinguish an ignored edit, while differential equality checks rule,
+// file basename, positions and message. Configuring the registry on these two
+// TypeScript files does not exercise every rule branch or certify shared rule
+// correctness, severity, fixes or suggestions.
 //
 //  1. Enable every registered rule and lint a two-file project cold.
 //  2. Edit one file on disk, applyChange only that file, and re-lint the warm
@@ -26,10 +23,10 @@ import (
 //  3. Assert the findings equal a cold load of the edited project, and that the
 //     edit changed the findings at all (so the comparison cannot pass vacuously).
 //
-// @evidence contracts/testing.md#behavioral-verification Every registered rule runs before and after a source edit; incremental and cold finding fingerprints must agree and differ from the original nonempty result.
+// @evidence contracts/testing.md#behavioral-verification Every registered rule is enabled before and after the authored source edit; the observed incremental and cold finding fingerprints must agree and differ from the original nonempty result.
 // @evidence contracts/testing.md#independent-expectations Cold loading provides a differential oracle independent of the incremental update mechanism but shares rule implementations, so shared rule defects remain indistinguishable. The original nonempty set and changed-result assertion reject vacuous reuse.
-// @evidence contracts/testing.md#distinguishing-cases One source edit turns var into const, loose into strict equality and adds a declaration; the incremental fingerprint (rule, file, positions and message of every finding from every registered rule) must differ from the pre-edit fingerprint, which also requires that the seed produced findings, and must equal the fingerprint of a freshly loaded Program. Only this one edit shape is covered.
-// @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, applies applyChange and runs every registered rule through an Engine with runLintCycle on temporary files in one process; because both paths share the rule implementations, a defect common to both would not be detected.
+// @evidence contracts/testing.md#distinguishing-cases One source edit turns var into const, loose into strict equality and adds a declaration; the incremental fingerprint (rule, file basename, positions and message of each nonnil observed finding) must differ from the pre-edit fingerprint, which also requires that the seed produced findings, and must equal the fingerprint of a freshly loaded Program. Only this one edit shape is covered.
+// @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, applies applyChange and configures every registered rule in an Engine for runLintCycle on temporary files in one process; because both paths share the rule implementations, a defect common to both would not be detected.
 func TestResidentWholeCorpusMatchesColdLoad(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -42,8 +39,8 @@ func TestResidentWholeCorpusMatchesColdLoad(t *testing.T) {
   "files": ["a.ts", "b.ts"]
 }
 `)
-  // Deliberately varied source: several rule families must actually fire, or the
-  // comparison would be between two empty sets and prove nothing.
+  // The authored source must produce a nonempty finding set; comparing two empty
+  // sets would not distinguish an ignored edit.
   writeFile(t, filepath.Join(root, "a.ts"), `export const a = 1;
 export function keep(value: string): string {
   return value;
