@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-corpus";
-import { retainSharedPluginCache, SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies ttsc linked plugins: paths applies when the host emits through
@@ -70,7 +70,7 @@ export function test_ttsc_utility_plugins_paths_applies_when_host_emits_with_own
       ].join("\n"),
     });
     TestProject.retainTemporaryDirectory(root, "linked utility host synchronous return does not acknowledge native descendants");
-    retainSharedPluginCache("linked utility host native producer has no descendant join acknowledgement");
+    TestProject.retainSharedPluginCache("linked utility host native producer has no descendant join acknowledgement");
     TestUtilityPlugins.seedPackages(root, ["paths"]);
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,

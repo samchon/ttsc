@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-corpus";
-import { retainSharedPluginCache, SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies ttsc linked plugins: paths side-loads into a driver host.
@@ -62,7 +62,7 @@ export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): v
       ].join("\n"),
     });
     TestProject.retainTemporaryDirectory(root, "linked utility host synchronous return does not acknowledge native descendants");
-    retainSharedPluginCache("linked utility host native producer has no descendant join acknowledgement");
+    TestProject.retainSharedPluginCache("linked utility host native producer has no descendant join acknowledgement");
     TestUtilityPlugins.seedPackages(root, ["paths"]);
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
