@@ -9,8 +9,8 @@ import "testing"
 // interface body prints `ifBreak(semi, ";")` between its members, which is
 // nothing under semi:false, and its trailing separator is silenced the same
 // way. Prettier 3.8.3 returns this body with neither `,` nor `;`, so a rule
-// that owned only the `;` spelling would leave a comma-separated body
-// diverging in exactly the direction #1166 fixed for semicolons.
+// that handled only the `;` spelling would leave this fixture's two commas
+// in place instead of producing the independently authored output.
 //
 //  1. Parse an interface whose members are `,`-separated, including a
 //     trailing one before the closing brace.

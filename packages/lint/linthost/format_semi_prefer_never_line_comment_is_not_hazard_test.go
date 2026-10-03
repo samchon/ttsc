@@ -8,13 +8,13 @@ import (
 )
 
 // TestFormatSemiPreferNeverLineCommentIsNotHazard verifies that a line
-// comment between two statements is skipped during hazard detection, so
-// the preceding semicolon stays removable.
+// comment between newline-separated declarations is skipped during hazard
+// detection; the next significant declaration token permits removal.
 //
 //  1. Parse two statements separated by a line comment.
 //  2. Run format/semi configured `prefer: "never"`.
-//  3. Assert two findings: a line comment is trivia, never an ASI hazard,
-//     so both terminators are strippable.
+//  3. Assert two findings: the first declaration crosses comment trivia
+//     to a safe declaration start, and the last reaches end of input.
 //  4. Assert the fixed output removes both `;` and keeps the comment
 //     intact.
 //
