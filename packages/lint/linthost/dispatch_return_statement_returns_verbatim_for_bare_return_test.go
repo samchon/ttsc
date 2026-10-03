@@ -10,8 +10,8 @@ import (
 // printReturnStatement falls back to verbatim for a bare `return;` statement
 // that carries no expression.
 //
-// A bare `return;` has `stmt.Expression == nil`. The printer cannot dispatch
-// a nil expression through PrintNode, and there is nothing to reflow: the
+// A bare `return;` has `stmt.Expression == nil`. There is no expression
+// to lay out, and the return keyword must be retained: the
 // statement is a single keyword. The verbatim fallback emits the original
 // source bytes unchanged. This branch must be taken to prevent a nil
 // dereference when the return-statement printer tries to read the expression

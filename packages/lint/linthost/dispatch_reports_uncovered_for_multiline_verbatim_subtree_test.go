@@ -13,9 +13,9 @@ import (
 // The `covered` flag is the safety signal the formatPrintWidth rule
 // abstains on. A multi-line verbatim node keeps the source columns its lines
 // were written at, so a reflow that re-indented everything around it would
-// produce inconsistently indented output. The dispatcher must surface that
-// hazard as `covered == false`; a regression that returned `true` would let the
-// rule emit a corrupt edit.
+// retain those frozen columns. The dispatcher must surface that hazard
+// as `covered == false`. This test checks the enclosing call's flag;
+// it does not run the format rule or assert a disk edit.
 //
 // A `do` statement is the subject because dispatchNode has no case for
 // KindDoStatement, so it prints verbatim and spans several lines. If it gains
