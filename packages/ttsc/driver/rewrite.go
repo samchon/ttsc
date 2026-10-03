@@ -32,11 +32,12 @@ import (
 
 // Rewrite describes one emit-time patch: the replacement JS fragment a linked
 // plugin generated for one recognized call. When
-// RootName names a default or namespace import, emit resolves it through the
-// matching emitted require declaration, including any collision suffix chosen
-// by TypeScript-Go.
+// RootName names a default or namespace import, emit examines matching emitted
+// import/require declarations, including collision-suffixed names. A unique
+// applicable binding selects that alias; absent or ambiguous candidates fall
+// back to the source root spelling rather than certifying emitted identity.
 //
-// @evidence contracts/common.md#principled-implementation Rewrite descriptors bind emitted replacements to recognized source calls and their actual emitter-owned import identities.
+// @evidence contracts/common.md#principled-implementation Descriptors carry caller-recognized source-call replacements; emit attempts emitted import-alias association and otherwise uses its documented source-root fallback, without independently validating descriptor contents or certifying every binding.
 // @evidence contracts/common.md#clear-and-simple-design One descriptor separates source identity, call path, replacement text, and argument consumption.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Import collision suffixes are resolved from emitted declarations rather than hardcoded numeric guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains production and imported-root binding following the documentation skill.
@@ -124,22 +125,23 @@ func (rs *RewriteSet) Len() int {
 const RewriteSentinel = "/* @ttsc-rewritten */"
 
 // EmitAll runs tsgo's emitter, patching every registered plugin-owned call in
-// the output. Returns the tsgo diagnostics and any patch-time error. When
-// `writeFile` is nil, the patched JS is written to disk via the standard
-// tsgo WriteFile.
+// the output. Returns native emit diagnostics; returned writer/patch callback errors
+// become native write diagnostics. The separate error reports early program
+// admission or linked-hook failure. When
+// `writeFile` is nil, output is written through DefaultWriteFile.
 //
 // `writeFile` does not need to be concurrency-safe: emit() funnels every
 // invocation through one mutex, so the callback never runs on two goroutines
-// at once even though TypeScript-Go emits files in parallel.
+// at once even when the native program uses parallel emission.
 //
 // @evidence contracts/common.md#principled-implementation Whole-program rewrites delegate to one emit owner that qualifies linked-hook failures and serializes callback state.
 // @evidence contracts/common.md#clear-and-simple-design A nil target selects whole-program work without duplicating output policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The common emit path prevents a separate whole-program shortcut from bypassing rewrites or linked hooks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain result errors, default writer, and callback serialization following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation The shared emit owner handles native path containment and disk writing.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared emit owner handles output matching and traversal.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The shared emit owner maintains invocation-local pattern reuse and generation hook latching.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The delegated emit owns its temporary descriptor cache; this wrapper acquires no independent resource.
+// @evidence contracts/portability.md#os-neutral-implementation Delegated emission uses native lexical output containment and the program's reported case policy; the default writer uses native filesystem APIs, while custom destination effects remain caller-owned.
+// @evidence contracts/performance.md#efficient-algorithms Whole-program native generation and callback source association/pattern matching process source, registered-path and output bytes. The callback mutex serializes rewriting and destination work, including arbitrary caller writer costs; diagnostic conversion adds returned findings/text work.
+// @evidence contracts/performance.md#reuse-equivalent-work Delegated emission reuses the current loaded program and generation-latched linked hooks; cursors and compiled call patterns are shared only within this emit invocation, not across subsequent emits.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Emit-local cursors and patterns grow with encountered source keys and distinct call patterns without a configured cap. Local ownership ends on return, while native program/checker state, supplied descriptors, writer effects and returned results remain with their owners; Close releases a checker lease rather than all those values or disk output.
 func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, nil, writeFile)
 }
@@ -148,7 +150,7 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 //
 // `writeFile` does not need to be concurrency-safe: like EmitAll, EmitAllRaw
 // funnels every invocation through one mutex, so the callback never runs on
-// two goroutines at once even though TypeScript-Go emits files in parallel.
+// two goroutines at once even when the native program uses parallel emission.
 // This is the contract a plugin's output rewriter relies on — it is the
 // emit-stage phase ttsc guarantees runs single-threaded (a plugin's WriteFile
 // is the standard place to carry per-file cursors or an output map), so ttsc
@@ -160,9 +162,9 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler emission is not patched or replaced with expected-output text; skipped writes are marked for accurate emitted-file reporting.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes raw output and guaranteed callback serialization following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native containment resolves compiler paths with its case policy, and DefaultWriteFile uses native filesystem APIs.
-// @evidence contracts/performance.md#efficient-algorithms Only the callback is serialized; native parse/check/emit generation keeps the compiler's own processing strategy.
+// @evidence contracts/performance.md#efficient-algorithms Native generation processes the current program and emitted text; serialized callbacks add lexical path-containment and default filesystem or arbitrary caller-writer costs. Result diagnostics require conversion. Native threading policy remains selected by the loaded program, with no measured claim that callback serialization is inexpensive.
 // @evidence contracts/performance.md#reuse-equivalent-work The loaded program and latched linked-hook outcome are reused by emission instead of loading an independent compiler instance.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call owns no new lease or retained output cache; Program.Close remains the program lifecycle owner.
+// @evidence contracts/performance.md#bound-retention-and-release-resources This call adds no persistent output cache or checker lease. Native program/checker state and returned output/diagnostic data remain reachable through their respective owners; writer handles, retained buffers or disk artifacts follow the selected writer's policy. Program.Close releases its checker lease, not all program state or destination output.
 func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, nil, errors.New("driver: nil program")
@@ -170,14 +172,13 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   if err := p.ApplyLinkedPlugins(); err != nil {
     return nil, nil, err
   }
-  // TypeScript-Go's parallel emit invokes WriteFile once per emitted file,
-  // concurrently — one goroutine per source file. Serialize the whole callback
+  // Native emission may invoke WriteFile concurrently under its selected
+  // threading policy. Serialize the whole callback
   // under wfMu so a plugin's output rewriter sees one writer at a time: a
   // callback that mutates shared state (e.g. @nestia/core's per-file rewrite
-  // cursors and runtime-alias cache) would otherwise trip `fatal error:
-  // concurrent map read and map write`. The callback is cheap I/O, so
-  // serializing it costs ~nothing while parse/check/emit-text still parallelize
-  // — the same trade EmitAll makes for its own WriteFile.
+  // cursors and runtime-alias cache) could otherwise race. Writer work and
+  // lock contention are included in emission cost; this does not change the
+  // native generation threading policy.
   var wfMu sync.Mutex
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
@@ -201,17 +202,19 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   return result, p.convertProgramDiagnostics(result.Diagnostics), nil
 }
 
-// EmitFile runs tsgo's emitter for one source file, applying the same rewrite
-// pipeline as EmitAll.
+// EmitFile passes target to native emission through EmitAll's shared rewrite
+// pipeline. A nil target selects whole-program emission. Native emit owns the
+// selected target's output/diagnostic scope and returned writer errors become
+// emit diagnostics, while early admission or linked-hook failure returns error.
 //
 // @evidence contracts/common.md#principled-implementation Targeted emission uses the same rewrite, failure, and writer policy as whole-program emission.
 // @evidence contracts/common.md#clear-and-simple-design One target parameter delegates to the shared emit owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No special single-file path bypasses registered hooks or containment.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies single-source emission and shared policy following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation The shared emit owner performs native output operations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Targeted traversal and rewriting belong to the delegated emitter.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The shared emit owner reuses invocation patterns and generation hooks.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper acquires no independent resource or resident cache.
+// @evidence contracts/portability.md#os-neutral-implementation Delegated output containment uses native lexical compiler paths and its reported case policy; the default native writer and caller-supplied writer retain their own destination semantics.
+// @evidence contracts/performance.md#efficient-algorithms Target selection remains native; delegated source generation, output association, pattern/splice work and diagnostic conversion depend on reached inputs and emitted text. Callback serialization includes actual writer work and lock contention, without a constant-cost or target-only-computation claim.
+// @evidence contracts/performance.md#reuse-equivalent-work The current program and generation-latched hooks are reused, with cursors and call patterns shared only within this delegated emit; a later invocation owns a fresh matching cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated invocation-local matching maps have no configured source/pattern cap and lose local ownership on return. Supplied descriptors, native program/checker state, returned data and writer artifacts may outlive the call under their owners; this wrapper does not release them or acquire another checker lease.
 func (p *Program) EmitFile(rs *RewriteSet, target *ast.SourceFile, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, target, writeFile)
 }
@@ -228,14 +231,13 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
   }
   cursors := map[string]int{}
   patterns := map[string]*regexp.Regexp{}
-  // TypeScript-Go's parallel emit invokes this WriteFile callback once per
-  // emitted file, concurrently — one goroutine per source file. Serialize the
+  // Native emission may invoke this WriteFile callback concurrently under its
+  // selected threading policy. Serialize the
   // whole callback body under wfMu: the `cursors` map would otherwise trip
   // `fatal error: concurrent map writes`, and the wrapped `writeFile` (which a
   // caller may back with its own non-thread-safe state, e.g. api-compile's
-  // output map) must likewise see one writer at a time. The patch work here is
-  // cheap, so serializing only the callback costs ~nothing while parsing,
-  // checking, and emit-text generation still parallelize.
+  // output map) must likewise see one writer at a time. Rewriting, destination
+  // work and lock contention remain part of this emission's cost.
   var wfMu sync.Mutex
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
