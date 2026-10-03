@@ -10,7 +10,7 @@ import "testing"
 // consistently CRLF. This pins that the layout's endOfLine drives the
 // inserted separator.
 //
-//  1. Parse two CRLF-terminated statements sharing one line.
+//  1. Parse two statements sharing one CRLF-terminated line.
 //  2. Apply the rule with `{"endOfLine":"crlf"}` through the fixer.
 //  3. Assert the inserted break is `\r\n`.
 //
