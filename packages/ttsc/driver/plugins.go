@@ -301,8 +301,10 @@ func (ctx PluginContext) ReportHostInput(file string) {
 // by key.
 //
 // Reporting alone only widens what a consumer invalidates on; it is
-// ReportFileDependenciesComplete that turns the reported set into the file's
-// whole input set.
+// ReportFileDependenciesComplete that declares this plugin's per-file set
+// complete. The host still combines applicable contributors and independent
+// compiler, resolver, host-input and plugin-source inputs; reporting does not
+// authenticate arbitrary reads by a plugin.
 //
 // A dependency this cannot resolve to a key is not silently forgotten: it
 // withdraws this plugin's completeness claim for that file, because a complete
@@ -314,9 +316,9 @@ func (ctx PluginContext) ReportHostInput(file string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A partial set never implicitly becomes complete.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains widening, completeness, and failure following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native cwd resolution and slash conversion preserve filename case.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportFileDependency acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportFileDependency performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportFileDependency computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Accepted file/dependency keys or rejection keys transfer to the caller-owned plugin declaration ledger; distinct files and edges grow retained text and maps without a cap here, for that ledger's lifetime.
+// @evidence contracts/performance.md#efficient-algorithms Two native key conversions scan and allocate path text, followed by mutex-protected map insertion or rejection; the reporter does not enumerate the filesystem or traverse the dependency graph.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful edge or rejection report does not coordinate artifact computation or grant reuse permission; the declaration owner deduplicates recorded membership.
 func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
   if ctx.reportFileDependency == nil {
     return
@@ -342,17 +344,18 @@ func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
 //
 // The declaration is per (plugin, file), the way the protocol's completeness
 // contract defines it: the host lists a file in dependenciesComplete only when
-// every plugin that can contribute to it declared it, because a consumer cannot
-// attribute one plugin's entries back to it.
+// every entry classified as a source-preamble or program contributor declared
+// it. This is a reported claim, not proof of arbitrary plugin reads; independent
+// resolver, host-input and plugin-source lanes remain part of invalidation.
 //
 // @evidence contracts/common.md#principled-implementation Completeness belongs to each plugin and file, never one contributor on another's behalf.
 // @evidence contracts/common.md#clear-and-simple-design One normalized target receives one explicit completeness declaration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty lists or successful transforms do not imply completeness.
 // @evidence contracts/common.md#meaningful-documentation Native prose defines complete inputs and all contributors following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native-path conversion replaces platform-specific prefix slicing.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportFileDependenciesComplete acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportFileDependenciesComplete performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportFileDependenciesComplete computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each accepted target transfers to the caller-owned plugin declaration set, whose distinct-file text and membership have no cap here and remain for that ledger's lifetime.
+// @evidence contracts/performance.md#efficient-algorithms Native target conversion scans and allocates path text before a mutex-protected map insertion; this report does not enumerate program files or contributors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This explicit declaration does not coordinate artifact computation or validate equivalent requests; consumer aggregation owns reuse admission.
 func (ctx PluginContext) ReportFileDependenciesComplete(file string) {
   if ctx.reportFileComplete == nil {
     return
@@ -369,19 +372,19 @@ func (ctx PluginContext) ReportFileDependenciesComplete(file string) {
 // function of that file's own text, whatever it reported for that file, its
 // reported host inputs, and the compiler options.
 //
-// That is the honest claim of a syntactic transform — one that decides from the
-// file in front of it and its own configuration rather than from the type
-// system — and it is the only form available to a hook that never sees the
-// program, such as SourcePreamble.
+// A syntactic transform may make this claim when those inputs cover its work.
+// The host records it without authenticating the plugin's reads. Preamble hooks
+// can also use it without enumerating program files; it does not remove their
+// ability to report individual files or the host's independent input lanes.
 //
 // @evidence contracts/common.md#principled-implementation Universal completeness includes host inputs and compiler options alongside file text and dependencies.
 // @evidence contracts/common.md#clear-and-simple-design One callback records the plugin-wide declaration without boundary enumeration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Contributor declarations replace completeness inferred from syntax or test success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the declaration and preamble-hook applicability following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Reporting this boolean policy performs no native operation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportDependenciesComplete acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportDependenciesComplete performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportDependenciesComplete computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The callback marks a sticky boolean in an existing caller-owned plugin declaration ledger; this notifier does not acquire or release that ledger or own its lifecycle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The notifier chooses no collection or traversal strategy: its callback sets an existing flag under the declaration owner's mutex, while aggregation enumerates files and contributors separately.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This explicit policy report does not coordinate artifact computation or authenticate equivalent requests; consumer aggregation owns reuse admission.
 func (ctx PluginContext) ReportDependenciesComplete() {
   if ctx.reportEveryFileComplete == nil {
     return
