@@ -27,7 +27,7 @@ import (
 //  4. Preserve the original .next, next-env and main source inputs through resolver-to-Engine execution.
 //  5. Require only the main no-var/no-console pair, then remove ignores to expose both previously suppressed findings.
 //
-// @evidence contracts/testing.md#behavioral-verification LoadConfigResolver resolves both base no-var/error and local no-console/error for ordinary source, while generated and env.d.ts paths are ignored with inherited no-var off; the exact Next-shaped sources yield only main no-var/no-console errors, with no ignored-file findings.
+// @evidence contracts/testing.md#behavioral-verification LoadConfigResolver resolves both base no-var/error and local no-console/error for ordinary source, while generated and env.d.ts paths are ignored with an empty rule map; the exact Next-shaped sources yield only ordinary main no-var/no-console errors, with no ignored-file findings and recovered rule-execution errors rejected.
 // @evidence contracts/testing.md#independent-expectations Top-level ignores without files exclude a source from inherited as well as local config entries; independently authored path patterns and rule maps supply expected inclusion and exclusion.
 // @evidence contracts/testing.md#distinguishing-cases Owns ordinary source, nested generated glob, exact declaration-file ignore, original dot-directory and triple-slash declaration inputs across an extends chain; the adjacent no-ignores control exposes all four findings and distinguishes suppression from inactive rules; file-scoped local ignores are covered by external-store cases.
 // @evidence contracts/testing.md#execution-ownership TestLoadRuleConfigExtendsWithIgnoresAndRulesIgnoresGlobally is a selected Go unit entry calling LoadConfigResolver, ResolveRules and NewEngineWithResolver directly with exact authored JSON and parsed sources, without installing consumers, native compilation or a product child. All three authored sources are passed directly to Engine; compiler tsconfig include discovery and native diagnostic transport remain separate shared boundaries.
@@ -69,6 +69,9 @@ func TestLoadRuleConfigExtendsWithIgnoresAndRulesIgnoresGlobally(t *testing.T) {
     if !resolved.Ignored {
       t.Fatalf("%s: want Ignored=true from top-level ignores, got %+v", ignored, resolved)
     }
+    if len(resolved.Rules) != 0 {
+      t.Fatalf("%s: ignored file must have no rules, got %v", ignored, resolved.Rules)
+    }
     if resolved.Rules.Severity("no-var") != SeverityOff {
       t.Fatalf("%s no-var: base config rules leaked onto an ignored file: %v", ignored, resolved.Rules.Severity("no-var"))
     }
@@ -95,6 +98,10 @@ func TestLoadRuleConfigExtendsWithIgnoresAndRulesIgnoresGlobally(t *testing.T) {
     t.Fatalf("original Next-shaped binding: %v", err)
   }
   findings := nextEngine.Run(files, nil)
+  expectedRules := RuleConfig{"no-var": SeverityError, "no-console": SeverityError, "typescript/triple-slash-reference": SeverityError}
+  if err := validateSemanticRuleFindings(expectedRules, findings); err != nil {
+    t.Fatalf("ignored configuration semantic findings: %v", err)
+  }
   if len(findings) != 2 {
     t.Fatalf("want exactly two unignored main findings, got %+v", findings)
   }
@@ -113,6 +120,9 @@ func TestLoadRuleConfigExtendsWithIgnoresAndRulesIgnoresGlobally(t *testing.T) {
     t.Fatalf("adjacent unignored binding: %v", err)
   }
   active := unignoredEngine.Run(files, nil)
+  if err := validateSemanticRuleFindings(expectedRules, active); err != nil {
+    t.Fatalf("unignored configuration semantic findings: %v", err)
+  }
   if len(active) != 4 {
     t.Fatalf("without ignores all four original rule findings must become visible: %+v", active)
   }
