@@ -17,12 +17,17 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification no-var reports but keeps the unbraced if-body var declaration.
 // @evidence contracts/testing.md#independent-expectations The original source and zero edits avoid the illegal if-body lexical declaration grammar.
-// @evidence contracts/testing.md#distinguishing-cases An unbraced statement slot differs from a proper block, SourceFile or namespace container.
-// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsSingleStatementPosition invokes assertNoFixSnapshot for the bare if-body fixture.
+// @evidence contracts/testing.md#distinguishing-cases An unbraced slot differs from a proper block, SourceFile or namespace container; a function-local counterpart removes independent script-global refusal.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsSingleStatementPosition invokes assertNoFixSnapshot for both original and function-local bare if-body fixtures.
 func TestFixNoVarSkipsSingleStatementPosition(t *testing.T) {
   assertNoFixSnapshot(
     t,
     "no-var",
     "if (Math.random() > 0.5) var x = 1;\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nif (Math.random() > 0.5) var x = 1;\n}\n",
   )
 }
