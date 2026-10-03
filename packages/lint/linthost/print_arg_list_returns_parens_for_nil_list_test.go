@@ -7,11 +7,9 @@ import (
 // TestPrintArgListReturnsParensForNilList verifies that printArgList
 // returns the text `()` when given a nil NodeList.
 //
-// The nil guard in printArgList is a protective fast-path: a nil argument
-// list means there are no parentheses yet, so the printer emits the bare
-// empty-parens string without delegating to printList. Existing call and
-// new-expression tests always supply a non-nil list, leaving this guard
-// uncovered.
+// The direct nil-list path returns the empty delimiters without inspecting
+// argument elements. This entry supplies nil explicitly; the parsed source
+// only provides the PrintContext.
 //
 // 1. Call printArgList directly with a nil list pointer.
 // 2. Print the resulting Doc under default options.
@@ -19,7 +17,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification printArgList must render the empty argument delimiters when its list is nil.
 // @evidence contracts/testing.md#independent-expectations The empty-call grammar requires the literal (), not missing punctuation or a stray comma.
-// @evidence contracts/testing.md#distinguishing-cases Absent argument contents with delimiter emission enabled complement the nonempty flat/broken call cases.
+// @evidence contracts/testing.md#distinguishing-cases A nil argument list emits empty delimiters directly, complementing the nonempty flat/broken call cases.
 // @evidence contracts/testing.md#execution-ownership TestPrintArgListReturnsParensForNilList is one Go unit entry that parses a trivial source for a PrintContext, calls the unexported printArgList with a nil list and renders the Doc with Print in-process; it installs, builds and launches nothing.
 func TestPrintArgListReturnsParensForNilList(t *testing.T) {
   file := parseTS(t, "foo();\n")

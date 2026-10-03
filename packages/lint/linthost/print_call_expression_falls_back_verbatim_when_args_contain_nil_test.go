@@ -10,12 +10,9 @@ import (
 // printCallExpression emits verbatim source bytes when the argument list
 // contains a nil entry.
 //
-// hasNilEntry guards the call to printArgList so that a nil *Node in the
-// argument slice (which would render as an empty Doc and produce `(a, , b)`)
-// is handled safely. The verbatim fallback reproduces the original source
-// unchanged. Existing tests always supply well-formed argument lists, so
-// the true branch of `if hasNilEntry(...)` inside printCallExpression was
-// never reached.
+// hasNilEntry detects the deliberately malformed argument slice and selects
+// the verbatim node span. This entry checks the preserved source bytes rather
+// than attempting to reconstruct arguments from the injected nil child.
 //
 //  1. Parse `foo(a, b);` to get a real CallExpression.
 //  2. Inject a nil *Node into the Arguments.Nodes slice.
