@@ -7,7 +7,7 @@ import "testing"
 //
 // Locks the nil-argument guard around matcher rules that inspect the first
 // `expect` argument. A bare `expect()` is invalid test code, but linting it
-// should still return diagnostics instead of crashing the lint run.
+// should still complete without crashing the lint run.
 //
 //  1. Import a Testing Library async utility so the rule family is active.
 //  2. Use matcher calls with `expect()` and no first argument.
