@@ -39,7 +39,7 @@ func (residentConfigProjectInputRule) ProjectInputs(
 }
 
 // TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies
-// verifies the daemon owns the complete executable-config dependency state,
+// verifies executable-config reuse and reload after an imported package edit,
 // including package dependencies reached through a directory link.
 //
 // The original resident-rule case writes JSON and calls acquireRules directly,
