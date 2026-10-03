@@ -816,9 +816,9 @@ func checkerGetAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast
 // @evidence contracts/common.md#clear-and-simple-design One specifically documented enclosure query exposes compiler alias provenance without conflating it with alias-target resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No alias is inferred from printed type text or a named consumer; the actual AST parent chain defines the result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states wrapper traversal, non-alias nil, nonnil inputs and the enclosing-declaration distinction.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getAliasSymbolForTypeNode acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getAliasSymbolForTypeNode performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getAliasSymbolForTypeNode computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources A returned symbol remains checker-owned and can reference its declarations and semantic graph; the caller controls retention of that reference, while this forwarding wrapper stores no independent result, buffer or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no traversal strategy: the pinned helper walks H enclosing parenthesized/readonly wrappers, then delegates declaration-symbol normalization to the checker. That upstream traversal and symbol state own the cost, not a fixed-step local algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Declaration symbols and merged-symbol reuse belong to the upstream checker; this forwarding wrapper owns no query cache or coordination of repeated enclosure walks.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getAliasSymbolForTypeNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol {
   return checkerGetAliasSymbolForTypeNode(recv, node)
@@ -868,15 +868,17 @@ func Checker_getTargetOfImportSpecifier(recv *innerchecker.Checker, node *innera
 // Checker_getAliasedSymbol follows an alias chain to its final target symbol.
 // Returns nil if recv or symbol is nil.
 // A nonnil symbol must carry the compiler's Alias flag and belong to recv.
+// Unresolved or circular aliases can return the checker's unknown symbol;
+// the operation can populate checker alias links and diagnostics.
 //
 // @evidence contracts/common.md#principled-implementation The compiler follows an actual alias symbol's chain to its semantic target under the Alias-flag and producing-checker premises.
 // @evidence contracts/common.md#clear-and-simple-design Target resolution remains separate from declaration lookup and import-node-specific resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The target is not reconstructed by reopening textual module paths or accepting a similarly named symbol.
 // @evidence contracts/common.md#meaningful-documentation Native prose states final-target meaning, nil handling and the alias-symbol domain.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getAliasedSymbol acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getAliasedSymbol performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getAliasedSymbol computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getAliasedSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream alias links and diagnostics belong to recv's checker lifetime; the returned target or unknown symbol can retain semantic state through the caller's reference. The wrapper stores no separate result or resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs and forwards. The upstream checker owns declaration searches, recursive alias resolution, cycle handling and module-target queries; uncached work depends on that semantic graph rather than a fixed number of wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The upstream aliasSymbolLinks cache stores resolved targets, including the unknown-symbol result. This wrapper owns no separate alias cache or coordination policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Alias and module-target interpretation remain with the supplied checker and program; the wrapper adds no path, host or platform policy and does not bypass that authority.
 func Checker_getAliasedSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Symbol {
   if recv == nil || symbol == nil {
     return nil
@@ -1312,9 +1314,9 @@ func checkerCombineTypeMappers(recv *innerchecker.Checker, m1 *innerchecker.Type
 // @evidence contracts/common.md#clear-and-simple-design Composition has its own named operation and explicit nil policy, distinct from simultaneous parallel parameter mapping.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The stages are composed by compiler semantics rather than flattened into a misleading pair list or repaired with arbitrary fallback types.
 // @evidence contracts/common.md#meaningful-documentation Native prose states composition order, parallel alternative, all nil cases and same-checker premises.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_combineTypeMappers acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_combineTypeMappers performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_combineTypeMappers computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The nonempty composition returns one upstream composite mapper retaining recv, m1 and m2; the caller owns its lifetime and the reachable checker/type state. Nil branches allocate no composite, and the wrapper keeps no separate handle or cache.
+// @evidence contracts/performance.md#efficient-algorithms Fixed nil checks delegate to the upstream O(1) composite construction without visiting mapped types. Applying the returned mapper later owns first-stage mapping and second-stage instantiation costs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper transfers an existing second mapper or creates a caller-owned composition; it owns no semantic mapper cache or coordination of later mapping work, which belongs to the upstream checker.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_combineTypeMappers computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_combineTypeMappers(recv *innerchecker.Checker, m1 *innerchecker.TypeMapper, m2 *innerchecker.TypeMapper) *innerchecker.TypeMapper {
   if m1 == nil {
