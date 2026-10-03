@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification acceptsActionKind accepts broad and exact source prefixes while rejecting a deeper requested kind and an unrelated sibling.
 // @evidence contracts/testing.md#independent-expectations Authored true/false prefix expectations follow the LSP directional CodeActionKind contract rather than copying action-filter output.
 // @evidence contracts/testing.md#distinguishing-cases Source, source.fixAll and exact ttsc are positive controls; ttsc.extra and other distinguish reversed-prefix and sibling-prefix bugs.
-// @evidence contracts/testing.md#execution-ownership The pure Go kind predicate executes directly once in the unit process with literal JSON, without project loading or a host subprocess.
+// @evidence contracts/testing.md#execution-ownership The pure Go kind predicate executes directly for five authored literal JSON requests in the unit process, without project loading or a host subprocess.
 func TestLSPCodeActionsRejectMoreSpecificContextOnly(t *testing.T) {
   for _, context := range []string{
     `{"only":["source"]}`,
