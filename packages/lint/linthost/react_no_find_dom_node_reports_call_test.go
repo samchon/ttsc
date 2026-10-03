@@ -4,7 +4,7 @@ import "testing"
 
 // TestReactNoFindDOMNodeReportsCall verifies findDOMNode calls are rejected.
 //
-// The call shape is explicit and deprecated in modern React.
+// The legacy call shape is explicit; React deprecated findDOMNode in 2018 and removed it in React 19.
 //
 // 1. Parse a ReactDOM.findDOMNode call.
 // 2. Enable only `react/no-find-dom-node`.
