@@ -4,7 +4,7 @@ import "testing"
 
 // TestNoFallthroughAcceptsInfiniteForWithoutBreak verifies `for (;;)` with no break terminates the case.
 //
-// A for statement without a condition never exits normally, so the case end
+// The authored conditionless for loop has no break, so the case end
 // is unreachable. Locks the missing-condition-means-infinite rule of the for
 // branch.
 //
