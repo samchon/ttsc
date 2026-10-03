@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The default binding, `source as alias`, the namespace import, `source as renamed`, `default as exportedDefault`, `export *` and `export * as` are reported at their specifier ranges (the star findings cover only the asterisk); `allowed` specifiers and the bare `import "pkg"` are not. Messages name the source names default and source, not the local aliases, and the three star-like findings use the namespace message.
 // @evidence contracts/testing.md#independent-expectations importNames restricts exported names, so a renamed local binding stays restricted. The seven literal ranges and the message fragments "'default' import from 'pkg' is restricted", "'source' import from 'pkg' is restricted" and "* import is invalid because 'default' and 'source' from 'pkg' are restricted" are authored literals.
 // @evidence contracts/testing.md#distinguishing-cases Default and aliased named imports, named and default reexports, a namespace import and two star reexports report; the allowed named bindings and a bare side-effect import of the same module stay clean.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the seven literal ranges and the Test body checks the message of findings 0, 1, 2, 5 and 6.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the seven literal spellings; the Test separately pins both repeated star offsets and checks the message of findings 0, 1, 2, 5 and 6.
 func TestNoRestrictedImportsMatchesSourceNamesAndReportsExactSpecifierRanges(t *testing.T) {
   source := `import Default, { source as alias, allowed } from "pkg";
 import * as namespace from "pkg";
@@ -50,6 +50,15 @@ void namespace;
     "*",
     "*",
   )
+  expectedStars := []int{
+    strings.Index(source, "export * from ") + len("export "),
+    strings.Index(source, "export * as exportedNamespace from ") + len("export "),
+  }
+  for index, expected := range expectedStars {
+    if findings[index+5].pos != expected {
+      t.Fatalf("star finding[%d] position = %d, want %d: %+v", index, findings[index+5].pos, expected, findings[index+5])
+    }
+  }
   if !strings.Contains(findings[0].message, "'default' import from 'pkg' is restricted") ||
     !strings.Contains(findings[1].message, "'source' import from 'pkg' is restricted") {
     t.Fatalf("aliases were matched by local rather than source names: %+v", findings)

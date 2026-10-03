@@ -13,12 +13,12 @@ import (
 // a source):
 // "/root", "foo**bar", "foo/*", "foo/**", ["패키지/*", "!패키지/공개"] and "[z-a]".
 //
-// 1. Run each group over its two small sources and compare the reported ranges.
+// 1. Run the six authored group/input cells and compare the reported ranges.
 // 2. Require the descending range "[z-a]" to yield no finding and no configuration error.
 //
 // @evidence contracts/testing.md#behavioral-verification "/root" reports only the root import and not "nested/root"; "foo**bar" reports "fooxbar" and not "foo/deep/bar"; "foo/*" and "foo/**" report "foo/value" and not "foo/"; the Unicode group reports the internal path and spares the negated public path; the unusable "[z-a]" range matches nothing.
 // @evidence contracts/testing.md#independent-expectations Each literal expectation follows gitignore pattern meaning: a leading slash anchors to the root, a double star inside a name cannot cross a slash, a trailing star or globstar needs a child component, a later negation re-includes its path, and an unusable bracket range does not match. The target lists are authored literals.
-// @evidence contracts/testing.md#distinguishing-cases Each invocation pairs a matching import with an adjacent import that must stay clean, and the invalid-range invocation guards against rejecting the configuration. Case-folding and message text are owned by sibling Tests.
+// @evidence contracts/testing.md#distinguishing-cases The five matching invocations pair a reported import with an adjacent import that must stay clean; the separate invalid-range invocation requires no matches and guards against rejecting the configuration. Case-folding and message text are owned by sibling Tests.
 // @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for each invocation, which binds the rule at error severity (so a configuration error would fail the Test), parses the source in a temporary project and runs Engine.Run in the Go test process. assertNoRestrictedImportsTargets compares the literal ranges; the Test asserts no messages.
 func TestNoRestrictedImportsGroupsKeepGitignoreAnchorsGlobstarsAndUnicode(t *testing.T) {
   anchoredSource := `import "root";
