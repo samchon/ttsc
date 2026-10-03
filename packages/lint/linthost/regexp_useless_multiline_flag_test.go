@@ -8,13 +8,10 @@ import (
 
 // TestRegexpUselessMultilineFlag verifies regexp/no-useless-flag on the `m` flag.
 //
-// `m` only redefines the `^` and `$` assertions, so the flag is dead unless the
-// pattern asserts one -- and a `^` or `$` sitting inside a character class is a
-// plain character, not an assertion. The old byte scan got that right for a flat
-// class but lost track of the class in `v`-mode set notation, where the first
-// inner `]` of `/[[a]^]/v` looked like the end of the class and the following
-// literal `^` was mistaken for an anchor. Deciding `m` on the same regexp AST the
-// `i` flag now uses seals that sibling: a class is a class however it nests.
+// `m` changes the `^` and `$` assertions rather than their literal characters.
+// The authored flat and nested v-mode classes, escaped anchors and escaped
+// opening bracket distinguish these payloads from top-level, group and lookahead
+// assertions. The predicate walks the regexp AST and preserves these boundaries.
 //
 //  1. Enable `regexp/no-useless-flag` on one regex literal per case.
 //  2. Run the engine on each.
