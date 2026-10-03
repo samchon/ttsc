@@ -10,11 +10,9 @@ import (
 // printNewExpression emits verbatim source bytes when the argument list
 // contains a nil entry.
 //
-// The hasNilEntry guard inside the `if ne.Arguments != nil` arm of
-// printNewExpression prevents a nil *Node child from rendering as an empty
-// Doc (which would produce `new Foo(a, , b)`). Existing tests always supply
-// well-formed argument lists, leaving the true branch of the guard
-// uncovered.
+// The hasNilEntry guard selects the verbatim node span for this deliberately
+// malformed argument slice. The complete expected source distinguishes that
+// fallback from reconstructing arguments out of the injected nil child.
 //
 //  1. Parse `new Foo(a, b);` to get a real NewExpression.
 //  2. Inject a nil *Node into the Arguments.Nodes slice.

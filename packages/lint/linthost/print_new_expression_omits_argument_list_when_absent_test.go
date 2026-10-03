@@ -13,8 +13,8 @@ import (
 // TypeScript allows `new Foo` without parentheses when no arguments are
 // needed. The Arguments field is nil in that case. The ne.Arguments nil
 // check in printNewExpression guards against delegating to printArgList
-// with a nil list and emitting spurious `()`. All prior new-expression
-// tests supplied arguments, leaving this branch uncovered.
+// with a nil list and adding `()`. This entry checks the absent form
+// directly; the neighboring typed constructor retains its explicit arguments.
 //
 // 1. Parse `new Foo;` — a NewExpression with nil Arguments.
 // 2. Print under default options.
