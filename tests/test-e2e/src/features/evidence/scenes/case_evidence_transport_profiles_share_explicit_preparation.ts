@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "../../../internal/pairE2eTraceWriterManifest";
 import type { TracePhaseObservation } from "../../../internal/captureE2eTracePhase";
-import { captureE2ePreparedAssets } from "../../../internal/captureE2ePreparedAssets";
+import { requireE2eBaselinePreparation } from "../../../internal/requireE2eBaselinePreparation";
 import { case_evidence_cold_prisma_population_controls_native_failure } from "./case_evidence_cold_prisma_population_controls_native_failure";
 import { case_evidence_scaffold_hosts_activate_their_own_reference_failures } from "./case_evidence_scaffold_hosts_activate_their_own_reference_failures";
 
@@ -35,43 +35,14 @@ export async function case_evidence_transport_profiles_share_explicit_preparatio
   pairing: ReturnType<typeof pairE2eTraceWriterManifest>[];
   completenessCertified: false;
 }> {
-  assert.equal(input.baseline.label, "legacy-baseline");
-  assert.equal(input.baseline.outcome.returned, true);
-  assert.deepEqual(input.baseline.observationErrors, []);
-  assert.ok(input.baseline.traces);
-  assert.deepEqual(input.baseline.traces.integrityProblems, []);
-  assert.deepEqual(input.baseline.traces.incompleteProcessInvocations, []);
-  const measured = input.baseline.outcome.returned ? input.baseline.outcome.value : undefined;
-  assert.ok(measured !== null && typeof measured === "object");
-  const legacyReturn = measured as { pid?: unknown; status?: unknown; signal?: unknown };
-  assert.ok(typeof legacyReturn.pid === "number" && Number.isSafeInteger(legacyReturn.pid) && legacyReturn.pid > 0);
-  assert.ok(typeof legacyReturn.status === "number" && Number.isInteger(legacyReturn.status));
-  assert.equal(legacyReturn.signal, null);
+  requireE2eBaselinePreparation(input.baseline, input.cold.traceRoot,
+    input.cold.producerAssets, input.baselineProducerLabels);
   const labels = ["cold-prisma-scaffold", "cold-prisma-first-model", "scaffold-host-three-inactive-hosts",
     "scaffold-host-function-activates-reference", "scaffold-host-heading-activates-reference"];
   assert.deepEqual(Object.keys(input.requirements).sort(), [...labels].sort());
   for (const label of labels) assert.ok(input.requirements[label]!.length > 0, `named population ${label}`);
-  assert.ok(input.baseline.assetsAfter);
   assert.equal(new Set([input.cold.scaffoldRoot, input.cold.modelRoot, ...input.hostRoots]
     .map(root => fs.realpathSync.native(root))).size, 5, "five distinct controlled slots");
-  const preparedNow = captureE2ePreparedAssets(input.cold.producerAssets);
-  for (const asset of input.cold.producerAssets) {
-    assert.ok(Object.hasOwn(input.baselineProducerLabels, asset.label), `baseline producer mapping ${asset.label}`);
-    const baselineLabel = input.baselineProducerLabels[asset.label]!;
-    const before = input.baseline.assetsBefore.filter(item => item.label === baselineLabel);
-    const after = input.baseline.assetsAfter.filter(item => item.label === baselineLabel);
-    assert.equal(before.length, 1);
-    assert.equal(after.length, 1);
-    assert.equal(before[0]!.sha256, after[0]!.sha256);
-    assert.equal(before[0]!.realPath, after[0]!.realPath);
-    assert.deepEqual(before[0]!.identityAfter, after[0]!.identityBefore);
-    const current = preparedNow.filter(item => item.label === asset.label);
-    assert.equal(current.length, 1);
-    assert.equal(current[0]!.requestedPath, after[0]!.requestedPath);
-    assert.equal(current[0]!.realPath, after[0]!.realPath);
-    assert.equal(current[0]!.sha256, after[0]!.sha256);
-    assert.deepEqual(current[0]!.identityBefore, after[0]!.identityAfter);
-  }
   const phases = [
     ...await case_evidence_cold_prisma_population_controls_native_failure(input.cold),
     ...await case_evidence_scaffold_hosts_activate_their_own_reference_failures({ ...input.cold, roots: input.hostRoots }),

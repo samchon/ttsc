@@ -54,7 +54,7 @@ export async function captureE2eTracePhase<T>(
   if (process.env.TTSC_E2E_TRACE !== traceRoot)
     observationErrors.push({ owner: "trace-root", error: new Error("Opt-in root changed during phase") });
   return {
-    label, startedAt, finishedAt, elapsedNanoseconds,
+    label, traceRoot, startedAt, finishedAt, elapsedNanoseconds,
     coordinator: { runtimeVersion: process.version, executable: process.execPath, pid: process.pid },
     outcome, assetsBefore, assetsAfter, cachesBefore, cachesAfter,
     cacheDelta: cachesAfter ? E2eCacheObservations.difference(cachesBefore, cachesAfter) : undefined,
@@ -76,6 +76,8 @@ export interface TracePhaseInput {
 /** Original outcome and observation failure are independent result dimensions. */
 export interface TracePhaseObservation<T> {
   label: string;
+  /** Actual fixed coordinator-selected root used for this observation. */
+  traceRoot: string;
   startedAt: string;
   finishedAt: string;
   elapsedNanoseconds: string;
