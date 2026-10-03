@@ -1330,8 +1330,8 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The helper uses the pinned compiler implementation without synthetic parent repair or consumer-specific flag overrides.
 // @evidence contracts/common.md#meaningful-documentation Native prose states non-nil input and parent-link requirements; the tag block follows a blank comment line under the documentation guidance.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetCombinedNodeFlags acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetCombinedNodeFlags performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetCombinedNodeFlags computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim selects no independent traversal strategy. Upstream walks H enclosing binding elements, then combines at most three declaration/list/statement flag values; the call costs O(H) and creates no traversal collection.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding call coordinates no cache or in-flight work; compiler-tree owners determine when node flags and parent links may be reused.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetCombinedNodeFlags computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetCombinedNodeFlags(node *Node) NodeFlags {
   return innerast.GetCombinedNodeFlags(node)
