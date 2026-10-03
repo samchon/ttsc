@@ -12,7 +12,7 @@ import "testing"
 // 3. Assert the rewritten file contains the trailing comma.
 //
 // @evidence contracts/testing.md#behavioral-verification The tuple type must gain a comma after string while retaining its number/string order and the existing runtime pair value.
-// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 applies broken-list commas to tuple types. The literal expected type independently preserves tuple element positions and the value declaration.
+// @evidence contracts/testing.md#independent-expectations The authored literal expected type specifies only the final comma for this broken tuple while independently preserving element positions and the value declaration. This direct unit does not execute a reference formatter.
 // @evidence contracts/testing.md#distinguishing-cases Type-level tuple elements differ from runtime array elements. The ES5 type-level host supplies option coverage and the runtime-array host supplies the sibling syntax owner.
 // @evidence contracts/testing.md#execution-ownership TestFormatTrailingCommaInsertsAfterLastTupleElement owns its authored literal source and complete expected edit output in the public Go unit population. The syntax-only owning rule and edit application execute in one Go process without consumer installation, native artifact building or product-host children.
 func TestFormatTrailingCommaInsertsAfterLastTupleElement(t *testing.T) {

@@ -13,7 +13,7 @@ import "testing"
 //  3. Assert the rewritten file contains the trailing comma after the parameter.
 //
 // @evidence contracts/testing.md#behavioral-verification The setter must gain a comma after its sole next:number parameter while retaining the backing field and assignment body.
-// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 permits a final comma in a broken setter parameter list under all mode. The literal expected class independently preserves its one-parameter setter behavior.
+// @evidence contracts/testing.md#independent-expectations The authored expected class specifies the all-mode final comma for this broken one-parameter setter list while independently preserving its field and assignment behavior. This direct unit does not execute a reference formatter.
 // @evidence contracts/testing.md#distinguishing-cases The setter has exactly one parameter, unlike a zero-parameter getter. Its ES5 peer covers both comma-free abstention and forbidden-comma removal.
 // @evidence contracts/testing.md#execution-ownership TestFormatTrailingCommaInsertsAfterLastSetAccessorParameter owns its authored literal source and complete expected edit output in the public Go unit population. The syntax-only owning rule and edit application execute in one Go process without consumer installation, native artifact building or product-host children.
 func TestFormatTrailingCommaInsertsAfterLastSetAccessorParameter(t *testing.T) {
