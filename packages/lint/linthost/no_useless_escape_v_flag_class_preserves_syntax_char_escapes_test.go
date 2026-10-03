@@ -12,17 +12,19 @@ import "testing"
 // mode `( ) [ ] { } / | -` stay meaningful inside `[...]`, so their escapes are
 // required; ESLint switches to REGEX_CLASSSET_CHARACTER_ESCAPES on that flag.
 // The negative twins prove the fix stayed narrow: a `u`-flag class still strips
-// `\(` (a bare `(` is legal there), and a genuinely useless `v`-mode escape
-// (`\a`) is still reported and removed rather than blanket-skipped.
+// `\(` (a bare `(` is legal there), and the raw `v`-mode token
+// (`\a`) is still reported and edited rather than blanket-skipped. That token
+// is not valid ECMAScript Unicode-mode identity-escape syntax; this control
+// exercises the lint edit policy without certifying regex admission or meaning.
 //
-//  1. Assert every ClassSetSyntaxCharacter escape in a `v`-flag class reports
+//  1. Assert the seven authored ClassSetSyntaxCharacter escapes in `v` report
 //     nothing (no finding, no corrupting fix).
 //  2. Assert the `u`-flag twin still fixes `/[\(]/u` to `/[(]/u`.
-//  3. Assert a useless `v`-mode escape `/[\a]/v` still fixes to `/[a]/v`.
+//  3. Assert the malformed raw `/[\a]/v` control still edits to `/[a]/v`.
 //
-// @evidence contracts/testing.md#behavioral-verification Unicode-set classes retain seven syntax-character escapes while still fixing a useless a escape; u-mode fixes the unnecessary paren escape.
-// @evidence contracts/testing.md#independent-expectations ECMAScript v class grammar gives these punctuation characters meaning; literal expected rewritten sources separately define legal u/v deletions.
-// @evidence contracts/testing.md#distinguishing-cases Seven retained escapes plus u-paren and v-a positives prevent both legacy stripping and a blanket v-mode exemption.
+// @evidence contracts/testing.md#behavioral-verification Seven Unicode-set syntax-character tokens produce no findings; the u-paren and malformed raw v-a controls apply edits and compare complete literal output bytes.
+// @evidence contracts/testing.md#independent-expectations ECMAScript v class grammar requires the seven punctuation escapes; independently authored u/v output bytes pin the edit policy. The v-a input is not a grammar-valid identity escape, and this body does not certify admission or runtime equivalence.
+// @evidence contracts/testing.md#distinguishing-cases Seven retained escapes, the legal u-paren control and malformed raw v-a edit control distinguish flag-sensitive retention from a blanket v-mode exemption.
 // @evidence contracts/testing.md#execution-ownership This Test registers the seven retained characters and two fixer controls with t.Run; assertRuleSkipsSource owns allowance and assertFixSnapshot applies the actual edits against independently authored output. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestNoUselessEscapeVFlagClassPreservesSyntaxCharEscapes(t *testing.T) {
   // `( ) [ { } | /` gain meaning only through the `v` flag; `]` and `-` are
@@ -45,8 +47,8 @@ func TestNoUselessEscapeVFlagClassPreservesSyntaxCharEscapes(t *testing.T) {
     )
   })
 
-  // v-mode is not a blanket skip: an escape that is useless even under
-  // unicodeSets (`\a`) is still reported and removed.
+  // v-mode is not a blanket skip: the raw `\a` token is still reported
+  // and edited; its input grammar validity is not asserted.
   t.Run("v-flag class still strips a genuinely useless escape", func(t *testing.T) {
     assertFixSnapshot(
       t,
