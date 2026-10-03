@@ -3,13 +3,13 @@ package linthost
 import "testing"
 
 // TestFormatWhitespacePreservesTrailingSpaceAcrossTemplateSubstitution
-// verifies trailing spaces survive in every span of a multi-part
-// template (head, between, and tail of a `${}` interpolation).
+// verifies trailing spaces survive in the head and tail around one
+// `${x}` substitution.
 //
-// A TemplateExpression's range covers the head, every interpolation, and
-// the tail, so a trailing space on any interior line is string content
-// and must not be trimmed. This pins that the template-range guard
-// protects the whole multi-part literal, not just a head-only span.
+// Both authored spaces are template string payload. Preserving the
+// head's space and the tail's space after `${x}` distinguishes protection
+// of this complete literal from protection of its head alone. This
+// input does not contain a separate middle span or multiline expression.
 //
 //  1. Parse a multi-line template with `${x}` and trailing spaces on its
 //     interior lines.
