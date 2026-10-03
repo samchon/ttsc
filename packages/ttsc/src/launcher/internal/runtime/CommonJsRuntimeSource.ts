@@ -31,7 +31,7 @@ export namespace CommonJsRuntimeSource {
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Storing the supplied callback accesses no filesystem, process or path representation; the resolver and per-module factory own those boundaries.
    * @evidenceExclude contracts/performance.md#efficient-algorithms Assigning a callback selects no input-processing algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Policy installation does not authorize sharing a compiled result.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One callback lives with the process-installed hooks and is replaced on configuration, without per-request history or handles.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources This helper instance retains one replaceable policy; its installation-owned global symbol slot retains the factory even if its CommonJS cache entry is removed. No per-request history or native handle is added.
    */
   export function configure(policy: Resolver): void {
     resolve = policy;
@@ -46,9 +46,9 @@ export namespace CommonJsRuntimeSource {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Extension entries belong to this new function, not Module._extensions or a foreign require; no private loader slot is assigned.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies ownership and distinguishes advertisements from actual loading.
    * @evidence contracts/portability.md#os-neutral-implementation The public createRequire API takes the native filename; no OS-name or path-string case heuristic is introduced.
-   * @evidence contracts/performance.md#efficient-algorithms Construction copies E public extension entries once per evaluated module; each require call delegates without scanning source or module history.
-   * @evidence contracts/performance.md#reuse-equivalent-work All owned functions delegate to Node's same cache so cyclic imports and repeated loads retain ordinary module identity.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluated module owns its function and copied E-entry registry; no historical module collection or handle is retained by this factory.
+   * @evidence contracts/performance.md#efficient-algorithms Construction copies public require properties and E extension entries, including their property observations, and creates a native filename-anchored require. Calls delegate native resolution, module evaluation/cache work or the configured resolver; their cost is not bounded by construction or extension count.
+   * @evidence contracts/performance.md#reuse-equivalent-work Callable loading delegates to Node's CommonJS cache; the configured resolve policy remains a distinct per-call operation, not a cached result of constructing the function.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluated module owns the returned function, captured filename/native require and copied extension registry. Captured cache/main references share Node or original-require state rather than copying all cached modules; the factory adds no historical module collection or native handle.
    */
   export function create(original: NodeJS.Require, filename: string): NodeJS.Require {
     const native = createRequire(filename);
@@ -76,7 +76,7 @@ export namespace CommonJsRuntimeSource {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The bootstrap reads an installation-owned symbol factory through the public VM context API, independently of mutable require.cache entries and user wrapper declarations. User-owned hoisted require functions are left intact.
    * @evidence contracts/common.md#meaningful-documentation Native prose states line/directive preservation and the user-owned binding exception.
    * @evidence contracts/portability.md#os-neutral-implementation JSON quotes the installation key and actual native filename; the filename becomes a file URL only for source-map identity, preserving native and protocol spelling separately.
-   * @evidence contracts/performance.md#efficient-algorithms Parsing and source construction cost O(B) source bytes plus O(M) JSON map bytes and sections; a mapless first line needs O(C) exact-column segments because Node does not interpolate original columns between map segments.
+   * @evidence contracts/performance.md#efficient-algorithms Parsing, comments, source copying and construction scale with B source bytes and M decoded JSON/map text and sections. Recursive indexed-map processing uses nesting-dependent stack without a configured depth cap; a fallback first line adds C exact-column segments. Returned source contains encoded map bytes as well as the body.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Node's evaluation owner calls this operation once for each loaded body; this function retains no mutable-source cache.
    * @evidence contracts/performance.md#bound-retention-and-release-resources AST, comments and map data end with this call, scaling with source and map bytes; the returned body belongs to the loader. The installation owns one process-lifetime factory slot per helper location, replaced by configure without retaining body history.
    */
