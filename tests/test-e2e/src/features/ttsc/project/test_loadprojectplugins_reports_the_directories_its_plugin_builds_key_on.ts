@@ -27,15 +27,16 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#behavioral-verification Successful and failed plugin builds both report module, linked package and contributor inputs; successful pluginSources equals that population.
  * @evidence contracts/testing.md#independent-expectations The authored module/subpackage/contributor structure establishes binary input ownership before any build result is available.
  * @evidence contracts/testing.md#distinguishing-cases 1. Load a project with an executable plugin whose source is a subpackage of its module, a contributor, and a linked plugin in another module, and assert the watch inputs are the module root, the linked package, and the contributor, and equal the load's `pluginSources`. 2. Load it again with a build that fails, and assert the same inputs were reported before the failure.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
- * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Successful and failed plugin builds both report module, linked package and contributor inputs; successful pluginSources equals that population. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls the workspace loader, actual descriptor transport and source-directory assembly around scripted Go JSON/publication. Actual onWatchInputs callback is not a live watch host; scripted output is not real Go compiler semantics.
+ * @evidence contracts/e2e.md#necessary-boundary Actual descriptor/source preparation must carry source-directory population to callback and returned pluginSources, including the pre-error callback. Pure directory projection cannot prove those producer/consumer connections; no live watch session is claimed.
+ * @evidence contracts/e2e.md#shared-execution Success and directed-failure loads keep the authored sources/descriptors/tool and use distinct cache versus cold-cache. FAKE_GO_BUILD_EXIT_CODE1 remains the failure input; supplied cache name alone is not measured cold artifact proof.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before topology/source/descriptor preparation. Call-local environment leaves ambient state unchanged; all mutations remain owned. Synchronous return/intentional failure do not establish arbitrary descendant join before later reset.
+ * @evidence contracts/e2e.md#preserved-coverage Original module/linked rules/contributor exact callback population and successful pluginSources remain; directed build failure regex and pre-error callback equality remain. No real watcher or repair notification is exercised. Runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on =
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-build-directories-");
+    TestProject.retainTemporaryDirectory(root, "Source directory preparation descendants are not joined");
     const project = path.join(root, "project");
     const module = path.join(root, "plugin-module");
     const linkedModule = path.join(root, "linked-module");
@@ -114,24 +115,33 @@ export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_k
         tsconfig: path.join(project, "tsconfig.json"),
       });
 
-    // 1. What the builds key on, and nothing else.
-    let inputs: readonly string[] | undefined;
-    const loaded = load("cache", {}, (reported) => {
-      inputs = reported;
-    });
-    assert.deepEqual(inputs, expected);
-    assert.deepEqual(Object.keys(loaded.pluginSources).sort(), expected);
-
-    // 2. Reported before a build that fails, in a cache that holds no binary.
-    let failed: readonly string[] | undefined;
-    assert.throws(
-      () =>
-        load("cold-cache", { FAKE_GO_BUILD_EXIT_CODE: "1" }, (reported) => {
-          failed = reported;
-        }),
-      /build failed as directed/,
-    );
-    assert.deepEqual(failed, expected);
+    const failures: unknown[] = [];
+    try {
+      // 1. What the builds key on, and nothing else.
+      let inputs: readonly string[] | undefined;
+      const loaded = load("cache", {}, (reported) => {
+        inputs = reported;
+      });
+      assert.deepEqual(inputs, expected);
+      assert.deepEqual(Object.keys(loaded.pluginSources).sort(), expected);
+    } catch (error) {
+      failures.push(new Error("successful source population", { cause: error }));
+    }
+    try {
+      // 2. Reported before a build that fails, in a cache that holds no binary.
+      let failed: readonly string[] | undefined;
+      assert.throws(
+        () =>
+          load("cold-cache", { FAKE_GO_BUILD_EXIT_CODE: "1" }, (reported) => {
+            failed = reported;
+          }),
+        /build failed as directed/,
+      );
+      assert.deepEqual(failed, expected);
+    } catch (error) {
+      failures.push(new Error("failed source population", { cause: error }));
+    }
+    if (failures.length) throw new AggregateError(failures, "Build source populations failed");
   };
 
 function write(file: string, content: string): void {

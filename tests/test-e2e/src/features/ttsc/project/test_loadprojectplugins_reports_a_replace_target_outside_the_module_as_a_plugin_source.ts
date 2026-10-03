@@ -21,17 +21,18 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  *    inputs name the target.
  *
  * @evidence contracts/testing.md#behavioral-verification Absolute and relative external replace targets remain watch inputs, and the absolute target is included in pluginSources.
- * @evidence contracts/testing.md#independent-expectations The authored go.mod replaces an external sibling, so both the original module and that sibling are actual binary inputs.
+ * @evidence contracts/testing.md#independent-expectations Authored go.mod/module and external sibling paths plus independent realpaths establish expected source population. Scripted Go JSON/build results do not certify actual binary contribution semantics.
  * @evidence contracts/testing.md#distinguishing-cases 1. Load a project whose executable plugin's `go.mod` replaces a module with an absolute sibling directory, and assert the watch inputs and the load's `pluginSources` both name the module root and that directory. 2. Load one whose `go.mod` spells the target relatively, and assert the watch inputs name the target.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
- * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Absolute and relative external replace targets remain watch inputs, and the absolute target is included in pluginSources. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls the workspace loader, actual descriptor transport and source-directory assembly around scripted Go JSON/publication. Actual onWatchInputs callback is not a live watch host; scripted output is not real Go compiler semantics.
+ * @evidence contracts/e2e.md#necessary-boundary Actual descriptor/source preparation must carry source-directory population to callback and returned pluginSources, including the pre-error callback. Pure directory projection cannot prove those producer/consumer connections; no live watch session is claimed.
+ * @evidence contracts/e2e.md#shared-execution Both loads keep the source population/tool but change absolute replace to ../dep and use distinct cache versus relative-cache names. No artifact warm hit or actual process/Program reuse is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before topology/source/descriptor preparation. Call-local environment leaves ambient state unchanged; all mutations remain owned. Synchronous return/intentional failure do not establish arbitrary descendant join before later reset.
+ * @evidence contracts/e2e.md#preserved-coverage Original absolute callback and pluginSources arrays plus relative callback array remain; the second load does not assert pluginSources equality. No live watcher or repair notification is exercised. Runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_reports_a_replace_target_outside_the_module_as_a_plugin_source =
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-replace-target-");
+    TestProject.retainTemporaryDirectory(root, "Source directory preparation descendants are not joined");
     const project = path.join(root, "project");
     const module = path.join(root, "plugin-module");
     const dep = path.join(root, "dep");
@@ -98,29 +99,38 @@ export const test_loadprojectplugins_reports_a_replace_target_outside_the_module
         tsconfig: path.join(project, "tsconfig.json"),
       });
 
-    // 1. An absolute target, built in place.
-    let inputs: readonly string[] | undefined;
-    const loaded = load("cache", (reported) => {
-      inputs = reported;
-    });
-    assert.deepEqual(inputs, expected, "the watch inputs");
-    assert.deepEqual(
-      Object.keys(loaded.pluginSources).sort(),
-      expected,
-      "the reported plugin sources",
-    );
-
-    // 2. A relative target: the inputs are reported before the build anchors it.
-    writeModule("../dep");
-    let relative: readonly string[] | undefined;
-    load("relative-cache", (reported) => {
-      relative = reported;
-    });
-    assert.deepEqual(
-      relative,
-      expected,
-      "the watch inputs of a relative target",
-    );
+    const failures: unknown[] = [];
+    try {
+      // 1. An absolute target, built in place.
+      let inputs: readonly string[] | undefined;
+      const loaded = load("cache", (reported) => {
+        inputs = reported;
+      });
+      assert.deepEqual(inputs, expected, "the watch inputs");
+      assert.deepEqual(
+        Object.keys(loaded.pluginSources).sort(),
+        expected,
+        "the reported plugin sources",
+      );
+    } catch (error) {
+      failures.push(new Error("absolute replace", { cause: error }));
+    }
+    try {
+      // 2. A relative target: the inputs are reported before the build anchors it.
+      writeModule("../dep");
+      let relative: readonly string[] | undefined;
+      load("relative-cache", (reported) => {
+        relative = reported;
+      });
+      assert.deepEqual(
+        relative,
+        expected,
+        "the watch inputs of a relative target",
+      );
+    } catch (error) {
+      failures.push(new Error("relative replace", { cause: error }));
+    }
+    if (failures.length) throw new AggregateError(failures, "Replace source populations failed");
   };
 
 function write(file: string, content: string): void {

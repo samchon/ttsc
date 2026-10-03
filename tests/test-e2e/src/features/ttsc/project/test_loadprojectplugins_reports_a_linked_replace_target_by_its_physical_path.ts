@@ -21,15 +21,16 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#behavioral-verification Watch inputs and pluginSources report the replaced linked directory by physical path rather than a duplicate lexical alias.
  * @evidence contracts/testing.md#independent-expectations The fixture realpath and authored Go replace target independently establish the external module directory.
  * @evidence contracts/testing.md#distinguishing-cases 1. Create a plugin module and a replaced module, and a link to the replaced one. 2. Point the module's `replace` directive at the target through the link. 3. Assert the load reports the target's physical directory.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
- * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Watch inputs and pluginSources report the replaced linked directory by physical path rather than a duplicate lexical alias. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls the workspace loader, actual descriptor transport and source-directory assembly around scripted Go JSON/publication. Actual onWatchInputs callback is not a live watch host; scripted output is not real Go compiler semantics.
+ * @evidence contracts/e2e.md#necessary-boundary Actual descriptor/source preparation must carry source-directory population to callback and returned pluginSources, including the pre-error callback. Pure directory projection cannot prove those producer/consumer connections; no live watch session is claimed.
+ * @evidence contracts/e2e.md#shared-execution One load uses actual linked dependency topology and a private explicit cache. Scripted mod-edit/build results do not establish real Go plugin semantics, cache hit, Program reuse or child count.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before topology/source/descriptor preparation. Call-local environment leaves ambient state unchanged; all mutations remain owned. Synchronous return/intentional failure do not establish arbitrary descendant join before later reset.
+ * @evidence contracts/e2e.md#preserved-coverage Original native junction/directory-link replace target and callback/pluginSources exact sorted physical dep/module arrays remain. Equality rejects lexical aliases; no live watcher or repair notification is exercised. Runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_reports_a_linked_replace_target_by_its_physical_path =
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-linked-replace-");
+    TestProject.retainTemporaryDirectory(root, "Source directory preparation descendants are not joined");
     const project = path.join(root, "project");
     const module = path.join(root, "plugin-module");
     const dep = path.join(root, "dep");
