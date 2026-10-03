@@ -23,9 +23,10 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Resolve unwraps the imported target to impl.ts, retains the local value in main.ts and rejects a numeric literal without a symbol.
 // @evidence contracts/testing.md#independent-expectations The literal fixture declares target only in impl.ts and value in main.ts. The checker import alias is an adjacent reference control; the numeric literal declares no target. These authored locations establish the expected resolution independently of Resolve.
-// @evidence contracts/testing.md#distinguishing-cases A re-exported alias, a direct local reference and a nonsymbol expression distinguish unwrapping, local retention and absence; workspace targets must not become external leaves.
-// @evidence contracts/testing.md#execution-ownership The Go source-unit entry loads the actual fixture with driver.LoadProgram and calls its Checker.GetSymbolAtLocation and Resolve in this process. It closes the Program before fixture cleanup and starts no installed consumer or product host.
+// @evidence contracts/testing.md#distinguishing-cases The actual target call identifier has an alias premise, whereas the helper-selected first value identifier is its declaration name. A numeric literal is the nonsymbol control. The resolved targets have authored symbol names, filename suffixes, and workspace classification; exact physical paths, spans, and graph edges are not asserted.
+// @evidence contracts/testing.md#execution-ownership Owns three temporary native source files and config, loads their actual library Program, and calls its Checker.GetSymbolAtLocation and Resolve in this process. The Program is closed and an empty linked-plugin manifest is restored. The raw alias declaration premise uses the shared declarationFile helper; independent expectations are authored names and filename suffixes. No installed consumer, product CLI, or emitted function execution runs.
 func TestResolveUnwrapsBarrelReexportToRealDeclaration(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
@@ -42,8 +43,7 @@ func TestResolveUnwrapsBarrelReexportToRealDeclaration(t *testing.T) {
   return 1;
 }
 `)
-  // The barrel: re-exports the sibling's symbol without redeclaring it. This is
-  // the alias hop that severs the edge for a path-string resolver.
+  // The barrel re-exports the sibling's symbol without redeclaring it.
   writeFile(t, filepath.Join(root, "src", "index.ts"), `export { target } from "./impl";
 `)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `import { target } from "./index";
@@ -102,7 +102,7 @@ void echoed;
     t.Fatalf("a workspace declaration (%q) was misclassified as an external boundary leaf", resolved.File)
   }
 
-  // A directly-declared local reference skips the alias unwrap and is a
+  // The helper selects the local declaration's first value identifier; it is a
   // workspace node, not an external leaf.
   local := Resolve(checker, identifier(t, main, "value"))
   if local == nil || local.Symbol == nil || local.Symbol.Name != "value" {
