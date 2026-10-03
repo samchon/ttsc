@@ -5,12 +5,12 @@ import "testing"
 // TestFixNoVarReplacesReferenceInsideWithBody verifies no-var still rewrites
 // a `var` declared outside a `with` statement but referenced inside its body.
 //
-// Negative twin of the with-body decline: the hazard is where the DECLARATION
-// lands, not where references sit. For a binding declared outside the with,
-// the with object shadows `var` and `let` identically on the body's scope
-// chain, so the rewrite cannot change which binding a reference resolves to.
+// Negative twin of the with-body decline: this initialized function binding
+// is declared before and outside the with statement. Its later body read
+// still passes through the same dynamic object environment after the rewrite;
+// no earlier read, direct eval or global property observes the binding.
 //
-//  1. Parse a top-level `var x` read from inside a with body.
+//  1. Parse a function-local `var x` read from inside a with body.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //

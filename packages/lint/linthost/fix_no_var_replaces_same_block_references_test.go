@@ -5,10 +5,10 @@ import "testing"
 // TestFixNoVarReplacesSameBlockReferences verifies no-var still rewrites a
 // block-local `var` whose every reference stays inside the declaring block.
 //
-// Positive twin of the block-scope-escape decline: when no reference leaves
-// the enclosing block's span, `let`'s narrower scoping is observationally
-// identical, so the scope-containment gate must not over-decline the common
-// block-local shape.
+// Positive twin of the block-scope-escape decline: this initialized module
+// binding is read only later in the same block, with no direct eval or
+// redeclaration. Its narrower let scope preserves the fixture's read, so
+// the containment gate must not over-decline this otherwise safe case.
 //
 //  1. Parse an if-block declaring `var x` and reading it inside the same block.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
