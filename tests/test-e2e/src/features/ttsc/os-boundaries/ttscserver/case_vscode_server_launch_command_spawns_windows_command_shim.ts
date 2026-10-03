@@ -26,11 +26,11 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification The launch-command child preserves server argv through recording .cmd/.bat shims, with verbatim options only for command shims.
  * @evidence contracts/testing.md#independent-expectations Literal stdio, cwd, suppression, namespace and tsconfig flags form expected argv independently of createServerExecutable; metacharacter-bearing paths and real cmd.exe interpretation distinguish quoting errors. The separately tested command namespace helper supplies only its prefix.
  * @evidence contracts/testing.md#distinguishing-cases 1. Build launcher, cwd, and tsconfig paths containing spaces, `&`, `%`, and `^`. 2. Assert only the `.cmd`/`.bat` executables carry `windowsVerbatimArguments`. 3. On Windows, spawn a recording `.cmd` and `.bat` with the exact executable options and confirm the recorded args equal the expected LSP args. 4. Spawn the same command without the flag and confirm the shim does not receive those args.
- * @evidence contracts/testing.md#execution-ownership This named os-boundaries/ttscserver entry runs actual .cmd/.bat argv transport in the sole installation matrix; portable executable option decisions are separately owned by source units.
- * @evidence contracts/e2e.md#necessary-boundary The packaged command must cross actual child argv and command-shell interpretation before its recorded arguments are asserted; direct command construction cannot establish that transport.
- * @evidence contracts/e2e.md#shared-execution One fixture supplies the recording command and all arguments in this named case. Remaining .cmd/.bat or default-command lifetimes observe distinct execution entrypoints; no compiler, Go plugin build or consumer installation occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A parent TestProject-owned root and child-only environment separate recording output; the child removes its fixture in finally even if command construction or spawning throws, and parent exit cleanup retains ownership if the child cannot finish.
- * @evidence contracts/e2e.md#preserved-coverage The launch-command child preserves server argv through recording .cmd/.bat shims, with verbatim options only for command shims. Original .cmd/.bat positive and missing-verbatim negative argv assertions remain here; JS/native/cmd launch decisions also retain their direct source unit owner test_vscode_server_launch_command_uses_command_mode.
+ * @evidence contracts/testing.md#execution-ownership A parent Node child imports workspace serverResolution source and invokes actual .cmd/.bat transport. Installation caller does not turn this into packaged VSCode, language-client or LSP server proof. Controlled command decisions and kernel argv observations are distinct.
+ * @evidence contracts/e2e.md#necessary-boundary Actual cmd interpretation can corrupt argv despite correct constructed strings. Workspace createServerExecutable must cross that real shell/recorder boundary; no fake server reply or packaged extension behavior is asserted.
+ * @evidence contracts/e2e.md#shared-execution One parent Node plus four .cmd/.bat invocations and positive or possible negative recorder Nodes are distinct starts, not one child. The same command without verbatim options is an intended negative profile, not an extra preparation family. Actual process cost remains unmeasured.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Parent tracked root is retained before child preparation; child-only sentinel/result paths isolate recording. Actual positive and negative launch error/signal are checked independently of intended nonzero/incorrect argv. Synchronous return does not certify descendants, so child finally withholds input deletion.
+ * @evidence contracts/e2e.md#preserved-coverage Original cmd/bat true versus JS/native null, positive status0/exact argv and non-verbatim differing argv remain. Namespace prefix comes from the same helper and is not an independent value oracle. No portable source-unit or installed-host survival is certified by this case.
  */
 export const case_vscode_server_launch_command_spawns_windows_command_shim =
   () => {
@@ -44,12 +44,14 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
       "serverResolution.ts",
     );
     const fixture = TestProject.tmpdir("ttsc-vscode-launch-");
+    TestProject.retainTemporaryDirectory(fixture, "Windows server shim has no descendant join acknowledgement");
     const script = `
     import { pathToFileURL } from "node:url";
     import fs from "node:fs";
     import os from "node:os";
     import path from "node:path";
-    import { spawnSync } from "node:child_process";
+    import processTrace from ${JSON.stringify(E2eProcessTrace.runtimePath)};
+    const { spawnSync } = processTrace;
 
     const mod = await import(pathToFileURL(${JSON.stringify(
       serverResolution,
@@ -125,6 +127,8 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
         exec.options,
         { encoding: "utf8", windowsHide: true },
       ));
+      if (verbatim.error) throw verbatim.error;
+      if (verbatim.signal !== null) throw new Error("verbatim shim terminated by signal");
       const verbatimRecord = readRecord(record);
       if (fs.existsSync(record)) fs.rmSync(record);
       const plainOptions = Object.assign({}, exec.options);
@@ -134,6 +138,8 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
         plainOptions,
         { encoding: "utf8", windowsHide: true },
       ));
+      if (plain.error) throw plain.error;
+      if (plain.signal !== null) throw new Error("non-verbatim shim terminated by signal");
       const plainRecord = readRecord(record);
       return {
         verbatimStatus: verbatim.status,
@@ -151,7 +157,7 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
       spawn: spawn,
     }));
     } finally {
-      fs.rmSync(base, { recursive: true, force: true });
+      // Parent retains actual fixture inputs pending descendant closure.
     }
   `;
     const result = spawnSync(
@@ -168,6 +174,8 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
         encoding: "utf8",
       },
     );
+    assert.equal(result.error, undefined, "Windows server observer launch error");
+    assert.equal(result.signal, null, "Windows server observer terminated by signal");
     assert.equal(result.status, 0, result.stderr);
     const parsed = JSON.parse(result.stdout) as {
       platform: string;

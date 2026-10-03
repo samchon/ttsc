@@ -4,7 +4,6 @@ import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 /**
@@ -21,11 +20,11 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification createCodeCommand crosses actual cmd.exe and code.cmd execution; recorded argv must equal every authored input, including percent markers, empty values, trailing backslashes and quotes.
  * @evidence contracts/testing.md#independent-expectations The literal actualArgs array is authored before command construction; an EXPANDED sentinel exposes unintended percent-variable expansion in the recorded result.
  * @evidence contracts/testing.md#distinguishing-cases Spaces, ampersands, carets, bare and paired percent signs, empty strings, trailing backslashes, embedded quotes and a backslash before a quote retain distinct argv positions.
- * @evidence contracts/testing.md#execution-ownership This named os-boundaries/ttscserver entry runs only on Windows within the sole installation matrix; portable createCodeCommand and findWindowsCodeCommand decisions execute in src/features/ttscserver.
+ * @evidence contracts/testing.md#execution-ownership The existing Windows installation caller invokes this workspace installer operation with declared lookup dependencies selecting the authored shim. Actual cmd/shim/Node recording is exercised, not installed VSCode or extension installation; source-unit execution is not certified here.
  * @evidence contracts/e2e.md#necessary-boundary Real Windows cmd.exe interpretation and recording code.cmd transport can corrupt argv even when constructed strings look correct; source unit calls cannot establish this transport.
- * @evidence contracts/e2e.md#shared-execution One recording shim process carries all argument distinctions in the existing installation OS session; no independent installation, compiler or Go producer is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private root owns shim, recorder and result paths; child-only environment owns the percent sentinel, synchronous completion ends the process, and finally removes the fixture.
- * @evidence contracts/e2e.md#preserved-coverage The original Windows successful exit and exact argv assertion remain here; all original portable command and lookup assertions execute in test_vscode_install_script_uses_windows_command_shim under src/features/ttscserver.
+ * @evidence contracts/e2e.md#shared-execution One actual command-shell invocation plus its recorder Node carry the thirteen literal arguments. Existing installation session supplies platform execution but is not this SUT; real process totals remain unmeasured, no compiler/Go preparation is introduced.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root owns shim/recorder/result paths and is retained before preparation; percent sentinel is child-only. Synchronous error/signal/status does not certify descendant closure, so this case withholds fixture deletion rather than masking a body failure with cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original thirteen literal argv, actual Windows status0 and complete recorded-array equality remain. Portable command/lookup source contribution is distinct and its actual selection/survival is not certified by this transport entry.
  */
 export const case_vscode_install_command_preserves_arguments_through_real_windows_shim = () => {
   const repo = TestProject.WORKSPACE_ROOT;
@@ -59,7 +58,8 @@ export const case_vscode_install_command_preserves_arguments_through_real_window
   };
 
   if (process.platform !== "win32") return;
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-vscode-code-"));
+  const base = TestProject.tmpdir("ttsc-vscode-code-");
+  TestProject.retainTemporaryDirectory(base, "Windows install shim has no descendant join acknowledgement");
   const sentinel = "TTSC_VSCODE_PERCENT_SENTINEL";
   const dir = path.join(base, "Code & SDK 100% %" + sentinel + "% ^");
   const code = path.join(dir, "code.cmd");
@@ -119,9 +119,11 @@ export const case_vscode_install_command_preserves_arguments_through_real_window
       encoding: "utf8",
       windowsHide: true,
     });
+    assert.equal(result.error, undefined, "Windows install shim launch error");
+    assert.equal(result.signal, null, "Windows install shim terminated by signal");
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(fs.readFileSync(record, "utf8")), actualArgs);
   } finally {
-    fs.rmSync(base, { recursive: true, force: true });
+    // Tracked inputs remain retained until actual descendant closure is proved.
   }
 };
