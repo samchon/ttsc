@@ -10,8 +10,8 @@ import (
 // hasNonChildComments returns false immediately for a nil node without panicking.
 //
 // Locks the `if node == nil { return false }` guard at the top of
-// hasNonChildComments. Without this guard, the subsequent ForEachChild call on
-// a nil node would dereference a nil pointer and crash the dispatch loop.
+// hasNonChildComments. This direct call must return before attempting child
+// traversal through an absent receiver.
 //
 //  1. Call hasNonChildComments(nil, "source", 0, 6).
 //  2. Assert the return value is false and no panic occurred.

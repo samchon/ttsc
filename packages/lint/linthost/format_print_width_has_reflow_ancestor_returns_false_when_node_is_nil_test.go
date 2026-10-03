@@ -10,9 +10,9 @@ import (
 // hasReflowAncestor returns false immediately for a nil node without panicking.
 //
 // Locks the `if node == nil { return false }` guard at the top of
-// hasReflowAncestor. The guard exists because the parent-walk loop dereferences
-// node.Parent on every iteration; without the early return a nil node would
-// cause a nil-pointer dereference on the first loop access.
+// hasReflowAncestor. The parent walk begins by reading node.Parent and then
+// advances through parent.Parent. The nil guard protects the initial access
+// while the independently authored chains distinguish the later traversal.
 //
 //  1. Call hasReflowAncestor(nil).
 //  2. Assert the return value is false and no panic occurred.
