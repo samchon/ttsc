@@ -13,8 +13,11 @@ import (
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
-// AuthoredSourceMap returns the text file was authored with, and sourceMap, a
-// map printed from file's Program, corrected to describe that text.
+// AuthoredSourceMap removes the configured preamble from the supplied parsed
+// source text and corrects a map printed from that source's current Program.
+// file must be non-nil and belong to the matching program/preamble generation.
+// The result is parsed text without that region, not original disk-encoding or
+// independent file-consumption provenance.
 //
 // A source preamble is inserted into the text TypeScript-Go parses, so every
 // position a printer records for a preamble-bearing file lies in that text
@@ -22,17 +25,19 @@ import (
 // preamble too. Each such source is remapped exactly: a position before the
 // preamble is kept, one inside it is dropped, and one after it moves back by the
 // preamble's extent, on its own line or across lines. This covers a BOM, a
-// hashbang, and a preamble that does not end a line. Every corrected source's
-// `sourcesContent` becomes its authored text. Without a preamble both values are
-// returned as given. ok is false when sourceMap cannot be read, and the map
-// must then be discarded rather than published uncorrected.
+// hashbang, and a preamble that does not end a line. Present non-null
+// `sourcesContent` entries for corrected sources become their region-stripped
+// text. Without a preamble both values pass through without map validation.
+// Required JSON fields are decoded; segment-shape checks run only when a source
+// region is found. This is not a complete source-map validator. A false result
+// requires discarding the map rather than publishing it uncorrected.
 //
-// @evidence contracts/common.md#principled-implementation Source coordinates use exact injected byte regions translated to ECMAScript line and UTF-16 columns; malformed maps are rejected instead of published with false coordinates.
+// @evidence contracts/common.md#principled-implementation Recognized configured regions map parsed coordinates to region-stripped text using line and UTF-16 columns. Required-field or applicable segment-shape failure returns false; unresolved/non-region sources retain their coordinates and absence of a region does not certify complete map validity.
 // @evidence contracts/common.md#clear-and-simple-design Region discovery, position remapping, and sourcesContent restoration have separate helpers under one correction operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts BOM, hashbang, and same-line insertion use actual source extents rather than a fixed line-offset patch.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs define before/inside/after positions, authored content, and failure policy following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler filenames and source-map URLs use slash-based path operations; resident source lookup delegates native canonicalization to the compiler.
-// @evidence contracts/performance.md#efficient-algorithms Regions are computed once per source and mappings are decoded and re-encoded in one segment pass.
+// @evidence contracts/performance.md#efficient-algorithms JSON and map serialization process map bytes; each sources entry resolves its filename and region, so duplicate entries may repeat lookup/region work. Region detection scans filename/prefix/preamble text and may copy authored content; any pending SourceFile hooks add their own work. Segment decoding/remapping/encoding and optional content arrays scale with map/source bytes and temporary storage.
 // @evidence contracts/performance.md#reuse-equivalent-work Each source's region is reused for all mapped segments rather than rediscovering the preamble for every position.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Region metadata is local to the correction and no external resource or resident cache is retained.
 func (p *Program) AuthoredSourceMap(file *ast.SourceFile, sourceMap string) (authored string, corrected string, ok bool) {
@@ -64,19 +69,24 @@ func (p *Program) AuthoredSourceMap(file *ast.SourceFile, sourceMap string) (aut
 // paths and sourceRoot/mapRoot follow the native emitter's source directory.
 //
 // Create it once per emit and discard it when that emit ends. Apply each map
-// once; malformed maps fail the emit instead of publishing false coordinates.
-// Non-map outputs and programs without a source preamble pass through unchanged.
+// once. Unknown output-directory association, required decoding failures and
+// applicable segment-shape failures return errors. This is not a complete map
+// validator: without a discovered region mapping validation is skipped, and
+// non-null sourcesContent restoration follows the captured InlineSources policy.
+// Non-map outputs, programs without a source preamble and programs with no
+// enabled map option pass through unchanged without map validation. Inline maps
+// use the last literal trailer marker, without parsing JavaScript comment syntax.
 // Calls must be serialized, and the captured compiler generation must remain
 // unchanged until that emit finishes.
 //
-// @evidence contracts/common.md#principled-implementation Original compiler source regions qualify native emitted coordinates, including BOM, hashbang, same-line text, and ECMAScript line terminators; malformed maps return errors.
+// @evidence contracts/common.md#principled-implementation Recognized original compiler source regions qualify native emitted coordinates for the captured generation. Unknown output association and required decoding or applicable segment-shape failure return errors; unresolved/non-region sources are not independently validated by this corrector.
 // @evidence contracts/common.md#clear-and-simple-design One output-directory index and shared exact map correction serve external and inline artifacts without another line-offset implementation.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler output paths and SourceMapDirectory replace guessed source filenames, fixed line counts, and silent uncorrected malformed maps.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler output paths and SourceMapDirectory provide lookup anchors, and recognized byte regions replace fixed line-offset guesses. No full map-validation claim is inferred from a successful passthrough or unresolved source.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs specify generation ownership, supported map carriers, directory policy, single application, and error behavior following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler path/case operations distinguish native output identity from raw source-map file URLs; published sourceRoot is not mistaken for the emitter's filesystem base.
-// @evidence contracts/performance.md#efficient-algorithms Output paths are indexed once per source, each source region is calculated once, and each map processes its segments in one pass.
+// @evidence contracts/performance.md#efficient-algorithms Construction indexes reached native emitted sources and their JS/declaration paths, including delegated output/directory and path-canonicalization costs. Each resolved source object's region is computed once; artifact handling scans filenames/inline text/base64/map JSON and segments, with source-prefix/UTF-16 work and optional content copies. Index, region, mapping/content arrays and output bytes scale with those populations and texts.
 // @evidence contracts/performance.md#reuse-equivalent-work Every artifact in one emit shares the output index and exact region cache for the same captured compiler generation and preamble.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned closure owns only one generation's index and lazy regions; its emit owner releases the closure on success or failure without a process-global cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The closure keeps its captured native program/options, output index and lazy source-object region cache reachable. Source count, paths and optional authored content have no configured byte/population cap; the caller must discard the closure when its serialized emit ends, and other aliases can retain captured values afterward. No process-global cache or new checker lease is acquired.
 func (p *Program) NewSourceMapCorrector() func(fileName, text string) (string, error) {
   if p == nil || p.TSProgram == nil || p.SourcePreamble == "" {
     return func(_ string, text string) (string, error) { return text, nil }
