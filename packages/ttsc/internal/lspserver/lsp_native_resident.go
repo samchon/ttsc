@@ -457,9 +457,9 @@ func (sc *residentSidecar) queueChanges(changed, external []string) {
   }
 }
 
-// shutdownResidents kills every resident child. Called on server teardown; the
-// children also exit on their own when the parent closes their stdin at process
-// exit, so this is the graceful path, not the only one.
+// shutdownResidents revokes starts and requests cancellation before attempting
+// each detached resident's cleanup. Closing protocol pipes does not certify
+// completion of one-shot work, refresh tasks or descendant processes.
 func (s *NativePluginSource) shutdownResidents() {
   if s == nil {
     return

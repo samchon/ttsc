@@ -104,7 +104,7 @@ type NativePluginSourceOptions struct {
 // NativePluginSource implements PluginSource by delegating to native sidecars
 // that explicitly support ttsc's LSP subcommands.
 //
-// Close terminates native children and rejects later process starts. Refresh
+// Close requests child termination and rejects later process starts. Refresh
 // failures preserve last-good producer publications until a successful update.
 //
 // @evidence contracts/common.md#principled-implementation Per-producer records distinguish last-good state from current generations; transport identity includes the executable and negotiated project-context arguments.
@@ -215,18 +215,20 @@ func (s *NativePluginSource) commandContext() context.Context {
   return s.processContext
 }
 
-// Close ends this source's session and terminates its native children. Calls
-// after Close cannot start another child. A running rule has no computation
-// deadline while the source remains open.
+// Close marks the session closed, cancels its command context and attempts
+// resident pipe closure, kill and Wait. It always returns nil rather than
+// reporting cleanup errors and does not join one-shot calls or refresh tasks.
+// Calls after Close cannot start another child through that cancelled context.
+// A running rule has no computation deadline while the source remains open.
 //
-// @evidence contracts/common.md#principled-implementation Marking the source closed and cancelling its shared context precede waiting for resident locks, so blocked reply reads can finish before teardown joins their processes.
-// @evidence contracts/common.md#clear-and-simple-design One idempotent source boundary terminates both one-shot and resident children and closes refresh scheduling.
+// @evidence contracts/common.md#principled-implementation Closed state and shared cancellation precede resident-lock acquisition, allowing the cancellation callback to close owned reply pipes. Resident cleanup attempts Wait, but ignored pipe/kill/wait errors and the nil return do not certify successful termination of every running task.
+// @evidence contracts/common.md#clear-and-simple-design One idempotent boundary revokes future starts, cancels one-shot/resident command contexts, closes refresh scheduling and serially cleans detached residents. One-shot calls and refresh computations own their own completion.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation corrects process ownership rather than adding a timeout to conceal a blocked shutdown.
 // @evidence contracts/common.md#meaningful-documentation Native prose states post-close behavior and the absence of a computation deadline, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation CommandContext cancellation and pipe closure use Go abstractions across native platforms; inherited descendant processes are not themselves owned or recursively terminated.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Teardown owns lifecycle rather than a computation processing strategy.
+// @evidence contracts/performance.md#efficient-algorithms Teardown detaches the resident map and traverses its entries once, acquiring each resident lock and attempting serial cleanup. Lock and process/pipe waits can dominate elapsed time; Command.WaitDelay is not an overall Close deadline, and opt-in observation adds trace serialization and writes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Closing source ownership is not reusable computation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Shared cancellation stops native children before resident Wait; closed schedulers reject new work and discard queued reruns. Already running callbacks and caller-owned writers have no independent join or timeout here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Shared cancellation requests child termination before resident Wait; pipe/kill/wait errors are ignored while resident handles are cleared. Closed schedulers discard queued reruns, but Close does not join one-shot calls, refresh tasks, cancellation callbacks or caller-owned writers, recursively terminate descendants, or impose an overall timeout. Corpus and other cache fields are not cleared by this transition and remain retained while the source is reachable.
 func (s *NativePluginSource) Close() error {
   s.shutdownResidents()
   return nil
