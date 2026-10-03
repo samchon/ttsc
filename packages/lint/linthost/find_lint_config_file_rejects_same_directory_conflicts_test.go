@@ -20,8 +20,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification findLintConfigFile returns a non-nil multiple-config error when lint.config.mjs and ttsc-lint.config.cjs coexist beside one tsconfig.
 // @evidence contracts/testing.md#independent-expectations Automatic discovery must not choose arbitrarily between equally local supported config names; the literal multiple-config diagnostic and fixture pair establish that independent requirement.
 // @evidence contracts/testing.md#distinguishing-cases Owns equal-depth conflicting candidates; single-candidate acceptance and different-depth nearest selection have separate tests.
-// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two temporary equally local script-config filenames reach findLintConfigFile directly in-process; conflict error is observed before any config script is evaluated.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry clears the explicit launcher-origin channel with automatic restoration. Two temporary equally local script-config filenames reach findLintConfigFile directly in-process; conflict error is observed before any config script is evaluated.
 func TestFindLintConfigFileRejectsSameDirectoryConflicts(t *testing.T) {
+  t.Setenv(pluginConfigDirEnv, "")
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "lint.config.mjs"), "export default {};")
