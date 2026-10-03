@@ -8,28 +8,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDumpDiagnosticsRideTheGenerationThatBuiltIt verifies the dump carries the
-// compiler's findings for the same program that produced its nodes and edges,
-// relativized like every other path on the wire.
-//
-// FileDiagnostics was written, tested, and then called by nothing: its own
-// comment said "the dump and MCP results carry no diagnostics", so a consumer
-// that wanted to know whether the code it was reading even compiles had to run a
-// second compile to find out — against a program that, by then, was not this one.
-// The value of riding along is precisely that the answer belongs to this
-// snapshot; a diagnostics list assembled separately would be a different
-// program's opinion.
+// TestDumpDiagnosticsRideTheGenerationThatBuiltIt supplies findings from the
+// same compiler Program used for Build and checks one diagnostic's dump fields.
+// Omitting that supplied origin produces a non-nil empty diagnostics list.
+// This does not compare different generations or exercise a consumer request.
 //
 //  1. Build a fixture whose only file assigns a string to a number binding.
 //  2. Dump it.
 //  3. Assert the TS2322 sits in the dump, at the location tsgo reports, against
 //     a project-relative path.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies the dump carries the compiler's findings for the same program that produced its nodes and edges, relativized like every other path on the wire.
-// @evidence contracts/testing.md#independent-expectations The expectations are literal and come from the compiler: the dump of a file assigning a string to a number must hold a TS2322 at line 1 column 14 with category error, a message mentioning not assignable and the project-relative file src/main.ts; a dump built with no diagnostics origin must have a non-nil empty list.
+// @evidence contracts/testing.md#behavioral-verification Build and NewDiagnostics use the same authored compiler Program; NewDump must retain a TS2322 with the selected location, message, severity and relative file. A second dump without supplied diagnostics must contain a non-nil empty list. Cross-generation rejection and consumer queries are not exercised.
+// @evidence contracts/testing.md#independent-expectations The string-to-number assignment has literal TS2322, line 1, column 14, error category, not assignable message fragment and src/main.ts expectations. Omitted diagnostics have literal empty-list expectations. These are supplied expectations rather than results generated from NewDump, but they do not independently authenticate the compiler's complete diagnostic output or origin.
 // @evidence contracts/testing.md#distinguishing-cases Build a fixture whose only file assigns a string to a number binding; Dump it; Assert the TS2322 sits in the dump, at the location tsgo reports, against a project-relative path.
-// @evidence contracts/testing.md#execution-ownership TestDumpDiagnosticsRideTheGenerationThatBuiltIt is a Go source-unit entry. Build, NewDump, SourceTexts, NewDiagnostics execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes a native project, constructs and closes its driver compiler Program in-process, and directly calls Build, NewDump, SourceTexts and NewDiagnostics. A restored empty linked-plugin manifest excludes ambient hooks. No consumer installation or native product command runs.
 func TestDumpDiagnosticsRideTheGenerationThatBuiltIt(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export const broken: number = "nope";
