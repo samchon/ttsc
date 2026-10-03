@@ -3,19 +3,20 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
 /**
  * Result of a TypeScript source-to-source transformation operation.
  *
- * This mirrors `embed-typescript`'s `IEmbedTypeScriptTransformation` model.
  * Unlike {@link ITtscCompilerResult}, this contract is not an emit contract: the
- * `typescript` map must contain TypeScript source text, not generated
- * JavaScript, declaration files, or source maps.
+ * `typescript` map carries producer-reported source text rather than compiler
+ * emit artifacts. The builtin producer returns loaded non-declaration source
+ * files' text, including JavaScript inputs when admitted by the program;
+ * source maps are separate advisory payloads, not entries in that text map.
  *
- * @evidence contracts/common.md#principled-implementation The discriminated union separates completed source transformation from failure and host exception; its TypeScript text map is distinct from emit output.
+ * @evidence contracts/common.md#principled-implementation The discriminated union separates completed source transformation from failure and host exception; its producer-reported source text map is distinct from emit output.
  * @evidence contracts/common.md#clear-and-simple-design Named result variants share advisory dependency types but retain outcome-specific requirements, allowing callers to narrow by type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source text and optional invalidation metadata describe actual producer outputs; the contract does not substitute emitted JavaScript for transformed TypeScript.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes transformation from emit, then explains result and advisory-data semantics on their declarations; paragraphs, member spacing and tag separation follow the documentation skill.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+ * @evidence contracts/portability.md#os-neutral-implementation Result variants carry producer-coordinate source keys, native input paths and filesystem observations through their shared advisory types without rebasing or inferring platform capabilities. The discriminant does not itself certify physical identity, freshness or a universal source-map URL interpretation; those boundaries are documented on the selected variant and metadata type.
  */
 export type ITtscCompilerTransformation =
   | ITtscCompilerTransformation.ISuccess
@@ -27,13 +28,14 @@ export namespace ITtscCompilerTransformation {
    * Host-owned reference graph of the transformed program, mirroring the
    * envelope's optional `graph` section.
    *
-   * The graph is the language-semantic input bound of the transform under `tsc
-   * --incremental` semantics: any symbol a file can reference is reachable
-   * through its import/reference closure or is ambient. Bundler adapters
-   * register, per transformed file `F`, the reachability closure of
-   * {@link edges} from `F` together with {@link globals} and {@link configs}, so
-   * persistent caches and watch graphs invalidate soundly without per-plugin
-   * dependency reporting.
+   * The graph reports the loaded compiler program's resolved references,
+   * global contributors, configuration ancestry and resolver observations.
+   * Bundler adapters normally select the reachability closure of {@link edges}
+   * together with {@link globals} and {@link configs}; an admitted complete
+   * dependency declaration can narrow that graph selection. Resolver inputs,
+   * host inputs and plugin source inputs remain separate invalidation lanes.
+   * The graph alone does not certify every plugin's output dependencies or
+   * that the reported filesystem state is still current.
    *
    * Keys and values follow the same convention as {@link ISuccess.typescript}:
    * project-relative slash paths, falling back to absolute slash paths outside
@@ -46,7 +48,7 @@ export namespace ITtscCompilerTransformation {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+   * @evidence contracts/portability.md#os-neutral-implementation Graph keys use the producer's cwd-relative slash spelling with absolute slash paths for outside-root or cross-volume inputs; this protocol spelling is distinct from native physical identities carried by inputRealpaths and observations. The reported compiler case policy governs compiler membership comparisons rather than an OS-name assumption; absent policy or proof does not establish native filesystem capabilities.
    */
   export interface IReferenceGraph {
     /**
@@ -72,9 +74,9 @@ export namespace ITtscCompilerTransformation {
      * type-reference, and triple-slash path resolution, keyed by source file.
      * Hosts watch and prove these paths in addition to realized graph members.
      *
-     * A host with nothing to report leaves the whole property out rather than
-     * sending an empty map, so `undefined` and "no resolver input" are the same
-     * observation on the wire and after decoding.
+     * The native producer omits an empty candidate map. Absence describes no
+     * reported source-owned candidates; it does not certify that resolution
+     * consulted no filesystem input, including universal resolution inputs.
      */
     candidates?: Record<string, string[]>;
 
@@ -85,8 +87,8 @@ export namespace ITtscCompilerTransformation {
     resolutionInputs?: string[];
 
     /**
-     * Exact filesystem predicates observed while the compiler constructed this
-     * graph. Each property is independent: `fileExists: false` and
+     * Filesystem predicates recorded during construction and resolver replay
+     * for this graph. Each property is independent: `fileExists: false` and
      * `directoryExists: true` describe one stable directory and do not
      * conflict. Consumers re-run only the predicates present in an entry, so a
      * failed file candidate is never reinterpreted as generic path absence.
@@ -123,7 +125,11 @@ export namespace ITtscCompilerTransformation {
   }
 
   /**
-   * Predicate-preserving compiler filesystem proof for one lexical path.
+   * Predicate-preserving compiler filesystem observations for one lexical path.
+   *
+   * These reported query results are not an atomic filesystem snapshot or a
+   * freshness certificate. The decoder rejects incompatible predicate sets;
+   * consumers separately decide whether the reported inputs remain current.
    *
    * @evidence contracts/common.md#principled-implementation Independent optional predicates preserve what the compiler actually queried; file absence can coexist with directory presence, and ok-discriminated reads/realpaths distinguish failure from a successful value.
    * @evidence contracts/common.md#clear-and-simple-design A single observation collects distinct results for one lexical path without flattening them into ambiguous generic existence.
@@ -132,7 +138,7 @@ export namespace ITtscCompilerTransformation {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+   * @evidence contracts/portability.md#os-neutral-implementation Member results preserve the compiler filesystem's file/directory predicates and accessible entry names; successful realpaths carry native absolute path spelling rather than URL or project-relative identity. Missing predicates and failed queries make no platform capability assertion, and a missing Stat result reflects the filesystem adapter's null result rather than independently proving physical absence.
    */
   export interface IInputObservation {
     /** Result returned by `GetAccessibleEntries`, preserving both name lists. */
@@ -147,7 +153,7 @@ export namespace ITtscCompilerTransformation {
     /** Result returned by `FileExists`, when the compiler called it. */
     fileExists?: boolean;
 
-    /** Result returned by `ReadFile`, including decoded-text content identity. */
+    /** Result returned by `ReadFile`, hashing the compiler's returned text. */
     readFile?:
       | { ok: false }
       | {
@@ -165,19 +171,21 @@ export namespace ITtscCompilerTransformation {
 
     /**
      * Result returned by `Stat`, using the compiler's file-versus-directory
-     * view.
+     * view. `missing` represents a null adapter result.
      */
     stat?: "directory" | "file" | "missing";
   }
 
   /**
-   * Version 3 source map from one transformed file's text back to the text it
-   * was transformed from.
+   * Supported version-3 source-map payload for transformed source text.
    *
-   * `sources` are relative to the transformed file's directory, joined to
-   * {@link sourceRoot} when one is set. `sourcesContent` carries the text each
-   * source was transformed from, so a consumer can confirm the map describes
-   * the text it holds before handing it on.
+   * The native bundler consumer resolves `sources` with native path arithmetic
+   * from the transformed module's directory and {@link sourceRoot}. This
+   * supported contract is narrower than general source-map URL resolution.
+   * `sourcesContent` can carry original text for an identity/content check;
+   * the envelope decoder checks field shapes, not VLQ semantics or mapping
+   * correspondence to the transformed text. String source names and an
+   * explicit `names` array are required by this payload shape.
    *
    * @evidence contracts/common.md#principled-implementation The version-3 shape separates VLQ mappings, names and source identities; optional embedded source text allows consumers to compare the map's origin with their actual input.
    * @evidence contracts/common.md#clear-and-simple-design The standard source-map fields stay together as one transform artifact instead of introducing a competing custom mapping representation.
@@ -186,13 +194,13 @@ export namespace ITtscCompilerTransformation {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+   * @evidence contracts/portability.md#os-neutral-implementation The native adapter interprets sources/sourceRoot as filesystem path inputs anchored to the transformed module; this is not a promise to resolve arbitrary source-map URLs. SourcesContent is reported text, while physical source identity and native path interpretation belong to the consumer rather than to an OS-name guess or this type declaration.
    */
   export interface ISourceMap {
     /** Always `3`. */
     version: 3;
 
-    /** Base name of the transformed file. */
+    /** Optional name associated with the transformed output. */
     file?: string;
 
     /** Prefix joined to every entry of {@link sources}. */
