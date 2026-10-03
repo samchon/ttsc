@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeIgnoreInterfaceKeepsTypeAliasMember verifies ignoreInterface leaves type-alias members checked.
 //
-// The negative twin. An ancestor test that matched any declaration, or that
-// ran before the member kind was known, would silence type aliases too, and
-// the two spell the same member shape.
+// The reporting alias twin has the same property shape as the accepted
+// interface fixture. An exemption that matched every declaration instead
+// of an interface ancestor would incorrectly silence this alias member.
 //
 // 1. Parse a type alias with a non-readonly string property.
 // 2. Enable only functional/prefer-readonly-type with `ignoreInterface: true`.

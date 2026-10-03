@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeIgnoreInterfaceSkipsInterfaceMember verifies functional/prefer-readonly-type honors ignoreInterface.
 //
-// `ignoreInterface` is published as a whole-interface skip and decoded nothing
-// before #1132. The gate is an ancestor test, so it has to hold for a member
-// nested inside the interface rather than for the interface node itself.
+// The published interface exemption follows the member's actual ancestor.
+// This fixture observes a non-readonly property inside an interface,
+// rather than a report on the interface node itself.
 //
 // 1. Parse an interface with a non-readonly string property.
 // 2. Enable only functional/prefer-readonly-type with `ignoreInterface: true`.
