@@ -32,8 +32,11 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  *
  * Discovery uses the caller's spelling while emit ownership uses filesystem
  * identity. The result transfers the process-owned runtime directory to the
- * caller for execution and cleanup. Preparation failure relinquishes it here;
- * successful execution must release it through the runtime directory protocol.
+ * caller for execution and cleanup. After context creation returns, preparation
+ * failure attempts relinquishment and removal here; native lock or cleanup
+ * failure can prevent release. Context construction owns its acquisition
+ * failures. Successful execution must release the transferred directory through
+ * the runtime directory protocol.
  *
  * Source ownership comes from the completed compiler's output-to-source record;
  * a producer without that record is unsupported for checked execution. An
@@ -41,13 +44,13 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * supplies no authority to execute output from the empty project.
  *
  * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership. An observed empty JavaScript inventory or proven excluded entry selects the checked single-root build, which must supply its own ledger before execution.
- * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers; one top-level failure boundary cleans the prepared generation before propagating the error.
+ * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers. After a context returns, one failure boundary attempts cleanup without replacing the original error; construction owns earlier acquisition failures.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed provenance cannot authorize emitted bytes. An empty inventoried build serves nothing and selects the excluded-entry build, which inherits actual project settings and proves its own output rather than stripping source or fabricating an empty ledger.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
- * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers separate lexical discovery from physical Node loading; directory locks pin runtime ownership and the virtual layout encodes distinct volume roots without OS-specific shell operations.
- * @evidence contracts/performance.md#efficient-algorithms Each completed build validates its provenance once in O(outputs + contributing sources) entries and retains it for entry lookup and runtime transfer; only a proven-unowned entry receives an additional single-entry build, and mirrored ancestor traversal has an explicit depth/safety boundary.
- * @evidence contracts/performance.md#reuse-equivalent-work One context shares the completed build's validated ledger, output inventory and emit profile with lookup and execution rather than rereading or recomputing producer observations; a fallback replaces the complete emit generation together.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Preparation owns one claimed generation under a pinned cache root; failures relinquish/remove it under the lock, while success transfers cleanupDir and runtimeCacheDir to the caller's execution lifecycle.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers preserve lexical discovery separately from best-effort native source/cache coordinates. Cooperating directory locks serialize ownership mutations without pinning filesystem objects; virtual layout encodes distinct volume roots through native path operations rather than shell commands.
+ * @evidence contracts/performance.md#efficient-algorithms Delegated config discovery, effective-options preparation and compilation precede native output inventory and provenance-shape inspection. Each nonempty entry lookup builds an EmitOwnershipIndex with record/path/identity costs; an empty inventory or unowned entry selects the additional checked build. Native virtual linking and bounded ancestor traversal add their own entry and byte costs, so entry counts alone do not bound this operation.
+ * @evidence contracts/performance.md#reuse-equivalent-work A context retains the accepted producer record and output inventory for lookup and transfer, without synthesizing ownership or re-reading producer observations. Lookup indexes are constructed per lookup; project lowering prepares its effective reader independently of the stored profile, while checked fallback shares its overlay reader within that build and then replaces the generation and recomputes the context profile.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A returned context owns one claimed generation at the resolved cache coordinate. Later failures attempt relinquishment and recursive removal under its cooperative lock; cleanup errors are swallowed to preserve the initiating failure and can retain storage. Success transfers cleanupDir and runtimeCacheDir to the caller, while delegated compilers, identity contexts and construction failures retain their own lifecycle responsibilities.
  */
 export function prepareExecution(
   entryFile: string,
@@ -65,16 +68,16 @@ export function prepareExecution(
   /** Claimed runtime generation whose cleanup ownership transfers to the caller. */
   cleanupDir: string;
 
-  /** Physical directory containing this preparation's emitted output. */
+  /** Native directory coordinate containing this preparation's emitted output. */
   emitDir: string;
 
   /** Emitted JavaScript file owned by the requested source entry. */
   entryFile: string;
 
-  /** Physical runtime cache root whose lock serializes this run and clean. */
+  /** Resolved cache coordinate whose cooperative lock serializes run and clean. */
   runtimeCacheDir: string;
 
-  /** Physical directory holding the run, even when `project` is a link. */
+  /** Resolved directory coordinate holding the run when `project` is a link. */
   runtimeRunsDir: string;
 
   /** The build's record of its outputs, relative to `emitDir`. */

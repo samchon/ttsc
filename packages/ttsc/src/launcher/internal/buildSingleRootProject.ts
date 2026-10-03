@@ -43,7 +43,10 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * the program is running, for an installed package whose directory may be
  * read-only or for a plugin descriptor whose inputs are fingerprinted by their
  * directory's metadata, and a file created and removed in the user's tree would
- * disturb both. Either tsconfig is removed as soon as the build returns.
+ * disturb both. The overlay is created exclusively: an occupied name is
+ * refused without writing or removing that entry. After acquisition, closing
+ * its descriptor and removing the overlay are attempted on success or failure;
+ * native cleanup failures may leave the overlay behind.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -77,10 +80,10 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * @evidence contracts/common.md#clear-and-simple-design This boundary owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
- * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity supplies the source's physical volume root; overlay JSON converts only native separators, preserving literal POSIX backslashes, and compiler arguments receive explicit paths without a shell or blanket case fold.
- * @evidence contracts/performance.md#efficient-algorithms Placement inspects the config chain once for configDir anchors and otherwise delegates the required root compilation; no source-directory mirror or second whole-project compilation is performed here.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise; overlay JSON converts only native separators, preserving literal POSIX backslashes. Public exclusive creation refuses an occupied overlay name without overwriting it; explicit compiler paths avoid shell interpolation and blanket case folding.
+ * @evidence contracts/performance.md#efficient-algorithms Emit-only placement parses the config chain and scans its text for configDir anchors; checked placement skips that scan. Native identity resolution, overlay serialization/write, effective-options preparation and delegated compilation contribute path/input/output byte costs; this boundary performs no source-directory mirror or second whole-project compilation.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The operation owns one transient tsconfig and attempts removal in finally after parse/build success or failure; caller owns emit storage, and a failed removal may leave this distinctly named overlay behind.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing; finally attempts any remaining close and removal after write, close, parse or build failure, without removing a failed-acquisition entry. Native cleanup failures may retain the overlay; caller owns emit storage and delegated build lifetimes.
  */
 export function buildSingleRootProject(props: {
   /** The root, in the physical spelling the runtime loads it by. */
@@ -146,35 +149,41 @@ export function buildSingleRootProject(props: {
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
   );
   fs.mkdirSync(path.dirname(tsconfig), { recursive: true });
+  let configDescriptor: number | undefined;
+  let ownsConfig = false;
   try {
-    fs.writeFileSync(
-      tsconfig,
-      JSON.stringify(
-        {
-          extends: props.tsconfig.replaceAll(path.sep, "/"),
-          compilerOptions: {
-            composite: false,
-            declaration: false,
-            declarationMap: false,
-            ...(props.checked ? {} : { noEmitOnError: false }),
-            rootDir: volumeRoot.replaceAll(path.sep, "/"),
+    try {
+      configDescriptor = fs.openSync(tsconfig, "wx");
+      ownsConfig = true;
+      fs.writeFileSync(
+        configDescriptor,
+        JSON.stringify(
+          {
+            extends: props.tsconfig.replaceAll(path.sep, "/"),
+            compilerOptions: {
+              composite: false,
+              declaration: false,
+              declarationMap: false,
+              ...(props.checked ? {} : { noEmitOnError: false }),
+              rootDir: volumeRoot.replaceAll(path.sep, "/"),
+            },
+            // `files` alone does not displace an inherited `include`, and an
+            // inherited `exclude` could drop the root back out of the program,
+            // so both are overridden explicitly.
+            files: [props.source.replaceAll(path.sep, "/")],
+            include: [],
+            exclude: [],
           },
-          // `files` alone does not displace an inherited `include`, and an
-          // inherited `exclude` could drop the root back out of the program,
-          // so both are overridden explicitly.
-          files: [props.source.replaceAll(path.sep, "/")],
-          include: [],
-          exclude: [],
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
-  } catch (error) {
-    throw unwritableConfigDirectory(error, props, path.dirname(tsconfig));
-  }
-  try {
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      fs.closeSync(configDescriptor);
+      configDescriptor = undefined;
+    } catch (error) {
+      throw unwritableConfigDirectory(error, props, path.dirname(tsconfig));
+    }
     const project = readProjectConfig({
       cwd: props.projectRoot,
       // A tsconfig outside the project would otherwise make its own private
@@ -261,11 +270,19 @@ export function buildSingleRootProject(props: {
           : volumeRoot,
     };
   } finally {
-    try {
-      fs.rmSync(tsconfig, { force: true });
-    } catch {
-      // Best effort: a leftover synthesized tsconfig must not mask a build
-      // failure, and its name can never be mistaken for a real project config.
+    if (configDescriptor !== undefined) {
+      try {
+        fs.closeSync(configDescriptor);
+      } catch {
+        // Preserve the write or close failure that reached this cleanup.
+      }
+    }
+    if (ownsConfig) {
+      try {
+        fs.rmSync(tsconfig, { force: true });
+      } catch {
+        // Best effort: native cleanup failure can leave this overlay behind.
+      }
     }
   }
 }
