@@ -8,12 +8,18 @@ import (
   "testing"
 )
 
+// TestTransformGraphReplaysCompilerResolutionSemantics loads authored native
+// projects and checks selected resolver candidates, type-root membership,
+// project-reference edges and observations, and semantic config selection.
+// Required candidate membership is checked rather than an exact candidate set;
+// the same maintained compiler supplies the Program and resolution replay.
 //
-// @evidence contracts/testing.md#behavioral-verification The transform graph replays the compiler's resolution semantics for package imports and exports, subpath imports, module suffixes, directory indexes, triple-slash references and type packages over a fixture project.
-// @evidence contracts/testing.md#independent-expectations Expected candidate and edge sets are the literal files of the authored fixture, not derived from the graph.
-// @evidence contracts/testing.md#distinguishing-cases Each resolver feature in the fixture selects a different candidate set, so a feature the replay skips shows as a missing candidate.
-// @evidence contracts/testing.md#execution-ownership TestTransformGraphReplaysCompilerResolutionSemantics is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#behavioral-verification Actual LoadProgram and NewTransformGraph expose the asserted package/import/suffix/reference candidate paths and type-root listing. Additional fixtures check JSON-reference admission, a noResolve target outside the Program, unbuilt project-reference resident versus nonresident edges, and explicit versus absent or relative semantic config selection.
+// @evidence contracts/testing.md#independent-expectations Required candidate paths, project-reference edge presence/absence, and selected config filenames are authored literals. Candidates are not checked for exact equality, and the uppercase JSON expectation uses the Program's filesystem case policy; this does not independently certify that policy or the compiler's full resolver semantics.
+// @evidence contracts/testing.md#distinguishing-cases resolveJsonModule false/true and conditional uppercase admission contrast; noResolve retains a successful target as a candidate. Project-reference source presence and output absence differ from realized edge membership. Explicit absolute semantic config, an unmarked wrapper despite ambient metadata, and a rejected relative semantic path exercise separate selection branches.
+// @evidence contracts/testing.md#execution-ownership This driver Go unit writes and cleans its own temporary projects, constructs maintained native compiler Programs in-process, and calls the owning graph operation. Each returned Program is closed; a restored empty linked-plugin manifest excludes ambient hooks, and no installed consumer or external compiler command is used. It does not substitute a literal-input-only aggregation test for this native compiler connection.
 func TestTransformGraphReplaysCompilerResolutionSemantics(t *testing.T) {
+  t.Setenv(LinkedPluginsEnv, "")
   root := t.TempDir()
   files := map[string]string{
     "package.json": `{
