@@ -7,28 +7,27 @@ import (
 )
 
 // TestLSPProjectDiagnosticsTranslatesRelativeClientProject verifies a project
-// URI is restated in the client's spelling however the client named it.
+// URI uses the supplied client anchor in four direct translation cases.
 //
 // The editor is not required to pass an absolute `--tsconfig`; naming the
-// project relative to the working directory it also passed is the ordinary
-// spelling, and every ttsc CLI accepts it. The translator, however, needs an
+// project relative to a supplied working directory is one input to this unit.
+// The translator needs an
 // absolute path both to compare against the producer's URI and to build a URI
 // from, so a relative spelling must not end the translation and let the
 // sidecar's own spelling reach the editor unchanged — the precise failure this
-// whole translation exists to prevent.
+// direct translation distinguishes from leaving the producer detour unchanged.
 //
-// A client that named no directory either is not a case to decline: this host
-// was started from that directory and inherited it, so its own working
-// directory is the same anchor reached another way.
+// With no supplied directory, the direct operation uses this test process's
+// actual working directory. No launcher inheritance or editor is executed.
 //
 //  1. Resolve a relative project against the directory the client named.
 //  2. Resolve one against the directory the host inherited.
 //  3. Translate an absolute one the same way.
 //
-// @evidence contracts/testing.md#behavioral-verification A relative project path is resolved against the directory the client named, or the host's inherited directory when the client named none, so the translated project URI is absolute.
-// @evidence contracts/testing.md#independent-expectations The expected absolute URIs are literals from the temporary directories.
-// @evidence contracts/testing.md#distinguishing-cases Client directory present and absent are the two anchors.
-// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsTranslatesRelativeClientProject is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification clientProjectURI rewrites a distinct producer detour to the expected client URI for supplied-relative, ambient-cwd-relative and absolute client paths; with no client project it preserves the producer string. This does not observe CLI admission or editor delivery.
+// @evidence contracts/testing.md#independent-expectations Expected anchor paths come from the owned root or os.Getwd plus literal tsconfig.json, separately from clientProjectURI. Input and expected URI serialization share projectInputFileURI, so this is an anchor/rewrite oracle, not an independent URI-encoder oracle. The distinct input/output premise is explicitly checked for the root detour.
+// @evidence contracts/testing.md#distinguishing-cases Supplied directory, omitted directory using actual process cwd, absolute project and absent project are the four cases. The temporary root has a config and src directory; the ambient-cwd case relies on the native ancestor-fallback identity operation rather than creating a real client project there.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit calls actual NativePluginSource.clientProjectURI with owned native filesystem inputs and reads process cwd for one case. It installs no consumer, starts no child or host and uses no substitute translation operation; native identity may query owning-directory case flags on Windows.
 func TestLSPProjectDiagnosticsTranslatesRelativeClientProject(t *testing.T) {
   root := t.TempDir()
   if err := os.WriteFile(
