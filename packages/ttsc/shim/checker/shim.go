@@ -679,49 +679,57 @@ func Checker_getApparentProperties(recv *innerchecker.Checker, t *innerchecker.T
 // Checker_getTypeArguments returns resolved type arguments of a generic
 // reference type. t must be a nonnil type reference in recv's checker graph;
 // other type representations do not satisfy the upstream accessor's domain.
+// Resolution can fill or instantiate arguments and populate reference state;
+// circular resolution can return error types and report diagnostics.
 //
 // @evidence contracts/common.md#principled-implementation The upstream reference query supplies resolved type arguments associated with the actual compiler reference rather than syntactic arguments that may omit inferred instantiation.
 // @evidence contracts/common.md#clear-and-simple-design One direct reference query exposes instantiated arguments without another generic type model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Type argument identity is retained instead of guessed from type names or printed angle brackets.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies resolved generic-reference scope and the nonnil type-reference/producing-checker domain instead of promising non-reference nil.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeArguments acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeArguments performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeArguments computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeArguments computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolved argument slices and their semantic types belong to checker/reference state; circular resolution can also return a parameter-count-sized error-type slice. The caller controls additional retention through the result, while this wrapper keeps no separate cache or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper selects no argument-resolution strategy. Upstream uncached work resolves argument nodes, examines/fills parameter defaults and instantiates mapped types; tuple and cycle-result construction also depend on list lengths. Those semantic graph/list costs belong to the checker rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The upstream reference's populated resolvedTypeArguments and type-resolution state coordinate reuse and cycle handling. The forwarding wrapper adds no argument cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type-reference argument interpretation uses the supplied checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getTypeArguments(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type {
   return recv.GetTypeArguments(t)
 }
 
-// Checker_getTypeOfSymbol returns symbol's value type, resolving aliases and
-// following late-bound types. For a class this is its constructor/static type;
-// use Checker_getDeclaredTypeOfSymbol for the instance type.
+// Checker_getTypeOfSymbol resolves symbol's value type under the compiler's
+// symbol-category rules, including deferred/instantiated/mapped types and aliases.
+// For a class this is its constructor/static type; use
+// Checker_getDeclaredTypeOfSymbol for the instance type. Unsupported value
+// categories or recursive alias typing can return the checker's error type;
+// semantic resolution can populate symbol type state and diagnostics.
 // recv and symbol must be nonnil; the symbol must belong to recv.
 //
-// @evidence contracts/common.md#principled-implementation Upstream symbol typing follows its alias and late-binding semantics using the producing checker, preserving compiler type identity rather than declaration-only inference.
+// @evidence contracts/common.md#principled-implementation Upstream symbol typing dispatches on compiler symbol/check flags, including instantiated/mapped/deferred types and alias value targets, preserving producing-checker type identity and error-type fallbacks.
 // @evidence contracts/common.md#clear-and-simple-design One symbol-to-type query leaves binding and resolution with the existing checker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No type is synthesized from consumer naming or a cached textual annotation.
-// @evidence contracts/common.md#meaningful-documentation Native prose names alias/late-bound handling, class value versus instance typing and nonnil checker ownership.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfSymbol acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfSymbol performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfSymbol computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose states symbol-category/alias handling, class value versus instance typing, state/error effects and nonnil checker ownership.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolved symbol types, constructed class/value types and diagnostics remain checker-owned. The caller can retain the semantic graph through the returned type; this forwarding wrapper stores no independent result, buffer or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no typing strategy. Upstream flag dispatch delegates deferred, instantiated, mapped, accessor, variable and value-category typing or alias resolution; class/base and alias/instantiation paths can traverse semantic graphs rather than fixed local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker owns symbol-type state, including valueSymbolLinks resolvedType caching for instantiated, class/value and alias paths. This wrapper adds no symbol cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Symbol typing and related resolution use the supplied checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type {
   return recv.GetTypeOfSymbol(symbol)
 }
 
-// Checker_getTypeOfSymbolAtLocation returns the contextual type of symbol as
-// observed at the given AST node (useful for narrowed types in control flow).
-// Checker and symbol must be nonnil and belong to the same checked program.
-// A nil node requests the ordinary symbol type without location narrowing.
+// Checker_getTypeOfSymbolAtLocation returns upstream location-sensitive symbol
+// typing after exported-value-symbol normalization. Eligible identifier/private
+// references use the checked expression type when they resolve to that symbol;
+// setter declaration names and write-access contexts can select writable types.
+// Other locations, including nil, fall back to non-missing symbol typing.
+// Checker and symbol must be nonnil; symbol and any supplied node must belong
+// to the same checked program. An arbitrary node does not promise narrowing.
 //
-// @evidence contracts/common.md#principled-implementation The location-aware upstream query applies the supplied symbol's meaning at an actual checked AST node when present; nil location or a node without a matching reference falls back to ordinary symbol typing rather than inventing control-flow narrowing.
-// @evidence contracts/common.md#clear-and-simple-design This wrapper makes location dependence explicit instead of mixing contextual and declared type queries.
+// @evidence contracts/common.md#principled-implementation Upstream location typing distinguishes a matching checked reference, setter/write contexts and non-missing symbol fallback after exported-symbol normalization, instead of inventing narrowing for arbitrary nodes.
+// @evidence contracts/common.md#clear-and-simple-design This wrapper makes location dependence explicit instead of conflating location-sensitive, contextual and declared-type queries.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Context comes from a real checked node, not a fixture offset or textual narrowing heuristic.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains contextual typing, same-program checker/symbol requirements and nil location's unnarrowed result.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfSymbolAtLocation acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfSymbolAtLocation performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfSymbolAtLocation computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfSymbolAtLocation computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose states reference-match, write/setter and non-missing fallback branches, same-program inputs and nil-location limits.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Node/symbol type state, checked-expression results and semantic diagnostics remain checker-owned; the caller can retain that graph through the returned type. This forwarding wrapper keeps no independent result, buffer or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no location-typing strategy. Upstream syntax eligibility, expression/property-write checking and symbol/accessor typing own AST/control-flow/type graph work before reference matching or fallback, rather than fixed local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker owns node/symbol links and checked semantic type state. This wrapper adds no location cache or coordination of repeated flow-sensitive queries.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Location-sensitive typing uses the supplied checked AST and checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getTypeOfSymbolAtLocation(recv *innerchecker.Checker, symbol *innerast.Symbol, node *innerast.Node) *innerchecker.Type {
   return recv.GetTypeOfSymbolAtLocation(symbol, node)
 }
@@ -729,15 +737,18 @@ func Checker_getTypeOfSymbolAtLocation(recv *innerchecker.Checker, symbol *inner
 // Checker_getTypeOfPropertyOfType looks up the type of the named property on t
 // and returns nil when no such property exists.
 // recv and t must be nonnil and belong to the same checker graph.
+// It uses upstream default property lookup after reduced apparent-type
+// normalization, including inherited/composite and global-member rules, then
+// resolves the selected symbol's type in that checker.
 //
 // @evidence contracts/common.md#principled-implementation Semantic property lookup uses the compiler's instantiated type and member name, returning the property's checked type only when that member exists.
 // @evidence contracts/common.md#clear-and-simple-design One type/name lookup delegates property resolution without separately resolving symbols and reimplementing property typing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing members remain absent rather than receiving a fabricated fallback type.
 // @evidence contracts/common.md#meaningful-documentation Native prose states missing-property nil and same-checker nonnil requirements.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfPropertyOfType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfPropertyOfType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfPropertyOfType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfPropertyOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Property/member/symbol type state remains owned by the producing checker; a returned type can retain its semantic graph through the caller's reference. The forwarding wrapper stores no independent result, buffer or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no lookup or typing strategy. Upstream reduced-apparent normalization, structured/composite property lookup and symbol-category typing own graph traversal, instantiation and name processing costs rather than fixed local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The supplied checker owns resolved member/composite property and symbol-type state, including instantiated-symbol result caching. This wrapper adds no name/type cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Property and symbol typing use the supplied checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getTypeOfPropertyOfType(recv *innerchecker.Checker, t *innerchecker.Type, name string) *innerchecker.Type {
   return recv.GetTypeOfPropertyOfType(t, name)
 }
