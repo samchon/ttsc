@@ -30,50 +30,57 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_signals_a_change_before_turbopacks_baseline is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built loader/native observer writes real records; actual Turbopack baseline timing is modelled by withholding redelivery.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original empty-plugin root. Shared calls borrow that same config after preceding loader return, write the original Before declaration, then After, and require both repeated movement and five-second quiescence after redelivery. Only full successful body completion permits later baseline-config restoration; uncertain acknowledgment keeps those profiles blocked. Global loader observers remain process-owned rather than being falsely certified closed, and the shared root stays retained.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit NODE_ENV=development selects the watching bridge despite a preceding Vite build, and finally restores the exact previous value or absence. Standalone calls allocate the original empty-plugin root; shared calls borrow it after preceding loader return. Original Before/After edits, repeated movement and five-second quiescence remain. Only successful completion permits later config restoration; global loader observers remain process-owned and the shared root retained.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: declaration edit moves the registered record twice; another delivery transforms and stops movement for five seconds. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_turbopack_loader_signals_a_change_before_turbopacks_baseline(
   preparedRoot?: string,
 ): Promise<void> {
-  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
-  const declaration = path.join(root, "src", "types.d.ts");
-  fs.writeFileSync(declaration, "export type Before = string;\n");
-  const run = () =>
-    runTurbopackLoaderWithContext({
-      resourcePath: TestUnpluginProject.mainFile(root),
-      source: TestUnpluginProject.mainSource(root),
-      options: { plugins: emitDependenciesPlugins(["src/types.d.ts"]) },
-    });
-  const first = await run();
-  TestUnpluginProject.assertTransformedToPlugin(first.content);
-  const record = projectRecordOf(root);
-  assert.deepEqual(first.dependencies, [record]);
-  const contents = () => fs.readFileSync(record, "utf8");
-  // The contents once they differ from `previous`, or after 20 seconds.
-  const changedFrom = async (previous: string): Promise<string> => {
-    const deadline = Date.now() + 20_000;
-    for (;;) {
-      const current = contents();
-      if (current !== previous || Date.now() > deadline) return current;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-  };
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+  try {
+    const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
+    const declaration = path.join(root, "src", "types.d.ts");
+    fs.writeFileSync(declaration, "export type Before = string;\n");
+    const run = () =>
+      runTurbopackLoaderWithContext({
+        resourcePath: TestUnpluginProject.mainFile(root),
+        source: TestUnpluginProject.mainSource(root),
+        options: { plugins: emitDependenciesPlugins(["src/types.d.ts"]) },
+      });
+    const first = await run();
+    TestUnpluginProject.assertTransformedToPlugin(first.content);
+    const record = projectRecordOf(root);
+    assert.deepEqual(first.dependencies, [record]);
+    const contents = () => fs.readFileSync(record, "utf8");
+    // The contents once they differ from `previous`, or after 20 seconds.
+    const changedFrom = async (previous: string): Promise<string> => {
+      const deadline = Date.now() + 20_000;
+      for (;;) {
+        const current = contents();
+        if (current !== previous || Date.now() > deadline) return current;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
 
-  const baseline = contents();
-  fs.writeFileSync(declaration, "export type After = number;\n");
-  const rewritten = await changedFrom(baseline);
-  assert.notEqual(rewritten, baseline, "the change moves the record");
-  const repeated = await changedFrom(rewritten);
-  assert.notEqual(repeated, rewritten, "the move repeats");
+    const baseline = contents();
+    fs.writeFileSync(declaration, "export type After = number;\n");
+    const rewritten = await changedFrom(baseline);
+    assert.notEqual(rewritten, baseline, "the change moves the record");
+    const repeated = await changedFrom(rewritten);
+    assert.notEqual(repeated, rewritten, "the move repeats");
 
-  const second = await run();
-  TestUnpluginProject.assertTransformedToPlugin(second.content);
-  const delivered = contents();
-  await new Promise((resolve) => setTimeout(resolve, 5_000));
-  assert.equal(
-    contents(),
-    delivered,
-    "a run that delivered the changed state stops them",
-  );
+    const second = await run();
+    TestUnpluginProject.assertTransformedToPlugin(second.content);
+    const delivered = contents();
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    assert.equal(
+      contents(),
+      delivered,
+      "a run that delivered the changed state stops them",
+    );
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
 }
