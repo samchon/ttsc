@@ -8,28 +8,21 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatPrintWidthAbstainsInsideJsxExpression verifies the rule leaves a
-// reflow node nested inside a JSX expression container (`{…}`) byte-identical,
-// so `ttsc format` does not oscillate to the 10-pass cap on valid `.tsx`.
+// TestFormatPrintWidthAbstainsInsideJsxExpression verifies the rule does not
+// reflow targets inside JSX attribute and child expression containers.
+// The original one-line TSX fixture and its no-finding assertion remain.
+// A second fixture places the same over-budget call in both JSX positions;
+// the ordinary-call positive distinguishes protected ancestry from a rule
+// that never reflows. This body does not run a complete format cascade.
 //
-// A call / conditional that sits inside BOTH a JSX attribute initializer
-// (`className={cond ? "a" : "b"}`) and a JSX child
-// (`{items.map((i) => …)}`) gets broken by print-width, then the next pass
-// measures each fragment flat, finds it fits, and reverts — formatting never
-// converges and `ttsc format` exits 2. `KindJsxExpression` wraps both the
-// attribute `{…}` and the child `{…}`, so a single `hasJsxExpressionAncestor`
-// abstain (the JSX analogue of `hasTemplateSubstitutionAncestor`) covers both
-// and breaks the oscillation. The case parses the repro as TSX, runs at a
-// width that would otherwise break those nodes, and asserts zero findings.
+// 1. Parse the original conditional/map component as TSX at width 40.
+// 2. Require no findings for calls in both JSX containers at width 20.
+// 3. Require the same ordinary call to break into the authored output.
 //
-//  1. Parse the oscillating `.tsx` repro under ScriptKindTSX.
-//  2. Run format/print-width at printWidth=40 with the engine resolver.
-//  3. Assert the rule emits zero findings — the JSX expressions stay intact.
-//
-// @evidence contracts/testing.md#behavioral-verification Parses a one-line TSX component with a conditional in a JSX attribute `{...}` and an `items.map(...)` call in a JSX child `{...}`, runs format/print-width at printWidth 40 through the engine, and requires zero findings.
-// @evidence contracts/testing.md#independent-expectations The expectation (no finding, so the JSX expressions stay as written) follows from the stated contract that nodes inside a JSX expression container must not be reflowed; it is an authored absence oracle, not compared with another printer pass.
-// @evidence contracts/testing.md#distinguishing-cases One abstention case covering both JSX expression positions (attribute initializer and child) at a width that would otherwise break them. Without the abstention the cascade oscillates; the fitting-width case where nothing would break is not included.
-// @evidence contracts/testing.md#execution-ownership In-process Go unit: writes a temp-dir .tsx file, parses it as TSX and runs the engine with an inline resolver; no child process, built binary or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification The owning print-width rule must report no findings for the original conditional/map component or an encodeURIComponent call in each JSX container. The same call as an ordinary width-20 statement must break while retaining its callee and argument.
+// @evidence contracts/testing.md#independent-expectations The supported JSX ownership policy excludes expression-container descendants from this dedicated rule. The ordinary-call literal separately follows the supported width and trailing-comma layout; no expected edit is calculated by an ancestor helper.
+// @evidence contracts/testing.md#distinguishing-cases The original attribute conditional and child map stay. A second attribute/child pair contains the same over-budget call as the ordinary positive, preventing an always-silent rule from satisfying this host. No complete formatter pass sequence or exit status is asserted.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthAbstainsInsideJsxExpression owns its original and added TSX parsed-source absence assertions and the ordinary-call snapshot in the public Go unit population. The syntax-only operations and disk-backed edit harness run in process without a built binary, consumer install or child process.
 func TestFormatPrintWidthAbstainsInsideJsxExpression(t *testing.T) {
   source := "const E = () => <div className={cond ? \"a\" : \"b\"}>{items.map((i) => <span>{i.name}</span>)}</div>;\n"
   root := t.TempDir()
@@ -44,4 +37,14 @@ func TestFormatPrintWidthAbstainsInsideJsxExpression(t *testing.T) {
   if len(findings) != 0 {
     t.Fatalf("format/print-width: expected zero findings, got %d (%+v)", len(findings), findings)
   }
+  protected := "const E = () => <div title={encodeURIComponent(value)}>{encodeURIComponent(value)}</div>;\n"
+  resolver.Options["format/print-width"] = json.RawMessage(`{"printWidth":20}`)
+  findings = NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{
+    parseTSXFile(t, filepath.Join(root, "src", "protected.tsx"), protected),
+  }, nil)
+  if len(findings) != 0 {
+    t.Fatalf("over-budget calls in JSX containers must remain excluded: %v", findings)
+  }
+  assertFixSnapshotWithOptions(t, "format/print-width", "encodeURIComponent(value);\n",
+    `{"printWidth":20}`, "encodeURIComponent(\n  value,\n);\n")
 }

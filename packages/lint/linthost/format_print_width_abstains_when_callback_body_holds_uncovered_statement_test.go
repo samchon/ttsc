@@ -14,9 +14,10 @@ import "testing"
 // abstains, leaving the file byte-identical. Abstaining is always safe; a
 // half-reflowed shape is corruption.
 //
-// The subject moved from `if` to `switch` as those printers landed. A `do`
-// statement carries it now: still verbatim and still multi-line, so the case
-// continues to assert the abstention contract rather than a particular gap.
+// The literal `do` statement has no structured dispatcher branch and spans
+// multiple lines, so its verbatim body makes the enclosing target uncovered.
+// This case asserts that current coverage boundary, not a historical printer
+// transition or a complete formatter's output.
 //
 //  1. Feed a `new` expression whose callback body holds a multi-line `do`
 //     statement.
