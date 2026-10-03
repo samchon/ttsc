@@ -20,7 +20,7 @@ import "testing"
 // same body so global-object binding exposure cannot mask this named guard.
 //
 // @evidence contracts/testing.md#behavioral-verification no-var preserves the mixed a/{b} declaration and later b redeclaration.
-// @evidence contracts/testing.md#independent-expectations The original source and zero edits prevent rewriting the shared keyword into a b lexical collision. Exact literal statement/header spans additionally require both distinct diagnostics.
+// @evidence contracts/testing.md#independent-expectations The original source and zero edits prevent rewriting the shared keyword into a b lexical collision. Two exact full-statement spans additionally require both distinct diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases A destructured sibling can be unsafe even if plain a is unique; the mixed declaration must be declined as a whole.
 // @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsMixedDestructureRedeclaration invokes assertNoFixSnapshot for both original var lists. Its assertRuleFindingRanges call owns both declaration identities.
 func TestFixNoVarSkipsMixedDestructureRedeclaration(t *testing.T) {
