@@ -8,11 +8,10 @@ import (
 
 // TestFormatClauseJoinJoinsElseIfChainAcrossLines verifies an `else` whose alternate is an `if` collapses the whole chain.
 //
-// Prettier prints an `else if` chain flat, so the alternate being an `if` is
-// exempt from the single-line-body guard. Hoisting it also moves its
-// continuation lines, and the inner join then contends for the same bytes, so
-// the chain must settle through the cascade. The command is the level that
-// contract lives at, and `ttsc format` runs the cascade to a fixed point.
+// An alternate that is an `if` bypasses the single-line-body guard. The real
+// format command must finish with both short bodies joined and the flat
+// else-if header. Its complete output observes that final state, not an
+// intermediate collision, rule schedule or external formatter result.
 //
 //  1. Seed a project with an `else` whose alternate is an `if` across two lines.
 //  2. Run `ttsc format`.
