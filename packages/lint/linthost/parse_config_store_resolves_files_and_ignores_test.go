@@ -9,8 +9,8 @@ import (
 // paths.
 //
 // A config file is a single `ITtscLintConfig` object, but its `extends` chain
-// produces one `ConfigEntry` per file. ResolveRules must apply entries whose
-// `files` glob matches the requested path while treating an `ignores`-only
+// contributes ordered selection and global-ignore entries. ResolveRules applies
+// entries whose `files` glob matches, while treating an `ignores`-only
 // entry as a global ignore pattern. A regression that applied all entries
 // unconditionally would disable "no-console" for non-test files and fail to
 // ignore generated files.
