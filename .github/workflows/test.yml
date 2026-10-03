@@ -23,5 +23,7 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ttsc/lint run build
+      - run: pnpm --filter @ttsc/evidence run build
       - run: pnpm run test:go
       - run: pnpm run test:units
