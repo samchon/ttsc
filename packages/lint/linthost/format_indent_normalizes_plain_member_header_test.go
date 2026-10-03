@@ -6,10 +6,10 @@ import "testing"
 // class member header still indents to member depth after the decorator path
 // was added.
 //
-// Regression guard: memberDeclarationStart returns -1 for a member with no
-// decorators, so the header pass must fall back to its single re-indent of
-// the declaration line exactly as before. A flush-left property must land at
-// two spaces with no behavior change from the decorator work.
+// A member without decorators takes the header pass's direct declaration
+// position branch; it does not need memberDeclarationStart. The literal
+// flush-left property must land at two spaces, independently of the
+// separate decorator and declaration positions in the sibling cases.
 //
 //  1. Parse a class with a flush-left plain property.
 //  2. Apply the format/indent finding through the disk-backed fixer.

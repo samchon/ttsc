@@ -7,11 +7,11 @@ import "testing"
 // decorator line.
 //
 // The header pass re-indents lineStart(SkipTrivia(member.Pos())), but for a
-// decorated member member.Pos() is the leading `@`, so only the decorator
-// line moved while the `name: type` declaration on the next line stayed at
-// its original column, a half-indented member Prettier never emits. The fix
-// also re-indents the declaration line (the first token past the last
-// decorator) to the member's nesting depth.
+// decorated member member.Pos() is the leading `@`. Handling only that
+// position would leave the `name: type` declaration at its original column.
+// The rule must also re-indent the declaration line, the first token past
+// the last decorator, to the member's nesting depth. This literal oracle
+// does not run an external formatter or certify a historical output.
 //
 //  1. Parse a class whose decorator and declaration lines are flush left.
 //  2. Apply the format/indent finding through the disk-backed fixer.
