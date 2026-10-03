@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Engine requires exactly one error at the original switch line two with neither default clause nor marker.
 // @evidence contracts/testing.md#independent-expectations The independently authored nonempty switch lacks both supported omission exemptions; line two identifies the switch rather than its single clause.
 // @evidence contracts/testing.md#distinguishing-cases Unmarked nonempty switch reports; existing-default, empty-switch and matching-marker tests own each allowed boundary.
-// @evidence contracts/testing.md#execution-ownership TestDefaultCaseReportsSwitchWithoutDefault is selected in the shared Go unit population. It calls assertDefaultCaseReportsAtLines and lintDefaultCase, forwarding the actual authored source and option JSON through InlineRuleResolver and Engine.Run. No installed consumer, native artifact build or real product host runs.
+// @evidence contracts/testing.md#execution-ownership TestDefaultCaseReportsSwitchWithoutDefault is selected in the shared Go unit population. It calls assertDefaultCaseReportsAtLines and lintDefaultCase with the authored nonempty unmarked switch and empty options, using RuleConfig directly as the resolver for Engine.Run. No installed consumer, native artifact build or real product host runs.
 func TestDefaultCaseReportsSwitchWithoutDefault(t *testing.T) {
   assertDefaultCaseReportsAtLines(t, `declare const foo: number;
 switch (foo) {
