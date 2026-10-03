@@ -23,12 +23,12 @@ const fixtureTSConfig = `{
 `
 
 // TestBuildRecordsANodePerTopLevelDeclaration verifies that Build records one
-// graph node for each kind of top-level declaration, keyed by its
-// position-invariant id, and classifies workspace source as non-external.
+// graph node for each of six authored top-level declaration kinds and
+// classifies those workspace nodes as non-external.
 //
 // It pins the declaration-to-node mapping the rest of the graph is laid over: a
-// missing kind here is an edge with no endpoint later. driver.SourceFiles drops
-// declaration files, so every node must report External=false.
+// missing kind here would leave an expected endpoint absent. Build filters
+// declaration files before collecting these authored source declarations.
 //
 //  1. Compile a fixture with a function, class, interface, type alias, enum, and
 //     const declaration.
@@ -36,11 +36,12 @@ const fixtureTSConfig = `{
 //  3. Assert exactly those six nodes exist with the right kind and name, none
 //     marked external.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that Build records one graph node for each kind of top-level declaration, keyed by its position-invariant id, and classifies workspace source as non-external.
-// @evidence contracts/testing.md#independent-expectations The expectations are literal: for the six-declaration fixture there must be exactly six non-module nodes, one per (name, kind) pair fn/function, Cls/class, Iface/interface, Alias/type-alias, En/enum and value/variable at the id nodeID builds from the file path, each with the matching name and kind and none external.
+// @evidence contracts/testing.md#behavioral-verification Build returns exactly six non-module nodes for the authored declaration names and kinds, each non-external. No source-position change is performed.
+// @evidence contracts/testing.md#independent-expectations The six literal pairs fn/function, Cls/class, Iface/interface, Alias/type-alias, En/enum and value/variable must match the non-module population and non-external classification. IDs use the owning nodeID formatter and the Program-reported path, so ID grammar and position invariance are not independently certified.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a function, class, interface, type alias, enum, and const declaration; Build the graph; Assert exactly those six nodes exist with the right kind and name, none marked external.
-// @evidence contracts/testing.md#execution-ownership TestBuildRecordsANodePerTopLevelDeclaration is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, and calls Build directly. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command is used.
 func TestBuildRecordsANodePerTopLevelDeclaration(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export function fn(): void {}
