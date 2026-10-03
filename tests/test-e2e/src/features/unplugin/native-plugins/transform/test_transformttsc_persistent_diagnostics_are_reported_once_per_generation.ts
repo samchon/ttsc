@@ -45,7 +45,8 @@ export async function test_transformttsc_persistent_diagnostics_are_reported_onc
       cache,
     );
   const marker = "TTSC-TEST-PERSISTENT-WARNING";
-  const original = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
   let writes = 0;
   try {
     // No `beginTtscTransformBuild` anywhere: this is the persistent lifecycle.
@@ -79,7 +80,7 @@ export async function test_transformttsc_persistent_diagnostics_are_reported_onc
       ...rest: unknown[]
     ) => {
       if (String(chunk).includes(marker)) writes += 1;
-      return (original as (...args: unknown[]) => boolean)(chunk, ...rest);
+      return Reflect.apply(original, process.stderr, [chunk, ...rest]);
     };
 
     for (const file of modules) {
@@ -91,7 +92,13 @@ export async function test_transformttsc_persistent_diagnostics_are_reported_onc
       `a persistent host must surface one generation's diagnostics once; wrote ${writes} times for ${modules.length} deliveries`,
     );
   } finally {
-    (process.stderr as { write: unknown }).write = original;
-    api.resetTtscTransformCache(cache);
+    try {
+      if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+      else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    } finally {
+      api.resetTtscTransformCache(cache);
+    }
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
 }

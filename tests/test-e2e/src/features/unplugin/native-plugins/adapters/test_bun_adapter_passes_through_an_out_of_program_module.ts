@@ -42,7 +42,8 @@ export async function test_bun_adapter_passes_through_an_out_of_program_module()
   fs.writeFileSync(stray, "export const tool: string = 'STRAY';\n", "utf8");
 
   const { loader } = await captureBunLoader(unpluginBun(), "bundler");
-  const original = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
   let captured = "";
   process.stderr.write = ((chunk: unknown) => {
     captured += String(chunk);
@@ -52,7 +53,10 @@ export async function test_bun_adapter_passes_through_an_out_of_program_module()
   try {
     result = await loader({ path: stray });
   } finally {
-    process.stderr.write = original;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
 
   assert.equal(

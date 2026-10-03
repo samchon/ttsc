@@ -44,7 +44,8 @@ export async function test_transformttsc_reports_generation_diagnostics_once_per
       cache,
     );
   const marker = "TTSC-TEST-PROJECT-WIDE-WARNING";
-  const original = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
   let writes = 0;
   try {
     api.beginTtscTransformBuild(cache);
@@ -78,7 +79,7 @@ export async function test_transformttsc_reports_generation_diagnostics_once_per
       ...rest: unknown[]
     ) => {
       if (String(chunk).includes(marker)) writes += 1;
-      return (original as (...args: unknown[]) => boolean)(chunk, ...rest);
+      return Reflect.apply(original, process.stderr, [chunk, ...rest]);
     };
 
     api.beginTtscTransformBuild(cache);
@@ -101,7 +102,13 @@ export async function test_transformttsc_reports_generation_diagnostics_once_per
       "a later pass must surface the standing warning again, once",
     );
   } finally {
-    (process.stderr as { write: unknown }).write = original;
-    api.resetTtscTransformCache(cache);
+    try {
+      if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+      else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    } finally {
+      api.resetTtscTransformCache(cache);
+    }
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
 }

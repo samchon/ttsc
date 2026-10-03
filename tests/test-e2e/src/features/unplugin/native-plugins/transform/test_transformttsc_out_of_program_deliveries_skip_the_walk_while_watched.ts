@@ -56,7 +56,8 @@ export async function test_transformttsc_out_of_program_deliveries_skip_the_walk
       undefined,
       cache,
     );
-  const original = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
   process.stderr.write = (() => true) as typeof process.stderr.write;
   try {
     assert.ok(await deliver(fixture.modules[0]!));
@@ -78,6 +79,9 @@ export async function test_transformttsc_out_of_program_deliveries_skip_the_walk
       return programRuns(fixture.runLog) === 2;
     }, "a membership change to reach an out-of-program delivery");
   } finally {
-    process.stderr.write = original;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
 }

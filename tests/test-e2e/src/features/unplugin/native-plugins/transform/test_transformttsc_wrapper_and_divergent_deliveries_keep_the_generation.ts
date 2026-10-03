@@ -64,7 +64,8 @@ export async function test_transformttsc_wrapper_and_divergent_deliveries_keep_t
   assert.equal(runs(), 1, "a wrapper beside the program keeps the generation");
 
   const reports: string[] = [];
-  const write = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const write = process.stderr.write;
   process.stderr.write = ((chunk: string | Uint8Array) => {
     if (String(chunk).includes("differs from the file on disk"))
       reports.push(String(chunk));
@@ -76,7 +77,10 @@ export async function test_transformttsc_wrapper_and_divergent_deliveries_keep_t
     assert.match((await deliver(rewritten, altered))!.code, /PROBED/);
     assert.match((await deliver(sibling, read(sibling)))!.code, /PROBED/);
   } finally {
-    process.stderr.write = write;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, write);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
   assert.equal(runs(), 1, "a divergent delivery never recompiles the project");
   assert.equal(reports.length, 1, "the difference is reported once");

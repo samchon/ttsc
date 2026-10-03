@@ -38,7 +38,8 @@ export async function test_turbopack_loader_passes_through_an_out_of_program_mod
   const source = "export const tool: string = 'STRAY';\n";
   fs.writeFileSync(stray, source, "utf8");
 
-  const original = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
   let captured = "";
   process.stderr.write = ((chunk: unknown) => {
     captured += String(chunk);
@@ -48,7 +49,10 @@ export async function test_turbopack_loader_passes_through_an_out_of_program_mod
   try {
     content = await runTurbopackLoader({ resourcePath: stray, source });
   } finally {
-    process.stderr.write = original;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
 
   assert.equal(

@@ -63,7 +63,8 @@ export async function test_transformttsc_maps_only_the_text_it_was_generated_fro
     { ...authored, source: module },
   );
 
-  const write = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const write = process.stderr.write;
   process.stderr.write = (() => true) as typeof process.stderr.write;
   let divergent;
   try {
@@ -75,7 +76,10 @@ export async function test_transformttsc_maps_only_the_text_it_was_generated_fro
       undefined,
     );
   } finally {
-    process.stderr.write = write;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, write);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
   assert.ok(divergent, "the divergent delivery is still transformed");
   assert.equal(

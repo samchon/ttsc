@@ -109,7 +109,8 @@ export async function test_transformttsc_complete_validation_proves_each_input_o
     'export const value0: string = "PROBE-DRIFTED";\n',
     "utf8",
   );
-  const write = process.stderr.write.bind(process.stderr);
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const write = process.stderr.write;
   let reported = "";
   process.stderr.write = ((chunk: unknown) => {
     reported += String(chunk);
@@ -119,7 +120,10 @@ export async function test_transformttsc_complete_validation_proves_each_input_o
   try {
     drifted = await deliver(drifting, stale);
   } finally {
-    process.stderr.write = write;
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, write);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
   assert.ok(drifted);
   assert.match(drifted.code, /DRIFTED/, "the output is the disk's");
