@@ -28,18 +28,21 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases This relative environment selection complements explicit cacheDir cleanup and two-instance environment isolation, checking both plugin and Go build roots.
  * @evidence contracts/testing.md#execution-ownership The named feature uses the shared API subclass over the checkout built lib/index.js and selected resolveTsgo binary. The explicit context env overrides its default shared-cache injection; this is not packed installation or pure path calculation.
  * @evidence contracts/e2e.md#necessary-boundary Actual descriptor/source-plugin preparation followed by native cache removal checks their shared context anchor. The observed count/path/root establish selection and deletion; they do not prove that this invocation rebuilt or loaded an executable. The authored Go-cache seed has no independent Go producer.
- * @evidence contracts/e2e.md#shared-execution One prepare resolves the selected plugin and one clean checks both roots. The explicit private cache intentionally preserves destructive ownership; prepare/build/cache-hit/Program populations require actual events rather than API-call or returned-path counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The physical fresh project contains its own relative cache, and the synthetic Go-cache seed contrasts with actual plugin preparation. The compiler receives supplied env without ambient mutation, alongside inherited environment read by actual execution. Normal tracked fixture cleanup does not certify forced interruption or arbitrary descendant shutdown.
+ * @evidence contracts/e2e.md#shared-execution One prepare and one clean retain selected-plugin/both-root checks. Consolidated execution borrows the explicit-cache owner's verified unchanged project and source descriptor/module instead of writing an identical second project. Its private namespace must be absent before the original relative-env preparation. Actual build/cache-hit/Program populations remain separate from call and returned-path counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution keeps its original physical fresh project. Borrowed execution requires the absent .cache namespace after prior explicit cleanup and uses the verified unchanged source inputs, preserving cold selected-cache contrast; the Go seed still contrasts synthetic removal with real plugin preparation. Supplied env does not mutate ambient state. Outer borrowed retention and normal standalone cleanup do not certify interruption or descendant shutdown.
  * @evidence contracts/e2e.md#preserved-coverage Prepared count/location, actual root existence, exact removed roots and both disappearance checks remain. The Go seed checks removal rather than a real Go object producer.
  */
 export const test_ttsccompiler_clean_removes_relative_context_env_cache =
-  () => {
+  (preparedRoot?: string) => {
     const root = TestProject.physicalPath(
-      createProject({
+      preparedRoot ?? createProject({
         plugins: [{ transform: "./plugin.cjs" }],
       }),
     );
-    writeSourcePlugin(root);
+    if (preparedRoot === undefined)
+      writeSourcePlugin(root);
+    else
+      assert.equal(fs.existsSync(path.join(root, ".cache")), false, "relative cache profile requires a cold private namespace");
     const compiler = new TtscCompiler({
       binary: tsgo,
       cwd: root,
