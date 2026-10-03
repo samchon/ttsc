@@ -784,17 +784,20 @@ func checkerGetIterationTypeOfIterable(
 // TypeScript-Go traversal used for synchronous iteration, including inherited
 // and structural iterables, instantiated iterator returns, intersections, and
 // primitive strings. A nil result means the checker could not derive a valid
-// synchronous iteration type. Diagnostics are intentionally disabled because
-// callers use this as a type query after normal TypeScript checking.
+// synchronous iteration type, including the top-level any input case; it is
+// not a proof that a runtime value is non-iterable. Nonnil input must belong to
+// recv's checker graph. The nil error node suppresses this helper's iteration
+// error reporting; underlying semantic queries can still resolve/cache types.
+// Nil recv or inputType returns nil.
 //
-// @evidence contracts/common.md#principled-implementation The pinned iteration helper's Element use and Yield kind obtain synchronous iterator values through actual inherited/instantiated protocol types; a nil diagnostic node makes this an observational query rather than another error-reporting pass.
+// @evidence contracts/common.md#principled-implementation The pinned helper's Element use and Yield kind obtain synchronous iterator values through actual inherited/instantiated protocol types. Its nil error node suppresses iteration error reporting without promising that underlying semantic resolution is effect-free.
 // @evidence contracts/common.md#clear-and-simple-design One guarded bridge exposes the compiler's iterator semantics without assembling Symbol.iterator and next signatures independently.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Iterator values are not guessed from property spelling or selected container names; upstream semantics cover structural iterables and strings.
-// @evidence contracts/common.md#meaningful-documentation Native prose states supported traversal categories, nil-result meaning and disabled diagnostics, separated from tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getSynchronousIterationYieldType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getSynchronousIterationYieldType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getSynchronousIterationYieldType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getSynchronousIterationYieldType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose states traversal categories, the any/nil-result limit, same-checker inputs and the specific iteration-error suppression boundary.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream iteration/type caches belong to the producing checker; union/protocol/signature queries can also allocate temporary result lists. The caller can retain the semantic graph through a returned yield type, while this wrapper keeps no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper guards nil inputs and selects the pinned synchronous Element/Yield operation. Upstream reduction, union traversal, fast-reference recognition, iterator-property/signature filtering and return/iterator-result resolution own the graph/list costs rather than a fixed number of local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The upstream iterationTypesCache keys results by reduced type identity and iteration-use flags, including no-iteration outcomes for this nil-error-node query. The wrapper owns no additional protocol cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Iterator semantics and related global/member typing use the supplied checker/program; this wrapper adds no path, host or platform policy.
 func Checker_getSynchronousIterationYieldType(recv *innerchecker.Checker, inputType *innerchecker.Type) *innerchecker.Type {
   if recv == nil || inputType == nil {
     return nil
@@ -853,15 +856,18 @@ func checkerGetTargetOfImportSpecifier(recv *innerchecker.Checker, node *inneras
 // Checker_getTargetOfImportSpecifier resolves an import specifier node to the
 // exported symbol it binds. Returns nil if recv or node is nil.
 // A nonnil node must be an import specifier in recv's checked program.
+// Upstream import/default/module-member rules can preserve an alias rather
+// than its final target, report resolution diagnostics, and mark type-only
+// alias metadata. A missing resolved member can also yield nil.
 //
 // @evidence contracts/common.md#principled-implementation The linked helper uses the import specifier's actual binding context to resolve its exported target, retaining checker alias semantics rather than matching module text.
 // @evidence contracts/common.md#clear-and-simple-design One guarded import-specific query exposes the existing semantic operation without duplicating module export lookup.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing inputs remain nil and targets are not guessed from specifier names.
 // @evidence contracts/common.md#meaningful-documentation Native prose states target meaning, nil behavior and the import-specifier/same-program premise.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTargetOfImportSpecifier acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTargetOfImportSpecifier performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTargetOfImportSpecifier computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTargetOfImportSpecifier computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolution symbols, module/export state, type-only alias metadata and diagnostics remain checker-owned; a returned symbol can retain that semantic graph through the caller's reference. The wrapper stores no separate result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper guards nil inputs and selects no resolution strategy. Upstream import/default/module-member resolution owns module, property and export queries, name processing and possible symbol combination; costs follow those semantic graphs rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker/program owns module, export, symbol and alias-state reuse. This forwarding wrapper adds no import-target cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Import target and external-module interpretation use the supplied checker/program authority; this wrapper adds no path, host or platform policy and does not replace that resolution.
 func Checker_getTargetOfImportSpecifier(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol {
   if recv == nil || node == nil {
     return nil
