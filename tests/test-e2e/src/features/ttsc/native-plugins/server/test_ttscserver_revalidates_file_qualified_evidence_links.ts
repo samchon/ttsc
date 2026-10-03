@@ -1,4 +1,4 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint, TestProject, retainNativeLintProducer } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -29,11 +29,11 @@ type Publication = {
  * @evidence contracts/testing.md#behavioral-verification A real evidence contributor must publish the missing export, clear it after external file repair, then publish the missing file after deletion and watched-file notification.
  * @evidence contracts/testing.md#independent-expectations The Markdown file-qualified reference, initial other export, repaired value export and literal missing-export/file messages prescribe each original transition independently.
  * @evidence contracts/testing.md#distinguishing-cases The reference population is outside the Program; an external content repair and file deletion distinguish contributor dependency invalidation from ordinary edited source diagnostics.
- * @evidence contracts/testing.md#execution-ownership The named server entry connects built evidence descriptor, linked contributor, project diagnostics and editor watched-file notifications in one real session.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor selects this named generic server entry, connecting the built workspace evidence descriptor, linked contributor and actual project diagnostics after authored watched-file notifications. These notifications are not kernel filesystem events.
  * @evidence contracts/e2e.md#necessary-boundary Graph decision units cannot prove that contributor-declared external dependencies reach the native LSP project channel and trigger publication after editor events.
- * @evidence contracts/e2e.md#shared-execution One evidence/lint producer, one initialized server and one unchanged Program source serve the entire missing-repaired-deleted transition sequence.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All Markdown/external/config paths are private; each waiter precedes its triggering write and notification, session shutdown and project cleanup always run, and contributor inputs are not bypassed by a warm build.
- * @evidence contracts/e2e.md#preserved-coverage Original missing-export wait, same-URI clearing predicate, missing-file wait and nonempty deletion assertion remain; exact graph decision matrices stay with evidence units.
+ * @evidence contracts/e2e.md#shared-execution One workspace evidence/lint producer and initialized server observe missing-repaired-deleted external inputs with unchanged authored Program source and explicit suite cache. This does not assert identical Program objects, cache hits, build/process totals or packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private Markdown/external/config paths and waiters-before-write/notification remain. A separate PLUGIN_BUILD_TIMEOUT bounds supported shutdown without changing original publication budgets; successful direct close alone permits cleanup. Startup/body/shutdown failure retains consumer/already-owned snapshot/cache and aggregates retention errors. No timeout is forced termination or descendant closure proof.
+ * @evidence contracts/e2e.md#preserved-coverage Original missing-export predicate, same-URI clearing predicate, missing-file predicate and nonempty deletion assertion remain. Initial/deletion predicates do not assert sameURI. Direct graph-decision units own separate semantic contributions, not this actual watched-notification/native publication connection.
  */
 export async function test_ttscserver_revalidates_file_qualified_evidence_links() {
     const entry = path.join(
@@ -55,10 +55,10 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
       },
     });
     const target = path.join(project.tmpdir, "external/example.ts");
-    const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
-    });
     try {
+      const client = TtscserverClient.startLauncher(project.tmpdir, {
+        env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      });
       await runTtscserverSession(client, async () => {
         const initial = client.waitForNotification<Publication>(
           "textDocument/publishDiagnostics",
@@ -122,8 +122,15 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
           (await deleted).diagnostics?.length,
           "The editor must observe external deletion.",
         );
-      });
-    } finally {
-      project.cleanup();
+      }, PLUGIN_BUILD_TIMEOUT);
+    } catch (error) {
+      const failures: unknown[] = [error];
+      const reason = "external-evidence server startup, body or shutdown failed";
+      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { retainNativeLintProducer(reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      throw new AggregateError(failures, reason);
     }
+    project.cleanup();
   }

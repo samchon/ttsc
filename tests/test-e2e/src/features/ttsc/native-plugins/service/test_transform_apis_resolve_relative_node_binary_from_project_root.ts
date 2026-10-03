@@ -24,20 +24,24 @@ import { SHARED_GO_BUILD_CACHE_DIR, SHARED_PLUGIN_CACHE_DIR } from "../../../../
  * 2. Configure the banner to observe the runtime environment supplied by the host.
  * 3. Transform through both APIs and assert the resolved project executable path.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual one-shot and resident transform APIs use the project-relative Node executable even though API caller cwd is elsewhere; both emitted banners contain the resolved executable path.
+ * @evidence contracts/testing.md#behavioral-verification Actual one-shot and resident APIs transform despite distinct caller cwd; both emitted banners contain the expected project-relative runtime override resolved to its absolute path. Banner text alone does not certify which executable image ran.
  * @evidence contracts/testing.md#independent-expectations The copied real Node executable at an explicit project filename and distinct caller directory establish the correct absolute path independently; exact single-banner expectations observe the environment actually consumed by config evaluation.
  * @evidence contracts/testing.md#distinguishing-cases Owns caller cwd versus projectRoot precedence and relative runtime overrides through both one-shot and resident consumers; ordinary service requests use the default runtime instead.
- * @evidence contracts/testing.md#execution-ownership The matching named service export invokes public TtscCompiler and TtscService with the same actual project context in the Linux native batch.
- * @evidence contracts/e2e.md#necessary-boundary The JS APIs, native host subprocess cwd and executable config evaluator must agree on relative runtime resolution; direct environment construction cannot prove both native consumers use that runtime.
- * @evidence contracts/e2e.md#shared-execution Both APIs share the same consumer project and immutable banner producer through the batch plugin cache and Go objects; no cold-cache property is asserted, so a private producer rebuild is unnecessary.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied executable and caller/project directories are local fixtures; the environment override is passed explicitly rather than replacing ambient cwd or spawn, and finally disposes the resident child.
- * @evidence contracts/e2e.md#preserved-coverage Original success type, nonempty one-shot/resident outputs and both exact single-banner runtime-path assertions remain. Only the previously unobserved private native cache is replaced with content-addressed batch reuse.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry; it invokes built workspace TtscCompiler and TtscService against the same actual project context. One-shot and resident calls are separate native connections.
+ * @evidence contracts/e2e.md#necessary-boundary Real JS/native/config-evaluator connections must deliver the resolved override to both consumers; direct environment construction cannot prove either actual emitted banner. These observations establish delivered path text, not executable-byte or loaded-image equality.
+ * @evidence contracts/e2e.md#shared-execution Both APIs share authored project/banner inputs and explicit suite plugin/Go caches. Cache availability does not certify hits, avoided rebuilds, one native process or identical Program objects between one-shot and resident consumers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Copied runtime/caller/project and explicit overrides are private, without replacing ambient cwd or spawn. Supported void disposal is attempted and its errors are preserved with body errors, but it offers no awaited close acknowledgement. Tracked roots and already-owned plugin cache are conservatively retained before preparation until actual owned-spawn join evidence exists; retention is not closure certification.
+ * @evidence contracts/e2e.md#preserved-coverage Original success type, nonempty one-shot/resident outputs and both exact single-banner runtime-path assertions remain, including the real copied Node and distinct caller cwd. Actual resident close/producer identity/population proof remain separate survival obligations; no original donor removal is authorized.
  */
 export async function test_transform_apis_resolve_relative_node_binary_from_project_root(): Promise<void> {
   const root = TestProject.physicalPath(
     ProjectFixtures.copy("ttsc-utility-plugins"),
   );
   const caller = TestProject.tmpdir("ttsc-relative-node-caller-");
+  const retentionReason = "relative-runtime service has no awaited disposal acknowledgement";
+  TestProject.retainTemporaryDirectory(root, retentionReason);
+  TestProject.retainTemporaryDirectory(caller, retentionReason);
+  TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root, ["banner"]);
 
   const tsconfig = JSON.parse(
@@ -82,11 +86,16 @@ export async function test_transform_apis_resolve_relative_node_binary_from_proj
   TestUtilityPlugins.assertSingleBanner(compilerOutput, runtime);
 
   const service = new TtscService(context);
+  const failures: unknown[] = [];
   try {
     const residentOutput = await service.transformFile("src/main.ts");
     assert.ok(residentOutput, "resident transform returned no src/main.ts");
     TestUtilityPlugins.assertSingleBanner(residentOutput, runtime);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    service.dispose();
+    try { service.dispose(); }
+    catch (error) { failures.push(error); }
   }
+  if (failures.length) throw new AggregateError(failures, "relative-runtime resident transformation or disposal failed");
 }
