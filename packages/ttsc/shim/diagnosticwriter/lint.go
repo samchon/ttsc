@@ -157,8 +157,8 @@ func (d *LintDiagnostic) File() inner.FileLike {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The offset remains producer/source data rather than a guessed JavaScript character position.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies normalized origin and byte units; the type states the non-nil receiver premise.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Pos acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Pos performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Pos computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This accessor projects the constructor-normalized scalar start; it chooses no independent range-validation, source traversal or coordinate-conversion algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Stored endpoint state belongs to the diagnostic owner; this accessor coordinates no completed/in-flight producer or source-version cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Pos computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Pos() int { return d.pos }
 
@@ -238,8 +238,8 @@ func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing structured metadata remains absent rather than manufactured chain nodes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the absence and its representation premise.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources MessageChain acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms MessageChain performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work MessageChain computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This capability projection supplies absent structured metadata and chooses no child-graph construction, traversal or formatting algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work No message-chain computation or completed/in-flight producer is coordinated here; structured metadata is absent in this diagnostic representation.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation MessageChain computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) MessageChain() []inner.Diagnostic { return nil }
 
@@ -250,8 +250,8 @@ func (d *LintDiagnostic) MessageChain() []inner.Diagnostic { return nil }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Auxiliary source sites are not fabricated from message spelling.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the unsupported auxiliary metadata capability directly.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RelatedInformation acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RelatedInformation performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RelatedInformation computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This capability projection supplies absent auxiliary metadata and chooses no related-site construction, source lookup or diagnostic-graph traversal algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work No auxiliary-diagnostic computation or completed/in-flight producer is coordinated here; related information is absent in this flat representation.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RelatedInformation computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 
