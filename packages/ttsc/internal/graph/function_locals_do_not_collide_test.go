@@ -15,13 +15,15 @@ import (
 //
 // 1. Load outerA and outerB, each with its own inner declaration.
 // 2. Build declarations and their relations from the real compiler.
-// 3. Reject the unqualified inner node and edges to that shared identity.
+// 3. Require each scoped inner and its owner's call, then reject the unqualified
+//    inner node and edges to that shared identity.
 //
-// @evidence contracts/testing.md#behavioral-verification Build must not merge the two local inner callables into one unqualified node identity or target an edge at that phantom shared identity.
-// @evidence contracts/testing.md#independent-expectations The two literal outer functions define distinct lexical inner declarations. The unqualified nodeID(path, inner, NodeFunction) and an edge target named only inner would erase that scope distinction; scope-qualified callable nodes are not prohibited by these assertions.
-// @evidence contracts/testing.md#distinguishing-cases Two same-named locals in separate outer scopes contrast permitted scoped declarations with a colliding unqualified node or edge target.
-// @evidence contracts/testing.md#execution-ownership The source-unit entry loads the authored source through driver.LoadProgram and calls Build and nodeID in the Go test process, closing its Program before temporary fixture cleanup.
+// @evidence contracts/testing.md#behavioral-verification Build must retain outerA.inner and outerB.inner with their respective outer-to-inner call edges, while creating neither an unqualified inner node nor an edge to an unqualified inner target. Empty or dropped-local graphs cannot satisfy the positive counterpart.
+// @evidence contracts/testing.md#independent-expectations The two literal named outer functions define separate lexical inner declarations. Literal scoped names and owner/target pairs follow that nesting; the shared ID formatter selects their coordinates rather than supplying an independent ID-grammar oracle. An unqualified inner identity would erase the tested scope distinction.
+// @evidence contracts/testing.md#distinguishing-cases Two same-named locals in separate named outer scopes require their own scoped nodes and call targets, contrasting a colliding unqualified node or edge. Anonymous owners, deeper scopes and source position identity are not asserted here.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes a driver Program in-process and directly calls Build. Actual Program filenames and shared nodeID formatting select literal scoped endpoints. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or product process runs.
 func TestFunctionLocalsDoNotCollide(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
@@ -61,7 +63,17 @@ export function outerB(): number {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  // No function-local node is minted...
+  for _, owner := range []string{"outerA", "outerB"} {
+    localID := nodeID(path, owner+".inner", NodeFunction)
+    if local := graph.Nodes[localID]; local == nil || local.Name != owner+".inner" {
+      t.Fatalf("missing scoped local %s.inner; nodes: %v", owner, nodeIDSet(graph))
+    }
+    if !hasEdge(graph, nodeID(path, owner, NodeFunction), localID, EdgeValueCall) {
+      t.Fatalf("missing %s -> %s.inner call; edges: %v", owner, owner, graph.Edges)
+    }
+  }
+
+  // No unqualified function-local node is minted...
   if _, ok := graph.Nodes[nodeID(path, "inner", NodeFunction)]; ok {
     t.Fatalf("a function-local 'inner' was minted as a node (would collide across scopes)")
   }
