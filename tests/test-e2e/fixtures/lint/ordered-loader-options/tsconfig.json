@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "strict": true },
+  "files": ["loader-main.ts"]
+}
