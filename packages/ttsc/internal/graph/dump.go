@@ -209,11 +209,11 @@ type DumpEdge struct {
 // about the program that produced it, and the full node and edge sets with none
 // of the MCP response caps.
 //
-// @evidence contracts/common.md#principled-implementation Facts, producer provenance and complete diagnostic collection describe one Program generation; empty arrays remain distinct from uncollected capabilities.
+// @evidence contracts/common.md#principled-implementation Supplied facts, provenance and diagnostics carry the producer's generation claims; the container does not authenticate their common acquisition or completeness. Capabilities distinguish claimed collection from absent evidence.
 // @evidence contracts/common.md#clear-and-simple-design The envelope groups snapshot proof and uncapped facts without mixing serve-protocol controls into the body schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Complete facts are not replaced by sample nodes or MCP response limits.
 // @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain generation provenance and empty diagnostic semantics, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Project owns the physical base and every identity-bearing native path uses its portable coordinate vocabulary.
+// @evidence contracts/portability.md#os-neutral-implementation Project reports the shared projection base and native paths use its protocol coordinates, subject to best-effort alias and supplied case-policy limits; opaque artifact addresses retain separate identity.
 // @evidenceExclude contracts/performance.md#efficient-algorithms NewDump owns projection cost rather than this envelope type.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Session owners establish whether this snapshot may be reused.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the completed payload's lifetime.
@@ -221,15 +221,14 @@ type Dump struct {
   Project  string `json:"project"`
   Tsconfig string `json:"tsconfig"`
 
-  // Provenance proves the rest of this dump came from one Program. It rides the
-  // body rather than the serve envelope so a dump written to a file by the
-  // one-shot command keeps its evidence, and so a consumer holding only the
-  // parsed dump never has to ask where it came from.
+  // Provenance carries the producer's capture claims in the body so file output
+  // retains them. Consumers must validate those claims; this field does not by
+  // itself prove a common Program or artifact acquisition.
   Provenance Provenance `json:"provenance"`
 
-  // Diagnostics are the compiler's findings for the same program generation
-  // that produced Nodes and Edges. Empty means the program had none, not that
-  // they were not collected; the producer states that in its capabilities.
+  // Diagnostics contains reported driver findings, including fileless failures.
+  // Empty is meaningful as collected-empty only under a valid producer capture
+  // and declared diagnostic capability, not merely because this slice is empty.
   Diagnostics []Diagnostic `json:"diagnostics"`
 
   Nodes []DumpNode `json:"nodes"`
@@ -242,7 +241,7 @@ type Dump struct {
 //
 // @evidence contracts/common.md#principled-implementation One shard's nodes and outgoing edges are separated from project-wide provenance and diagnostics that require a generation owner.
 // @evidence contracts/common.md#clear-and-simple-design The smaller payload supports actual partial graph replacement without rebuilding a full envelope.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Shard scope comes from BuildFiles rather than arbitrary response caps or a fixture-specific subset.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The intended shard producer uses BuildFiles selection rather than response caps; this payload does not enforce how its supplied graph population was obtained.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains intentionally omitted project-wide fields and incremental responsibility, with documentation-skill tag spacing.
 // @evidence contracts/portability.md#os-neutral-implementation Shard facts share the complete dump's portable path and evidence representation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The projection operation chooses the algorithm, not this container.
@@ -254,25 +253,26 @@ type DumpFacts struct {
 }
 
 // DumpOrigin is the snapshot evidence a caller attaches to a dump: who built it
-// and what the same program generation had to say about the code. It is a
-// separate struct because only the commands that own a compiler session can
-// produce it, while the graph projection below is pure.
+// and reported driver findings. Compiler-session owners must bind these inputs
+// to one acquisition, but arbitrary callers can construct this record too.
+// Projection does not reacquire compiler findings; its native path mapping is
+// separate from that acquisition and does not authenticate the origin.
 //
-// @evidence contracts/common.md#principled-implementation Caller-captured producer evidence and diagnostics remain associated with the same compiler generation before pure dump projection.
-// @evidence contracts/common.md#clear-and-simple-design The session boundary supplies origin facts explicitly instead of allowing the pure mapper to reread live compiler state.
+// @evidence contracts/common.md#principled-implementation Caller-supplied provenance and diagnostics require a common capture established by the producer; this input record and subsequent projection do not independently certify it.
+// @evidence contracts/common.md#clear-and-simple-design Origin facts are explicit inputs; projection does not query live compiler state, although its shared path mapper can perform native resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts NewDump stamps the schema version; this input does not authorize guessed capabilities or reconstructed disk provenance.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes session acquisition from pure projection and explains nil diagnostics under the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes caller-owned acquisition from projection/native path resolution and explains supplied diagnostics under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Captured physical paths are deliberately retained until the shared dump mapper projects them together.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This input record chooses no snapshot acquisition algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The session owner establishes reuse validity.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The input container owns no independent retention or handle lifecycle.
 type DumpOrigin struct {
-  // Provenance identifies the producing program. NewDump always stamps the
-  // schema version itself, so a caller cannot publish a wrong one.
+  // Provenance reports the producing program. NewDump stamps its schema version
+  // regardless of this input, but does not authenticate the other fields.
   Provenance Provenance
 
-  // Diagnostics are the compiler findings for the producing generation, or nil
-  // when the caller did not collect them.
+  // Diagnostics are supplied driver findings. Nil carries no findings and does
+  // not itself prove whether collection occurred.
   Diagnostics []Diagnostic
 }
 
