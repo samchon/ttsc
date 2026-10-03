@@ -20,16 +20,25 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Real Engine executes a panicking rule only once per file, emits two unsuppressed engine failures with original panic causes and corresponding source identities, while a healthy sibling receives all six visits in each file.
 // @evidence contracts/testing.md#independent-expectations Authored two-file sources contain six requested identifier/numeric visits each; literal one panic visit and six sibling visits independently specify per-file quarantine, alongside two error findings and the original throw text.
-// @evidence contracts/testing.md#distinguishing-cases Specific and blanket eslint-disable directives must not hide execution failures; repeated matching nodes and a second file distinguish per-file quarantine from permanent disable or aborting unrelated rules.
+// @evidence contracts/testing.md#distinguishing-cases Specific and blanket eslint-disable directives must not hide execution failures; repeated matching nodes and a second file distinguish per-file quarantine from permanent disable or aborting unrelated rules. Both sentinel names are checked before registration, and each owned registration has immediate cleanup and derived-code invalidation.
 // @evidence contracts/testing.md#execution-ownership Real in-process registration and serial Engine dispatch exercise recovery with deterministic counters and cleanup; intentional failures bypass the semantic guard, and no native producer, install or external process runs.
 func TestEngineQuarantinesPanickingRulePerFile(t *testing.T) {
   bomb := &fileQuarantinePanickingRule{checks: map[string]int{}}
   sibling := &fileQuarantineSiblingRule{checks: map[string]int{}}
+  for _, rule := range []Rule{bomb, sibling} {
+    if LookupRule(rule.Name()) != nil {
+      t.Fatalf("quarantine sentinel is already registered: %s", rule.Name())
+    }
+  }
   Register(bomb)
-  Register(sibling)
   t.Cleanup(func() {
     delete(registered.rules, bomb.Name())
+    invalidateRuntimeRuleCodes()
+  })
+  Register(sibling)
+  t.Cleanup(func() {
     delete(registered.rules, sibling.Name())
+    invalidateRuntimeRuleCodes()
   })
 
   first := parseTSFile(t, "/virtual/panic-first.ts", `// eslint-disable test/quarantine-panic
@@ -59,7 +68,9 @@ delta;
       !strings.Contains(finding.Message, "panicked") {
       t.Fatalf("finding %d is not the unsuppressed engine failure: %+v", i, finding)
     }
-    if !finding.engineFailure || !strings.Contains(finding.Message, "synthetic repeated panic") || finding.File != []*shimast.SourceFile{first, second}[i] { t.Fatalf("failure %d lost its cause or file identity: %+v", i, finding) }
+    if !finding.engineFailure || !strings.Contains(finding.Message, "synthetic repeated panic") || finding.File != []*shimast.SourceFile{first, second}[i] {
+      t.Fatalf("failure %d lost its cause or file identity: %+v", i, finding)
+    }
   }
 
   for _, file := range []*shimast.SourceFile{first, second} {
