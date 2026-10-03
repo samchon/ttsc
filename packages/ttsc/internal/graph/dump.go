@@ -510,15 +510,18 @@ func objectMemberWireKind(kind NodeKind) string {
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
 // See NewDump for the parameters.
+// Native JSON marshaling buffers the full value and copies the returned bytes;
+// pretty marshaling additionally builds indented bytes. This byte-returning
+// adapter appends no protocol newline and acquires no output writer.
 //
-// @evidence contracts/common.md#principled-implementation NewDump validates snapshot projection before standard JSON encoding, and formatting changes no graph facts.
+// @evidence contracts/common.md#principled-implementation NewDump's identity projection checks precede JSON encoding; formatting preserves the supplied facts without authenticating snapshot origin or adding a protocol newline.
 // @evidence contracts/common.md#clear-and-simple-design One byte-returning adapter delegates graph semantics to NewDump and encoding to encoding/json.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Encoding failures propagate rather than substituting expected JSON or suppressing invalid paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies byte serialization and indentation; the referenced input contract remains documented by NewDump under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation This adapter preserves NewDump's portable coordinate rules and propagates its native-boundary errors.
-// @evidence contracts/performance.md#efficient-algorithms Projection has NewDump's sorting cost; JSON encoding is linear in output bytes and the requested byte slice necessarily holds that complete output.
+// @evidence contracts/performance.md#efficient-algorithms Projection includes NewDump's native/text/payload costs. JSON encoding includes map-key text sorting, full-value buffering and returned-byte copying; pretty output additionally scans and allocates indented bytes.
 // @evidence contracts/performance.md#reuse-equivalent-work Graph projection shares its per-snapshot indices; this adapter does not retain encoded results across changed generations.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned byte slice transfers to the caller and the function acquires no native resource or retained cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Projection and encoded/copy/optional indentation buffers scale without a payload cap; the standard encoder pool may retain capacity. Returned bytes belong to the caller, and this adapter retains no own result cache or native handle.
 func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) ([]byte, error) {
   d, err := NewDump(g, project, tsconfig, ignored, sources, origin)
   if err != nil {

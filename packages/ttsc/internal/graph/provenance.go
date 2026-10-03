@@ -325,22 +325,22 @@ func Digest(sum [sha256.Size]byte) string { return hex.EncodeToString(sum[:]) }
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or retained state is acquired.
 func TypescriptVersion() string { return shimcore.Version() }
 
-// NewProvenance assembles the evidence for a snapshot while retaining the
+// NewProvenance assembles a manifest from caller-supplied snapshot inputs while retaining the
 // compiler's physical paths. NewDump projects those paths together with every
 // node, edge, span, and diagnostic through its one cached path mapper.
 // texts maps a source file's path to the text the checker read (as SourceTexts
 // returns it); disk maps that path to the hex digest of its on-disk bytes, and
 // a path absent from it is reported with an empty Disk. configs and roots come
-// from the same capture that produced texts.
+// must come from the same capture that produced texts. This constructor does not authenticate that origin or the completeness of declared capabilities.
 //
-// @evidence contracts/common.md#principled-implementation Captured checker text is hashed directly while supplied disk/config/root identities remain from the same acquisition; deterministic sorting changes presentation, not meaning.
+// @evidence contracts/common.md#principled-implementation Supplied text is hashed directly and disk/config/root identities are copied. The caller must establish their common acquisition and declared capability coverage; sorting does not authenticate either.
 // @evidence contracts/common.md#clear-and-simple-design Capture stays with the session owner and this constructor copies, hashes and orders the manifest without reopening files.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Capability claims come from the actual producer input, not inferred empty collections or a package-specific expected manifest.
-// @evidence contracts/common.md#meaningful-documentation Native prose defines each input's capture origin and later shared path projection, following the documentation skill.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Capabilities are copied verbatim from the supplied list, not inferred from empty collections. This constructor does not validate their vocabulary, coverage or producer authority.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the required common capture, supplied-data limits and later shared path projection under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Physical paths remain untouched until NewDump maps every snapshot field consistently; no native casing or slash heuristic changes the captured identities here.
-// @evidence contracts/performance.md#efficient-algorithms Hashing is linear in checker-text bytes; sorting costs O(S log S + C log C + R log R + K log K) for sources, configs, roots and capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Hashing reads all supplied text bytes; records and capability strings are copied into new slices, then sorted with filename/config/capability string comparisons. Comparison count is O(S log S + C log C + R log R + K log K), while compared text length also contributes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Cross-generation content reuse belongs to the session capture owner; this constructor cannot establish changed-text equivalence from a path alone.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Caller slices are copied before sorting and no source body is retained; only the constructed digest manifest transfers to the caller.
+// @evidence contracts/performance.md#bound-retention-and-release-resources New source/config/root/capability slices transfer to the caller, sharing immutable string values but retaining no supplied source body. Their counts and text lengths have no cap here; no historical cache or native handle is owned.
 func NewProvenance(
   producer Producer,
   capabilities []string,
@@ -376,7 +376,7 @@ func NewProvenance(
     return capturedRoots[i].File < capturedRoots[j].File
   })
 
-  // Copy before sorting: the caller's slice is a shared package-level constant,
+  // Copy before sorting: the caller may share its slice with other consumers,
   // and sorting in place would reorder it under every other reader. The copy of
   // a nil is an empty list, which is what the wire wants anyway.
   declared := append([]string{}, capabilities...)
