@@ -1338,16 +1338,17 @@ func GetCombinedNodeFlags(node *Node) NodeFlags {
 }
 
 // IsConstAssertion recognizes an `as const` or `<const>` assertion by its
-// syntax. Pass a non-nil compiler node; recognition does not validate whether
-// the asserted expression is permitted in a const assertion.
+// syntax. Pass a nonnil node with valid compiler kind/payload data, including a
+// type for assertion nodes. Recognition does not validate whether the asserted
+// expression is permitted in a const assertion.
 //
 // @evidence contracts/common.md#principled-implementation Upstream classification requires an assertion expression whose type is a const reference without type arguments, preserving syntactic recognition rather than asserting semantic validity.
 // @evidence contracts/common.md#clear-and-simple-design A single forwarding predicate keeps const-assertion syntax classification with the compiler that owns it.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler node classification replaces textual matching and supplies no fixture-specific or semantic-validation bypass.
 // @evidence contracts/common.md#meaningful-documentation Native prose states syntax-only recognition and the non-nil input condition, with prose and tags separated following the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsConstAssertion acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsConstAssertion performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsConstAssertion computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent assertion classifier. Upstream checks fixed kinds, type-argument count and an identifier against the fixed four-byte text const, costing O(1) time and space without traversing the asserted expression.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This syntax forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish whether the inspected payload remains valid.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsConstAssertion computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) }
 

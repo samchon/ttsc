@@ -1522,16 +1522,17 @@ func IsBindingElement(node *Node) bool {
 }
 
 // IsDeclaration reports whether node is a declaration syntax node.
-// Supply a nonnil node. Upstream treats a type parameter as a declaration only
-// when it has a parent; other kinds use its declaration-node classification.
+// Supply a nonnil node with valid compiler payload data. Upstream treats a type
+// parameter as a declaration only when it has a parent; other kinds use the
+// payload's declaration data.
 //
-// @evidence contracts/common.md#principled-implementation Delegation preserves the upstream parent-sensitive type-parameter case and declaration kind classification.
+// @evidence contracts/common.md#principled-implementation Delegation preserves the upstream parent-sensitive type-parameter case and declaration-payload classification.
 // @evidence contracts/common.md#clear-and-simple-design Declaration policy has one upstream owner rather than a copied shim kind set.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The type-parameter distinction is an upstream semantic rule rather than a fixture exception.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the nonobvious parent case and nonnil precondition with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsDeclaration acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsDeclaration performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsDeclaration computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent declaration classifier. Upstream checks a type-parameter kind/parent or declaration-data presence in O(1) time and space without traversing the tree.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners control parent and payload validity.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsDeclaration computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsDeclaration(node *Node) bool {
   return innerast.IsDeclaration(node)
@@ -1547,8 +1548,8 @@ func IsDeclaration(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No hardcoded imported names or fixture export mappings are introduced.
 // @evidence contracts/common.md#meaningful-documentation Native prose records linked-parent requirements and the upstream both-side specifier behavior.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsDeclarationNameOrImportPropertyName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsDeclarationNameOrImportPropertyName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsDeclarationNameOrImportPropertyName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent name classifier. Upstream uses fixed parent-kind, identifier/string-kind and declaration/name-identity checks in O(1) time and space without ancestor or name-text scans.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of parent links and declaration name identity.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsDeclarationNameOrImportPropertyName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsDeclarationNameOrImportPropertyName(node *Node) bool {
   return innerast.IsDeclarationNameOrImportPropertyName(node)
