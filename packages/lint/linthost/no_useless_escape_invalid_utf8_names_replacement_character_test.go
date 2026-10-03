@@ -12,13 +12,13 @@ import (
 // TestNoUselessEscapeInvalidUtf8NamesReplacementCharacter verifies the
 // no-useless-escape message when the escaped byte is not valid UTF-8.
 //
-// Source text reaches the rule as raw bytes, so an escape can target a byte
-// that decodes to nothing — a lone 0xFF from a Latin-1 file saved without
-// conversion. Naming the escaped rune must not smuggle that byte into the
-// message: a Finding is serialized to JSON for the CLI renderer and the LSP,
-// where an invalid sequence would be mangled downstream. Decoding yields
-// U+FFFD, which is also what ESLint sees, because Node replaces undecodable
-// bytes with U+FFFD while reading the file, long before the rule runs.
+// The authored source carries a lone 0xFF byte after a backslash in each
+// lexical container. The message builder decodes that byte to U+FFFD;
+// it must not copy the invalid byte into the diagnostic message.
+// The direct oracle checks UTF-8 validity, the literal replacement-character
+// message and a range covering only the backslash. It does not exercise
+// decoding a file through Node, CLI JSON serialization or LSP transport.
+// Those downstream operations are not certified by this direct unit.
 //
 //  1. Lint a string and a regex whose escape targets a lone 0xFF byte.
 //  2. Assert both messages name the replacement character.
