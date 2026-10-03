@@ -50,6 +50,10 @@ export const test_ttsccompiler_clean_removes_relative_context_env_cache =
     });
     const cacheRoot = path.join(root, ".cache", "ttsc", "plugins");
     const goBuildRoot = path.join(root, ".cache", "ttsc", "go-build");
+    const inputBytes: [string, Buffer][] = [];
+    if (preparedRoot !== undefined)
+      for (const name of ["package.json", "tsconfig.json", "src/main.ts", "plugin.cjs", "plugin-go/go.mod", "plugin-go/main.go"])
+        inputBytes.push([name, fs.readFileSync(path.join(root, name))]);
 
     const prepared = compiler.prepare();
 
@@ -67,4 +71,7 @@ export const test_ttsccompiler_clean_removes_relative_context_env_cache =
     assert.deepEqual(removed, [cacheRoot, goBuildRoot]);
     assert.equal(fs.existsSync(cacheRoot), false);
     assert.equal(fs.existsSync(goBuildRoot), false);
+    if (preparedRoot !== undefined)
+      for (const [name, bytes] of inputBytes)
+        assert.deepEqual(fs.readFileSync(path.join(root, name)), bytes, `relative prepare/clean changed shared input ${name}`);
   };

@@ -41,18 +41,25 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Two instances with identical sources but different cache roots distinguish artifact reuse ownership from accidental process.env mutation or cross-root placement.
  * @evidence contracts/testing.md#execution-ownership The named feature uses checkout built TtscCompiler through the shared subclass; each supplied TTSC_CACHE_DIR overrides its default cache injection. Both prepare calls return existing selected paths, not an independent loaded-image or new-build provenance proof.
  * @evidence contracts/e2e.md#necessary-boundary Real artifact placement through per-instance environment must remain isolated even when source identities match; pure key calculations cannot prove filesystem placement or ambient preservation.
- * @evidence contracts/e2e.md#shared-execution Two prepare invocations deliberately contrast private cache roots, and each returned result supplies the original positive/negative location checks. Selected compiler and built API are shared; cache-root separation does not prove exact native build/process totals or Program reuse.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh physical project owns two private caches and context.env supplies differences without ambient mutation; normal project/cache cleanup is tracked by TestProject. Supplied overrides are snapshots but inherited env/omitted cwd remain execution-time authority; direct return does not establish arbitrary descendant closure or cleanup after interruption.
+ * @evidence contracts/e2e.md#shared-execution Both original prepare calls deliberately contrast private cache roots and retain positive/negative placement checks. Consolidated execution borrows the preceding cache owners' verified unchanged source project instead of creating the same descriptor/module again; .cache/a and b must each be absent. Selected compiler/API are shared but native builds/process totals and Program reuse are not inferred.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone keeps its fresh physical project. Borrowed execution requires absent a/b namespaces, unchanged source inputs verified after previous prepare/clean, exact descriptor bytes and module membership. Supplied context.env differs without ambient mutation; overrides are snapshots, inherited env/omitted cwd execution-time inputs. Borrowed inputs/caches remain retained by the outer owner; direct returns do not certify arbitrary descendants or interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Both positive prefixes, distinct paths, binary existence, opposite-root negatives and ambient equality remain; no deletion or concurrent prepare is claimed.
  */
 export const test_ttsccompiler_prepare_isolates_instances_by_context_env_cache =
-  () => {
+  (preparedRoot?: string) => {
     const root = TestProject.physicalPath(
-      createProject({
+      preparedRoot ?? createProject({
         plugins: [{ transform: "./plugin.cjs" }],
       }),
     );
-    writeSourcePlugin(root);
+    if (preparedRoot === undefined)
+      writeSourcePlugin(root);
+    else {
+      assert.equal(fs.existsSync(path.join(root, ".cache", "a")), false);
+      assert.equal(fs.existsSync(path.join(root, ".cache", "b")), false);
+      assert.deepEqual(fs.readdirSync(path.join(root, "plugin-go")).sort(), ["go.mod", "main.go"]);
+      assert.equal(fs.readFileSync(path.join(root, "plugin.cjs"), "utf8"), 'module.exports = { name: "prepare-fixture", source: "./plugin-go" };\n');
+    }
     const cacheRootA = path.join(root, ".cache", "a", "plugins");
     const cacheRootB = path.join(root, ".cache", "b", "plugins");
 
