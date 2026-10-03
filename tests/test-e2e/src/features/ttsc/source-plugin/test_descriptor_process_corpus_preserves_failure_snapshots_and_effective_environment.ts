@@ -25,16 +25,17 @@ import {
  * @evidence contracts/testing.md#behavioral-verification The actual built loader evaluates nine authored descriptors from a plain Node caller. Seven exact one-line counters, empty caller stdout, forwarded stderr, absent forbidden fallback, contradictory env markers and the returned status-plus-reason distinguish duplicate evaluation, channel leakage and retry forgery.
  * @evidence contracts/testing.md#independent-expectations Authored literal errors, run-newline counters, absent trap marker and context-only versus ambient markers establish the expected outcomes. The body message comes from the caller's results file, independently of the shim stack on stderr.
  * @evidence contracts/testing.md#distinguishing-cases Factory and module failures, assigned extension and missing-module codes, a mutated genuine failure, a post-failure file and a directory at a candidate path remain separate evaluations. Extensionless ESM context and body cases preserve environment selection and the returned failure reason; these assertions do not count which runtime-loading route was selected.
- * @evidence contracts/testing.md#execution-ownership This named E2E scenario owns one plain Node worker invoking the built loader and its actual isolated and ttsx evaluators. Portable process-failure and envelope interpretation remain in their existing source units.
+ * @evidence contracts/testing.md#execution-ownership This named E2E scenario owns one plain Node worker invoking the workspace-built loader. Isolated evaluator attempts and ttsx fallback depend on the actual runtime route; nine records do not certify nine starts. This entry does not certify selection or execution of portable source-unit counterparts.
  * @evidence contracts/e2e.md#necessary-boundary Actual isolated evaluator transport must carry effective env, redirect arbitrary descriptor stdout, seal retry classification at failure time and return the ttsx body envelope. Running inside the unit loader cannot establish the plain Node fallback route.
- * @evidence contracts/e2e.md#shared-execution One authored project and one caller replace three roots and nine caller workers. Nine loader requests retain their actual isolated evaluator attempts and any ttsx fallback; those shims still own temporary projects and compiler work. No inner evaluator, compiler request or runtime-capability probe reduction is claimed. The negative trap is never a compiler substitute.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each descriptor has a distinct path and counter. The shared config is changed only after synchronous evaluation returns, failed evaluations do not publish reusable results, and effective env overrides stay call-local. TestProject releases the root only after the caller and its synchronous children exit.
+ * @evidence contracts/e2e.md#shared-execution One authored project and one caller contain nine loader requests. The prior three-root/nine-caller organization is historical structure, not measured cost or process reduction. Actual evaluator attempts, ttsx/compiler work and runtime probes require separate observations. Distinct counters and accumulated parent checks retain failure identity; the negative trap detects forbidden retry and does not stand in for a successful compiler.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked project root is retained before the worker starts. Distinct descriptor paths/counters and synchronous return before config changes separate requests; effective overrides stay child-local. The helper resolves on actual direct close and rejects on error or its close deadline. A deadline rejection is not a joined child or permission to reuse the project, and direct close does not certify arbitrary descendants. Status0 and signalnull remain explicit completion observations.
  * @evidence contracts/e2e.md#preserved-coverage Seven original counter and retry cases plus context-env and returned module-body status-and-reason remain individually checked even if another case fails. These assertions replace the three removed entries; the separate descriptor runtime-input provenance matrix retains its own owner.
  */
 export async function test_descriptor_process_corpus_preserves_failure_snapshots_and_effective_environment(): Promise<void> {
   const root = TestProject.createProject(
     FixtureFiles.read("ttsc/descriptor-process-corpus"),
   );
+  TestProject.retainTemporaryDirectory(root);
   const result = await spawnNodeWorker({
     script: path.join(root, "worker.cjs"),
     env: {
@@ -54,6 +55,7 @@ export async function test_descriptor_process_corpus_preserves_failure_snapshots
     },
   });
   assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.signal, null);
   const records: { name: string; failed: boolean; message: string }[] =
     JSON.parse(fs.readFileSync(path.join(root, "results.json"), "utf8"));
   const failures: Error[] = [];
