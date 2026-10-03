@@ -27,15 +27,16 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Real Go builds patch-qualified modules and prints patch-release, then rejects overlay go 1.99.0 with GOTOOLCHAIN=local.
  * @evidence contracts/testing.md#independent-expectations Go module/workspace version ordering and the handwritten overlay constant establish the success and failure expectations.
  * @evidence contracts/testing.md#distinguishing-cases Supported 1.26.0 directive and intentionally unsupported 1.99.0 are adjacent success/rejection states on the same workspace.
- * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_builds_modules_that_declare_a_patch_go_release entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic source-plugin export, which invokes the real built source builder/observed spawnSync. Its build and assert.throws callbacks run beneath the named owner and are not separate selectable hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin assembles the module/workspace and invokes installed Go, then the returned artifact is executed where the scenario does so. The dependency literal and Go version rejection distinguish incorrect module selection or incompatible workspace assembly that source-only parsing cannot prove.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The supported and unsupported version states reuse one workspace; changing the overlay directive requires another Go observation and cannot reuse the supported binary.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#shared-execution Supported/unsupported directives use the same authored workspace with a fresh actual builder call after mutation, not the old binary as rejection proof. Built libraries and available Go may share; hits, no rebuild or process/Program totals are not certified.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Root/modules/private cache are tracked; original success build/run completes before overlay directive mutation. Actual artifact error/signal/status are checked before its output, and the intended negative remains a synchronous regex-matched exception. Explicit GOTOOLCHAIN is call-local, without ambient write/finally restoration. Root is retained because sync return does not certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Real Go builds patch-qualified modules and prints patch-release, then rejects overlay go 1.99.0 with GOTOOLCHAIN=local. These assertions stay in test_buildsourceplugin_builds_modules_that_declare_a_patch_go_release with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_builds_modules_that_declare_a_patch_go_release =
   () => {
     const root = TestProject.tmpdir("ttsc-patch-go-release-");
+    TestProject.retainTemporaryDirectory(root, "patch-version native workspace has no descendant join acknowledgement");
     const plugin = path.join(root, "plugin");
     const overlay = path.join(root, "overlay");
     write(
@@ -68,8 +69,12 @@ export const test_buildsourceplugin_builds_modules_that_declare_a_patch_go_relea
       });
 
     const binary = build();
+    const result = child_process.spawnSync(binary, { encoding: "utf8" });
+    assert.equal(result.error, undefined, "patch-release artifact launch error");
+    assert.equal(result.signal, null, "patch-release artifact terminated by signal");
+    assert.equal(result.status, 0, "patch-release artifact exit status");
     assert.equal(
-      child_process.spawnSync(binary, { encoding: "utf8" }).stderr.trim(),
+      result.stderr.trim(),
       "patch-release",
     );
 
