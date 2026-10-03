@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Engine requires zero findings for the original uppercase NO DEFAULT trailing marker.
 // @evidence contracts/testing.md#independent-expectations The default marker pattern is case-insensitive, independently allowing uppercase text without changing the missing-default clause.
 // @evidence contracts/testing.md#distinguishing-cases Uppercase marker stays clean; lowercase and block marker cases own equivalent accepted forms, while unmarked and extra-text cases own reports.
-// @evidence contracts/testing.md#execution-ownership TestDefaultCaseAcceptsCaseInsensitiveMarker is selected in the shared Go unit population. It calls assertDefaultCaseClean and lintDefaultCase, forwarding the actual authored source and option JSON through InlineRuleResolver and Engine.Run. No installed consumer, native artifact build or real product host runs.
+// @evidence contracts/testing.md#execution-ownership TestDefaultCaseAcceptsCaseInsensitiveMarker is selected in the shared Go unit population. It calls assertDefaultCaseClean and lintDefaultCase with the authored source and empty options, using RuleConfig directly as the resolver for Engine.Run. No installed consumer, native artifact build or real product host runs.
 func TestDefaultCaseAcceptsCaseInsensitiveMarker(t *testing.T) {
   assertDefaultCaseClean(t, `declare const foo: number;
 switch (foo) {
