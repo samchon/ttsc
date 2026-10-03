@@ -3,11 +3,13 @@ package driver
 import (
   "crypto/sha256"
   "encoding/hex"
+  "errors"
   "os"
-  "os/exec"
   "path/filepath"
   "runtime"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 //
@@ -322,7 +324,7 @@ func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
 // @evidence contracts/testing.md#behavioral-verification A probe through a lexical directory alias joins the physical read of the selected file so the proof reports the physical path.
 // @evidence contracts/testing.md#independent-expectations The expected physical path and bytes come from the test's own directory layout and literal file contents.
 // @evidence contracts/testing.md#distinguishing-cases The alias spelling and the physical spelling differ, so a proof keyed on the lexical path alone fails.
-// @evidence contracts/testing.md#execution-ownership TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#execution-ownership This Go unit owns a native directory-link fixture and calls the actual observation/proof adapter. Windows junction creation uses the existing windowsjunction helper's owned cmd child and opt-in trace; it does not launch Node or a product host. POSIX permission-denied symlink setup is explicitly skipped, while other setup failures fail; no successful alias coverage is certified on a skipped host.
 func TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead(t *testing.T) {
   root := t.TempDir()
   target := filepath.Join(root, "target")
@@ -336,18 +338,14 @@ func TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead(t *testing.T) {
   }
   alias := filepath.Join(root, "alias")
   if runtime.GOOS == "windows" {
-    command := exec.Command(
-      "node",
-      "-e",
-      `require("node:fs").symlinkSync(process.argv[1], process.argv[2], "junction")`,
-      target,
-      alias,
-    )
-    if output, err := command.CombinedOutput(); err != nil {
-      t.Skipf("directory junction unavailable on this host: %v: %s", err, output)
+    if err := windowsjunction.Create(alias, target); err != nil {
+      t.Fatalf("create owned directory junction: %v", err)
     }
   } else if err := os.Symlink(target, alias); err != nil {
-    t.Skipf("directory symlink unavailable on this host: %v", err)
+    if errors.Is(err, os.ErrPermission) {
+      t.Skipf("host denied permission for the owned directory symlink fixture: %v", err)
+    }
+    t.Fatalf("create owned directory symlink: %v", err)
   }
   lexical := filepath.Join(alias, "value.js")
   observed := newInputObservationFS(DefaultFS())

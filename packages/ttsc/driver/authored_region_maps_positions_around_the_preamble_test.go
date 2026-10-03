@@ -3,24 +3,24 @@ package driver
 import "testing"
 
 // TestAuthoredRegionMapsPositionsAroundThePreamble verifies the source-map
-// correction for a source preamble moves each parsed-text position to the
-// authored text, wherever the preamble was inserted.
+// region adapter on sampled positions in four literal preamble-bearing texts.
+// It restores authored text, rejects the inside probe, maps the after probe,
+// and preserves the hashbang fixture's before probe.
 //
 // A preamble is parsed as part of the file, so a map printed from the Program
 // records positions in the preamble-bearing text. ApplySourcePreamble inserts
 // it after a BOM and after a hashbang line, and a preamble need not end a line,
 // so a fixed line shift would be wrong for all but the plainest case.
 //
-//  1. Insert a preamble into a plain file, a CRLF hashbang file, a BOM file,
-//     and a file whose preamble does not end a line.
+//  1. Insert a preamble into plain, CRLF hashbang, BOM, and open-line literal texts.
 //  2. Assert the authored text is the original, positions before the preamble
 //     stay, positions inside it drop, and positions after it land on the same
 //     authored character.
 //
-// @evidence contracts/testing.md#behavioral-verification The authored-region mapping moves each parsed-text position to the authored text: positions before the preamble stay, positions inside it drop, and positions after it land on the same authored character.
+// @evidence contracts/testing.md#behavioral-verification Over four literal fixtures, authored text is restored, the sampled inside position is rejected, and the sampled after position maps to its literal authored coordinate; the hashbang fixture also checks one unchanged before position. Other coordinates, Unicode cases, and emitted source-map integration are not certified.
 // @evidence contracts/testing.md#independent-expectations The authored text and the expected line and column of each probe are literals written next to each input, not recomputed by the mapping.
 // @evidence contracts/testing.md#distinguishing-cases A plain file, a CRLF hashbang file, a BOM file and a preamble that does not end a line each place the preamble differently, so a fixed line shift fails all but the plainest case.
-// @evidence contracts/testing.md#execution-ownership TestAuthoredRegionMapsPositionsAroundThePreamble is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls ApplySourcePreamble and the private region adapter in-process over literal text and an opaque filename. It creates no native file or compiler Program and starts no consumer or product process; emitted source-map rewriting is not exercised.
 func TestAuthoredRegionMapsPositionsAroundThePreamble(t *testing.T) {
   type position struct{ line, column int }
   cases := []struct {
