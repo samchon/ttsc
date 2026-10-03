@@ -18,7 +18,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify conditional, nested-callback and plain-helper hooks each report; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
 // @evidence contracts/testing.md#independent-expectations Only top-level component or custom-hook calls satisfy the hook ordering and ownership contract.
-// @evidence contracts/testing.md#distinguishing-cases Three distinct invalid ownership paths remain independently counted; a top-level component hook is added as accepted control.
+// @evidence contracts/testing.md#distinguishing-cases One fixture combines conditional, nested-callback and plain-helper calls with an exact aggregate of three rule diagnostics; a separate top-level component hook has no findings.
 // @evidence contracts/testing.md#execution-ownership TestReactRulesOfHooksRejectsInvalidCallSites is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactRulesOfHooksRejectsInvalidCallSites(t *testing.T) {
   source := `
