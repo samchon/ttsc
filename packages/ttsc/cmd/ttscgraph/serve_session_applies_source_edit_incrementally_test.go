@@ -11,13 +11,13 @@ import (
 // TestServeSessionAppliesSourceEditIncrementally verifies a content-only source
 // edit updates the graph through the resident tsgo Program.
 //
-// A declaration rename changes graph nodes but not imports, so UpdateProgram can
-// reuse every unchanged AST. The new dump must expose the replacement symbol
-// and remove the old one without reopening the project.
+// The same-file declaration rename must report incremental mode, expose the
+// replacement name and remove the old name. Those observations do not count
+// compiler constructions, establish unchanged AST identity, or cover every node.
 //
-// 1. Build the initial graph containing `BeforeEdit`.
+// 1. Request the initial graph for the fixture declaring `BeforeEdit`.
 // 2. Replace it with `AfterEdit` in the same source file.
-// 3. Assert incremental mode and an exact post-edit node set.
+// 3. Assert incremental mode, `AfterEdit` present and `BeforeEdit` absent.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a content-only source edit updates the graph through the resident tsgo Program.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal: after the single source file's class is renamed from BeforeEdit to AfterEdit on disk, the second snapshot must report mode incremental and changed, contain a node named AfterEdit and no node named BeforeEdit. Only those two names are checked, not the whole node set.

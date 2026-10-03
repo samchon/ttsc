@@ -7,15 +7,16 @@ import (
   "testing"
 )
 
-// TestServeProtocolReusesSession verifies multiple NDJSON requests share one
-// compiler session and unchanged responses omit the full dump.
+// TestServeProtocolReusesSession verifies initial then unchanged responses on
+// one NDJSON stream, with no dump on the unchanged response. It observes the
+// reported reuse behavior, not compiler-construction counts or object identity.
 //
 // 1. Load the resident fixture and submit requests with IDs one and two.
 // 2. Decode both responses from one NDJSON operation.
 // 3. Require an initial changed dump for ID one and unchanged with no dump for ID two.
 //
-// @evidence contracts/testing.md#behavioral-verification Two requests on one NDJSON stream are answered from one resident session: id 1 returns mode initial with a changed dump, and id 2 over unedited sources returns mode unchanged, not changed and with no dump.
-// @evidence contracts/testing.md#independent-expectations The expected modes (initial then unchanged), ids and the absence of a dump on the second response are literals from the serve protocol over a fixture that is not edited between requests; a server that rebuilt per request would answer the second as changed with a dump.
+// @evidence contracts/testing.md#behavioral-verification On one NDJSON stream, id 1 reports initial with a changed dump and id 2 over unedited sources reports unchanged, not changed and no dump. The assertions own these response distinctions; they do not observe compiler-construction counts or session object identity.
+// @evidence contracts/testing.md#independent-expectations Literal serve-contract modes initial then unchanged, IDs 1 and 2, and the second response's absent dump are independent expected outcomes for the unedited fixture. Repeating an initial response or returning a dump on unchanged fails. A hidden reconstruction that preserved all these responses would remain indistinguishable.
 // @evidence contracts/testing.md#distinguishing-cases Load the resident fixture and submit requests with IDs one and two. Decode both responses from one NDJSON operation. Require an initial changed dump for ID one and unchanged with no dump for ID two.
 // @evidence contracts/testing.md#execution-ownership TestServeProtocolReusesSession is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeProtocolReusesSession(t *testing.T) {
