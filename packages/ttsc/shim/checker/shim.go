@@ -618,18 +618,20 @@ func IsTupleType(t *innerchecker.Type) bool {
   return innerchecker.IsTupleType(t)
 }
 
-// Checker_getIndexInfosOfType returns the index signatures (string/number/symbol
-// index infos) declared on t.
+// Checker_getIndexInfosOfType returns semantic index information after reduced
+// apparent-type normalization. Results can include inherited or instantiated
+// index signatures and combined union/intersection information, rather than
+// only signatures directly declared on t.
 // recv and t must be nonnil and belong to the same checker graph.
 //
 // @evidence contracts/common.md#principled-implementation Upstream index-info lookup resolves semantic index signatures of the supplied checker type, preserving key/value identities instead of parsing declaration spelling.
 // @evidence contracts/common.md#clear-and-simple-design One direct semantic query exposes existing index information without a separate index-signature walker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Index signatures come from the actual type graph rather than guessed numeric or string property names.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies index-key categories and same-checker nonnil premises.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getIndexInfosOfType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getIndexInfosOfType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getIndexInfosOfType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getIndexInfosOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes normalized semantic index information from direct declarations and specifies same-checker nonnil premises.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned index-info slice is structured-type state owned by the checker, and its entries reference semantic key/value types. Upstream resolution owns any synthesized members; the caller controls additional retention through the borrowed result, while the wrapper stores no separate cache or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no resolution strategy. Upstream reduction, apparent-type normalization and structured-member resolution can instantiate signatures, traverse base types or combine union/intersection constituents and index lists; cost follows those graphs and lists rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ObjectFlagsMembersResolved and structured-type member state coordinate reuse in the producing checker. This forwarding wrapper owns no additional index-query cache or repeated-work policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type normalization and member resolution remain with the supplied checker/program; this wrapper adds no path, host or platform policy.
 func Checker_getIndexInfosOfType(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.IndexInfo {
   return recv.GetIndexInfosOfType(t)
 }
@@ -892,15 +894,17 @@ func Checker_getAliasedSymbol(recv *innerchecker.Checker, symbol *innerast.Symbo
 // namespace module symbol, resolving export-star aggregation the same way the
 // checker does for emit and services.
 // Nil checker or symbol returns nil; a nonnil symbol must be a module in recv.
+// The returned slice excludes reserved internal names. Aggregation can cache
+// resolved exports and report export-star name collisions in the checker.
 //
 // @evidence contracts/common.md#principled-implementation Upstream module exports include export-star aggregation and compiler alias identities for the supplied semantic module, rather than only syntactically listed export declarations.
 // @evidence contracts/common.md#clear-and-simple-design One module query centralizes aggregation in the checker instead of a separate shim re-export walker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Export targets follow actual compiler bindings without hardcoded barrel paths or consumer exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose names source-file/namespace modules, export-star handling and nil/same-checker constraints.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getExportsOfModule acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getExportsOfModule performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getExportsOfModule computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getExportsOfModule computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream aggregation owns temporary visited-symbol/name/collision tables and checker-lifetime resolved-export state. The caller owns the returned symbol slice lifetime and can retain the checker graph through its elements; the wrapper stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs and forwards. Uncached upstream work recursively visits export-star modules, checks visited symbols, clones/merges name tables and reports collisions; each result conversion also scans exports to filter reserved names. Graph size and name/predicate costs belong to that implementation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker caches resolvedExports and type-only export-star metadata, while symbolsToArray creates the per-query result slice. This wrapper owns no additional export cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Export and external-module target resolution use the supplied checker/program authority; this wrapper adds no path, host or platform policy.
 func Checker_getExportsOfModule(recv *innerchecker.Checker, symbol *innerast.Symbol) []*innerast.Symbol {
   if recv == nil || symbol == nil {
     return nil
