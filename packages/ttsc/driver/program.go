@@ -334,7 +334,8 @@ type LoadProgramOptions struct {
   // ForceEmit clears noEmit and emitDeclarationOnly for this load.
   ForceEmit bool
 
-  // ForceNoEmit enables analysis without file writes.
+  // ForceNoEmit sets noEmit for analysis; incremental build-information policy
+  // remains with the emitter. ForceEmit wins if both overrides are true.
   ForceNoEmit bool
 
   // OutDir overrides the output directory after resolution against cwd.
@@ -352,8 +353,9 @@ type LoadProgramOptions struct {
   // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
   SingleThreaded bool
 
-  // Checkers overrides the type-checker pool size, mirroring `tsgo --checkers`.
-  // Zero leaves TypeScript-Go's default; ignored when SingleThreaded is set.
+  // Checkers supplies the requested pool-size option before Program creation.
+  // CreateProgramFromConfig pins the effective pool to one checker; zero skips
+  // this requested override, and SingleThreaded also selects one checker.
   Checkers int
 
   // TsgoArgs carries tsgo CLI flags the `ttsc` launcher did not recognize as
@@ -482,8 +484,9 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.Pa
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
 //
-// SingleThreaded is intentionally left unset so the program keeps
-// TypeScript-Go's parallel source parsing and parallel emit. The checker
+// ProgramOptions.SingleThreaded is left unset, preserving the parsed option:
+// parallel source parsing and emit remain available unless the caller selected
+// single-threaded operation. The checker
 // pool, however, is pinned to a single checker (see forceSingleChecker):
 // every phase ttsc layers on top — plugin transforms and the output
 // rewriter — walks the program serially against the one checker returned by
@@ -493,18 +496,18 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.Pa
 // across them; a circular type whose declarations span files on different
 // checkers resolves to `any` on the borrowed checker. Pinning the pool to
 // one checker keeps prog.Checker consistent with how every file was checked
-// while leaving parse and emit parallel. Both EmitAll and EmitAllRaw
+// without independently forcing serial parse or emit. Both EmitAll and EmitAllRaw
 // serialize the WriteFile callback under a mutex so the emit-stage rewriter
 // never observes the parallel emit either.
 //
 // @evidence contracts/common.md#principled-implementation Native Program construction uses parsed config and source project references; one checker keeps cross-file type queries in the same checker affinity.
 // @evidence contracts/common.md#clear-and-simple-design The adapter owns only Program options and checker-affinity policy while upstream owns parsing and compiler construction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The checker count is a stated cross-file correctness constraint, not a benchmark-only cap or consumer-specific workaround.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain preserved parallel parsing/emit and the single-checker reason under documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the parsed threading choice from the single-checker affinity policy under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The supplied CompilerHost provides native filesystem capabilities and project anchoring without an OS-name-derived policy.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Program construction delegates to the compiler's native algorithm; this adapter imposes the checker affinity required by its consumers.
+// @evidence contracts/performance.md#efficient-algorithms The adapter forces one checker but preserves the parsed threading choice; native NewProgram processes the complete program inputs, initializes the checker pool and verifies options. Source text, file/reference population and native resolution work govern delegated construction cost; this is not a constant-time options wrapper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction creates a new compiler generation and does not coordinate reuse across callers.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned native Program transfers to its caller; acquiring a checker lease is a later LoadProgram responsibility.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned native Program transfers parsed trees, resolution state and checker-pool ownership to its caller without a byte cap here; acquiring a checker lease is a later LoadProgram responsibility, and releasing that lease does not reclaim all caller-reachable Program state.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
