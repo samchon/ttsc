@@ -12,9 +12,9 @@ import (
 // unresolved rule name through `Engine.UnknownRules()` instead of
 // silently no-opping.
 //
-// The legacy `@typescript-eslint/<id>` prefix is the migration cliff:
-// before the clean break it would normalize to the bare name, after the
-// break it falls through as "unknown" and the suppression has no effect.
+// The legacy `@typescript-eslint/<id>` prefix is not a supported alias:
+// its unresolved name enters the unknown-rule channel and its suppression
+// has no effect on the canonical `typescript/<id>` rule.
 // Without surfacing that name, the user cannot tell their suppression is
 // dead. The diagnostic shares the same `UnknownRules()` channel the
 // config layer uses, so existing CLI warning paths display it without
