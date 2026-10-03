@@ -139,9 +139,9 @@ func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category 
 // @evidence contracts/common.md#clear-and-simple-design One accessor owns pointer-to-interface absence conversion without a wrapper file representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source remains absent rather than a fabricated file used to satisfy the renderer.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains retained provenance, project-wide absence and the Go typed-nil interface consequence.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources File acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms File performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work File computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources A nonnil returned interface borrows the stored SourceFile and can keep its source/AST/semantic graph reachable under the caller's lifetime. Nil cases carry no source. The diagnostic and compiler owners retain their existing graph ownership; this accessor allocates no independent source copy or history registry and does not release that graph on return.
+// @evidence contracts/performance.md#efficient-algorithms Two nil checks select true interface absence or the existing source pointer; no source-content scan, wrapper file allocation or coordinate conversion is needed.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Existing source identity belongs to the diagnostic/compiler owners; this accessor coordinates no completed/in-flight source producer or source-version cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation File computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) File() inner.FileLike {
   if d == nil || d.file == nil {
@@ -169,8 +169,8 @@ func (d *LintDiagnostic) Pos() int { return d.pos }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The end is not extended past EOF to invent a visible diagnostic byte.
 // @evidence contracts/common.md#meaningful-documentation Native prose states normalized exclusive endpoint and byte units, with receiver requirements on the type.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources End acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms End performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work End computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This accessor projects the endpoint already normalized by construction; it chooses no independent range-validation, coordinate-conversion or traversal algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Stored endpoint state belongs to the diagnostic owner; this accessor coordinates no completed/in-flight producer or cache invalidation.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation End computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) End() int { return d.end }
 
@@ -186,27 +186,29 @@ func (d *LintDiagnostic) End() int { return d.end }
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Len computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Len() int { return d.end - d.pos }
 
-// Code returns the producer's stable diagnostic identifier.
+// Code returns the producer-supplied diagnostic identifier unchanged.
+// The receiver must be nonnil; uniqueness and stability are producer policy.
 //
 // @evidence contracts/common.md#principled-implementation The stored int32 code passes through unchanged, retaining the rule identity used by formatter banners and consumers.
 // @evidence contracts/common.md#clear-and-simple-design One accessor exposes producer identity independently from severity and message presentation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Codes are supplied by the producer rather than inferred from expected message text.
 // @evidence contracts/common.md#meaningful-documentation Native prose names stable producer identity; construction explains the per-rule convention.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Code acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Code performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Code computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This accessor projects a stored scalar chosen by the producer; it chooses no independent code lookup, validation, conversion or traversal algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Stored diagnostic identity belongs to the producer; this accessor coordinates no completed/in-flight computation or cache invalidation policy.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Code computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Code() int32 { return d.code }
 
 // Category translates the exact error discriminator; every other value is warning.
+// The receiver must be nonnil; stored category values are not validated here.
 //
 // @evidence contracts/common.md#principled-implementation The same LintCategoryError comparison used by IsError maps stored categories to upstream error/warning values, keeping rendering and failure counting consistent.
 // @evidence contracts/common.md#clear-and-simple-design One translation boundary adapts the public lint category to the internal formatter enum.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit category data determines severity without message heuristics or consumer-specific reclassification.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the exact discriminator and fallback, rather than implying arbitrary integers form validated enum values.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Category acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Category performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Category computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms One exact scalar comparison selects the upstream error category, with warning as the fallback; no message/path scan, lookup table or allocation is needed for translation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This stored-category projection coordinates no completed/in-flight producer or cache; the diagnostic owner controls the category value and its lifetime.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Category computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Category() diagnostics.Category {
   if d.category == LintCategoryError {
