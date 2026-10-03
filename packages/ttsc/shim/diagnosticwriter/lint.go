@@ -181,8 +181,8 @@ func (d *LintDiagnostic) End() int { return d.end }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Zero-width spans remain real absence of covered bytes rather than a fabricated length beyond the source.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte length and the EOF zero-width case before acknowledgment tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Len acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Len performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Len computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms Subtract the two constructor-normalized scalar endpoints directly; no source scan, repeated sanitation or byte-to-character conversion is required for the stored span length.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Stored range state belongs to the diagnostic owner; this scalar derived-value query coordinates no completed/in-flight producer or source-version cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Len computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Len() int { return d.end - d.pos }
 
@@ -218,14 +218,16 @@ func (d *LintDiagnostic) Category() diagnostics.Category {
 }
 
 // Localize returns the producer's already-localized message; locale is unused.
+// The receiver must be nonnil. The producer supplies final prose; this method
+// does not verify its language or perform translation.
 //
 // @evidence contracts/common.md#principled-implementation Returning stored prose preserves the producer's chosen message without applying another locale transformation to an already-localized value.
 // @evidence contracts/common.md#clear-and-simple-design One formatter adapter supplies stored prose while message creation stays with the rule.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The message is not replaced by a canned compiler diagnostic or inferred translation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explicitly states already-localized input and ignored locale semantics.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Localize acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Localize performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Localize computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned string borrows the stored message backing bytes, which a caller can keep reachable after the diagnostic's own lifetime. No independent message copy, native handle or historical localization registry is acquired by this accessor; the producer and caller own those bytes and retention.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This accessor projects stored text without scanning, translating or validating it; the producer owns message construction and localization algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Already-produced message state belongs to the diagnostic owner; this accessor coordinates no completed/in-flight translation producer or locale-keyed cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Localize computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
 
@@ -260,9 +262,9 @@ func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 // @evidence contracts/common.md#clear-and-simple-design The public string accessor is separate from the locale-shaped formatter method, while both use the same stored message.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nil does not cause a fabricated finding or a guessed diagnostic message.
 // @evidence contracts/common.md#meaningful-documentation Native prose names already-localized content and the nil-receiver result.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Message acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Message performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Message computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources A present receiver returns borrowed message backing bytes that callers may retain after return; the nil branch returns the empty string. The accessor creates no independent text copy, native handle or historical message registry, and producer/caller owners determine the stored text's lifetime.
+// @evidence contracts/performance.md#efficient-algorithms One receiver nil check chooses empty absence or a stored string projection; no message scan, formatting, localization or copy is required here.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Stored producer text belongs to the diagnostic owner; this accessor coordinates no completed/in-flight message computation or localization cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Message computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Message() string {
   if d == nil {
@@ -273,14 +275,15 @@ func (d *LintDiagnostic) Message() string {
 
 // IsError reports whether the diagnostic should fail the build. Lint plugins
 // use this to compute their exit code separately from the renderer.
+// The receiver must be nonnil; only the exact error discriminator is true.
 //
 // @evidence contracts/common.md#principled-implementation The exact error-category comparison matches Category's upstream mapping, so callers count the same diagnostics that render as errors.
 // @evidence contracts/common.md#clear-and-simple-design A boolean category query leaves process exit-code policy with the caller instead of embedding it in a rendered diagnostic.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Stored category data determines failure classification without matching consumer or message names.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains caller-owned exit decisions and the separation from rendering.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsError acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsError performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsError computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms One exact stored-category comparison supplies the scalar classification without scanning message/path text or allocating state; caller build policy is not recomputed here.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Diagnostic category state belongs to its producer; this predicate coordinates no completed/in-flight work or cross-version result cache.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsError computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError }
 
