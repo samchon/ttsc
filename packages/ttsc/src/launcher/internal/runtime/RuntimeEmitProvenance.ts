@@ -22,17 +22,18 @@ import path from "node:path";
 export namespace RuntimeEmitProvenance {
   /**
    * Whether a decoded value has the compiler's absolute output-to-sources
-   * shape. An empty record is a valid observation that no output owns a
-   * source.
+   * shape. An empty record is valid transport shape, distinct from absent
+   * provenance; the predicate does not authenticate a producer's observation
+   * that no output owns a source.
    *
    * @evidence contracts/common.md#principled-implementation A nonarray object with absolute native output keys and arrays of absolute native source names preserves each recorded mapping; an empty object remains distinct from absent provenance.
    * @evidence contracts/common.md#clear-and-simple-design One type predicate validates the same nested record for manifest inheritance and generation reuse without adding a runtime wrapper around the observed data.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed provenance is rejected rather than rebuilt from filename extensions or a source-map guess.
-   * @evidence contracts/common.md#meaningful-documentation Native prose identifies decoded transport scope and the authoritative empty-record meaning, separated from tags following the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native prose identifies decoded transport scope and valid empty-record shape without certifying producer completeness or ownership observations.
    * @evidence contracts/portability.md#os-neutral-implementation path.isAbsolute applies the consuming host's native filename grammar; filesystem identity and alias equivalence remain the ownership index's responsibility.
    * @evidence contracts/performance.md#efficient-algorithms One visit per output and contributing source costs O(O + S) entries plus path characters; Object.entries temporarily stores O(O) pairs, with early rejection and no filesystem reads or recursive source-tree enumeration.
    *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each decoded transport is validated once by its reader; this predicate owns no independent cache or invalidation identity for mutable caller objects.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate owns no cross-reader computation coordinator, independent cache or invalidation identity for mutable caller records; readers choose when to revalidate transported values.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous predicate retains no mapping history or native resource; validated data remains reader-owned.
    */
   export function isRecord(
