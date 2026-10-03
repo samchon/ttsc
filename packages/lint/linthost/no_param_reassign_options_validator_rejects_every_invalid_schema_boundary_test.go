@@ -7,7 +7,7 @@ import (
 )
 
 // TestNoParamReassignOptionsValidatorRejectsEveryInvalidSchemaBoundary verifies
-// the no-param-reassign options validator rejects each invalid schema boundary
+// the no-param-reassign options validator rejects twelve authored invalid inputs
 // before linting.
 //
 // Invalid options must fail configuration, leave the rule undispatched and never
@@ -55,7 +55,7 @@ func TestNoParamReassignOptionsValidatorRejectsEveryInvalidSchemaBoundary(t *tes
       want:    `option "props" must be a boolean`,
     },
     {
-      name:    "exact ignores require an enabled props branch",
+      name:    "exact ignores reject explicitly disabled props",
       options: json.RawMessage(`{"props":false,"ignorePropertyModificationsFor":["value"]}`),
       want:    `ignore options cannot be combined with "props" set to false`,
     },

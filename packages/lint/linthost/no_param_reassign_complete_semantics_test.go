@@ -3,15 +3,15 @@ package linthost
 import "testing"
 
 // TestNoParamReassignResolvesEveryParameterBindingAndWriteForm verifies
-// no-param-reassign reports every write form against every parameter binding
-// shape.
+// no-param-reassign reports the fifteen authored writes across simple,
+// destructured and rest parameter bindings.
 //
 // The default props:false policy forbids rebinding a parameter, including
 // through destructured and rest bindings; the checker resolves each write to its
 // parameter symbol.
 //
 //  1. Parse one function with simple, object-destructured, nested,
-//     array-destructured and rest parameters, each written by assignment, compound,
+//     array-destructured and rest parameters, with assignment, compound,
 //     logical, update, destructuring, rest, loop and closure-captured forms.
 //  2. Run no-param-reassign with default options on the type-checked program.
 //  3. Assert the fifteen exact line, target and message triples and that no finding
