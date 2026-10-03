@@ -3,8 +3,8 @@ package linthost
 import "testing"
 
 // TestNoFallthroughCommandComposesNestedTryFinally verifies nested catches
-// consume only reachable throws and finally preserves or overrides every
-// completion category. A finalizer after a closed infinite path is itself
+// consume reachable throws and finally preserves or overrides the authored
+// return/throw paths. A finalizer after a closed infinite path is itself
 // unreachable and must not invent an exception edge.
 //
 // 1. Nest return and throw paths through catches and ordinary finalizers.
