@@ -6,10 +6,12 @@ import { readE2eTracePayload } from "./readE2eTracePayload";
  * Binds a before-call file observation and synchronous result or actual async
  * start/exit/close to an independently prepared executable. Close certifies only
  * this direct child's stdio boundary, not arbitrary descendant termination.
+ * Actual start/termination binds the file even for an expected negative exit;
+ * each consuming profile separately owns its status/error expectation.
  * Go retained artifacts and test-owned direct-file hashes have different native
  * identity fields; neither is treated as an OS-loaded-image certificate.
  *
- * @evidence contracts/common.md#principled-implementation Pairs the same actual writer/invocation file observation and later process attempt/result with independently prepared executable path/hash observations, preserving failures and missing metadata as problems.
+ * @evidence contracts/common.md#principled-implementation Pairs the same actual writer/invocation file observation and later process attempt/result with independently prepared executable path/hash observations, preserving missing lifecycle metadata as problems while leaving product success, negative exits and errors to their consuming profile assertions.
  * @evidence contracts/common.md#clear-and-simple-design Handles the two authored before-call observation forms explicitly and leaves source/command semantic assertions to their consuming profiles.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not resolve guessed PATH executables, infer actual process counts from requirements, fabricate byte captures or certify image loading, ancestry or descendant joins.
  * @evidence contracts/common.md#meaningful-documentation States the independent preparation source, distinct observer forms, actual invocation ordering and limits of recorded file/hash equality.
@@ -74,16 +76,20 @@ export function pairE2eCommandFileObservation(
     const actualStarted = result?.observation.started ?? resultData.started;
     const actualExitObserved = result?.observation.exitObserved ?? resultData.exitObserved;
     const resultFields = result?.observation as (typeof event & { status?: number | null; signal?: string | null; error?: unknown });
-    const successful = input.event === "native-artifact"
-      ? resultData.success === true && resultData.exitCode === 0
-      : resultFields?.status === 0 && resultFields.signal === null && resultFields.error === undefined;
+    // A negative product exit does not revoke a real start and observed exit.
+    // This binds the before-call file; it does not accept the command's result
+    // as correct or suppress its independently collected profile failure.
+    const synchronousStatus = input.event === "native-artifact" ? resultData.exitCode : resultFields?.status;
+    const synchronousSignal = input.event === "native-artifact" ? resultData.signal : resultFields?.signal;
+    const terminationObserved = (Number.isSafeInteger(synchronousStatus) && Number(synchronousStatus) >= 0) ||
+      (typeof synchronousSignal === "string" && synchronousSignal.length > 0);
     const selectedPath = attempt?.observation.data?.selectedPath;
     const requestedArgv = (attempt?.observation as (typeof event & { argv?: unknown[] }))?.argv;
     const selectedCommand = input.event === "native-artifact" ? selectedPath : requestedArgv?.[0];
     const synchronous = result !== undefined && attempt !== undefined &&
       attempt.observation.sequence < result.observation.sequence &&
       actualStarted === true && actualExitObserved === true &&
-      Number(result.observation.pid) > 0 && successful;
+      Number(result.observation.pid) > 0 && terminationObserved;
     const asyncExit = exit?.observation as typeof resultFields;
     const asyncClose = close?.observation as typeof resultFields;
     const asynchronous = input.event === "selected-file-observation" && result === undefined &&
@@ -91,11 +97,13 @@ export function pairE2eCommandFileObservation(
       attempt.observation.sequence < start.observation.sequence &&
       start.observation.sequence < exit.observation.sequence && exit.observation.sequence < close.observation.sequence &&
       Number(start.observation.pid) > 0 && start.observation.pid === exit.observation.pid &&
-      exit.observation.pid === close.observation.pid && asyncExit.status === 0 && asyncExit.signal === null &&
-      asyncClose.status === 0 && asyncClose.signal === null;
+      exit.observation.pid === close.observation.pid &&
+      asyncExit.status === asyncClose.status && asyncExit.signal === asyncClose.signal &&
+      ((Number.isSafeInteger(asyncExit.status) && Number(asyncExit.status) >= 0) ||
+        (typeof asyncExit.signal === "string" && asyncExit.signal.length > 0));
     if (!attempt || event.sequence >= attempt.observation.sequence ||
       selectedCommand !== data.requestedPath || !(synchronous || asynchronous))
-      problems.push("Missing later successful actual command for file observation: " + event.invocation);
+      problems.push("Missing later started and terminated actual command for file observation: " + event.invocation);
     else invocations.push(event.invocation);
   }
   if (new Set(invocations).size < input.minimumCalls)
