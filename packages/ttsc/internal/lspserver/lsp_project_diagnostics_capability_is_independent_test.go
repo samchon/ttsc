@@ -2,6 +2,7 @@ package lspserver
 
 import (
   "bytes"
+  "os/exec"
   "strings"
   "testing"
 )
@@ -16,13 +17,13 @@ import (
 //
 //  1. Configure a topology-only plugin and a diagnostics-only plugin.
 //  2. Seed the diagnostics producer, then make its next refresh fail to launch.
-//  3. Assert only the explicitly capable producer was invoked.
-//  4. Assert its last-good publication remains available after the failure.
+//  3. Assert only the explicitly capable producer appears in failed-call logs.
+//  4. Assert one retained diagnostic still carries its last-good code.
 //
-// @evidence contracts/testing.md#behavioral-verification Only the producer that explicitly declares lsp-project-diagnostics is invoked, a topology-only plugin is never probed for it, and the producer's last-good publication survives a failed refresh.
-// @evidence contracts/testing.md#independent-expectations The invocation set and last-good content are literal expectations.
+// @evidence contracts/testing.md#behavioral-verification The failed refresh logs the diagnostics-only descriptor's name but not the topology-only name; its aggregate still contains one diagnostic with literal last-good code. These error-name observations distinguish selection here, not a successful protocol response or every retained field.
+// @evidence contracts/testing.md#independent-expectations Descriptor names, one diagnostic and last-good code are literal expectations. Both binaries are independently required to be absent from executable lookup before the actual failed start paths are reached; absence of a log alone would not establish selection without the positive capable-producer observation.
 // @evidence contracts/testing.md#distinguishing-cases A topology-only and a diagnostics-only plugin expose the two capability combinations.
-// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsCapabilityIsIndependent is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit seeds actual NativePluginSource records and calls ProjectDiagnostics with an owned log buffer and descriptors. Selected command setup reaches failed resident/direct native starts under the missing-binary premise, without an installed consumer, temporary project or running product host.
 func TestLSPProjectDiagnosticsCapabilityIsIndependent(t *testing.T) {
   topologyOnly := NativeLSPPluginEntry{
     Binary:        "ttsc-no-such-topology-only-sidecar",
@@ -33,6 +34,11 @@ func TestLSPProjectDiagnosticsCapabilityIsIndependent(t *testing.T) {
     Binary:             "ttsc-no-such-diagnostics-only-sidecar",
     Name:               "@ttsc/diagnostics-only",
     ProjectDiagnostics: true,
+  }
+  for _, plugin := range []NativeLSPPluginEntry{topologyOnly, diagnosticsOnly} {
+    if path, err := exec.LookPath(plugin.Binary); err == nil {
+      t.Fatalf("missing-binary premise is false: %s", path)
+    }
   }
   var log bytes.Buffer
   source := &NativePluginSource{
