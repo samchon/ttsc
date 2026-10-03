@@ -23,14 +23,14 @@ import { TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Forty-one original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Forty-two original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Forty-one original roots become staged configurations on the one canonical allocation; sixty native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
+ * @evidence contracts/e2e.md#shared-execution Forty-two original roots become staged configurations on the one canonical allocation; sixty-one native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
  * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs; test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it exact typed-to-mistyped writes/status/value/root diagnostic/no-output transition; and test_ttsx_runs_a_source_file_the_entry_generates_at_runtime extensionless VALUE:42; and test_ttsx_preserves_custom_node_builtin_remaps child-local actual user hooks and both custom-remap/non-builtin-exact-strip values; and test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options distinct same-name dep-b:3 owning-option witness. Actual surviving execution and donor removal remain pending.
  */
@@ -614,6 +614,26 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
       assert.equal(result.status, 0, result.stderr);
       assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["node20-commonjs", "node20-module"]);
+    },
+  });
+  profiles.push({
+    name: "file-linked-entry-physical-module-package",
+    files: FixtureFiles.read("ttsc/ttsx_classifies_a_symlinked_entry_from_the_target_package_type/inputs-1"),
+    run: (root, persistent, spawn) => {
+      const outside = path.join(persistent, "file-linked-esm-package");
+      fs.mkdirSync(outside);
+      fs.writeFileSync(path.join(outside, "package.json"), JSON.stringify({ name: "esm-tools", type: "module", version: "1.0.0" }), "utf8");
+      fs.writeFileSync(path.join(outside, "tool.ts"), ['export const marker: string = "loaded-as-esm";', 'console.log(marker);', ""].join("\n"), "utf8");
+      const entry = path.join(root, "tool.ts");
+      // A failed native link is a failed prerequisite, never a successful profile
+      // or a fabricated capability skip. The retained donor keeps its old guard.
+      fs.symlinkSync(path.join(outside, "tool.ts"), entry, "file");
+      assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
+      assert.equal(fs.realpathSync.native(entry), fs.realpathSync.native(path.join(outside, "tool.ts")));
+      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "tool.ts"], { cwd: root });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /loaded-as-esm/);
+      assert.doesNotMatch(result.stderr, /Unexpected token 'export'|Cannot use import statement/, "the entry was classified from the link's package scope, not the target's");
     },
   });
   return profiles;
