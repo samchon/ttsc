@@ -16,7 +16,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Replaces !Boolean(x) with !x without adding unnecessary parentheses.
 // @evidence contracts/testing.md#independent-expectations Logical not itself applies ToBoolean; the literal expected !x preserves negation and its simple operand precedence.
-// @evidence contracts/testing.md#distinguishing-cases Bare identifier is the minimum precedence boundary beside logical/await/yield grouping tests.
+// @evidence contracts/testing.md#distinguishing-cases The high-precedence bare identifier is the no-wrap control beside logical/await/yield grouping tests.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot and applies the actual no-extra-boolean-cast edits to the fixture. This Test owns the exact independently authored source/output pair, including text outside the replacement. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestFixNoExtraBooleanCastKeepsBareIdentifierUnderBang(t *testing.T) {
   assertFixSnapshot(

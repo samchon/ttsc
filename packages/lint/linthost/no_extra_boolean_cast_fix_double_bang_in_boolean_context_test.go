@@ -6,10 +6,9 @@ import "testing"
 // `if (!!x)` → `if (x)` rewrite — the double-bang branch inside a
 // boolean-context detection.
 //
-// Without this fix the `fix` cascade cannot converge on fixtures that
-// use `if (!!x)` in hot paths. The detection branch already filters by
-// `isInBooleanContext`, so this test pins exactly the
-// boolean-context-double-bang path.
+// The rewrite removes the reported redundant syntax rather than leaving it
+// unchanged when no automatic edit is available. This fixture pins the
+// if-condition double-bang path separately from the Boolean-call branch.
 //
 // 1. Snapshot `if (!!x)` source.
 // 2. Apply `no-extra-boolean-cast` fix.
