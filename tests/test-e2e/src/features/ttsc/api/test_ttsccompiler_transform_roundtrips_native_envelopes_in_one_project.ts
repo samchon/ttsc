@@ -12,7 +12,8 @@ import { NativeTransformEnvelopeFixture } from "../../../internal/ttsc/internal/
 /**
  * Verifies the native transform transport and API publish decoded envelopes.
  *
- * Decoder units own every wire-shape assertion. One actual Go source producer
+ * Direct decoder operations own portable wire-shape decisions; their exact
+ * coverage and actual survival must be established separately. One Go producer
  * retains source compilation, stdout transport, advisory-field propagation,
  * API exception classification and the no-output-publication boundary. Only
  * the runtime response changes; the same compiled producer is reused.
@@ -22,13 +23,13 @@ import { NativeTransformEnvelopeFixture } from "../../../internal/ttsc/internal/
  * 3. Transform both rejected source shapes and verify exceptions without emit.
  *
  * @evidence contracts/testing.md#behavioral-verification Five response shapes cross the actual compiled Go stdout transport into TtscCompiler.transform: valid metadata, malformed optional metadata, resolution candidates and two rejected source shapes. Exact API maps and rejection/no-dist assertions distinguish lost fields or publication after malformed output.
- * @evidence contracts/testing.md#independent-expectations Authored literal response fields and the decoder's supported wire contract determine the expected maps and exception message. Source-only decoder units separately own every advisory validator branch; no native result is used to manufacture expectations.
+ * @evidence contracts/testing.md#independent-expectations Authored literal response fields and the decoder's supported wire contract determine the expected maps and exception message. Direct decoder contributions are separate owners, not blanket proof that every advisory branch has an executed survivor. No native result is used to manufacture the literal expectations.
  * @evidence contracts/testing.md#distinguishing-cases Valid source and advisory subsets remain accepted, malformed optional fields are filtered, candidates remain ordered and distinct from selected edges, while missing or array-valued source maps reject without emission. All five cases execute even after an earlier assertion fails.
- * @evidence contracts/testing.md#execution-ownership This named API E2E owns the real Go producer-to-transform connection; NativeTransformEnvelopeFixture holds inputs and decoder units own portable shape decisions. One invocation registers all five independently reported response cases.
+ * @evidence contracts/testing.md#execution-ownership This named API E2E owns the real Go producer-to-transform connection; NativeTransformEnvelopeFixture holds inputs and decoder units own portable shape decisions. This named invocation collects all five response verdicts using the checkout built API and selected native compiler; it is not packed installation or independent executable image/build-provenance validation.
  * @evidence contracts/e2e.md#necessary-boundary Direct decoder calls cannot detect Go compilation, transform command flags, stdout transport or API exception/publication wiring. This single producer retains that assembly boundary for the former envelope and candidate consumers.
- * @evidence contracts/e2e.md#shared-execution One immutable Go program and one compiler/project serve five response files. Only runtime JSON changes between requests, so the source build remains identical; no installation or compiler fixture is recreated per wire shape.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each transform overwrites the complete response file before synchronous execution. The producer owns no persistent mutable state and transform does not emit; the fresh project has no dist output, so rejected responses cannot inherit another case's output. The existing project harness owns fixture/cache cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Original valid, malformed advisory, missing-source and array-source assertions remain. The exact candidate graph assertion is retained here as a fifth real transport response and in its independent decoder unit, allowing the former separate Go candidate producer to be removed.
+ * @evidence contracts/e2e.md#shared-execution One immutable Go program and one compiler/project serve five response files. Only runtime JSON changes between requests, preserving source bytes and keyed preparation inputs. Identical source does not certify a cache hit, exactly one build/child, persistent native Program or loaded image; no installation or project is recreated per shape.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each transform overwrites the complete response file before synchronous execution. The producer owns no persistent mutable state and transform does not emit; the fresh project has no dist output, so rejected responses cannot inherit another case's output. Normal tracked project cleanup owns fixture roots while the shared source cache follows its separate owner. Direct synchronous outcomes do not prove arbitrary descendant closure or forced-interruption cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original valid, malformed advisory, missing-source and array-source assertions remain. The exact candidate graph assertion is retained here as a fifth real transport response and its separate direct decoder contribution must be mapped/selected/executed before removing a meaningful duplicate. This current connection does not certify an already executed decoder survivor or authorize another producer removal.
  */
 export function test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project() {
     const root = createProject({
