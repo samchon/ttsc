@@ -67,9 +67,11 @@ export namespace CommonJsRuntimeSource {
   /**
    * Insert the local bootstrap without changing lines or directive semantics.
    * A module that declares its own top-level require function keeps that binding.
-   * Flat and embedded indexed JSON maps retain their originals, including URI
-   * parameters and percent encoding. Invalid optional metadata does not reject
-   * otherwise executable JavaScript; an identity map describes that body instead.
+   * Flat and embedded indexed JSON maps preserve their source coordinates.
+   * Base64/charset and percent-encoded inline payloads are decoded; unusable
+   * payloads, inspected map shapes or first-column encodings fall back to an
+   * identity map. This is not validation of every source-map field, and optional
+   * metadata failures do not become executable-syntax failures.
    *
    * @evidence contracts/common.md#principled-implementation Acorn's CommonJS grammar identifies directive prologues, hoisted require declarations and actual trailing source-map comments. Flat mappings or indexed section offsets shift generated columns on exactly the insertion line, preserving original locations. Optional malformed or externally indexed maps do not become executable-syntax failures.
    * @evidence contracts/common.md#clear-and-simple-design Source adaptation constructs one prefix and one corresponding map adjustment; evaluation stays with Node rather than a second interpreter.
