@@ -4,8 +4,8 @@ import "testing"
 
 // TestJsxA11yNoStaticElementInteractionsRequiresRole verifies static elements with handlers need roles.
 //
-// A div with an activation handler has no native semantics. This rule asks for
-// an explicit role when static markup becomes interactive.
+// A div with an activation handler has no native control semantics. This rule
+// asks for an explicit role when static markup becomes interactive.
 //
 // 1. Parse a div with onClick and no role.
 // 2. Enable only `jsx-a11y/no-static-element-interactions`.
