@@ -1238,16 +1238,17 @@ func IsAmbientModuleSymbolName(name string) bool {
   return innerast.IsAmbientModuleSymbolName(name)
 }
 
-// IsImplicitlyExportedJSDocDeclaration classifies reparsed JSDoc declarations
-// attached to an external or CommonJS source file. node must have a parent.
+// IsImplicitlyExportedJSDocDeclaration recognizes a JS type-alias declaration
+// or a reparsed module declaration directly parented by an external or CommonJS
+// source file. Supply a nonnil node with a parent and valid compiler payloads.
 //
-// @evidence contracts/common.md#principled-implementation The upstream source-file, module and reparsed-declaration checks preserve the compiler's implicit-export boundary.
+// @evidence contracts/common.md#principled-implementation The upstream source-file/module gate admits JS type aliases or module declarations carrying the Reparsed flag without requiring that flag on type aliases.
 // @evidence contracts/common.md#clear-and-simple-design One predicate keeps JSDoc export policy in its owning compiler implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Export status follows AST provenance rather than a printed declaration-name heuristic.
 // @evidence contracts/common.md#meaningful-documentation Native prose states module context, reparsed provenance and required parent linkage.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsImplicitlyExportedJSDocDeclaration acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsImplicitlyExportedJSDocDeclaration performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsImplicitlyExportedJSDocDeclaration computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent export classifier. Upstream checks immediate parent kind, source-file module indicators and fixed declaration kind/flags in O(1) time and space without ancestor or content scans.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of parent, module-indicator and declaration-flag inputs.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsImplicitlyExportedJSDocDeclaration computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsImplicitlyExportedJSDocDeclaration(node *Node) bool {
   return innerast.IsImplicitlyExportedJSDocDeclaration(node)
@@ -1342,8 +1343,8 @@ func GetExpressionPrecedence(expression *Expression) OperatorPrecedence {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No consumer names or test function shapes affect classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies function-like forms and nil behavior with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsFunctionLike acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsFunctionLike performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsFunctionLike computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent function-like classifier. Upstream checks nil and fixed declaration/signature kind tables in O(1) time and space without inspecting bodies or parameters.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsFunctionLike computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsFunctionLike(node *Node) bool {
   return innerast.IsFunctionLike(node)
