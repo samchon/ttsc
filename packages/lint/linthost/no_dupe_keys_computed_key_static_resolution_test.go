@@ -6,12 +6,12 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestNoDupeKeysComputedKeyStaticResolution pins no-dupe-keys to ESLint's
-// getStaticPropertyName semantics for computed keys.
+// TestNoDupeKeysComputedKeyStaticResolution verifies literal computed keys
+// collide with direct keys while dynamic calls and identifiers remain clean.
 //
 // A computed key contributes the static value of its literal argument, so
 // `["a"]` collides with the identifier key `a`; a non-constant computed key
-// (`[f()]`, `[x]`) contributes no key and can never collide. This guards the
+// (`[f()]`, `[x]`) contributes no key to this rule's comparison. This guards the
 // regression where computed keys were compared by their raw `[expr]` source
 // text, which both missed a literal duplicate (`{ a: 1, ["a"]: 2 }` went
 // unreported) and falsely flagged two distinct dynamic keys as identical

@@ -10,7 +10,7 @@ import (
 // TestNoDupeElseIfLogicalCoverage protects both sides of the rule's boolean
 // coverage test. Covered branches exercise exact, subset, accumulated, nested,
 // and commuted conditions; clean controls include executable near-misses and
-// conservative token distinctions, so shared operands alone never cause a report.
+// conservative token distinctions; partially shared alternatives remain clean.
 //
 // @evidence contracts/testing.md#behavioral-verification Eighteen named Engine cases compare every finding line and the exact diagnostic message, exposing missed covered branches and broad false reports.
 // @evidence contracts/testing.md#independent-expectations Literal per-case line lists follow earlier-condition coverage and the supported token-structural policy; they are independent of the rule output. Inner expression parentheses remain a conservative token distinction rather than a proof of runtime reachability.
