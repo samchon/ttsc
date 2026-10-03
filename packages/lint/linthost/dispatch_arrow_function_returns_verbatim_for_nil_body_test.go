@@ -11,16 +11,15 @@ import (
 // a nil body.
 //
 // The guard `arrow == nil || arrow.Body == nil` protects the printFunctionLike
-// call from a nil dereference when a synthetic or error-recovered arrow
-// function carries no body node. In that case the printer emits the original
-// source bytes verbatim. This branch is exercised by constructing an
-// ArrowFunction node through the node factory with an explicit nil body,
-// which is the only way to reach the guard without a parser-produced node.
+// call from a nil dereference when an arrow carries no body node. This case
+// supplies a factory-built ArrowFunction with an explicit nil body and an
+// undefined source range, so verbatim fallback has no source bytes to retain.
+// It does not exercise a parsed arrow whose public body field was cleared.
 //
 //  1. Create a synthetic ArrowFunction node with Body=nil via NewNodeFactory.
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.
 //  3. Call printArrowFunction(ctx, syntheticNode) directly.
-//  4. Assert the output is empty (verbatim of a zero-range node) and covered
+//  4. Assert the output is empty (verbatim of an undefined-range node) and covered
 //     is true (no multi-line content to taint the enclosing flag).
 //
 // @evidence contracts/testing.md#behavioral-verification printArrowFunction must safely return empty, covered output for a factory arrow with no body or source range.
@@ -36,7 +35,7 @@ func TestDispatchArrowFunctionReturnsVerbatimForNilBody(t *testing.T) {
   syntheticNode := factory.NewArrowFunction(nil, nil, nil, nil, nil, nil, nil)
 
   doc, covered := printArrowFunction(ctx, syntheticNode)
-  // Synthetic node has zero range: verbatim returns empty; covered=true.
+  // Factory range is undefined (-1, -1): verbatim returns empty; covered=true.
   if !covered {
     t.Fatalf("nil-body arrow should be covered=true (empty verbatim), got false")
   }

@@ -12,8 +12,9 @@ import (
 // (e.g. a partially constructed node during error recovery) do not panic.
 // covered==true is the correct signal: an empty Doc produces no output, and
 // there is nothing multi-line to taint the enclosing coverage flag. A
-// regression that panicked on nil or returned covered==false would cause
-// the formatPrintWidth rule to abstain on every surrounding node.
+// direct caller must receive both results. This case does not run the
+// formatPrintWidth rule or establish abstention on an enclosing node; PrintNode
+// also handles absent nodes before dispatching to the arrow printer.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printArrowFunction(ctx, nil) directly.
