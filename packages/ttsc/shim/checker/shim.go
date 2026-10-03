@@ -229,12 +229,14 @@ func GetSetAccessorValueParameter(accessor *innerast.Node) *innerast.Node {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeMapper = innerchecker.TypeMapper
 
-// TypeMapperKind discriminates the compiler's substitution mapper representations.
+// TypeMapperKind reports the compiler mapper's Simple, Array, Merged or default
+// Unknown classification. It does not uniquely identify every concrete mapper
+// implementation; a Composite mapper inherits the default Unknown kind.
 //
-// @evidence contracts/common.md#principled-implementation The exact enum preserves payload discrimination required by upstream mapper dispatch.
+// @evidence contracts/common.md#principled-implementation The exact enum preserves upstream Kind reporting without treating default Unknown as a unique concrete payload or replacing polymorphic Map dispatch.
 // @evidence contracts/common.md#clear-and-simple-design The same kind representation connects mapper constructors and consumers without a shim discriminator.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler mapper variants are retained without selecting consumer-specific behavior.
-// @evidence contracts/common.md#meaningful-documentation Native prose states why the discriminator exists: choosing a substitution representation.
+// @evidence contracts/common.md#meaningful-documentation Native prose lists reported kinds and the nonunique Unknown boundary rather than promising a complete concrete-representation discriminator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
