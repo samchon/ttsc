@@ -150,15 +150,17 @@ func EmitSourceFile(p *Printer, sourceFile *ast.SourceFile) string {
 }
 
 // RangeStartPositionsAreOnSameLine compares two range starts after skipping
-// leading trivia in sourceFile. Ranges and the nonnil file must share byte coordinates.
+// leading trivia in sourceFile. The nonnil file and both nonnegative range
+// starts must refer to the same source text, with positions within its bytes.
+// Synthesized negative positions are not a supported source-line query.
 //
 // @evidence contracts/common.md#principled-implementation Upstream trivia skipping and source-line comparison preserve printer layout semantics for both range starts.
 // @evidence contracts/common.md#clear-and-simple-design One predicate keeps source-position interpretation with the printer instead of a second line-index implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual source bytes and compiler ranges determine line identity without guessed UTF-16 offsets.
 // @evidence contracts/common.md#meaningful-documentation Native prose states trivia handling, nonnil source and shared byte-coordinate premises.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RangeStartPositionsAreOnSameLine acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RangeStartPositionsAreOnSameLine performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RangeStartPositionsAreOnSameLine computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources When distinct trivia-adjusted positions require a line lookup, upstream can initialize the borrowed source file's locked line-start cache, retaining one entry per line for that source's lifetime. This adapter returns only a boolean and owns no historical state or handle; consumers own source and cache reference release.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns trivia scanning and source-line comparison: adjusted starts can shortcut when equal, otherwise first-use line indexing scans source bytes and line lookup uses binary search. This forwarding adapter chooses no independent scan or indexing strategy, and its constant wrapper size does not bound delegated work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The borrowed source file owns lazy line-map initialization and reuse for its text identity; this adapter coordinates no equivalent requests or additional cache and delegates that same source to upstream.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RangeStartPositionsAreOnSameLine computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func RangeStartPositionsAreOnSameLine(first core.TextRange, second core.TextRange, sourceFile *ast.SourceFile) bool {
   return innerprinter.RangeStartPositionsAreOnSameLine(first, second, sourceFile)
