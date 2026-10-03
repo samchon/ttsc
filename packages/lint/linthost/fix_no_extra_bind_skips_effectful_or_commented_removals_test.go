@@ -7,8 +7,9 @@ import "testing"
 //
 // Evaluating the bound receiver can call code, access a getter, or mutate
 // state. Comments inside the member/call syntax also carry source information
-// that a deletion cannot safely relocate. Neither shape may reach `ttsc fix`;
-// the commented shapes are separately offered as opt-in suggestions, pinned by
+// that a deletion cannot safely relocate. Neither shape may produce automatic
+// deletion. The comment cases here also use an evaluation-sensitive identifier
+// receiver; pure-receiver comment-discard suggestions belong to
 // `TestNoExtraBindOffersWithheldRemovalAsSuggestion`.
 //
 // 1. Bind call, member-access, and update expressions as receivers.
