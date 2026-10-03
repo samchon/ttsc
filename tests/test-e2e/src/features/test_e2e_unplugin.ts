@@ -14,6 +14,7 @@ import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unpl
 import { test_webpack_sequential_compilers_share_one_generation } from "./unplugin/native-plugins/adapters/test_webpack_sequential_compilers_share_one_generation";
 import { test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge";
 import { test_webpack_filesystem_cache_control_serves_stale_without_a_graph } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_control_serves_stale_without_a_graph";
+import { test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge } from "./unplugin/native-plugins/adapters/test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_bun_register_preload_only_registers_a_single_default_plugin } from "./unplugin/native-plugins/adapters/test_bun_register_preload_only_registers_a_single_default_plugin";
@@ -55,6 +56,10 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * record without any parent bridge able to mask that proof. Vite and Rollup
  * then consume the unchanged baseline; after the
  * Vite build returns and Rollup's supported close resolves,
+ * The type-edge root also serves Rollup's three kept-cache builds after the
+ * webpack stale-control compilers close and original V1/reader-graph bytes
+ * are restored. Unchanged code/transform count and the later AGE literal
+ * remain Rollup-owned assertions, with no inferred shared Program.
  * Rollup's dependency-report profile changes only its original plugin options.
  * After that bundle closes, esbuild adds its original run-counter configuration.
  * Its completed lifecycle permits the real watcherless startup server, whose actual close gates exact main/config byte restoration and lazy-input removal, then the original raw/url/plain Vite wrapper build; its actual return and entry removal precede the original out-of-program delivery and
@@ -471,6 +476,7 @@ export async function test_e2e_unplugin(): Promise<void> {
       fs.writeFileSync(typeOnly, prepared.originalType);
       assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      const positiveTypeConfig = fs.readFileSync(configPath);
       const webpackCache = path.join(prepared.root, ".cache", "webpack");
       fs.rmSync(webpackCache, { recursive: true, force: true });
       await Scenarios.invoke("shared-unplugin", "test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge", test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge, prepared.root);
@@ -483,6 +489,13 @@ export async function test_e2e_unplugin(): Promise<void> {
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
       fs.rmSync(webpackCache, { recursive: true, force: true });
       await Scenarios.invoke("shared-unplugin", "test_webpack_filesystem_cache_control_serves_stale_without_a_graph", test_webpack_filesystem_cache_control_serves_stale_without_a_graph, prepared.root);
+      // Both control compilers have closed. Rollup receives the original
+      // reader/graph inputs and keeps its own cache across all three builds.
+      fs.writeFileSync(typeOnly, prepared.originalType);
+      assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
+      fs.writeFileSync(configPath, positiveTypeConfig);
+      assert.deepEqual(fs.readFileSync(configPath), positiveTypeConfig);
+      await Scenarios.invoke("shared-unplugin", "test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge", test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge, prepared.root);
     });
   } catch (cause) {
     failures.push(new Error("webpack same-byte redelivery and type-edge replacement", { cause }));
