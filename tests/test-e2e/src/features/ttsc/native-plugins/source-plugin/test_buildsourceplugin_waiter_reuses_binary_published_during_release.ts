@@ -30,17 +30,18 @@ import {
  *    and never reported an abandoned lock.
  *
  * @evidence contracts/testing.md#behavioral-verification Both real workers must succeed and return one binary path with the literal published bytes; the waiter must have no build invocation, cold-build banner or abandoned-lock diagnostic.
- * @evidence contracts/testing.md#independent-expectations Holder build and waiter probe files establish the overlap, while the independent waiter invocation log exposes an extra build even if it returned the same pathname.
+ * @evidence contracts/testing.md#independent-expectations Holder build and waiter pre-lock probe files establish observed sequencing, not an independently witnessed blocked-lock interleaving. The waiter invocation log exposes an extra build even if it returned the same pathname.
  * @evidence contracts/testing.md#distinguishing-cases Publication during normal release is the positive handoff, with negative build/banner/abandonment/invalid-age controls; the failure-side twin separately owns reacquisition after a failed payload.
- * @evidence contracts/testing.md#execution-ownership The exported async source-plugin entry starts a holder and waiter process on shipped buildSourcePlugin with a process-backed fixture Go tool, and reads their results and publication bytes.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic async export, starting real holder/waiter processes invoking the built workspace builder and scripted Go admission fixture, then observing actual statuses/signals and publication bytes; real Go semantics/packed installation are not certified.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process publication visibility must connect ordinary lease release to the waiting builder without misclassifying abandonment or duplicating payload work; pure result equality cannot establish the no-build process behavior.
  * @evidence contracts/e2e.md#shared-execution One source tree, worker script, cache key and fixture compiler serve both roles; only the holder produces the binary, and the waiter process is the consumer whose absence of build is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private role-specific barrier/log files and child-only hooks isolate the overlap. Every spawned worker is registered immediately; finally releases the holder barrier and joins both registered workers even after an early wait/assert failure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private role-specific barriers/logs and child-only hooks isolate this fresh publication graph. Workers register immediately; body/barrier-release/registered-worker failures aggregate. Ordinary helper outcomes settle on actual direct close; a separate deadline rejects unresolved ownership rather than certifying kill/join, and root is retained before preparation. Probe log does not prove blocked-lock observation or arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Same path, literal bytes, both statuses and every negative waiter log/diagnostic assertion remain here; the invocation log, not pathname equality alone, distinguishes reuse from rebuilding.
  */
 export const test_buildsourceplugin_waiter_reuses_binary_published_during_release =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-publish-");
+    TestProject.retainTemporaryDirectory(root, "publication worker graph may outlive its close deadline");
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const fakeGo = createFakeGoBinary(root);
@@ -56,6 +57,7 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
     const waiterLog = path.join(root, "waiter-go.log");
 
     const workers: Array<ReturnType<typeof spawnSourcePluginWorker>> = [];
+    const failures: unknown[] = [];
     try {
       const holder = spawnSourcePluginWorker({
         env: {
@@ -89,7 +91,9 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
 
       const [holderResult, waiterResult] = await Promise.all([holder, waiter]);
 
+      assert.equal(holderResult.signal, null, "holder terminated by signal");
       assert.equal(holderResult.status, 0, holderResult.stderr);
+      assert.equal(waiterResult.signal, null, "waiter terminated by signal");
       assert.equal(waiterResult.status, 0, waiterResult.stderr);
       const holderBinary = holderResult.stdout.trim();
       const waiterBinary = waiterResult.stdout.trim();
@@ -99,20 +103,22 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
       assert.doesNotMatch(waiterResult.stderr, /building source plugin/);
       assert.doesNotMatch(waiterResult.stderr, /reclaiming abandoned/);
       assert.doesNotMatch(waiterResult.stderr, /Infinitym|NaNs/);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      const releaseErrors: unknown[] = [];
       for (const releaseFile of [holderRelease]) {
         try {
           fs.writeFileSync(releaseFile, "release\n", "utf8");
         } catch (error) {
-          releaseErrors.push(error);
+          failures.push(error);
         }
       }
-      await Promise.allSettled(workers);
-      if (releaseErrors.length !== 0) {
-        throw new AggregateError(releaseErrors, "worker release barriers failed");
+      for (const outcome of await Promise.allSettled(workers)) {
+        if (outcome.status === "rejected" && !failures.includes(outcome.reason))
+          failures.push(outcome.reason);
       }
     }
+    if (failures.length) throw new AggregateError(failures, "publication handoff or worker cleanup failed");
   };
 
 function writePluginSource(root: string): void {

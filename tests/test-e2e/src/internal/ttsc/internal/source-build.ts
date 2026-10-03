@@ -264,11 +264,17 @@ function shellQuote(value: string): string {
 /** Captured output of one `buildSourcePlugin` child-process worker. */
 interface ISourcePluginWorkerResult {
   status: number | null;
+  signal: NodeJS.Signals | null;
   stdout: string;
   stderr: string;
 }
 
-/** Spawn a Node.js worker script and capture its complete result. */
+/**
+ * Spawn the actual worker and settle ordinary results/errors only on close.
+ * A separate deadline one second beyond the original native timeout reports
+ * an unjoined operation, not successful termination. Callers must retain owned
+ * inputs on that path; the original child timeout/primitive remain unchanged.
+ */
 function spawnNodeWorker(opts: {
   env?: Record<string, string>;
   script: string;
@@ -283,14 +289,25 @@ function spawnNodeWorker(opts: {
     });
     let stdout = "";
     let stderr = "";
+    let workerError: unknown;
+    const joinDeadline = setTimeout(() => {
+      reject(new AggregateError(
+        workerError === undefined ? [] : [workerError],
+        "Source-plugin worker close was not joined after its timeout",
+      ));
+    }, (opts.timeoutMs ?? 120_000) + 1_000);
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("error", reject);
-    child.on("close", (status) => resolve({ status, stdout, stderr }));
+    child.on("error", (error) => { workerError = error; });
+    child.on("close", (status, signal) => {
+      clearTimeout(joinDeadline);
+      if (workerError !== undefined) reject(workerError);
+      else resolve({ status, signal, stdout, stderr });
+    });
   });
 }
 
@@ -356,11 +373,11 @@ function createSourcePluginWorkerScript(opts: {
 }
 
 /**
- * Spawns one `buildSourcePlugin` worker (see
- * {@link createSourcePluginWorkerScript}) and resolves when it exits. `env`
- * entries overlay the inherited environment — pass the `FAKE_GO_BUILD_*` hooks
- * there to script the worker's fake toolchain. A two-minute kill timeout bounds
- * a wedged worker so a broken lock never hangs the suite.
+ * Spawns the actual built-source worker and resolves its result on direct
+ * close, preserving child-local environment overlays. The original two-minute
+ * native timeout still requests termination; the separate close deadline may
+ * reject with unknown ownership and does not certify a successful kill or
+ * arbitrary descendant join. Callers must retain unresolved inputs.
  */
 function spawnSourcePluginWorker(opts: {
   env?: Record<string, string>;

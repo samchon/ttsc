@@ -20,31 +20,32 @@ import {
  * infinitely old abandoned legacy lock and printed `reclaiming abandoned ...
  * Infinitym NaNs old`. The waiter must instead treat the free key as a routine
  * handoff: reacquire it, run the build itself, and publish the one usable
- * binary. Sequencing uses explicit file barriers produced by the fake
- * toolchain, never sleeps — every interleaving must satisfy the assertions.
+ * binary. Sequencing observes authored file barriers and invocation logs;
+ * it does not force or independently witness every blocked-lock interleaving.
  *
  * 1. Start a holder worker whose fake `go build` writes a barrier file, then
  *    blocks until released, then exits non-zero.
  * 2. After the barrier exists, start a waiter worker on the same cache key and
  *    release the holder once the waiter's fake-go invocation log shows it
  *    passed its pre-lock toolchain probes.
- * 3. Assert the holder exits 1 without publishing while the waiter exits 0, runs
- *    its own `go build`, and publishes the binary.
+ * 3. Assert holder status1/build error, waiter status0/own build invocation,
+ *    and the final waiter publication bytes.
  * 4. Assert the waiter's stderr never reports reclaiming an abandoned lock and
  *    never contains the `Infinitym NaNs` malformation.
  *
  * @evidence contracts/testing.md#behavioral-verification A failed holder must exit 1 with its build error; the waiter must acquire after release, perform its own build and publish the literal stub binary without abandonment or malformed age diagnostics.
- * @evidence contracts/testing.md#independent-expectations File barriers establish holder build admission and waiter pre-lock probing independently of elapsed timing; explicit nonzero fixture exit and invocation logs define which worker must build.
- * @evidence contracts/testing.md#distinguishing-cases Holder failure/no usable publication, waiter successful recovery, a build invocation and negative abandonment/Infinitym/NaNs diagnostics retain the distinct failure-side handoff contract; the publication-side twin checks reuse.
- * @evidence contracts/testing.md#execution-ownership The exported async entry starts two real Node workers invoking shipped buildSourcePlugin and a scripted Go tool, then asserts both process outcomes and the waiter artifact/log.
+ * @evidence contracts/testing.md#independent-expectations File barriers establish holder build admission and waiter toolchain probing, not an independently witnessed blocked-lock interleaving. Authored nonzero fixture exit and invocation logs prescribe the worker outcomes/build contribution independently of elapsed timing.
+ * @evidence contracts/testing.md#distinguishing-cases Holder status1/build-error, waiter publication/build log and negative abandonment/Infinitym/NaNs diagnostics retain the failure-side handoff. Holder never-published and orphan removal are not separately asserted; the publication twin owns different controls.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic async entry, starting two real Node workers invoking the built workspace builder and scripted Go admission tool. Result/status/signal and publication/log observations are actual; the script does not certify real Go semantics or packed installation.
  * @evidence contracts/e2e.md#necessary-boundary Separate process liveness and concurrent lock visibility are necessary to distinguish released current from abandonment while a waiter retries; a single-process predicate cannot exercise this handoff.
  * @evidence contracts/e2e.md#shared-execution Holder and waiter share one module, worker script, fake tool and cache key. Their two process lifetimes are required conflicting roles; failed holder work requires one waiter build instead of a reusable publication.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private barrier/log/cache paths distinguish roles and environment hooks remain child-local. Success awaits both children, whose helper timeout bounds a wedged process; every spawned worker is registered immediately and finally releases the holder barrier and joins all registered workers, including early probe/assertion failures.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private barriers/log/cache and child-local hooks distinguish roles; workers register immediately. Body, barrier-release and registered-worker failures aggregate rather than overwrite. Ordinary helper results/errors settle on direct close; a separate close deadline rejects unknown ownership without forced-success proof, so owned root is retained before preparation. Pre-lock log is not a blocked-lock acknowledgement or descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Every original holder status/error, waiter status/bytes, invocation and negative diagnostic assertion remains here; no claim is made that the fake artifact proves contributor compilation or that fixture compilation verifies real Go code.
  */
 export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-handoff-");
+    TestProject.retainTemporaryDirectory(root, "holder-failure worker graph may outlive its close deadline");
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const fakeGo = createFakeGoBinary(root);
@@ -60,6 +61,7 @@ export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releas
     const waiterLog = path.join(root, "waiter-go.log");
 
     const workers: Array<ReturnType<typeof spawnSourcePluginWorker>> = [];
+    const failures: unknown[] = [];
     try {
       const holder = spawnSourcePluginWorker({
         env: {
@@ -94,8 +96,10 @@ export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releas
 
       const [holderResult, waiterResult] = await Promise.all([holder, waiter]);
 
+      assert.equal(holderResult.signal, null, "holder terminated by signal");
       assert.equal(holderResult.status, 1, holderResult.stderr);
       assert.match(holderResult.stderr, /go build" failed/);
+      assert.equal(waiterResult.signal, null, "waiter terminated by signal");
       assert.equal(waiterResult.status, 0, waiterResult.stderr);
       const binary = waiterResult.stdout.trim();
       assert.equal(fs.readFileSync(binary, "utf8"), "fake plugin binary\n");
@@ -103,20 +107,22 @@ export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releas
       assert.match(fs.readFileSync(waiterLog, "utf8"), /^build /m);
       assert.doesNotMatch(waiterResult.stderr, /reclaiming abandoned/);
       assert.doesNotMatch(waiterResult.stderr, /Infinitym|NaNs/);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      const releaseErrors: unknown[] = [];
       for (const releaseFile of [holderRelease]) {
         try {
           fs.writeFileSync(releaseFile, "release\n", "utf8");
         } catch (error) {
-          releaseErrors.push(error);
+          failures.push(error);
         }
       }
-      await Promise.allSettled(workers);
-      if (releaseErrors.length !== 0) {
-        throw new AggregateError(releaseErrors, "worker release barriers failed");
+      for (const outcome of await Promise.allSettled(workers)) {
+        if (outcome.status === "rejected" && !failures.includes(outcome.reason))
+          failures.push(outcome.reason);
       }
     }
+    if (failures.length) throw new AggregateError(failures, "holder failure handoff or worker cleanup failed");
   };
 
 function writePluginSource(root: string): void {
