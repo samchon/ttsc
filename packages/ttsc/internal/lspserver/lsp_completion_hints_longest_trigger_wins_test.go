@@ -7,7 +7,9 @@ import "testing"
 //
 // A plugin publishes broad and narrow triggers at once — `@`, `@evidence `,
 // `@evidence docs/spec.md#` — because it cannot ask a question per keystroke and
-// so must describe every position up front. Only the longest match may answer.
+// so describes the selected positions up front. These nested matches begin at
+// the same occurrence, where the longest wins; different occurrences also have
+// a nearest-trigger policy that this fixture does not exercise.
 // Without that, typing `@evidence docs/spec.md#pri` would offer tag names,
 // document paths, and anchors together, and the narrow corpus the user actually
 // wants would be buried under the broad one that also matches.
@@ -20,7 +22,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification At a cursor inside the narrowest of three nested triggers only the narrowest hint answers, and its filter is the text after that trigger.
 // @evidence contracts/testing.md#independent-expectations The expected items and filter are literals for the published nested triggers.
 // @evidence contracts/testing.md#distinguishing-cases Broad, middle and narrow triggers all match the same line, so a matcher that merged them would offer all three.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionHintsLongestTriggerWins is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership Directly supplies an authored hint corpus and four line prefixes to matchCompletionHints with inJSDoc=true in this process. Literal ordered Insert strings and filters are observed; other item fields, native scope classification, and request publication are not asserted. It substitutes no seam, creates no directory, resolves no sidecar, and starts no Program, process, consumer, or editor connection.
 func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
