@@ -13,9 +13,9 @@ import (
 // A nil specifier inside Elements.Nodes would render as an empty Doc and
 // surface as `a, , b` in the printed output — a silent corruption.
 // The guard `if spec == nil { return verbatim }` inside the loop catches
-// that case. Because the parser never produces nil entries, the only way
-// to reach this branch is through a synthetically constructed node, which
-// is what this test does.
+// that case. This test supplies both a factory list and a parsed list
+// whose public Nodes field is replaced by a nil entry. It does not
+// establish parser guarantees or exclusive reachability of the branch.
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build a NamedImports node whose Elements list
@@ -40,7 +40,7 @@ func TestDispatchNamedImportsFallsBackWhenSpecifierNil(t *testing.T) {
   doc, _ := printNamedImports(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "import { a, b } from \"x\";\n")

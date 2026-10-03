@@ -9,10 +9,9 @@ import (
 // TestDispatchNamedImportsBreaksWhenOverflows verifies a long
 // `{ … }` import clause reflows onto multiple indented lines.
 //
-// A long specifier list is the headline reflow target of
-// `format/print-width` on the import side: the clause must break one
-// specifier per line, as Prettier does, once its flat form exceeds the
-// budget.
+// This direct clause printer must put each specifier on its own line
+// at width twenty while retaining the bindings. The test does not run
+// format/print-width, the whole import printer or a Prettier process.
 //
 //  1. Parse an import with five specifiers of four to seven characters each.
 //  2. Call printNamedImports on the clause under printWidth=20.
