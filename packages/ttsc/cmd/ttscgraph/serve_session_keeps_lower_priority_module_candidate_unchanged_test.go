@@ -10,18 +10,19 @@ import (
 // resident session does not reload when a candidate after its selected target
 // appears.
 //
-// Directory index probes are lower priority than every direct-file probe. An
-// interleaved candidate list would turn the creation of an irrelevant index
-// file into a full program reload and erase the bounded-freshness guarantee.
+// Directory index probes follow the selected direct JavaScript file, while
+// value.mts is outside the automatic extension candidates for this import.
+// Creating either must leave this snapshot unchanged; value.ts precedes the
+// selected JavaScript file and must trigger the observed reload.
 //
 //  1. Load an extensionless commonjs import that resolves directly to value.js.
-//  2. Create only lower-priority value/index.ts and value.mts candidates.
+//  2. Create lower-priority value/index.ts and unselected-extension value.mts.
 //  3. Assert the resident session remains unchanged, then create value.ts and
 //     assert the strictly higher-priority candidate does reload it.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a resident session does not reload when a candidate after its selected target appears.
-// @evidence contracts/testing.md#independent-expectations The expected outcomes follow from TypeScript's commonjs extension and directory probe priority: with ./value resolving to value.js, creating value/index.ts and value.mts (lower priority in commonjs) must each be unchanged with no dump, and creating the higher-priority value.ts must be mode reload with a node named typescriptWinner.
-// @evidence contracts/testing.md#distinguishing-cases Load an extensionless commonjs import that resolves directly to value.js; Create only lower-priority value/index.ts and value.mts candidates; Assert the resident session remains unchanged, then create value.ts and assert the strictly higher-priority candidate does reload it.
+// @evidence contracts/testing.md#independent-expectations For this extensionless commonjs import, the pinned resolver's direct-file list tries .ts before .js, reaches directory index probes only after direct-file failure, and does not add .mts to that extension list. Literal outcomes are unchanged with no dump after either index.ts or value.mts creation, then reload with typescriptWinner after value.ts creation. They distinguish these candidates, not every extension or resolution mode.
+// @evidence contracts/testing.md#distinguishing-cases Resolve ./value to value.js; create the later directory index and the ineligible automatic .mts extension separately and require unchanged; create earlier value.ts and require reload with typescriptWinner.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
   root := t.TempDir()
