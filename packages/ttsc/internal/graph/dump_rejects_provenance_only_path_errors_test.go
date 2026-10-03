@@ -15,10 +15,10 @@ import (
 //  2. Add a provenance-only config input from another drive.
 //  3. Require NewDump to reject the unrepresentable coordinate.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies paths introduced after fact projection still pass through the dump context's fail-closed boundary.
-// @evidence contracts/testing.md#independent-expectations The expectation is literal: with an empty graph under C:/checkout/app and a provenance-only config digest at D:/shared/tsconfig.json, NewDump must return an error containing 'different filesystem roots' rather than a dump with an unrepresentable coordinate.
-// @evidence contracts/testing.md#distinguishing-cases Build an empty graph under one synthetic Windows drive; Add a provenance-only config input from another drive; Require NewDump to reject the unrepresentable coordinate.
-// @evidence contracts/testing.md#execution-ownership TestNewDumpRejectsProvenanceOnlyPathErrors is a Go source-unit entry. NewDump execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#behavioral-verification Actual NewDump with an empty test-owned Graph and one cross-drive provenance config must return the literal root-error fragment. No graph node causes this failure; the returned Dump and JSON bytes are not examined.
+// @evidence contracts/testing.md#independent-expectations Authored C:/checkout/app and D:/shared/tsconfig.json have different drive roots, so the expected error contains different filesystem roots. The config digest is supplied inert data, not independently computed file identity or provenance authentication.
+// @evidence contracts/testing.md#distinguishing-cases Empty graph facts contrast a provenance-only cross-drive config, exercising error detection after fact projection. TestDumpCheckoutPathsAreStable owns valid same-root provenance coordinates; other provenance fields and native volume aliases are not exercised here.
+// @evidence contracts/testing.md#execution-ownership This same-package Go unit directly invokes NewDump with test-owned graph/provenance values. Host-compatible authored absolute paths can trigger best-effort native canonicalization and ancestor reads; no fixture files, compiler Program, serialization, installed consumer or product process are created.
 func TestNewDumpRejectsProvenanceOnlyPathErrors(t *testing.T) {
   _, err := NewDump(
     &Graph{Nodes: map[string]*Node{}},
