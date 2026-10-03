@@ -6,7 +6,7 @@ import (
 )
 
 // TestResidentCacheRetainsProgramForDeclaredExternalChange verifies a
-// ProjectRule data edit does not discard the warm TypeScript Program.
+// declared external path retains the warm TypeScript Program without editing a data file.
 //
 // The next verb always rebuilds Engine and project-cycle state. Only the
 // parsed Program and Checker remain resident when an unknown path is explicitly
