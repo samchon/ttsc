@@ -24,18 +24,21 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  * 2. Assert the key holds under an unchanged environment.
  * 3. Set another `GOFLAGS`, and assert the key differs.
  *
- * @evidence contracts/testing.md#behavioral-verification An actual transform records its Go source; an unchanged environment keeps the key and temporary GOFLAGS change invalidates it.
+ * @evidence contracts/testing.md#behavioral-verification An actual transform records its Go source under an explicit baseline GOFLAGS; an unchanged environment keeps the key and the original distinct probe GOFLAGS changes it. The original ambient absent/value state is restored even if setup or an earlier observation fails.
  * @evidence contracts/testing.md#independent-expectations Native plugin binaries depend on their build environment as well as source bytes; exact equality and inequality independently express that contract.
  * @evidence contracts/testing.md#distinguishing-cases Stable environment is the positive reuse control beside one GOFLAGS mutation with unchanged files.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes the scenario; TestMetroRuntime defaults to built transformer modules unless TTSC_TEST_LAYER=unit. The authored echo upstream does not make a real Metro server or OS worker, and source-layer override execution does not establish the built boundary.
  * @evidence contracts/e2e.md#necessary-boundary Actual compiler delivery must identify the plugin tree whose build environment contributes to the adapter key.
- * @evidence contracts/e2e.md#shared-execution One initial native project transform uses the suite shared producer cache. GOFLAGS is only fingerprinted for the second comparison, without rebuilding a plugin just to observe its key. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity  Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage Original recorded-source membership, stable key and changed-environment key assertions remain.
+ * @evidence contracts/e2e.md#shared-execution One initial awaited transform uses the selected shared producer; subsequent GOFLAGS key comparisons do not request another transform/rebuild or certify child/Program/cache counts. Its mutable Go copy is an owned workspace slot; query imports are suite-process modules rather than additional OS workers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before initial preparation, an explicit baseline differs from the original probe marker even if ambient GOFLAGS already equals it. Outer finally restores the exact previous absent/value state on all exits. Slot replacement resets snapshots; awaited transformer options env and parent workspace cleanup have separate owners, not arbitrary-descendant/loaded-image certificates.
+ * @evidence contracts/e2e.md#preserved-coverage Original source-tree membership, unchanged-key equality and original -tags=ttsc_metro_environment_probe inequality remain, with a distinct baseline premise. There is no post-change output/rebuild/toolchain-switch/restart observation; built-layer selection, registration, runtime survival and measurement remain unverified.
  */
 export async function case_metro_cache_key_changes_when_the_plugin_build_environment_changes(
   workspace: MetroWorkspace.IWorkspace,
 ): Promise<void> {
+  const previous = process.env.GOFLAGS;
+  process.env.GOFLAGS = "-tags=ttsc_metro_environment_baseline";
+  try {
   const root = MetroWorkspace.enterProject(workspace);
   const source = path.join(root, "go-plugin");
   fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
@@ -69,9 +72,7 @@ export async function case_metro_cache_key_changes_when_the_plugin_build_environ
     before,
     "an unchanged environment keeps the key",
   );
-  const previous = process.env.GOFLAGS;
   process.env.GOFLAGS = "-tags=ttsc_metro_environment_probe";
-  try {
     assert.notEqual(
       await cacheKeyForRun(root, options),
       before,
