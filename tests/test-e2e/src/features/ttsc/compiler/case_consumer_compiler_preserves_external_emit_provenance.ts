@@ -40,8 +40,13 @@ export function case_consumer_compiler_preserves_external_emit_provenance(
   const previous = [profileFile, logFile].map(file =>
     fs.existsSync(file) ? fs.readFileSync(file) : undefined);
   const failures: Error[] = [];
+  let safeForNext = true;
   try {
     for (const [index, item] of rows.entries()) {
+      if (!safeForNext) {
+        failures.push(new Error(item.name + ": BLOCKED by unresolved previous request"));
+        continue;
+      }
       try {
         const source = path.join(root, "src", `case${index}${item.extension}`);
         const output = path.join(root, "dist", `case${index}${item.suffix}`);
@@ -56,9 +61,11 @@ export function case_consumer_compiler_preserves_external_emit_provenance(
         fs.rmSync(logFile, { force: true });
         fs.rmSync(output, { force: true });
         let writerArgs: readonly string[] | undefined;
+        safeForNext = false;
         const result = operation({ args, binary, cwd: root, env, run(actual) {
           writerArgs = [...actual];
           const child = spawn(binary, actual, { cwd: root, env });
+          safeForNext = child.error === undefined && child.status !== null && child.signal === null;
           if (child.error) throw child.error;
           return { completedNormally: child.status !== null && child.signal === null,
             result: { status: child.status ?? 1, diagnostics: [],
@@ -83,7 +90,7 @@ export function case_consumer_compiler_preserves_external_emit_provenance(
       } catch (cause) { failures.push(new Error(item.name, { cause })); }
     }
   } finally {
-    for (const [index, file] of [profileFile, logFile].entries()) {
+    if (safeForNext) for (const [index, file] of [profileFile, logFile].entries()) {
       const bytes = previous[index];
       if (bytes === undefined) fs.rmSync(file, { force: true });
       else fs.writeFileSync(file, bytes);

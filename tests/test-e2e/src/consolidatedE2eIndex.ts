@@ -8,7 +8,8 @@ import { TestExecutor } from "../../utils/src/TestExecutor";
 const registered = {
   runtime: "test_e2e_runtime.ts",
   consumer: "test_e2e_consumer.ts",
-  watch: "test_e2e_watch.ts",
+  native: "test_e2e_native.ts",
+  "compiler-stub": "test_e2e_compiler_stub.ts",
 } as const;
 const argument = process.argv.find((value) => value.startsWith("--family="));
 const selected = argument

@@ -37,8 +37,8 @@ import {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The invocation log and the configuration are reset before each request; the version request runs last because it removes executable bits; the isolated cache selectors keep ttsx state inside the project. Synchronous result/expected status checks do not certify arbitrary descendant closure or loaded executable image; normal tracked root cleanup does not prove forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Replaces the former separate entries for no-plugin noEmit build, no-plugin single-invocation emit, ttsx consumer-local compiler execution and the POSIX non-executable version banner, keeping every status, count, flag, output and mode assertion. The version request keeps its POSIX-only scope by skipping inside the entry on Windows.
  */
-export function test_compiler_consumer_local_native_compiler_receives_the_launcher_contract(): void {
-  const root = createProject(
+export function test_compiler_consumer_local_native_compiler_receives_the_launcher_contract(preparedRoot?: string, provenanceRecorder?: string, observe?: (result: ReturnType<typeof spawnWithoutTsgoOverride>) => void): void {
+  const root = preparedRoot ?? createProject(
     FixtureFiles.read("ttsc/compiler/consumer-fake"),
   );
   const logFile = path.join(root, "tsgo-invocations.jsonl");
@@ -71,6 +71,7 @@ export function test_compiler_consumer_local_native_compiler_receives_the_launch
   createFakeNativePreview(
     root,
     `
+${provenanceRecorder ? `if (fs.existsSync(path.join(process.cwd(), "provenance-profile.json"))) { require(${JSON.stringify(provenanceRecorder)}); } else {` : ""}
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(logFile)}, JSON.stringify(args) + "\\n", "utf8");
 if (args.includes("--version")) {
@@ -124,6 +125,7 @@ if (!noEmit) {
   if (args.includes("--listFiles")) console.log(source);
   if (args.includes("--listEmittedFiles")) console.log("TSFILE: " + path.join(outDir, outDirAt < 0 ? "main.js" : "src/index.js"));
 }
+${provenanceRecorder ? "}" : ""}
 `,
   );
   const failures: Error[] = [];
@@ -140,6 +142,7 @@ if (!noEmit) {
   const noEmitBuild = spawnWithoutTsgoOverride(ttscBin, ["--cwd", root], {
     cwd: root,
   });
+  observe?.(noEmitBuild);
   check("no-plugin build honors tsconfig noEmit", () => {
     assert.equal(noEmitBuild.status, 0, noEmitBuild.stderr);
     const log = invocations();
@@ -154,6 +157,7 @@ if (!noEmit) {
   const emit = spawnWithoutTsgoOverride(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
   });
+  observe?.(emit);
   check("no-plugin emit invokes the compiler once", () => {
     assert.equal(emit.status, 0, emit.stderr);
     const log = invocations();
@@ -167,6 +171,7 @@ if (!noEmit) {
     cwd: root,
     env: isolatedCacheEnvironment(root),
   });
+  observe?.(ttsx);
   check("ttsx executes JavaScript emitted by the consumer-local compiler", () => {
     assert.equal(ttsx.status, 0, ttsx.stderr);
     assert.equal(ttsx.stdout.trim(), "consumer-local-tsgo");
@@ -189,6 +194,7 @@ if (!noEmit) {
     const version = spawnWithoutTsgoOverride(ttscBin, ["--version"], {
       cwd: root,
     });
+    observe?.(version);
     check("version makes the consumer compiler executable before spawn", () => {
       assert.equal(version.status, 0, version.stderr);
       assert.match(version.stdout, /^ttsc /);
