@@ -25,7 +25,7 @@ func TestNoDuplicateImportsPreservesMigratedJSONTupleOptions(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(root, "lint.config.json"), `{"rules":{"no-duplicate-imports":["error",{"allowSeparateTypeImports":true}]}}`)
-  source := "import api from \"separate-type-module\";\nimport type { IEntity } from \"separate-type-module\";\nimport { alpha } from \"duplicate-module\";\nimport { beta } from \"duplicate-module\";\nJSON.stringify({ api, alpha, beta });\n"
+  source := "import api from \"separate-type-module\";\nimport type { IEntity } from \"separate-type-module\";\nimport { alpha } from \"duplicate-module\";\nimport { beta } from \"duplicate-module\";\nJSON.stringify({ api, alpha, beta });"
   resolver, err := LoadConfigResolver(&PluginEntry{}, root, "tsconfig.json")
   if err != nil {
     t.Fatalf("LoadConfigResolver: %v", err)
