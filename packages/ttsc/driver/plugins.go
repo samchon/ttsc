@@ -135,7 +135,7 @@ type PluginEntry struct {
 // @evidence contracts/common.md#clear-and-simple-design Public project context is separate from private report callbacks.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit reports avoid foreign globals or intercepted arbitrary filesystem calls.
 // @evidence contracts/common.md#meaningful-documentation Field prose and reporting-method contracts explain context and proof following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native project anchors flow through filepath normalization rather than shell assumptions.
+// @evidence contracts/portability.md#os-neutral-implementation Cwd/Tsconfig retain the host-supplied native anchors; context construction does not physically canonicalize them or establish case policy. Reporting methods resolve relative inputs with native filepath operations and serialize dependency coordinates through TransformOutputKey, while physical observations remain separately reported. No shell string or OS-name guess supplies identity proof.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -143,7 +143,7 @@ type PluginContext struct {
   // Cwd anchors relative paths reported by this plugin.
   Cwd string
 
-  // Entry is this registration's launcher-supplied manifest value.
+  // Entry is this registration's JSON-decoded manifest value.
   Entry PluginEntry
 
   // Tsconfig names the compiler configuration selected for this project.
@@ -176,9 +176,9 @@ type PluginContext struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public API unavailability is distinguished from observed mutation; no blanket hash omission or fabricated input filename bypasses a real conflict.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs define hook scope, sticky lifetime, fresh output versus reuse and the prohibition on masking actual mutation following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This callback reports an observation limitation and performs no native filesystem operation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportObservationIncomplete acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportObservationIncomplete performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportObservationIncomplete computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The callback marks an existing caller-owned hook scope sticky; this notifier neither acquires that scope nor controls its lifetime, and allocates no independent handle, buffer or historical cache. The marked state persists after return under its ledger owner.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This notifier selects no collection or input-processing strategy; it forwards a signal to the owning scope's mutex-protected boolean update, without enumerating missing inputs or constructing a proof population.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Declaring a known observation limitation is an effectful signal, not coordination of completed/in-flight computation or authority to reuse an artifact. Reuse admission belongs to consumers of the scope state.
 func (ctx PluginContext) ReportObservationIncomplete() {
   if ctx.reportObservationIncomplete != nil {
     ctx.reportObservationIncomplete()
@@ -190,15 +190,17 @@ func (ctx PluginContext) ReportObservationIncomplete() {
 // a missing candidate. Conflicting observations are retained as host inputs
 // but omitted from PluginHostInputHashes, forcing persistent adapters to
 // decline narrow reuse without failing the transform.
+// This reporter validates digest syntax and forwards the supplied observation;
+// it does not read the file or independently authenticate consumption-time data.
 //
 // @evidence contracts/common.md#principled-implementation Invalid digest reports retain the input but withdraw proof instead of authorizing reuse.
 // @evidence contracts/common.md#clear-and-simple-design Path normalization and digest validation precede one valid or unknown observation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No later reread or invented digest replaces evaluation-time evidence.
 // @evidence contracts/common.md#meaningful-documentation Native prose defines digests, absence, and conflict consequences following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Relative paths use native Join and Clean against cwd without shell interpretation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInputHash acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInputHash performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInputHash computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Normalized file text and the supplied hash value transfer to the caller-owned hook ledger; its callback copies the pointer value and retains per-path known/unknown state. Repeated paths fold into that scope, while distinct paths grow retained keys and metadata without a cap supplied here. No native handle is acquired, and this reporter controls neither scope lifetime nor disposal.
+// @evidence contracts/performance.md#efficient-algorithms Blank/path guards and native Join/Clean process file/cwd text. Digest validation rejects non-64-byte strings by length and scans at most 64 bytes for lowercase hex; the callback adds map key hashing/comparison, locking and value copying. No file content read or hashing is performed by this syntax-validation reporter.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Publishing a supplied input observation is not coordination of a completed/in-flight artifact computation. The ledger merges evidence and consumers separately decide continued artifact validity; this reporter owns no cached computation or reuse permission.
 func (ctx PluginContext) ReportHostInputHash(file string, hash *string) {
   if ctx.reportHostInputHash == nil || strings.TrimSpace(file) == "" {
     return
@@ -223,15 +225,17 @@ func (ctx PluginContext) ReportHostInputHash(file string, hash *string) {
 // a missing candidate. Conflicting observations remain host inputs but are
 // omitted from PluginHostInputRealpaths so adapters cannot attach an earlier
 // result to a retargeted symlink or junction.
+// This method validates supplied path syntax; it does not call Realpath or
+// independently verify physical resolution, absence or alias equivalence.
 //
 // @evidence contracts/common.md#principled-implementation Consumption-time identity becomes unknown when invalid rather than defaulting to lexical identity.
 // @evidence contracts/common.md#clear-and-simple-design Normalize and validate before delivering one ledger observation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Neither a later realpath read nor the lexical filename substitutes for missing proof.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains absolute identity and retarget safety following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native filepath operations preserve observed symlink or junction identities.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInputRealpath acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInputRealpath performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInputRealpath computes one result per call, so there is no repeated work to share.
+// @evidence contracts/portability.md#os-neutral-implementation File spellings resolve against Cwd with native Join/Clean; supplied nonnil identity must have native absolute-path syntax and is cleaned without resolving links or guessing case policy. Nil is the caller's absence report, not a new stat result, and accepted absolute spelling alone does not authenticate physical identity.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Normalized file/identity strings transfer to the caller-owned hook ledger, whose callback copies pointer values and folds repeated-path conflicts into unknown state. Distinct paths retain keys and identity metadata without a cap imposed here. No native handle is acquired; scope lifetime and any separately retained context callbacks remain outside this reporter's disposal control.
+// @evidence contracts/performance.md#efficient-algorithms Trimming, native absolute/path checks and Join/Clean process file/cwd/identity text; ledger delivery adds locking, key hashing and string comparison/value copying. There is no filesystem traversal or native identity query, but path-length work is not a fixed number of byte operations.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting supplied identity metadata is not sharing an artifact computation; the ledger merges evidence and reuse consumers own validation/admission. This reporter caches no native query or output from a previous filesystem generation.
 func (ctx PluginContext) ReportHostInputRealpath(file string, realpath *string) {
   if ctx.reportHostInputRealpath == nil || strings.TrimSpace(file) == "" {
     return
@@ -268,7 +272,7 @@ func isLowerSHA256(value string) bool {
 }
 
 // ReportHostInput declares an absolute file whose content or presence was
-// consumed while the native plugin evaluated configuration. Native transform
+// consumed by the native plugin hook. Native transform
 // envelopes expose the generation-wide union so persistent hosts can invalidate
 // without re-evaluating plugin config on the JavaScript side.
 //
@@ -277,9 +281,9 @@ func isLowerSHA256(value string) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual consumption reports replace guessed config names and fabricated hashes.
 // @evidence contracts/common.md#meaningful-documentation Native prose separates input declaration from reevaluation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native Join and Clean resolve against cwd without separator literals.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInput acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInput performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInput computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The cleaned path transfers into an existing caller-owned hook scope; distinct paths grow its retained declaration set, while repeated equal paths deduplicate there. This reporter opens no handle and supplies no path-count/byte cap or scope disposal policy; separately retained callbacks can preserve that state.
+// @evidence contracts/performance.md#efficient-algorithms Trimming and native absolute/Join/Clean operations process file/cwd text, followed by the scope callback's lock and string-key insertion. No file is read or traversed, but path normalization and map hashing are not constant byte work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful declaration adds an input candidate without proving content or coordinating a completed/in-flight artifact computation. The scope retains reports and artifact consumers separately establish reuse eligibility.
 func (ctx PluginContext) ReportHostInput(file string) {
   if ctx.reportHostInput == nil || strings.TrimSpace(file) == "" {
     return
