@@ -17,8 +17,9 @@ import { TransitionProject } from "../../../internal/evidence/internal/Transitio
  * Verifies per-claim and per-reference severity reaches the real compiler.
  *
  * Typed undefined values must survive config validation as inheritance, while
- * warnings must reach the CLI without failing its exit status. Off populations
- * must not load, even if their sources do not exist.
+ * warnings must reach the CLI without failing its exit status. Disabled
+ * populations with missing sources must not cause these checks to fail; this
+ * case does not independently count loader invocations.
  *
  * 1. Run an error rule with a warning claim and an undefined reference level.
  * 2. Override that reference to error and then off.
@@ -26,11 +27,11 @@ import { TransitionProject } from "../../../internal/evidence/internal/Transitio
  *
  * @evidence contracts/testing.md#behavioral-verification Checks warning inheritance, reference error, reference off, claim off and restored outer-error inheritance across five real checks.
  * @evidence contracts/testing.md#independent-expectations Authored severity values independently prescribe warning status 0 versus error failure; ANSI-stripped warning TS/error TS prefixes distinguish rendering.
- * @evidence contracts/testing.md#distinguishing-cases Undefined values under exactOptionalPropertyTypes must inherit; disabled populations name missing globs without loading them. The off-claim case does not separately require output silence.
+ * @evidence contracts/testing.md#distinguishing-cases Undefined values under exactOptionalPropertyTypes must inherit; disabled populations name missing globs but the checks remain successful. Loader invocation counts are not observed, and the off-claim case does not separately require output silence.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_evidence, which is discovered under src/features and selected by tests/test-e2e/evidence.config.json; this scenario is an exported case function selected by the same claim and runs the real ttsc check against the shared linked consumer.
  * @evidence contracts/e2e.md#necessary-boundary Typed severity options and native diagnostics must connect to actual CLI exit codes; inheritance calculations themselves are direct-unit candidates.
- * @evidence contracts/e2e.md#shared-execution Runs in the experiment's single linked consumer and native cache; the five fresh hosts remain because each severity combination is a distinct configuration the CLI reads per invocation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Entering resets only src, docs and the two config files; between checks only lint.config.ts changes, and the experiment releases the consumer after the last of its four scenarios.
+ * @evidence contracts/e2e.md#shared-execution Runs in the experiment's single linked consumer and selected native cache; five separate CLI invocations remain because each severity combination is a distinct configuration the CLI reads per invocation. This is not a count of all native children or Program constructors, nor proof of a cache hit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Entering resets only src, docs and the two config files; only lint.config.ts changes after each synchronous check returns. That return does not certify arbitrary descendant shutdown. The experiment releases the consumer after the last of its four scenarios.
  * @evidence contracts/e2e.md#preserved-coverage All five verdicts, warning/error text, missing finding and reference-off absence stay here.
  */
 export function case_evidence_graph_severity_controls_exit_status(
