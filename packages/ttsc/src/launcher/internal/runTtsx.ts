@@ -20,32 +20,36 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * main module in a child of the current Node.js runtime, whose module hooks
  * serve that emit under the source's own path.
  *
- * The launcher owns the process tree it starts, so it behaves toward it the way
- * a shell does. A termination signal that arrives while the
- * project is being prepared is held until preparation has cleaned up after
- * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or
- * container runtime sends to the launcher's pid alone, are forwarded to it;
+ * The launcher holds its platform termination listeners while preparing the
+ * project and running its direct program child. A received signal is handled
+ * after synchronous preparation yields and cleanup has been attempted. While
+ * the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or container
+ * runtime can send to the launcher's pid alone, are forwarded to that child;
  * `SIGINT` from a terminal already reaches the whole process group, so it is
- * not delivered a second time. The runtime directory is removed on exit once no
- * descendant still owns it. A program that died of a signal makes ttsx die of
- * the same one, so a shell sees `128 + n` exactly as it would for `node`.
+ * not delivered a second time. Runtime-directory removal is attempted only
+ * when the cooperative ownership record is abandoned or unowned; unknown or
+ * live ownership defers it. A reported child signal is re-raised on the
+ * launcher under the platform's signal behavior, with failure to self-signal
+ * exiting as status 1. This is not recursive process-tree termination or a
+ * descendant-close receipt.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  *
- * @returns The program's exit code, or `2` on a ttsx-level error. When the
- *   program died of a signal, the promise never settles: ttsx re-raises the
- *   signal on itself instead.
+ * @returns The program's reported exit code, or `2` on a launcher-level error.
+ *   A reported asynchronous spawn error returns `1`. A child signal initiates
+ *   self-signalling instead of certifying a normally settled promise or
+ *   descendant termination.
  *
  * @evidence contracts/common.md#principled-implementation The shared flag parser separates compiler options from entry argv; TypeScript entries use a checked emit manifest and JavaScript entries install the runtime preload, then Node loads the original entry as its main module.
- * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; one launcher-level finally removes listeners, while the prepared-entry boundary owns runtime-output cleanup.
+ * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; launcher finally removes its listeners while prepared-entry cleanup attempts relinquishment/removal. Program execution observes error or exit, not an awaited child-close or descendant join.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported build/watch modes and JavaScript-only configuration flags are rejected explicitly; supported Node preloads carry runtime hooks without replacing foreign globals or fabricating a successful child exit.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain execution identity, signal policy, cleanup and exit effects; helper comments distinguish program argv, preload order and best-effort cleanup.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs resolve entries/preloads, spawn receives the current Node executable and argument array, and Windows signal limitations are isolated in LauncherSignals rather than assuming POSIX process behavior.
- * @evidence contracts/performance.md#efficient-algorithms CLI parsing and token scans are linear in argv size, preparation delegates the required compiler work, and the launcher starts one child without polling or buffering inherited output.
+ * @evidence contracts/performance.md#efficient-algorithms Argument/name/preload text processing and native entry/cache/compiler resolution precede the final program child. TypeScript preparation delegates compilation and serializes/writes its full manifest; helpers can launch their own children. Final program stdio is inherited without parent output buffering or polling; cleanup adds lock/owner-record/native removal costs beyond argv count.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns an effectful program run and fresh arguments; reusable compiler generations belong to prepareExecution and the runtime build owners.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One run owns a child and a fixed platform signal-listener set; finally disposes listeners and relinquishes output under the runtime lock, while live descendant owner claims postpone removal. Signals target the direct child rather than recursively terminating every descendant, and an unresponsive child has no forced-kill deadline here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Exit/error observation is not child-close or descendant settlement, and an unresponsive program child has no forced-kill deadline here.
  */
 export async function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
