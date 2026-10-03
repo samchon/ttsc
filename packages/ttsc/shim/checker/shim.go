@@ -481,14 +481,18 @@ func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerche
 // It panics on a value it does not handle, notably the nil a computed enum
 // member carries, so a caller holding a `LiteralType.Value()` must reject nil
 // before calling this.
+// Accepted runtime values are string, jsnum.Number, bool and jsnum.PseudoBigInt;
+// ordinary Go numeric values and other representations are not accepted.
+// This delegates the compiler's spelling, including nonfinite-number text,
+// rather than preserving the original source token or validating arbitrary data.
 //
 // @evidence contracts/common.md#principled-implementation Delegating supported literal values to the checker's renderer preserves TypeScript escaping and numeric spelling; unsupported runtime values remain outside its domain and panic.
 // @evidence contracts/common.md#clear-and-simple-design One renderer bridge centralizes compiler literal syntax without a separate shim serializer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Values are formatted from actual compiler data, with no expected string table or special-case enum member names.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state source-form output and the unsupported/nil-value panic boundary with explanatory context.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ValueToString acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ValueToString performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ValueToString computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives constant boolean/special-value text or formatted string/number/bigint storage. Upstream escaping and numeric serialization own temporary builders/bytes; the bridge retains no output registry or handle. Retaining the result retains its backing text, whose size depends on input and escaping rather than a fixed wrapper branch count.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream value dispatch, JavaScript-string escaping and number/bigint spelling own the algorithms. Escaping scans input bytes and emits expanded text; numeric conversion and bigint sign/suffix construction have their own output costs. This forwarding bridge selects no separate serializer or escaping strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The renderer transfers a formatted value and coordinates no completed or in-flight producer, output cache or cross-request invalidation policy.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ValueToString computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ValueToString(value any) string {
   return innerchecker.ValueToString(value)
@@ -1005,17 +1009,20 @@ func Checker_resolveEntityName(
 //go:linkname checkerGetTypeNameSymbol github.com/microsoft/typescript-go/internal/checker.getTypeNameSymbol
 func checkerGetTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol
 
-// Type_getTypeNameSymbol returns the symbol attached to t's type name field,
-// or nil when t has no name symbol or t is nil. Linked via go:linkname because
+// Type_getTypeNameSymbol returns t's alias symbol when alias metadata exists;
+// otherwise it returns t's symbol for type parameters, string-mapping types,
+// classes/interfaces and references, or nil for other categories or nil input.
+// It does not format the type or establish a unique name for every type.
+// Linked via go:linkname because
 // getTypeNameSymbol is a package-level unexported function in the checker.
 //
 // @evidence contracts/common.md#principled-implementation The compiler's name-symbol helper preserves semantic type naming rules, while nil input remains absent without dereferencing a type payload.
 // @evidence contracts/common.md#clear-and-simple-design One query exposes name provenance independently of type formatting or general symbol resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No name symbol is guessed from printed text or declaration identifiers.
 // @evidence contracts/common.md#meaningful-documentation Native prose states optional name/nil results and why explicit internal linkage is used.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Type_getTypeNameSymbol acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Type_getTypeNameSymbol performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Type_getTypeNameSymbol computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives an existing alias/type symbol and can retain its declaration and semantic graph. The source type/checker owner controls that lifetime; the bridge allocates no name copy and keeps no separate symbol history or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream alias-first flag/symbol projection owns the selection rule. This shim only guards nil and chooses no separate name resolution, graph traversal or formatting algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The helper projects existing type metadata and coordinates no completed or in-flight producer, name cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Type_getTypeNameSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Type_getTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol {
   if t == nil {
