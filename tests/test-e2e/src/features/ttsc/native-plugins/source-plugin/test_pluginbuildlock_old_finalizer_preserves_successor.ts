@@ -26,15 +26,16 @@ import {
  * @evidence contracts/testing.md#behavioral-verification After the parent retires live generation A and B acquires current, A's delayed release must return false without removing B; B must later release true and both tombstones must remain.
  * @evidence contracts/testing.md#independent-expectations Independent child lease/result files and release barriers order the parent reclamation and delayed finalizer. Literal released booleans and the captured B fence define the expected ownership outcome.
  * @evidence contracts/testing.md#distinguishing-cases Parent reclaim while A is still alive, B current before A finalizes, losing A finalizer and normal B release distinguish lease history from current ownership; legacy namespace and two stale observer races are separate cases.
- * @evidence contracts/testing.md#execution-ownership The exported async entry starts two live holder workers using shipped acquire/release APIs and invokes shipped reclaim/inspect in the parent against their shared native lock path.
+ * @evidence contracts/testing.md#execution-ownership The named generic entry directly invokes built workspace reclaim/inspect and two actual Node workers invoke acquire/release against the same native path. This is not a packed consumer or Go compilation proof.
  * @evidence contracts/e2e.md#necessary-boundary An old live PID can still execute its finally after a successor owns current; native generation/tombstone fencing must prevent that real late action from releasing the successor.
  * @evidence contracts/e2e.md#shared-execution One holder script and lock root are shared by the A/B roles. Two concurrent holder lifetimes preserve the delayed-action premise; neither role installs a consumer or builds Go.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private lease/result/barrier files distinguish generations. Each spawned holder is registered immediately; finally opens both release barriers and joins every registered holder, including assertion or barrier failures before the normal signals.
- * @evidence contracts/e2e.md#preserved-coverage Original parent reclaim, process outcomes, false/true release records, active B fence, final released classification and both retained tombstones remain unchanged.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private lease/result/barrier files distinguish generations, with the owned root retained before preparation. Each holder is registered immediately; finally attempts both release barriers and collects every registered worker outcome alongside body failures. Shared helper ordinary outcomes follow actual close, but its separate close deadline remains unjoined failure, not termination or descendant proof.
+ * @evidence contracts/e2e.md#preserved-coverage Original parent reclaim, status0, false/true release records, active B fence, final released classification and both tombstones remain. Signal guards and failure aggregation strengthen setup/reset; no actual selection, close, survival or preparation-cost reduction has been measured.
  */
 export const test_pluginbuildlock_old_finalizer_preserves_successor =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-finalizer-");
+    TestProject.retainTemporaryDirectory(root, "late-finalizer workers require actual close before input reclamation");
     const lockDir = path.join(root, "entry.lock");
     const oldLeaseFile = path.join(root, "old-lease.json");
     const oldFinalizeFile = path.join(root, "old-finalize");
@@ -79,6 +80,7 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     );
 
     const workers: Array<ReturnType<typeof spawnNodeWorker>> = [];
+    const failures: unknown[] = [];
     try {
       const oldHolder = spawnNodeWorker({
         env: {
@@ -128,6 +130,7 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
         "old finalizer result",
       );
       const oldResult = await oldHolder;
+      assert.equal(oldResult.signal, null, oldResult.stderr);
       assert.equal(oldResult.status, 0, oldResult.stderr);
       assert.deepEqual(JSON.parse(fs.readFileSync(oldResultFile, "utf8")), {
         released: false,
@@ -144,6 +147,7 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
 
       fs.writeFileSync(successorReleaseFile, "release\n", "utf8");
       const successorResult = await successor;
+      assert.equal(successorResult.signal, null, successorResult.stderr);
       assert.equal(successorResult.status, 0, successorResult.stderr);
       assert.deepEqual(JSON.parse(fs.readFileSync(successorResultFile, "utf8")), {
         released: true,
@@ -161,18 +165,21 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
         ),
         true,
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
-      const releaseErrors: unknown[] = [];
       for (const releaseFile of [oldFinalizeFile, successorReleaseFile]) {
         try {
           fs.writeFileSync(releaseFile, "release\n", "utf8");
         } catch (error) {
-          releaseErrors.push(error);
+          failures.push(error);
         }
       }
-      await Promise.allSettled(workers);
-      if (releaseErrors.length !== 0) {
-        throw new AggregateError(releaseErrors, "worker release barriers failed");
+      for (const result of await Promise.allSettled(workers)) {
+        if (result.status === "rejected" && !failures.includes(result.reason))
+          failures.push(result.reason);
       }
     }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "late-finalizer body or worker release failed");
   };

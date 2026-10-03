@@ -29,19 +29,18 @@ import {
  *    for this process, and assert only the dead holder's tombstone goes.
  *
  * @evidence contracts/testing.md#behavioral-verification Plugin-cache pruning must evict the old payload while preserving its observable lock root, delete a dead holder's retired generation and keep the live holder's tombstone plus the current payload.
- * @evidence contracts/testing.md#independent-expectations Explicit last-used timestamps place one entry beyond the 30-day policy, and real exited versus current PIDs establish the two holder premises. Literal path-presence expectations define payload and fence lifetimes independently of random generation ordering.
+ * @evidence contracts/testing.md#independent-expectations Explicit last-used timestamps place one entry beyond the 30-day policy; setup error/signal/status, positive safe PID and independent native ESRCH establish the absent-owner input against the current live PID. PID reuse remains possible. Literal path-presence expectations define payload and fence lifetimes independently of random generation ordering.
  * @evidence contracts/testing.md#distinguishing-cases Old payload versus fresh entry and dead versus live retired ownership retain distinct outcomes. The helper locates each newly created tombstone by set difference and asserts exactly one, avoiding random-name ordering assumptions.
- * @evidence contracts/testing.md#execution-ownership The exported entry calls shipped acquire/release/prune APIs over actual generation records and a real completed-process PID; it does not compile Go or load a contributor host.
- * @evidence contracts/e2e.md#necessary-boundary The collector must connect actual local owner absence to safe tombstone deletion while preserving a still-live capability holder. Pure age/LRU policy alone cannot establish that native process-liveness connection.
- * @evidence contracts/e2e.md#shared-execution One plugin-cache root and retire helper supply old/fresh entries and both retired owners. One completed child supplies the native dead-holder witness; no per-generation compiler build is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private payload and coordination roots isolate collection. Fixture leases are released before pruning, while the current process remains a live holder of its history; the seed child must exit zero and supply a positive native PID before recording its absent-owner premise.
- * @evidence contracts/e2e.md#preserved-coverage Original acquisition/new-tombstone controls and every payload/root/live/dead presence assertion remain. Observer-population and unfinished-task distinctions are not added by this acknowledgment and retain their other owners.
+ * @evidence contracts/testing.md#execution-ownership The named generic entry directly calls built workspace acquire/release/prune over actual native inputs. The Node child supplies setup PID only; no compiler, installed consumer, native plugin producer or product host protocol is exercised.
+ * @evidenceExclude contracts/e2e.md#necessary-boundary Direct pruning ownership with native PID/filesystem inputs is unit-first. Exact counterpart tests/test-ttsc/src/features/source-plugin/test_pruneplugincacheroot_preserves_live_retired_ownership.ts preserves this matrix; it is authored but actual selection/execution/survival remains unverified.
+ * @evidence contracts/e2e.md#shared-execution Existing root/retire helper and one completed setup child remain until exact direct counterpart execution permits duplicate-call removal. This is not an achieved E2E family or process-cost reduction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked temporary root is retained before preparation. Fixture leases release before pruning; child launch/signal/status and native ESRCH precede absent-owner recording. The current PID retains live history. Neither synchronous return nor root retention proves arbitrary descendant closure.
+ * @evidence contracts/e2e.md#preserved-coverage Original acquisition/new-tombstone controls, old31day/fresh inputs and all five payload/root/live/dead presence assertions remain, with strengthened native setup. Exact direct counterpart b5bfc52a5afc7b86743506ecff4ba28a71ec2790 is authored/unexecuted; donor stays until actual survival. Observer/unfinished-task/byte-bound behavior is not asserted here.
  */
 export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
-  const root = path.join(
-    TestProject.tmpdir("ttsc-plugin-cache-tombstones-"),
-    "plugins",
-  );
+  const temporaryRoot = TestProject.tmpdir("ttsc-plugin-cache-tombstones-");
+  TestProject.retainTemporaryDirectory(temporaryRoot, "retired-owner native setup has no descendant join acknowledgement");
+  const root = path.join(temporaryRoot, "plugins");
   fs.mkdirSync(root, { recursive: true });
   const now = Date.now();
   const seed = (name: string, lastUsed: number): string => {
@@ -78,9 +77,15 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
   const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
     windowsHide: true,
   });
+  assert.equal(exited.error, undefined, "retired-owner setup child launch error");
+  assert.equal(exited.signal, null, "retired-owner setup child terminated by signal");
   assert.equal(exited.status, 0, exited.error?.message);
   const deadPid = exited.pid;
-  assert.ok(deadPid > 0);
+  assert.ok(Number.isSafeInteger(deadPid) && deadPid > 0);
+  let absence: unknown;
+  try { process.kill(deadPid, 0); }
+  catch (error) { absence = error; }
+  assert.equal((absence as NodeJS.ErrnoException | undefined)?.code, "ESRCH", "only ESRCH proves the recorded retired owner absent");
   const owner = JSON.parse(
     fs.readFileSync(path.join(dead, "owner.json"), "utf8"),
   ) as Record<string, unknown>;
