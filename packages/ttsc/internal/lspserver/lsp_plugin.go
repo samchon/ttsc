@@ -448,7 +448,7 @@ type NullPluginSource struct{}
 // @evidence contracts/common.md#meaningful-documentation Native prose states the observable contribution, following the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Diagnostics acquires no handle, buffer or cache and retains nothing after it returns.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Diagnostics performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Diagnostics computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This empty-source Diagnostics method returns a fixed zero value without coordinating a computation, cache or in-flight work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Diagnostics computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) Diagnostics(LSPDocumentVersion) LSPDiagnosticsResult {
   return LSPDiagnosticsResult{}
@@ -462,7 +462,7 @@ func (NullPluginSource) Diagnostics(LSPDocumentVersion) LSPDiagnosticsResult {
 // @evidence contracts/common.md#meaningful-documentation Native prose states empty action behavior, following the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CodeActions acquires no handle, buffer or cache and retains nothing after it returns.
 // @evidenceExclude contracts/performance.md#efficient-algorithms CodeActions performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work CodeActions computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This empty-source CodeActions method returns nil without coordinating a computation, cache or in-flight work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation CodeActions computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) CodeActions(string, LSPRange, LSPCodeActionContext) []LSPCodeAction {
   return nil
@@ -482,8 +482,8 @@ func (NullPluginSource) ExecuteCommand(string, []json.RawMessage) (*LSPWorkspace
   return nil, ErrCommandNotHandled
 }
 
-// CommandIDs returns an empty slice so the proxy forwards every command
-// to upstream tsgo.
+// CommandIDs advertises no locally owned commands. The proxy's source-ownership
+// check therefore leaves requests to its upstream routing path.
 //
 // @evidence contracts/common.md#principled-implementation Nil advertises no locally owned identity.
 // @evidence contracts/common.md#clear-and-simple-design The empty source requires no command storage.
@@ -491,6 +491,6 @@ func (NullPluginSource) ExecuteCommand(string, []json.RawMessage) (*LSPWorkspace
 // @evidence contracts/common.md#meaningful-documentation Native prose explains upstream forwarding, following the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommandIDs acquires no handle, buffer or cache and retains nothing after it returns.
 // @evidenceExclude contracts/performance.md#efficient-algorithms CommandIDs performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work CommandIDs computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This empty-source CommandIDs method returns nil without coordinating a computation, cache or in-flight work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation CommandIDs computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) CommandIDs() []string { return nil }
