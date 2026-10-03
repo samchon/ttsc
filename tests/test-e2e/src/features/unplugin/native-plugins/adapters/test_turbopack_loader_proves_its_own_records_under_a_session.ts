@@ -41,11 +41,20 @@ import { writeProjectRecordFile } from "../../../../../../../packages/unplugin/l
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_proves_its_own_records_under_a_session is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real Node worker imports built loader and proves records under rootContext, distinct from in-process channel captures.
  * @evidence contracts/e2e.md#shared-execution One worker proves loaded and sibling records under one root; sibling is deliberately never compiled.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original root. Shared calls run first on the newly prepared root, before any parent host/loader bridge can prove its sibling record and mask the worker boundary. The same impossible sibling state, production environment and fresh session remain. Actual successful worker close precedes the observer notification and later host calls; child error leaves reuse blocked. Abrupt cancellation and arbitrary descendants remain unverified, and the shared root stays retained.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: production worker under a shared session leaves an unrelated sibling record present and moves its signal from zero. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_proves_its_own_records_under_a_session(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
+export async function test_turbopack_loader_proves_its_own_records_under_a_session(
+  preparedRoot?: string,
+  observeClosed?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
+  if (preparedRoot)
+    assert.equal(
+      fs.existsSync(hostToolDirectory(root)),
+      false,
+      "startup proof must precede host record preparation for the shared root",
+    );
   const sibling = path.join(root, "sibling");
   fs.mkdirSync(path.join(sibling, "src"), { recursive: true });
   const siblingTsconfig = path.join(sibling, "tsconfig.json");
@@ -102,14 +111,19 @@ export async function test_turbopack_loader_proves_its_own_records_under_a_sessi
       status === 0 ? resolve() : reject(new Error(stderr)),
     );
   });
+  observeClosed?.();
 
   assert.equal(
     fs.existsSync(record),
     true,
     "a project that still has a tsconfig keeps its record",
   );
+  const proven = readProjectRecordFile(record);
+  assert.ok(proven !== undefined, "the sibling record remains a readable record");
+  assert.equal(proven.tsconfig, siblingTsconfig);
+  assert.equal(proven.root, sibling);
   assert.notEqual(
-    readProjectRecordFile(record)?.signal,
+    proven.signal,
     0,
     "the worker proved the records below the root Turbopack gave it",
   );
