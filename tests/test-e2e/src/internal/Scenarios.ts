@@ -10,6 +10,48 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
 /** Runs the independent scenarios of one package experiment. */
 export namespace Scenarios {
   /**
+   * Observe one actual named callback without collecting or changing its result.
+   * The caller decides which settled inputs and resource gates admit the call.
+   *
+   * @evidence contracts/common.md#principled-implementation Records invocation before the actual callback and returned/threw after its awaited result; the original return value or exception is propagated unchanged.
+   * @evidence contracts/common.md#clear-and-simple-design One invocation token connects a named callback to its terminal observation. Failure collection and reuse admission remain caller responsibilities.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not retry, synthesize a successful verdict, infer process counts or certify assertion coverage from a returned callback.
+   * @evidence contracts/common.md#meaningful-documentation Separates actual callback observation from behavioral and resource-lifetime proof.
+   * @evidence contracts/portability.md#os-neutral-implementation Delegates opt-in native trace IO to the existing runtime; disabled observation performs no IO. Callback arguments and exceptions are forwarded without native-path interpretation.
+   * @evidence contracts/performance.md#efficient-algorithms Runs the supplied callback once and adds two bounded label/name events when enabled; callback costs remain distinct.
+   * @evidence contracts/performance.md#reuse-equivalent-work Reuses the existing trace sink and unchanged callback inputs without caching its behavioral outcome.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Awaiting the callback bounds this observation, not arbitrary descendants. The trace runtime owns append/close and budgets; the caller owns input retention and resource cleanup.
+   */
+  export async function invoke<Args extends unknown[], Result>(
+    label: string,
+    name: string,
+    run: (...args: Args) => Result,
+    ...args: Args
+  ): Promise<Awaited<Result>> {
+    const invocation = trace.begin();
+    trace.record("profile-invocation", invocation, {
+      pid: process.pid,
+      data: { writerRuntime: process.version, label, name },
+    });
+    try {
+      const result = await run(...args);
+      trace.record("profile-result", invocation, {
+        pid: process.pid,
+        data: { writerRuntime: process.version, label, name, outcome: "returned",
+          assertionCoverageCertified: false },
+      });
+      return result;
+    } catch (error) {
+      trace.record("profile-result", invocation, {
+        pid: process.pid,
+        data: { writerRuntime: process.version, label, name, outcome: "threw",
+          assertionCoverageCertified: false },
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Run every independent scenario and report each failure under its name.
    *
    * A failed verdict does not stop later independent observations. Callers may
@@ -34,24 +76,9 @@ export namespace Scenarios {
     if (scenarios.length === 0) throw new Error(`${label} has no scenarios`);
     const failures: Error[] = [];
     for (const [name, run] of scenarios) {
-      const invocation = trace.begin();
-      trace.record("profile-invocation", invocation, {
-        pid: process.pid,
-        data: { writerRuntime: process.version, label, name },
-      });
       try {
-        await run();
-        trace.record("profile-result", invocation, {
-          pid: process.pid,
-          data: { writerRuntime: process.version, label, name, outcome: "returned",
-            assertionCoverageCertified: false },
-        });
+        await invoke(label, name, run);
       } catch (error) {
-        trace.record("profile-result", invocation, {
-          pid: process.pid,
-          data: { writerRuntime: process.version, label, name, outcome: "threw",
-            assertionCoverageCertified: false },
-        });
         failures.push(
           new Error(
             `${name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`,

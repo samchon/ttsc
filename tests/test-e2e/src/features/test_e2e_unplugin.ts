@@ -2,6 +2,7 @@ import { TestProject, TestUnpluginProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { Scenarios } from "../internal/Scenarios";
 import { createLinkedPluginProject } from "../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
 import { test_rollup_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_rollup_build_maps_transformed_modules_to_the_authored_source";
 import { test_esbuild_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_esbuild_build_maps_transformed_modules_to_the_authored_source";
@@ -58,7 +59,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   let esbuildCompleted = false;
   let viteReturned = false;
   try {
-    await test_vite_adapter_runs_the_configured_ttsc_source_transform(root, () => {
+    await Scenarios.invoke("shared-unplugin", "test_vite_adapter_runs_the_configured_ttsc_source_transform", test_vite_adapter_runs_the_configured_ttsc_source_transform, root, () => {
       viteReturned = true;
     });
   } catch (cause) {
@@ -66,7 +67,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   }
   let rollupClosed = false;
   try {
-    await test_rollup_adapter_runs_the_configured_ttsc_source_transform(root, () => {
+    await Scenarios.invoke("shared-unplugin", "test_rollup_adapter_runs_the_configured_ttsc_source_transform", test_rollup_adapter_runs_the_configured_ttsc_source_transform, root, () => {
       rollupClosed = true;
     });
   } catch (cause) {
@@ -77,7 +78,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   else {
     let dependencyBundleClosed = false;
     try {
-      await test_rollup_build_registers_plugin_dependencies_as_watch_files(root, () => {
+      await Scenarios.invoke("shared-unplugin", "test_rollup_build_registers_plugin_dependencies_as_watch_files", test_rollup_build_registers_plugin_dependencies_as_watch_files, root, () => {
         dependencyBundleClosed = true;
       });
     } catch (cause) {
@@ -87,7 +88,7 @@ export async function test_e2e_unplugin(): Promise<void> {
       failures.push(new Error("esbuild profiles blocked: dependency bundle closure was not observed"));
     else {
       try {
-        await test_esbuild_adapter_runs_the_configured_ttsc_source_transform(root);
+        await Scenarios.invoke("shared-unplugin", "test_esbuild_adapter_runs_the_configured_ttsc_source_transform", test_esbuild_adapter_runs_the_configured_ttsc_source_transform, root);
         esbuildCompleted = true;
       } catch (cause) {
         failures.push(new Error("esbuild configured source transform and lifetimes", { cause }));
@@ -98,7 +99,7 @@ export async function test_e2e_unplugin(): Promise<void> {
     let defaultLoaderReturned = false;
     try {
       fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
-      await test_turbopack_loader_transforms_source_through_the_webpack_loader_contract(root, () => {
+      await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_transforms_source_through_the_webpack_loader_contract", test_turbopack_loader_transforms_source_through_the_webpack_loader_contract, root, () => {
         defaultLoaderReturned = true;
       });
     } catch (cause) {
@@ -110,7 +111,7 @@ export async function test_e2e_unplugin(): Promise<void> {
         const config = JSON.parse(baselineConfig.toString("utf8"));
         config.compilerOptions.plugins = [];
         fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify(config));
-        await test_turbopack_loader_forwards_rule_options_to_the_transform(root, () => {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_forwards_rule_options_to_the_transform", test_turbopack_loader_forwards_rule_options_to_the_transform, root, () => {
           ruleOptionsReturned = true;
         });
       } catch (cause) {
@@ -122,7 +123,7 @@ export async function test_e2e_unplugin(): Promise<void> {
     let cacheabilityReturned = false;
     if (ruleOptionsReturned) {
       try {
-        await test_turbopack_loader_marks_volatile_modules_uncacheable(root, () => {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_marks_volatile_modules_uncacheable", test_turbopack_loader_marks_volatile_modules_uncacheable, root, () => {
           cacheabilityReturned = true;
         });
       } catch (cause) {
@@ -134,7 +135,7 @@ export async function test_e2e_unplugin(): Promise<void> {
     let repeatedDependenciesReturned = false;
     if (cacheabilityReturned) {
       try {
-        await test_turbopack_loader_registers_plugin_dependencies_on_cache_hit(root, () => {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_registers_plugin_dependencies_on_cache_hit", test_turbopack_loader_registers_plugin_dependencies_on_cache_hit, root, () => {
           repeatedDependenciesReturned = true;
         });
       } catch (cause) {
@@ -146,7 +147,7 @@ export async function test_e2e_unplugin(): Promise<void> {
     let optionalChannelReturned = false;
     if (repeatedDependenciesReturned) {
       try {
-        await test_turbopack_loader_transforms_without_an_add_dependency_context(root, () => {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_transforms_without_an_add_dependency_context", test_turbopack_loader_transforms_without_an_add_dependency_context, root, () => {
           optionalChannelReturned = true;
         });
       } catch (cause) {
@@ -159,7 +160,7 @@ export async function test_e2e_unplugin(): Promise<void> {
     if (optionalChannelReturned) {
       try {
         fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
-        await test_turbopack_loader_passes_through_an_out_of_program_module(root, () => {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_passes_through_an_out_of_program_module", test_turbopack_loader_passes_through_an_out_of_program_module, root, () => {
           outOfProgramReturned = true;
         });
       } catch (cause) {
@@ -172,7 +173,7 @@ export async function test_e2e_unplugin(): Promise<void> {
       failures.push(new Error("turbopack failure profile blocked: prior delivery or stderr restoration was unobserved"));
     else {
       try {
-        await test_turbopack_loader_keeps_its_worker_through_a_failed_compile(root);
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_keeps_its_worker_through_a_failed_compile", test_turbopack_loader_keeps_its_worker_through_a_failed_compile, root);
       } catch (cause) {
         failures.push(new Error("turbopack native failure delivery", { cause }));
       }
@@ -182,7 +183,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   }
   let mapBundleClosed = false;
   try {
-    await test_rollup_build_maps_transformed_modules_to_the_authored_source(linkedBanner, () => {
+    await Scenarios.invoke("shared-unplugin", "test_rollup_build_maps_transformed_modules_to_the_authored_source", test_rollup_build_maps_transformed_modules_to_the_authored_source, linkedBanner, () => {
       mapBundleClosed = true;
     });
   } catch (cause) {
@@ -191,7 +192,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   let mapBuildReturned = false;
   if (mapBundleClosed) {
     try {
-      await test_esbuild_build_maps_transformed_modules_to_the_authored_source(linkedBanner, () => {
+      await Scenarios.invoke("shared-unplugin", "test_esbuild_build_maps_transformed_modules_to_the_authored_source", test_esbuild_build_maps_transformed_modules_to_the_authored_source, linkedBanner, () => {
         mapBuildReturned = true;
       });
     } catch (cause) {
@@ -202,7 +203,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   }
   if (mapBuildReturned) {
     try {
-      await test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source(linkedBanner);
+      await Scenarios.invoke("shared-unplugin", "test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source", test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source, linkedBanner);
     } catch (cause) {
       failures.push(new Error("webpack rspack and turbopack authored source-map composition", { cause }));
     }
