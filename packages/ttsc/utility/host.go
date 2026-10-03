@@ -159,12 +159,14 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   return 0
 }
 
-// RunBuild hosts linked transform packages inside one compiler emit.
+// RunBuild uses the linked-program build phases with process output streams.
+// The delegated operation invokes raw emit once on its emission path and
+// returns without emission for an admitted analysis-only invocation.
 //
 // @evidence contracts/common.md#principled-implementation Process-stream build delegates to the same linked-program emission owner as embedding callers.
 // @evidence contracts/common.md#clear-and-simple-design One delegation supplies the standard streams without duplicating build policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper adds no package-name or fixture-specific build path.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies one compiler emit following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies process streams and distinguishes the delegated single-emit path from analysis-only completion.
 // @evidence contracts/portability.md#os-neutral-implementation Standard streams come from os; the delegated build owns native project paths and writes.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The delegated build owns emit orchestration.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper owns no shared-work coordinator.
@@ -182,15 +184,18 @@ func RunBuild(args []string) int {
 // diagnostics. Analysis-only success writes an empty map. The original build
 // status remains authoritative; absent or invalid metadata supplies no ownership
 // proof. Callers own the artifact's removal.
+// Program.Close returns its checker lease; it does not remove emitted files or
+// private metadata. Summary and diagnostic stream writes are best-effort here,
+// so a zero status does not certify delivery to the supplied io.Writer values.
 //
 // @evidence contracts/common.md#principled-implementation Completed emission publishes the same generation's successful writer ownership even when another output failed; original emit diagnostics retain status two, failed metadata alone returns three, and successful noEmit publishes an empty map.
 // @evidence contracts/common.md#clear-and-simple-design One loaded program, one raw native emit, and shared diagnostic classification define the build phases.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
-// @evidence contracts/performance.md#efficient-algorithms The existing loaded program is emitted once, with native parallel work and serialized output callback ownership preserved.
+// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. The emission path invokes raw emit once, including linked hooks, input-dependent native generation and serialized writer/preamble-map work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
 // @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
-// @evidence contracts/performance.md#bound-retention-and-release-resources A deferred close releases the Program checker lease on noEmit, success, or emit failure; temporary write callbacks are invocation-owned.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
