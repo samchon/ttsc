@@ -3,21 +3,22 @@ import crypto from "node:crypto";
 /**
  * Derive a dependency build address within its owning run or process cache.
  *
- * A key names one build: a dependency project's whole file set, or with
+ * A key addresses one build context: a dependency project's whole file set, or with
  * `options.root` one TypeScript root that project's file set does not contain,
- * compiled alone through its options. The two never share a generation.
+ * compiled alone through its options. Their encodings differ, but the returned
+ * 64-bit truncated digest is not a collision-free generation identity.
  *
  * Compiler identity is supplied by the build coordinator after inspecting the
  * actual executable; an unavailable proof uses a fresh identity there.
  *
  * @evidence contracts/common.md#principled-implementation SHA-256 separates project, isolated-root content, plugin loading policy, emit policy, compiler proof and descriptor process identity with explicit delimiters, so distinct supported build contexts do not intentionally share an address.
  * @evidence contracts/common.md#clear-and-simple-design One key function combines caller-established identity inputs; executable observation and build memo validity remain with the coordinator that knows when a build is requested.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor evaluation uses a random process nonce rather than recycled pids or shared path-only emit that would pair another evaluator's bytes with current input observations.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish project and isolated-root builds, describe compiler proof ownership and explain why descriptor processes cannot reuse each other's generations.
- * @evidence contracts/performance.md#efficient-algorithms Hashing costs O(B) input bytes with constant digest state; the returned 16-hex address is a 64-bit truncation, so it is not a collision-free or security identity.
- * @evidence contracts/performance.md#reuse-equivalent-work Run/process containers scope ordinary module snapshots; the coordinator supplies the selected plugin policy, current compiler proof and isolated-root content, while a process nonce forbids cross-evaluator reuse. A key alone does not validate edited project dependencies.
- * @evidence contracts/performance.md#bound-retention-and-release-resources One random descriptor nonce is retained for the process lifetime; hash objects are call-local and generated directory storage remains with the cache owner.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashes the tsconfig path and option strings as text and reads one environment variable; it normalizes no path and touches no filesystem.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Default descriptor evaluation uses a module-instance random nonce rather than a recycled pid or shared path-only address; a supplied nonce remains the coordinator's evaluator-identity responsibility.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish project and isolated-root context encoding, compiler proof ownership and truncated-digest limits; nonce comments distinguish probabilistic evaluator separation from guaranteed uniqueness.
+ * @evidence contracts/performance.md#efficient-algorithms Hashing processes B input bytes with fixed digest state; interpolated text and UTF-8 conversion also scale with supplied strings. Module initialization draws the default 16-byte native nonce, whose latency/failure is not bounded by output width. The 16-hex address is a 64-bit truncation, not a collision-free or security identity.
+ * @evidence contracts/performance.md#reuse-equivalent-work Run/process containers scope ordinary module snapshots; the coordinator supplies selected plugin policy, current compiler proof and isolated-root content. The supplied or module-instance random nonce separates evaluator encodings probabilistically, not with an absolute noncollision guarantee; a key alone does not validate edited project dependencies.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Module initialization retains one default descriptor nonce while this module instance remains reachable, even when a caller supplies an override. Digest objects and intermediate strings are call-local; generated directory storage remains with the cache owner.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Caller-established filename and option coordinates are opaque text identity inputs here; hashing makes no native path-equivalence, case, alias or process-liveness decision. Native coordinate selection and cache ownership belong to the coordinator.
  */
 export function dependencyCacheKey(
   tsconfig: string,
@@ -28,7 +29,7 @@ export function dependencyCacheKey(
     /** Whether this build belongs to descriptor evaluation. */
     descriptorLoad?: boolean;
 
-    /** Evaluator identity; absent selects this process's random nonce. */
+    /** Evaluator identity; absent selects this module instance's random nonce. */
     descriptorNonce?: string;
 
     /** Effective false-only plugin loading policy captured for this build. */
@@ -55,8 +56,8 @@ export function dependencyCacheKey(
       // input observations. Reusing an emit another evaluator built can pair
       // that process's old source/config bytes with this process's later hashes.
       // Keep ordinary ttsx worker sharing, but isolate descriptor builds with a
-      // non-reusable process nonce; the in-process `builtProjects` map still
-      // compiles each owning project once.
+      // probabilistically distinct evaluator nonce; the registry instance's
+      // `builtProjects` map still shares an owning project's result.
       .update(
         descriptorLoad
           ? `\0descriptor-process:${
@@ -69,9 +70,9 @@ export function dependencyCacheKey(
   );
 }
 
-// A descriptor evaluator's dependency emit must never be reused by another
-// process. PIDs are eventually recycled while the disk cache persists, so PID
-// alone cannot provide that isolation. One cryptographically random process
-// nonce keeps every evaluator generation distinct while `builtProjects` still
-// shares repeated imports inside this process.
+// Descriptor evaluation needs its own input-bound dependency context. Recycled
+// pids are not a sufficient key while disk storage persists. One default random
+// nonce per module instance reduces accidental evaluator sharing; finite nonce
+// and truncated hash widths do not certify collision-free generation identity.
+// `builtProjects` still shares repeated imports within its registry instance.
 const descriptorProcessCacheNonce = crypto.randomBytes(16).toString("hex");
