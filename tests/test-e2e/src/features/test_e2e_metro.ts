@@ -1,5 +1,6 @@
 import { Scenarios } from "../internal/Scenarios";
 import { MetroWorkspace } from "../internal/metro/internal/MetroWorkspace";
+import { TestMetroRuntime } from "../internal/metro/internal/metro-runtime";
 import { case_metro_cache_key_changes_when_a_recorded_external_input_changes } from "./metro/scenes/case_metro_cache_key_changes_when_a_recorded_external_input_changes";
 import { case_metro_cache_key_changes_when_a_recorded_plugin_source_changes } from "./metro/scenes/case_metro_cache_key_changes_when_a_recorded_plugin_source_changes";
 import { case_metro_cache_key_changes_when_the_plugin_build_environment_changes } from "./metro/scenes/case_metro_cache_key_changes_when_the_plugin_build_environment_changes";
@@ -7,6 +8,7 @@ import { case_metro_cache_key_changes_when_the_tsconfig_changes } from "./metro/
 import { case_metro_cache_key_rekeys_a_dependent_transform_when_its_input_file_changes } from "./metro/scenes/case_metro_cache_key_rekeys_a_dependent_transform_when_its_input_file_changes";
 import { case_metro_cjs_build_loads_and_runs_under_require } from "./metro/scenes/case_metro_cjs_build_loads_and_runs_under_require";
 import { case_metro_prepare_snapshot_compacts_worker_files_into_the_main_snapshot } from "./metro/scenes/case_metro_prepare_snapshot_compacts_worker_files_into_the_main_snapshot";
+import { case_metro_snapshot_reader_keeps_inputs_across_concurrent_compaction } from "./metro/scenes/case_metro_snapshot_reader_keeps_inputs_across_concurrent_compaction";
 import { case_metro_transformer_moves_upstream_locations_to_the_authored_lines } from "./metro/scenes/case_metro_transformer_moves_upstream_locations_to_the_authored_lines";
 import { case_metro_transformer_passes_files_outside_the_project_through } from "./metro/scenes/case_metro_transformer_passes_files_outside_the_project_through";
 import { case_metro_transformer_propagates_genuine_compile_errors } from "./metro/scenes/case_metro_transformer_propagates_genuine_compile_errors";
@@ -41,7 +43,7 @@ import { case_metro_withttsc_sets_the_babel_transformer_path_to_the_package_tran
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Slot replacement clears that slot's snapshot; scenes own option/environment restoration and their settled transform/child inputs. This parent attempts MetroWorkspace.close after scenario collection and retains both failure kinds, verifying only its owned base absence. Tracked helper roots, module retention and arbitrary descendants are not released or certified by that absence alone.
  * @evidence contracts/e2e.md#preserved-coverage All sixteen original callback addresses/order and their literal assertions remain, with needed stability, PID-premise and failure-join improvements recorded per scene. Exact direct-policy bodies and the separate concurrent 150-round boundary are recorded separately; authored counterparts are not executed survival or permission to remove donors.
  */
-export async function test_e2e_metro(): Promise<void> {
+export async function test_e2e_metro(includeConcurrentCompaction = false): Promise<void> {
   const workspace = MetroWorkspace.open();
   const failures: Error[] = [];
   try {
@@ -62,6 +64,14 @@ export async function test_e2e_metro(): Promise<void> {
       ["transformer_runs_the_ttsc_plugin_pass_on_typescript_sources", () => case_metro_transformer_runs_the_ttsc_plugin_pass_on_typescript_sources(workspace)],
       ["transformer_workers_share_one_compile_per_session", () => case_metro_transformer_workers_share_one_compile_per_session(workspace)],
       ["withttsc_sets_the_babel_transformer_path_to_the_package_transformer", () => case_metro_withttsc_sets_the_babel_transformer_path_to_the_package_transformer(workspace)],
+      ...(includeConcurrentCompaction ? [["snapshot_reader_keeps_inputs_across_concurrent_compaction", () => {
+        const moduleFile = TestMetroRuntime.libPath("core/fingerprint", "mjs");
+        return case_metro_snapshot_reader_keeps_inputs_across_concurrent_compaction(
+          MetroWorkspace.enterBare(workspace, "concurrent-compaction"),
+          MetroWorkspace.enterExternal(workspace),
+          moduleFile,
+        );
+      }] as const] : []),
     ]);
   } catch (error) {
     failures.push(error as Error);
