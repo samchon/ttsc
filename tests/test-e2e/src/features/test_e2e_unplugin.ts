@@ -14,6 +14,7 @@ import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unpl
 import { test_webpack_sequential_compilers_share_one_generation } from "./unplugin/native-plugins/adapters/test_webpack_sequential_compilers_share_one_generation";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
+import { test_turbopack_loader_workers_share_one_compile } from "./unplugin/native-plugins/adapters/test_turbopack_loader_workers_share_one_compile";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { test_vite_build_serves_wrapper_queries_from_the_host } from "./unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host";
@@ -358,6 +359,21 @@ export async function test_e2e_unplugin(): Promise<void> {
       fs.writeFileSync(plugin, prepared.originalPlugin);
       assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
       await Scenarios.invoke("shared-unplugin", "test_vite_serve_with_a_watcher_keeps_persistent_validation", test_vite_serve_with_a_watcher_keeps_persistent_validation, prepared);
+      // Successful return includes awaited hook close. Restore the descriptor,
+      // then retain the surplus modules outside the original include root.
+      fs.writeFileSync(plugin, prepared.originalPlugin);
+      assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
+      const held = path.join(prepared.root, "vite-observed");
+      fs.mkdirSync(held);
+      for (const name of ["mod2.ts", "mod3.ts"]) {
+        const source = path.join(prepared.root, "src", name);
+        const bytes = fs.readFileSync(source);
+        fs.renameSync(source, path.join(held, name));
+        assert.deepEqual(fs.readFileSync(path.join(held, name)), bytes);
+      }
+      for (const index of [0, 1])
+        assert.equal(fs.readFileSync(path.join(prepared.root, "src", `mod${index}.ts`), "utf8"), `export const value${index}: string = "PROBE";\n`);
+      await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_workers_share_one_compile", test_turbopack_loader_workers_share_one_compile, prepared);
     });
   } catch (cause) {
     failures.push(new Error("watcherless Vite first and repeated deliveries", { cause }));

@@ -20,17 +20,22 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  *    session in their environment.
  * 2. Assert both modules are transformed by one compile.
  *
- * @evidence contracts/testing.md#behavioral-verification Two concurrent Node workers return PROBED for different modules while native run log contains one byte.
+ * @evidence contracts/testing.md#behavioral-verification Two concurrent Node workers return PROBED for different modules while the native run log grows by one byte.
  * @evidence contracts/testing.md#independent-expectations Fixture probe marker and compile counter independently distinguish shared compilation from two correct separate outputs.
  * @evidence contracts/testing.md#distinguishing-cases Two workers, two modules and one inherited session.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_workers_share_one_compile is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual process environment and session transport coordinate built loader workers.
- * @evidence contracts/e2e.md#shared-execution Two concurrent worker processes share one session, project and native result; separate workers are the coordination boundary.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.
- * @evidence contracts/e2e.md#preserved-coverage Retained assertions: two concurrent Node workers return PROBED for different modules while native run log contains one byte. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
+ * @evidence contracts/e2e.md#shared-execution Two concurrent worker processes share one fresh session, project and native result; separate workers are the coordination boundary. The shared family borrows the completed Vite project's unchanged two remaining module bytes and restored descriptor, preserving the two-module input while retaining surplus bytes outside the include root.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone preparation has two original modules. Shared preparation follows successful Vite hook closure, exact descriptor restoration and retention of the other two modules outside src. A fresh inherited session separates the worker generation, and the actual preceding native log length supplies the interval baseline. Both worker promises settle before verdict collection; error and close are distinct and a close deadline is unresolved ownership, not successful termination or descendant join.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: two concurrent Node workers return PROBED for different modules while the native run log grows by one byte, with standalone baseline zero. Original script, built loader and inherited session remain. No portable assertion is transferred or waived; close timeout is not coverage success and actual survival remains unverified.
  */
-export async function test_turbopack_loader_workers_share_one_compile(): Promise<void> {
-  const project = createCacheProject({ fileCount: 2 });
+export async function test_turbopack_loader_workers_share_one_compile(
+  prepared?: { root: string; runLog: string },
+): Promise<void> {
+  const project = prepared ?? createCacheProject({ fileCount: 2 });
+  const files = projectModules(project.root);
+  assert.equal(files.length, 2, "the original worker population has two modules");
+  const baseline = fs.existsSync(project.runLog) ? fs.statSync(project.runLog).size : 0;
   const session = TestProject.tmpdir("ttsc-unplugin-turbopack-session-");
   const worker = (file: string) => {
     const script = [
@@ -55,23 +60,39 @@ export async function test_turbopack_loader_workers_share_one_compile(): Promise
           },
           stdio: ["ignore", "pipe", "pipe"],
           windowsHide: true,
+          timeout: 120_000,
         },
       );
       let stdout = "";
       let stderr = "";
+      let workerError: unknown;
+      const closeDeadline = setTimeout(() => {
+        reject(new AggregateError(workerError === undefined ? [] : [workerError], "Turbopack worker close was not joined after its timeout"));
+      }, 121_000);
       child.stdout.on("data", (chunk) => (stdout += chunk));
       child.stderr.on("data", (chunk) => (stderr += chunk));
-      child.once("error", reject);
-      child.once("close", (status) =>
-        status === 0 ? resolve(stdout) : reject(new Error(stderr)),
-      );
+      child.once("error", (error) => { workerError = error; });
+      child.once("close", (status, signal) => {
+        clearTimeout(closeDeadline);
+        if (workerError !== undefined) reject(workerError);
+        else if (status === 0 && signal === null) resolve(stdout);
+        else reject(new Error(`worker status=${status} signal=${signal}: ${stderr}`));
+      });
     });
   };
 
-  const outputs = await Promise.all(projectModules(project.root).map(worker));
-  for (const output of outputs) assert.match(output, /PROBED/);
+  const outcomes = await Promise.allSettled(files.map(worker));
+  const failures: unknown[] = [];
+  for (const outcome of outcomes) {
+    if (outcome.status === "rejected") failures.push(outcome.reason);
+    else {
+      try { assert.match(outcome.value, /PROBED/); }
+      catch (cause) { failures.push(cause); }
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, "concurrent Turbopack worker outcomes");
   assert.equal(
-    fs.statSync(project.runLog).size,
+    fs.statSync(project.runLog).size - baseline,
     1,
     "the workers compiled once",
   );
