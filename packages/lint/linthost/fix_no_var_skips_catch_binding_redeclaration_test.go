@@ -7,9 +7,9 @@ import "testing"
 //
 // `try {} catch (e) { var e = 1; }` is legal under `var` hoisting, but
 // rewriting the keyword to `let e` collides with the catch parameter `e` and
-// raises a duplicate-declaration SyntaxError. The single-binding-in-file gate
-// counts `e` twice (catch clause + var), so the fix is declined while the
-// diagnostic still fires.
+// raises a duplicate-declaration SyntaxError. The binding census sees the
+// catch binding as well as the var declaration, so its count cannot be one
+// and the fix is declined while the diagnostic still fires.
 //
 //  1. Parse `try {} catch (e) { var e = 1; }`.
 //  2. Run the no-var fixer through the disk-backed applier.
