@@ -8,27 +8,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLiteralsRenderEveryValueInTypescriptSourceForm verifies that each kind of
-// literal a union can hold reaches the wire as the way it is written, and that
-// the rendering is the checker's own rather than this package's.
-//
-// Source form is what makes the list readable as the type: it is the only
-// rendering that tells `1` from `"1"` and `true` from `"true"`, which bare
-// contents cannot, and the old string-only scrape could not report a numeric
-// union at all. The escaping fixture is why the checker's `ValueToString` is
-// used instead of a local formatter — a quote inside a value has to come back
-// escaped the way TypeScript escapes it, and Go's own quoting is not that.
+// TestLiteralsRenderEveryValueInTypescriptSourceForm checks the reported source
+// renderings of eight authored alias shapes, including selected escaped strings
+// and mixed kinds. It inspects graph facts rather than serialized wire bytes;
+// output matching does not authenticate the renderer's acquisition method.
 //
 //  1. Compile a fixture with a string, numeric, boolean, bigint, nullable, and
 //     escaped-string union.
 //  2. Build the graph.
 //  3. Assert each value set renders in TypeScript source form.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that each kind of literal a union can hold reaches the wire as the way it is written, and that the rendering is the checker's own rather than this package's.
+// @evidence contracts/testing.md#behavioral-verification Build's recorded literal arrays for eight authored aliases must exactly match the selected string, numeric, boolean, bigint, nullable, undefined, escaping and mixed-kind source-form expectations. Other literal values, escaping forms and wire encoding are not asserted.
 // @evidence contracts/testing.md#independent-expectations The expectations are the literal TypeScript source renderings in the table (quoted strings, 1, true/false, 1n, null, undefined, escaped quotes and tab, and a mixed union), asserted against the node's recorded values for eight alias declarations. They are written independently of the renderer, which is the checker's ValueToString.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a string, numeric, boolean, bigint, nullable, and escaped-string union; Build the graph; Assert each value set renders in TypeScript source form.
-// @evidence contracts/testing.md#execution-ownership TestLiteralsRenderEveryValueInTypescriptSourceForm is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build and existing-node literalsOf. Actual filename/shared ID formatting select aliases; a restored empty linked-plugin manifest excludes ambient hooks. No dump serialization, TypeScript value execution, installed consumer or product process runs.
 func TestLiteralsRenderEveryValueInTypescriptSourceForm(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export type Strings = 'a' | 'b';
@@ -59,7 +54,7 @@ export type Mixed = 'a' | 1 | true;
   }{
     // A string keeps its quotes, so the list reads as the type does.
     {"Strings", []string{`"a"`, `"b"`}},
-    // Numbers were absent entirely under the string-only scrape.
+    // Numeric values remain unquoted.
     {"Numbers", []string{"1", "2", "3"}},
     {"Bools", []string{"false", "true"}},
     {"Bigints", []string{"1n", "2n"}},
