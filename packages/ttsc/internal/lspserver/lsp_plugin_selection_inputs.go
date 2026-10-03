@@ -8,25 +8,24 @@ import (
   "strings"
 )
 
-// NativePluginSelectionInputs is what a session's plugin selection was loaded
-// from, as the launcher writes it into the plugin manifest: a change to any of
-// it ends the session like a plugin's own reload input, so the editor starts
-// one that loads the current plugins.
+// NativePluginSelectionInputs carries the launcher-declared selection baseline
+// in the plugin manifest. Host comparisons of reported changes can request a
+// restart; the value itself neither observes changes nor authenticates capture.
 //
 // Both kinds of input travel by directory, each directory with the names of
 // the files in it and the digest each had (projectInputReloadFileDigest). A
-// descriptor's inputs are mostly resolution candidates that do not exist, a
-// thousand of them across a few dozen directories, and a plugin's Go sources
-// can be thousands of files; the host resolves the identity of a directory
-// once rather than of every file. A source directory's listing is an input as
+// descriptor can include missing resolution candidates, while source entries
+// describe selected file populations. Normalization resolves directories per
+// lane group rather than each filename; a directory occurring in both lanes
+// can be queried again. A source directory's listing is an input as
 // well, counted by the build's own rule, which the launcher hands over as data
 // rather than the host keeping a copy of it.
 //
 // @evidence contracts/common.md#principled-implementation Directory-grouped filename/digest maps distinguish recorded descriptor candidates from source populations whose listing also affects selection.
 // @evidence contracts/common.md#clear-and-simple-design Build-owned omission and pruning rules travel as data rather than duplicated host build policy.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The baseline records actual launcher reads and source rules, not a fixed package-specific reload list.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Launcher-observed inputs and source rules supply the baseline instead of a fixed package-specific list. The wire shape does not prove producer completeness or capture freshness; host normalization and comparisons own its admission.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Directories are resolved natively and names remain single entries; validation rejects separators, NUL and dot-parent spellings instead of treating native paths as protocol URLs.
+// @evidence contracts/portability.md#os-neutral-implementation The host validates absolute local directories and recorded file-entry names (rejecting separators, NUL and dot-parent entries), then attempts native directory identity with lexical/unknown-case fallback. Policy-name lists remain literal entry filters; protocol URLs are not used as native paths. Supplied hash syntax and sequential comparisons are not an atomic filesystem capture.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -53,8 +52,8 @@ type NativePluginSelectionInputs struct {
   PrunedDirectoryNames []string `json:"prunedDirectoryNames,omitempty"`
 }
 
-// pluginSelectionInputs is the selection inputs with each directory resolved
-// to its identity once.
+// pluginSelectionInputs groups accepted entries by attempted directory identity;
+// repeated lane groups can perform native queries before sharing the record.
 type pluginSelectionInputs struct {
   directories     map[string]*pluginSelectionDirectory
   omittedNames    []string

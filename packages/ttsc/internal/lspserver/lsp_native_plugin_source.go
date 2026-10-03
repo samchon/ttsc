@@ -116,10 +116,11 @@ type NativeLSPPluginEntry struct {
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
 //
 // ManifestJSON is the launcher manifest, Cwd and Tsconfig name the client's
-// selected project, and Err receives source diagnostics without owning closure.
+// selected project, and Err receives discovery and transport logs without
+// transferring ownership of the writer's closure.
 //
 // @evidence contracts/common.md#principled-implementation Client identity and manifest data permit the source to distinguish logical publication from physical sidecar execution context.
-// @evidence contracts/common.md#clear-and-simple-design Construction captures all dependencies in one invocation value.
+// @evidence contracts/common.md#clear-and-simple-design The value groups explicit construction inputs; command execution still obtains the process environment from its owning transport.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A caller-supplied log sink avoids global stderr mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies project inputs and log closure ownership, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Cwd and Tsconfig are native project locations; manifest parsing handles separate physical context rather than inferring identity from OS names.
@@ -127,10 +128,19 @@ type NativeLSPPluginEntry struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction owns producer coordination.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The constructed source acquires resources; these options do not.
 type NativePluginSourceOptions struct {
-  Cwd          string
-  Err          io.Writer
+  // Cwd is the client's selected working directory before manifest context
+  // supplies a separate physical execution root.
+  Cwd string
+
+  // Err is an optional log destination; the source does not close it.
+  Err io.Writer
+
+  // ManifestJSON is supplied startup metadata decoded by the constructor.
   ManifestJSON string
-  Tsconfig     string
+
+  // Tsconfig preserves the client's selected config spelling independently of
+  // any physical config path supplied by the manifest context.
+  Tsconfig string
 }
 
 // NativePluginSource implements PluginSource by delegating to native sidecars
@@ -157,9 +167,9 @@ type NativePluginSource struct {
   clientTsconfig     string
   clientCwd          string
 
-  // The client's project resolves once. Both halves are fixed for the
-  // session, while the answer costs a symlink walk per ancestor, and the
-  // question is asked again for every producer on every publication.
+  // The client's physical project path and key resolve once for this source.
+  // Later publication URI comparisons resolve each candidate against that
+  // cached key; they do not revalidate the client's physical target.
   clientProjectOnce sync.Once
 
   clientProject    string
@@ -189,9 +199,9 @@ type NativePluginSource struct {
   // register one.
   hintsObserver func()
 
-  // hintsRefresh serializes and coalesces corpus refreshes. A refresh loads a
-  // Program per plugin, so scheduling one per editor event without coalescing
-  // would stack process spawns behind each other.
+  // hintsRefresh serializes and coalesces corpus refreshes. Producers may use
+  // resident transports or direct commands; this state does not certify how
+  // many Programs they construct or when an editor event reaches them.
   hintsRefresh coalescingRefresh
 
   owners map[string]NativeLSPPluginEntry
@@ -213,10 +223,10 @@ type NativePluginSource struct {
   pluginProjectDiagnostics   map[string]projectDiagnosticRecord
   projectDiagnosticsSequence atomic.Uint64
 
-  // residentMu guards the resident-daemon table below. A resident sidecar keeps
-  // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
-  // instead of respawning per verb; serveUnsupported remembers a sidecar that
-  // predates lsp-serve so the source stops retrying it and stays on exec.
+  // residentMu guards the resident-daemon table below. Supported serve calls
+  // reuse a transport across verbs; the sidecar owns its Program lifecycle.
+  // serveUnsupported records failed initial serve admission so later calls
+  // use direct commands rather than retrying that transport.
   residentMu sync.Mutex
 
   residents        map[string]*residentSidecar
