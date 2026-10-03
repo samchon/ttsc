@@ -10,7 +10,8 @@ import (
 )
 
 // TestContributorMetadataPanicIsRejected verifies contributor metadata panics
-// are converted to one rejected registration instead of escaping startup.
+// are converted to contextual inspection errors instead of escaping the
+// metadata boundary. Registration and startup lifecycle are separate tests.
 //
 // Contributor methods run before the engine can dispatch Check, so the normal
 // per-node panic barrier cannot protect Name, Visits, or optional capability
