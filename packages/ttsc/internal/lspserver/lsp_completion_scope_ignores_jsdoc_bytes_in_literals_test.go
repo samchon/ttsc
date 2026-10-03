@@ -5,23 +5,19 @@ import "testing"
 // TestLSPCompletionScopeIgnoresJSDocBytesInLiterals pins the lexical table the
 // JSDoc scope decision rests on.
 //
-// `/**` is three ordinary bytes. A string, a template, a regex class, and a line
-// comment can all contain them, and a backward search for the nearest opener
-// calls every one of those positions a doc comment — which is how
-// `const example = "/** @par"` came to be offered JSDoc tag completions. Every
-// impostor below is a position that search answered wrongly; every real block
-// below is what stops a replacement from passing by refusing everything.
+// Strings, templates, regex classes and line comments can contain `/**`
+// without starting JSDoc. Authored non-doc and real-doc cases distinguish that
+// boundary and selected escape/interpolation/line-recovery decisions. This
+// table does not establish a historical failure or all JavaScript token forms.
 //
-//  1. Put the cursor after JSDoc-shaped bytes in every token kind that can hold
-//     them.
+//  1. Put the cursor at the end of each authored string.
 //  2. Assert the scanner's scope and the `cursorInJSDoc` answer derived from it.
-//  3. Keep a real block adjacent to each impostor, so a scanner that simply
-//     refused everything could not pass.
+//  3. Include real blocks, an interior regex cursor and offset boundaries.
 //
-// @evidence contracts/testing.md#behavioral-verification Strings, templates, regex classes and line comments that contain '/**' are classified as non-doc scope, and a real block next to each is classified as doc scope.
-// @evidence contracts/testing.md#independent-expectations Expected scopes are literals per case.
-// @evidence contracts/testing.md#distinguishing-cases Each impostor token kind is paired with a real block, so a scanner that refused everything could not pass.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionScopeIgnoresJSDocBytesInLiterals is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification Actual lexicalScopeAt returns each literal end-cursor scope for authored literal/comment, escape, interpolation and recovery cases. Separate checks assert code at offset zero, regex at interior offset 15, and cursorInJSDoc refusal outside the buffer. No completion request or editor behavior is observed.
+// @evidence contracts/testing.md#independent-expectations Expected lexical enums and the zero/interior/invalid offset expectations are authored literals. The expected cursorInJSDoc boolean is derived from the literal expected enum, not the scanner result; cursorInJSDoc delegates to the same scanner, so agreement is not an independent parser oracle.
+// @evidence contracts/testing.md#distinguishing-cases Non-doc literal/comment cases and positive real-doc cases reject unconditional admission or refusal. Escape, CRLF continuation, interpolation, division and keyword-member rows distinguish selected transitions; they are a bounded corpus, not a pair for every possible token form.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes the actual package-local scanner and cursor predicate on supplied strings. It substitutes no operation and creates no directory or sidecar; no compiler, process, installed consumer, product host or LSP transport runs.
 func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
   cases := []struct {
     name string
