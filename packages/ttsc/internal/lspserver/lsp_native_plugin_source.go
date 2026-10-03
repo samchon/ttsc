@@ -397,17 +397,19 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   return source, nil
 }
 
-// Diagnostics asks every LSP-capable sidecar for document diagnostics and its
-// separate project publication.
+// Diagnostics queries each selected native transport for document diagnostics
+// and any embedded project publication. Failed queries/decodes are logged and
+// skipped; an empty document result does not certify that all producers succeeded.
+// Project output can aggregate last-good records from different request generations.
 //
-// @evidence contracts/common.md#principled-implementation Legacy document arrays and structured document/project results are decoded separately; successful producer generations update only their own project publication.
+// @evidence contracts/common.md#principled-implementation Legacy arrays and structured results use separate decoding paths. A nonempty project URI enters that producer's generation-guarded store, while the response marker records receipt even if an older store is rejected. Aggregation can therefore report current retained records rather than one common request capture; skipped failures do not certify successful absence.
 // @evidence contracts/common.md#clear-and-simple-design Transport deduplication and result decoding are shared helpers; document and project outputs remain distinct.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy wire decoding is a supported protocol difference, while failed producers retain explicitly last-good project state rather than claiming fresh output.
 // @evidence contracts/common.md#meaningful-documentation Native prose states document and project contribution scope, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Sidecars receive native executable/argv vectors and logical document URIs separately; project publication maps physical producer identity back to the client's logical config URI.
-// @evidence contracts/performance.md#efficient-algorithms Each distinct transport runs once; decoding and result appending scale with returned bytes and diagnostics. Project aggregation follows descriptor order.
-// @evidence contracts/performance.md#reuse-equivalent-work Resident daemons reuse compiler state across supported read verbs; save and watched-input invalidation distinguish incremental changes from topology reloads. Document results are not cached solely by URI.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Command output is capped, residents live until source Close, and one last-good project record is retained per producer. Concurrent document callers are not subject to an outstanding-request count cap.
+// @evidence contracts/portability.md#os-neutral-implementation Native executable/argv and logical document URI values are separated. Project URI restatement uses native realpath/ancestor fallback and, on Windows, owning-directory case queries; failed observation preserves distinctions or lexical spelling rather than certifying physical producer/artifact identity.
+// @evidence contracts/performance.md#efficient-algorithms One query iteration per selected transport can involve a resident attempt and one-shot fallback. Work includes transport/key-byte hashing, native IO, structured/legacy decoding, diagnostic appends and per-publication copies. Manifest-ordered aggregation additionally resolves each project URI through native path/case queries while holding its read lock; logging can also block and observation adds trace IO.
+// @evidence contracts/performance.md#reuse-equivalent-work Resident requests share sidecar state and carry queued invalidations; actual freshness still depends on caller notifications and producer behavior. Last-good project records have per-producer generation guards, not a common filesystem capture, and document replies are not cached solely by URI.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Per-command output caps do not bound aggregate document/project values or concurrent callers. Last-good project records and their nested payloads have no aggregate age/byte budget and survive Close while the source is reachable; shallow diagnostic copies can share nested data with returned values. Native commands have source cancellation and post-exit/cancellation WaitDelay but no open-session computation deadline; Close does not certify all task or descendant termination.
 func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsResult {
   if s == nil || doc.URI == "" {
     return LSPDiagnosticsResult{}
