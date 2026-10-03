@@ -35,7 +35,8 @@ const (
 )
 
 // ProgramResolutionTask is one resolution already performed by a resident
-// Program. The exported fields provide deterministic host ordering while the
+// Program. Exported fields let a host explicitly sort and group tasks; the
+// record itself imposes no order. The
 // unexported fields retain the exact compiler context needed for replay.
 // Keep tasks with their originating Program options and project-reference
 // metadata unchanged; ReplayProgramResolutions accepts one coherent source's
@@ -50,7 +51,8 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The task type does not independently validate or coordinate reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retention of task arrays and referenced Program metadata belongs to producer and caller operations, not independently to the record declaration.
 type ProgramResolutionTask struct {
-  // ContainingFile is the lexical source context supplied to the resolver.
+  // ContainingFile is recovered source/config context when available, otherwise
+  // the resident canonical cache-key spelling used for replay.
   ContainingFile string
 
   // Kind selects module or type-reference resolution.
@@ -65,7 +67,8 @@ type ProgramResolutionTask struct {
   // ResolvedFile is the resident resolver's target spelling, or empty if unresolved.
   ResolvedFile string
 
-  // SourceFile names the loaded containing source, or is empty for automatic directives.
+  // SourceFile names the loaded containing source, or is empty when none was
+  // found, including automatic directives.
   SourceFile string
 
   // TargetFile names the loaded target after project-reference substitution, if available.
