@@ -7,8 +7,8 @@ import "testing"
 //
 // A format rule that synthesizes a line break must not hardcode LF: #616 is the
 // regression where one of them did and left a CRLF file with mixed endings.
-// `endOfLine` is the only option this rule reads, so without this case that
-// option has no coverage.
+// `endOfLine` is the only option this rule reads; this case directly observes
+// its configured CRLF insertion rather than certifying the whole coverage set.
 //
 //  1. Parse a CRLF source whose `else` shares the consequent's line.
 //  2. Apply format/brace-continuation under endOfLine "crlf".

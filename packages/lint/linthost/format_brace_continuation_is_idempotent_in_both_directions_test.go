@@ -4,9 +4,9 @@ import "testing"
 
 // TestFormatBraceContinuationIsIdempotentInBothDirections verifies source already in Prettier's shape produces no edit.
 //
-// The rule rewrites a gap it also reads, so a target text it fails to compare
-// against would re-emit forever and exhaust the format cascade. Both directions
-// need the check, because they synthesize different text.
+// The rule compares the existing gap with its target text before reporting.
+// These two canonical sources require no finding for the different join and
+// push targets; this unit does not run or establish a full fix cascade.
 //
 //  1. Parse a joined `} else {` and a split `if (a) x();` / `else y();`.
 //  2. Run format/brace-continuation on each.
