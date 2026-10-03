@@ -27,7 +27,8 @@ import (
 // is where that logic lives.
 
 // DumpEvidence is a 1-based source span grounding a node declaration or an edge
-// expression. It is display/expansion only, never identity.
+// expression. Columns count UTF-8 bytes from the ECMA line start, not UTF-16
+// code units or display cells. It is display/expansion only, never identity.
 //
 // File is omitted when the reader reconstructs it exactly: a node's span is in
 // the node's file, and an ordinary edge's span is in the file its `from` id
@@ -40,7 +41,7 @@ import (
 // @evidence contracts/common.md#principled-implementation One-based line/column spans ground displayed facts while optional File preserves the owner-reconstructible versus cross-file distinction.
 // @evidence contracts/common.md#clear-and-simple-design The wire record carries location evidence independently from node identity.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Optional file omission is a reconstructible schema rule rather than a project-specific payload shortcut.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain coordinate units, file reconstruction and implementation spans, following documentation-skill tag separation.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state one-based ECMA lines, UTF-8 byte columns, optional file reconstruction and implementation spans under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation File is a portable dump coordinate, never an OS-wide case-folded identity inferred by this record.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This span container selects no coordinate algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The dump context owns reusable line indices.
@@ -121,13 +122,14 @@ type DumpEnumMember struct {
 }
 
 // DumpObjectMember is one direct object-literal member carried on its variable
-// node. Line and Signature are rendered from the same Program-owned source text
-// as the node evidence, so the outline cannot race a later disk write.
+// node. Line and Signature use the caller-supplied text map shared with node
+// evidence, without reopening disk. The caller must bind that map to the AST
+// generation and keep both stable; this record does not authenticate that bind.
 //
 // @evidence contracts/common.md#principled-implementation Static member identity is separate from snapshot-rendered line/signature data that may be unavailable without source text.
 // @evidence contracts/common.md#clear-and-simple-design A direct-member outline remains nested on its owning variable rather than duplicating declaration nodes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No dynamic spread member or source-derived expected name is manufactured.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains direct membership and same-Program rendering, with tags separated under the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains direct membership, shared supplied text and caller-owned generation binding under the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This source-syntax outline has no native filesystem identity.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Rendering and traversal belong to the dump context.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The container coordinates no computation.
@@ -156,12 +158,11 @@ type DumpNode struct {
   Name          string `json:"name"`
   QualifiedName string `json:"qualifiedName,omitempty"`
 
-  // Signature is the declaration head, cut where the compiler says the body
-  // opens. A consumer that reconstructed it by scanning physical lines both
-  // leaked implementation text when a declaration shared its line with its body
-  // and stopped early when the head itself contained a brace — a type-literal
-  // parameter, an object return type, a destructured parameter. Neither is a
-  // guess the consumer can win, so the producer renders it here.
+  // Signature is an optional outline rendered from the supplied text using a
+  // bounded AST-selected cut. The helper finds the earliest modeled arrow,
+  // block, object/array literal or class-expression boundary; it does not prove
+  // that every cut is the declaration's own body opening or its complete head.
+  // Missing text or an unusable boundary leaves this field empty.
   Signature string `json:"signature,omitempty"`
 
   File          string             `json:"file"`
@@ -193,7 +194,7 @@ type DumpNode struct {
 // @evidence contracts/common.md#clear-and-simple-design One relationship record carries only facts needed by the receiving graph loader.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No synthetic ranking relationship or expected path is encoded.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the wire shape and JSON-key contract, with documentation-skill tag separation.
-// @evidence contracts/portability.md#os-neutral-implementation Endpoint IDs contain mapper-normalized path components and unchanged symbol names; this container performs no native case guessing.
+// @evidence contracts/portability.md#os-neutral-implementation Parsed symbol IDs use shared path projection, including path-valued module names; opaque or unparsed IDs remain reported strings. This container neither resolves native aliases nor authenticates physical endpoints.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Projection owns ordering and mapping algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The graph generation owns relationship reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The enclosing dump owns retained storage.
