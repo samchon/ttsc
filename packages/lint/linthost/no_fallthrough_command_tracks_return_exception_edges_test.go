@@ -8,7 +8,7 @@ import "testing"
 // constructions can transfer to a normally completing catch.
 //
 // 1. Place each return shape in a try followed by an empty catch.
-// 2. Pair non-throwing returns with every first-throwable expression family.
+// 2. Pair bare/literal returns with the authored reference, member, call and new operands.
 // 3. Assert only catches reachable during operand evaluation fall through.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process check reports every authored operand-reference/call/construction/throw marker and no literal-return marker.
