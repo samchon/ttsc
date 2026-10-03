@@ -58,9 +58,9 @@ func (noUselessConstructor) Check(ctx *Context, node *shimast.Node) {
   }
 
   // Shape 2: derived class constructor that only forwards arguments to
-  // `super(...args)` without modification. The synthetic default
-  // constructor of a subclass behaves identically, so the explicit
-  // declaration is noise. Only fires when the class extends another.
+  // `super(...args)` without modification. This is a forwarding syntax policy:
+  // the synthetic derived constructor forwards all arguments directly, while
+  // explicit rest spread also observes the array iterator.
   parent := node.Parent
   if parent == nil || !classExtendsAnother(parent) {
     return

@@ -11,7 +11,7 @@ import "testing"
 // 2. Assert exact findings for empty base and unchanged rest forwarding only.
 //
 // @evidence contracts/testing.md#behavioral-verification The Engine permits argument filtering, reordering and parameter work while reporting unchanged derived rest forwarding and an empty base constructor.
-// @evidence contracts/testing.md#independent-expectations The implicit derived constructor's all-argument forwarding differs from super() and fixed positional calls, independently of a particular invocation's argument count.
+// @evidence contracts/testing.md#independent-expectations The implicit derived constructor's all-argument forwarding differs from super() and fixed positional calls, independently of a particular invocation's argument count. This syntax oracle does not establish runtime equivalence: explicit rest spread also observes the array iterator.
 // @evidence contracts/testing.md#distinguishing-cases Zero arguments, positional filtering, exact rest, reordered/default/destructured parameters, visibility and parameter properties have authored finding-count oracles.
 // @evidence contracts/testing.md#execution-ownership TestNoUselessConstructorPreservesArgumentFiltering uses runRuleFindingsSnapshot in the enrolled Go rules unit batch without compiling or installing a consumer or launching a host.
 func TestNoUselessConstructorPreservesArgumentFiltering(t *testing.T) {
