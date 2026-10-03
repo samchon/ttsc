@@ -18,6 +18,10 @@ import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./un
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_bun_register_preload_only_registers_a_single_default_plugin } from "./unplugin/native-plugins/adapters/test_bun_register_preload_only_registers_a_single_default_plugin";
 import { test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order } from "./unplugin/native-plugins/adapters/test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order";
+import { test_bun_adapter_survives_plugin_reported_dependencies } from "./unplugin/native-plugins/adapters/test_bun_adapter_survives_plugin_reported_dependencies";
+import { test_bun_adapter_passes_through_an_out_of_program_module } from "./unplugin/native-plugins/adapters/test_bun_adapter_passes_through_an_out_of_program_module";
+import { test_bun_adapter_forwards_bundler_build_start } from "./unplugin/native-plugins/adapters/test_bun_adapter_forwards_bundler_build_start";
+import { test_bun_runtime_does_not_rehash_the_project_per_module } from "./unplugin/native-plugins/adapters/test_bun_runtime_does_not_rehash_the_project_per_module";
 import { test_turbopack_loader_workers_share_one_compile } from "./unplugin/native-plugins/adapters/test_turbopack_loader_workers_share_one_compile";
 import { test_vite_build_end_disposes_the_last_overlapping_cache_owner } from "./unplugin/native-plugins/adapters/test_vite_build_end_disposes_the_last_overlapping_cache_owner";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
@@ -112,6 +116,36 @@ export async function test_e2e_unplugin(): Promise<void> {
     await Scenarios.invoke("shared-unplugin", "test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order", test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order, bunRoot);
   } catch (cause) {
     failures.push(new Error("real Bun build disposal and preload runtime session", { cause }));
+  }
+  try {
+    const capturedRoot = TestUnpluginProject.createProject();
+    TestProject.retainTemporaryDirectory(capturedRoot, "Captured Bun dependency, pass-through and lifecycle inputs retained");
+    const configPath = path.join(capturedRoot, "tsconfig.json");
+    const originalConfig = fs.readFileSync(configPath);
+    const config = JSON.parse(originalConfig.toString("utf8"));
+    config.compilerOptions.plugins = [{
+      transform: "./plugin.cjs", name: "fixture", operation: "emit-dependencies",
+      dependencies: ["src/types.d.ts", path.join("/abs", "types", "model.d.ts"), "src/types.d.ts", "src/main.ts"],
+    }];
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    await Scenarios.invoke("shared-unplugin", "test_bun_adapter_survives_plugin_reported_dependencies", test_bun_adapter_survives_plugin_reported_dependencies, capturedRoot);
+    fs.writeFileSync(configPath, originalConfig);
+    assert.deepEqual(fs.readFileSync(configPath), originalConfig);
+    await Scenarios.invoke("shared-unplugin", "test_bun_adapter_passes_through_an_out_of_program_module", test_bun_adapter_passes_through_an_out_of_program_module, capturedRoot);
+    const runLog = path.join(TestProject.tmpdir("ttsc-shared-bun-hook-log-"), "compiles.bin");
+    config.compilerOptions.plugins = [
+      { transform: "./plugin.cjs", name: "fixture", operation: "echo-file", path: "src/secondary.ts" },
+      { transform: "./plugin.cjs", name: "runs", operation: "count-runs", runLog },
+    ];
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    await Scenarios.invoke("shared-unplugin", "test_bun_adapter_forwards_bundler_build_start", test_bun_adapter_forwards_bundler_build_start, { root: capturedRoot, runLog });
+    // Successful return includes final onEnd. The runtime-only session gets
+    // the original echo options and becomes this root's terminal mutation.
+    config.compilerOptions.plugins.pop();
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    await Scenarios.invoke("shared-unplugin", "test_bun_runtime_does_not_rehash_the_project_per_module", test_bun_runtime_does_not_rehash_the_project_per_module, capturedRoot);
+  } catch (cause) {
+    failures.push(new Error("captured Bun dependencies, pass-through and build/runtime lifecycle", { cause }));
   }
   // Startup proof must precede any parent-process loader/host bridge for root.
   let startupWorkerClosed = false;

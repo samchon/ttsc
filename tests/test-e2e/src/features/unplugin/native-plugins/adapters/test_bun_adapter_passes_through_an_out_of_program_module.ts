@@ -30,13 +30,15 @@ import { captureBunLoader } from "../../../../internal/unplugin/internal/adapter
  * @evidence contracts/testing.md#distinguishing-cases Included extension outside program versus excluded paths in the companion fall-through case.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_adapter_passes_through_an_out_of_program_module is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Bun loader reaches the native program; captured Bun setup does not verify a live host.
- * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#shared-execution The shared family borrows the dependency profile's completed project after exact default config restoration, retaining scripts/tool.ts outside include. Exact stderr restoration and successful assertions gate the later captured build-hook options. Standalone preparation remains private; no real Bun host is claimed.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Temporary stderr writer is restored in finally; tracked roots end at process exit. Explicit per-case loader disposal is not asserted.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: loading a real scripts/tool.ts outside include returns undefined and reports both its path and tsconfig on stderr. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_adapter_passes_through_an_out_of_program_module(): Promise<void> {
+export async function test_bun_adapter_passes_through_an_out_of_program_module(
+  preparedRoot?: string,
+): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const root = TestUnpluginProject.createProject();
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const stray = path.join(root, "scripts", "tool.ts");
   fs.mkdirSync(path.dirname(stray), { recursive: true });
   fs.writeFileSync(stray, "export const tool: string = 'STRAY';\n", "utf8");

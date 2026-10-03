@@ -32,17 +32,19 @@ import type { BunLoader } from "../../../../internal/unplugin/internal/adapter-b
  * @evidence contracts/testing.md#distinguishing-cases Unchanged pass, changed input on first secondary delivery, compile failure, recovery, and completed-build disposal.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_adapter_forwards_bundler_build_start is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Bun hooks connect lifecycle to native compiler; host scheduling is simulated.
- * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#shared-execution The shared family borrows the completed dependency/pass-through project with the original echo-file/count options. Standalone preparation is unchanged; native count1/2/3 uses the actual pre-profile log baseline without clearing it.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every started captured build ends through finally, including failed assertions. Successful final onEnd permits the parent's original echo-only runtime profile. Hook completion is not real Bun shutdown or descendant join; pending native requests are awaited before mutation.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: captured onStart/onEnd retain an unchanged generation, reject a broken main when secondary is delivered, recover at count two, and compile at count three after end. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_adapter_forwards_bundler_build_start(): Promise<void> {
+export async function test_bun_adapter_forwards_bundler_build_start(
+  prepared?: { root: string; runLog: string },
+): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const runLog = path.join(
+  const runLog = prepared?.runLog ?? path.join(
     TestProject.tmpdir("ttsc-unplugin-bun-build-log-"),
     "compiles.bin",
   );
-  const root = TestUnpluginProject.createProject({
+  const root = prepared?.root ?? TestUnpluginProject.createProject({
     plugins: [
       {
         transform: "./plugin.cjs",
@@ -60,7 +62,8 @@ export async function test_bun_adapter_forwards_bundler_build_start(): Promise<v
   });
   const secondary = path.join(root, "src", "secondary.ts");
   fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
-  const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
+  const baseline = fs.existsSync(runLog) ? fs.statSync(runLog).size : 0;
+  const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0) - baseline;
 
   let start: (() => void | Promise<void>) | undefined;
   let end: (() => void | Promise<void>) | undefined;
@@ -81,6 +84,7 @@ export async function test_bun_adapter_forwards_bundler_build_start(): Promise<v
   const loader = loaders[0];
   assert.ok(loader);
 
+  try {
   const first = await loader({ path: TestUnpluginProject.mainFile(root) });
   assert.ok(first);
   TestUnpluginProject.assertTransformedToPlugin(first.contents);
@@ -124,4 +128,7 @@ export async function test_bun_adapter_forwards_bundler_build_start(): Promise<v
     3,
     "a completed Bun build must dispose its generation before the next build",
   );
+  } finally {
+    await end();
+  }
 }

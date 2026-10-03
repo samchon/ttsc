@@ -23,13 +23,15 @@ import { captureBunLoader } from "../../../../internal/unplugin/internal/adapter
  * @evidence contracts/testing.md#distinguishing-cases First main delivery then untouched secondary after another input changes.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_runtime_does_not_rehash_the_project_per_module is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Captured runtime onLoad drives real native output; actual Bun module caching is outside this case.
- * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#shared-execution The shared family borrows the successfully ended captured build's project with original echo-only options and secondary literal. Original main corruption and lazy secondary delivery are terminal; no later shared mutation follows. Standalone preparation remains private, and captured setup does not certify live Bun module caching.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: after main is corrupted, the first delivery of secondary still returns secondary = 1 from the original generation. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_runtime_does_not_rehash_the_project_per_module(): Promise<void> {
+export async function test_bun_runtime_does_not_rehash_the_project_per_module(
+  preparedRoot?: string,
+): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const root = TestUnpluginProject.createProject({
+  const root = preparedRoot ?? TestUnpluginProject.createProject({
     plugins: [
       {
         transform: "./plugin.cjs",
