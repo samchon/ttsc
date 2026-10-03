@@ -5,8 +5,9 @@ import "testing"
 // TestFormatBraceContinuationPushesADoWhileOffAStatementBody verifies a do-loop's `while` starts its own line when the body is not a block.
 //
 // The push-down twin for the do-loop. Its `while` carries the loop condition, so
-// a direction test that keyed on the keyword rather than the preceding clause
-// would treat it as a header and leave it inline.
+// this full expected source requires a newline after the non-block body.
+// Together with the block-body companion, it distinguishes the body-category
+// policy from always joining the same `while` keyword.
 //
 //  1. Parse a one-line `do`/`while` with a statement body.
 //  2. Apply format/brace-continuation.

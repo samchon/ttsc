@@ -4,9 +4,9 @@ import "testing"
 
 // TestFormatBraceContinuationPullsElseOntoTheClosingBrace verifies `else` joins the closing brace of a block consequent.
 //
-// Nothing owned this boundary before, so an Allman-braced file survived every
-// format pass unchanged while Prettier 3.8.3 writes `} else {`. This is the
-// most common shape the gap produced (#1134).
+// The independently authored result requires the block continuation gap to
+// become one space. This unit observes this rule's edit, not a former complete
+// formatter run or a census of which input shape occurred most often.
 //
 //  1. Parse an `if`/`else` whose `else` starts its own line after a block.
 //  2. Apply format/brace-continuation.
