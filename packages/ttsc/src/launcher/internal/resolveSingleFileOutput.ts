@@ -12,18 +12,22 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * The compiler itself emits into a private temporary directory. The launcher
  * then copies one transformed JavaScript file to this path, so project-mode
  * declaration, map, build-info, outFile, and broad outDir products are not
- * positional outputs. Forwarded JSX uses native argv frames and CLI enum
+ * positional outputs. Forwarded JSX uses the supplied native argv frames and
+ * does not expand response-file requests in this placement helper. CLI enum
  * normalization; an explicit reset selects the default suffix instead of
- * reviving the configured JSX.
+ * reviving the configured JSX. Placement-setting read failures use the
+ * no-project fallback; that fallback does not certify a successful build or
+ * valid configuration. Physical spelling is a current native observation,
+ * not a pinned filesystem object.
  *
  * @evidence contracts/common.md#principled-implementation CLI output wins over project output, supported source extensions choose the emitted suffix, and physical root/file relation preserves project layout through links when the file is contained.
  * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Basename placement for files outside the project root is a supported positional-output rule; no fixture path or transformed-content special case decides the destination.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the one copied JavaScript artifact from private build products; the physical-path comment explains why lexical aliases are insufficient.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations and shared physical resolution handle volumes, separators and links; containment checks reject absolute cross-volume relatives without unconditional case folding.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveSingleFileOutput acquires no handle, buffer or cache and retains nothing after it returns.
- * @evidenceExclude contracts/performance.md#efficient-algorithms resolveSingleFileOutput performs a fixed number of steps with no loop or recursion over caller data.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveSingleFileOutput computes one result per call, so there is no repeated work to share.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Project settings, forwarded-option maps and physical-identity contexts are call-local; delegated readers/probes own native handles and completion. The returned path belongs to the caller, and this planner retains no result history or watcher.
+ * @evidence contracts/performance.md#efficient-algorithms Placement delegates project/config-chain discovery/parsing, forwarded argv-frame/scalar selection and optional physical identity resolution, including native case-query costs. The frame reader retains response requests as data without opening them. Path/extension work also processes string bytes; fixed outer branch count does not bound those input scans or IO latency.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This planner computes current placement and keeps no cross-call result memo. Project/config/argv/identity owners define any delegated reuse; mutable native observations cannot be certified by caching this path alone.
  */
 export function resolveSingleFileOutput(options: {
   cliOutDir?: string;
