@@ -9,8 +9,8 @@ import "testing"
 // Both unsafe shapes still parse after the edit, so the engine's own regexp
 // parser cannot catch them and the rule has to decline on its own:
 // `/a{1}?/` is "exactly one, lazily" and would become the optional `/a?/`, and
-// `/\1{1}2/` would fuse into `\12`, backreference twelve rather than
-// backreference one followed by a literal `2`.
+// `/(a)\1{1}2/` would fuse into `\12`, a legacy octal escape in this
+// one-capture, non-Unicode pattern rather than backreference one plus `2`.
 //
 //  1. Fix a `{1}` between two ordinary atoms and one following a group.
 //  2. Assert both collapse to the bare atom.

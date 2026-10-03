@@ -6,7 +6,7 @@ import "testing"
 // `regexp/no-zero-quantifier` reports without offering an edit, deliberately,
 // while the rest of the quantifier family now rewrites.
 //
-// `{0}` is a bug rather than a redundancy: it says the atom never matches, so
+// `{0}` requests zero repetitions and may indicate a mistake, so
 // the correction is to delete the atom or repair the bound, and which one is
 // meant is not recoverable from the source. Deleting only the braces would turn
 // "never" into "once" — the loudest possible wrong rewrite — and this case

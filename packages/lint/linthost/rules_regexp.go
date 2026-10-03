@@ -693,7 +693,8 @@ func regexpQuantifierExactCount(_ string, quantifier regexpQuantifier) (string, 
 //     `/a{1}?/` only makes it lazy, so dropping them turns "exactly one" into
 //     "zero or one".
 //   - A digit: the braces separate a backreference or octal escape from a
-//     digit, and `/\1{1}2/` would fuse into `\12`, backreference twelve.
+//     digit. `\12` can denote backreference twelve when enough captures exist,
+//     or an octal escape in a legacy pattern with fewer captures.
 func regexpQuantifierDrop(pattern string, quantifier regexpQuantifier) (string, bool) {
   if quantifier.end >= len(pattern) {
     return "", true
@@ -1018,8 +1019,8 @@ func init() {
     check:  regexpQuantifierCheck(regexpQuantifierIsTwoNums),
     repair: regexpQuantifierRepair(regexpQuantifierIsTwoNums, regexpQuantifierExactCount),
   })
-  // `regexp/no-zero-quantifier` stays diagnostic-only: `{0}` says the atom
-  // never matches, so the correction is to delete the atom or repair the
+  // `regexp/no-zero-quantifier` stays diagnostic-only: `{0}` requests zero
+  // repetitions, so an intended correction may delete the atom or repair the
   // bound, and the rule computes neither.
   Register(regexpSourceRule{
     name:  "regexp/no-zero-quantifier",
