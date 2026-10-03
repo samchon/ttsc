@@ -16,7 +16,7 @@ import "testing"
 //     parentheses.
 //
 // @evidence contracts/testing.md#behavioral-verification Real ternary edits use intrinsic coercion for function/parameter shadowing and preserve assignment/logical precedence and false/true inversion.
-// @evidence contracts/testing.md#independent-expectations Double negation performs ECMAScript ToBoolean once on the evaluated condition and resolves no named binding; complete authored outputs preserve its grouping.
+// @evidence contracts/testing.md#independent-expectations Intrinsic logical negation evaluates the condition once without resolving a named binding; complete authored outputs preserve grouping for double negation and inverted branches.
 // @evidence contracts/testing.md#distinguishing-cases Function and parameter shadowing, low-precedence assignment/logical expressions and inverted branches distinguish binding and precedence failures.
 // @evidence contracts/testing.md#execution-ownership Parser, Engine and disk edit applier execute within this Go unit; no installed artifact or product subprocess is used.
 func TestNoUnneededTernaryUsesIntrinsicBooleanCoercion(t *testing.T) {

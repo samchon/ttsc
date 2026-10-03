@@ -930,7 +930,7 @@ func (noUnneededTernary) Check(ctx *Context, node *shimast.Node) {
   condText := src[condStart:cond.Condition.End()]
   var replacement string
   if tBool {
-    // `cond ? true : false` → `Boolean(cond)`
+    // `cond ? true : false` → `!!cond`, grouped when necessary.
     // Intrinsic coercion must not resolve a shadowable Boolean binding.
     if needsParensForUnaryNegation(cond.Condition) {
       replacement = "!!(" + condText + ")"
