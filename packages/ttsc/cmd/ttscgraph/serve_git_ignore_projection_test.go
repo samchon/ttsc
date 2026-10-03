@@ -7,6 +7,7 @@ import (
   "path/filepath"
   "testing"
 
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -38,7 +39,12 @@ func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
   visibleSource := "import { Generated } from './generated code'; export function Visible(): number { return Generated(); }\n"
   writeGraphFile(t, visible, visibleSource)
   command := exec.Command("git", "init", "--quiet", root)
-  if output, err := command.CombinedOutput(); err != nil { t.Fatalf("real Git worktree precondition: %v: %s", err, output) }
+  // Observer owner: graph-membership-fixture-git-init. The original method runs
+  // once; tracing records actual Cmd state and call bounds, not descendant joins.
+  observation := e2etrace.BeginCommand(command, "CombinedOutput")
+  output, initErr := command.CombinedOutput()
+  observation.Result(initErr)
+  if initErr != nil { t.Fatalf("real Git worktree precondition: %v: %s", initErr, output) }
 
   checkNodes := func(t *testing.T, stage string, nodes []graph.DumpNode) {
     t.Helper()
