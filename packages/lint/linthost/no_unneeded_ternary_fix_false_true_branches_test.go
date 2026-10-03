@@ -26,7 +26,7 @@ func TestFixNoUnneededTernaryRewritesFalseTrueBranches(t *testing.T) {
     "function f(x: any) {\n  return x ? false : true;\n}\nJSON.stringify(f);\n",
     "function f(x: any) {\n  return !x;\n}\nJSON.stringify(f);\n",
   )
-  assertRuleSkips(
+  assertRuleSkipsSource(
     t,
     "no-unneeded-ternary",
     "function f(x: any) { return x ? 1 : 2; }\nJSON.stringify(f);\n",
