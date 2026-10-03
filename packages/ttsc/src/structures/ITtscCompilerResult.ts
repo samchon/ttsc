@@ -121,7 +121,7 @@ export namespace ITtscCompilerResult {
    * scalar values, accessors and failed inspection use `$ttscValue` markers.
    * Serialization does not invoke getters or copy foreign class internal slots.
    *
-   * @evidence contracts/common.md#principled-implementation Unknown accommodates finite causal error descriptions, outcome data and tagged exceptional values; the optional classifier identifies recognized preparation origins without pretending every exception is recognizable.
+   * @evidence contracts/common.md#principled-implementation Unknown accommodates finite causal descriptions, outcome data and exceptional-value markers; the optional classifier labels recognized message families without authenticating the native failure cause.
    * @evidence contracts/common.md#clear-and-simple-design The exception variant exposes only error and optional origin; completed outputs and diagnostic arrays remain with the completed variants.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing classification remains unknown rather than being guessed from a consumer or replaced with a fabricated compile result.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, markers and accessor limits alongside host-level execution, response and cleanup failures and classification; member and tag separation follow the documentation skill.
@@ -135,15 +135,14 @@ export namespace ITtscCompilerResult {
     type: "exception";
 
     /**
-     * Optional classifier so embedders can branch on the failure mode without
-     * pattern-matching error messages. Omitted when ttsc cannot determine the
-     * origin. Treat as `"unknown"` when missing.
+     * Best-effort message-family classifier; it does not authenticate an origin
+     * or establish that a process started or terminated. Treat missing values
+     * as `"unknown"`.
      *
-     * - `"plugin"`: plugin preparation failed before a build result could be
-     *   recovered.
-     * - `"host"`: the TypeScript-Go host could not start (missing binary, cache
-     *   lock, invalid config).
-     * - `"unknown"`: any other host-level failure.
+     * - `"plugin"`: recognized plugin/package/preparation, transform or Go
+     *   toolchain message patterns.
+     * - `"host"`: recognized ttsc/config/compiler-host message patterns.
+     * - `"unknown"`: no recognized pattern or unavailable message inspection.
      */
     kind?: "plugin" | "host" | "unknown";
 

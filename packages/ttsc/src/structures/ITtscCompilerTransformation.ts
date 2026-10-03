@@ -473,7 +473,7 @@ export namespace ITtscCompilerTransformation {
   }
 
   /**
-   * Unexpected host-level error during transformation.
+   * Unexpected host-level error during preparation, transformation or result adaptation.
    *
    * Error name, message, stack, causes, aggregate failures and enumerable
    * outcome data are preserved in a finite description.
@@ -482,9 +482,9 @@ export namespace ITtscCompilerTransformation {
    * scalars, accessors and failed inspection use `$ttscValue` markers. Getters
    * are not invoked, and foreign class internal slots are not copied.
    *
-   * @evidence contracts/common.md#principled-implementation Unknown represents finite causal error descriptions and tagged exceptional values, while an optional classifier identifies recognized host/plugin origins without consumer message parsing.
+   * @evidence contracts/common.md#principled-implementation Unknown carries finite causal descriptions and exceptional-value markers; the optional classifier labels recognized message families so consumers need not repeat its patterns, without proving the native failure cause.
    * @evidence contracts/common.md#clear-and-simple-design A separate exception variant avoids requiring unavailable source maps or diagnostics after abnormal host failure.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unrecognized origin remains unknown; no recovery wrapper fabricates a completed transformation.
+    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrecognized patterns or unavailable message inspection remain unknown; no recovery wrapper fabricates a completed transformation.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, reference/value markers and accessor limits alongside classifier meanings; list, member and tag spacing follow the documentation skill.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
@@ -496,14 +496,14 @@ export namespace ITtscCompilerTransformation {
     type: "exception";
 
     /**
-     * Optional classifier so embedders can branch on the failure mode without
-     * pattern-matching error messages. Omitted when ttsc cannot determine the
-     * origin. Treat as `"unknown"` when missing.
+     * Best-effort message-family classifier; it does not authenticate an origin
+     * or establish that a process started or terminated. Treat missing values
+     * as `"unknown"`.
      *
-     * - `"plugin"`: a native plugin sidecar crashed or exited non-zero.
-     * - `"host"`: the TypeScript-Go host could not start (missing binary, cache
-     *   lock, invalid config).
-     * - `"unknown"`: any other host-level failure.
+     * - `"plugin"`: recognized plugin/package/preparation, transform or Go
+     *   toolchain message patterns.
+     * - `"host"`: recognized ttsc/config/compiler-host message patterns.
+     * - `"unknown"`: no recognized pattern or unavailable message inspection.
      */
     kind?: "plugin" | "host" | "unknown";
 
