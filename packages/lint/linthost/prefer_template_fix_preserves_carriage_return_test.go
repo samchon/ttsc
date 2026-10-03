@@ -8,7 +8,7 @@ import "testing"
 // The fixer operates on the COOKED string value, so a raw CR emitted into a
 // template body would be normalized to LF by the ECMAScript template-literal
 // grammar — silently turning "a\rb" into a value whose cooked form is "a\nb".
-// node --check still passes, so the corruption is invisible. The fixer must
+// Syntax validity alone would not reveal the changed value. The fixer must
 // emit the CR as a `\r` escape so the rewritten template's cooked value is
 // identical to the original concatenation.
 //

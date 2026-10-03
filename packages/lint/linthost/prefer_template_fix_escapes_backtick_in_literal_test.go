@@ -9,8 +9,8 @@ import "testing"
 //
 // Without this branch a chain like `"a`b" + name` would rewrite to
 // “ `a`b${"" + (name)}` “ and break out of the literal. The fixer must
-// rewrite raw backticks to “ \` “ so the convergence guarantee
-// applies to any literal content.
+// rewrite the raw backtick to “ \` “ so this literal segment does not
+// terminate the generated template. This snapshot does not test convergence.
 //
 // 1. Snapshot a concat whose literal contains a backtick.
 // 2. Apply `prefer-template` fix.
