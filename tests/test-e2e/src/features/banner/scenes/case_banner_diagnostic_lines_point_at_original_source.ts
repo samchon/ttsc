@@ -20,7 +20,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; real launcher stderr is inspected because rendering depends on the native host and recovery pass.
  * @evidence contracts/e2e.md#necessary-boundary Diagnostic collection, the banner transform and rendering meet in the native host; only the public command output shows the position a user sees.
  * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link, plugin cache and configuration; its erroneous source is the only distinct input and requires its own failing compile.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario owns its source and writes no output that another scenario reads; the process is joined before assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario has its own source/output directory within the shared workspace and no other scenario consumes its emitted files. The synchronous launcher result precedes assertions; that return is not proof of arbitrary descendant shutdown or loaded-image identity.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former line, single-report and banner-quote assertions; the banner is now four rather than three lines, a larger shift for the same check.
  */
 export function case_banner_diagnostic_lines_point_at_original_source(
