@@ -11,7 +11,7 @@ import "testing"
 // 2. Compare exact diagnostic counts across character and escape boundaries.
 //
 // @evidence contracts/testing.md#behavioral-verification The Engine reports repeated class members without confusing UTF-8 prefix bytes or escape syntax with duplicate characters.
-// @evidence contracts/testing.md#independent-expectations Distinct accented and astral characters are distinct Unicode code points; hexadecimal and Unicode escapes denote their decoded character rather than their spelling digits.
+// @evidence contracts/testing.md#independent-expectations Accented characters and u/v-mode astral characters compare as decoded code points, while legacy astral members compare as UTF-16 units; hexadecimal and Unicode escape spelling digits are not class members.
 // @evidence contracts/testing.md#distinguishing-cases ASCII, accents, repeated accents, escaped equivalents, ranges, negation, astral u/v and legacy surrogate members have independent literal counts.
 // @evidence contracts/testing.md#execution-ownership TestRegexpDuplicateClassUsesCodePoints invokes runRuleFindingsSnapshot in the enrolled rules unit population with the actual parser/Engine; no RegExp runtime replacement, installed consumer or child native producer is involved.
 func TestRegexpDuplicateClassUsesCodePoints(t *testing.T) {
