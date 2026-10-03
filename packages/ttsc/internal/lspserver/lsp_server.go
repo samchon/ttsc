@@ -357,7 +357,7 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The documented limitation avoids monkey patching foreign ATA internals or claiming an unenforced policy.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the historical embedding API from current process-wrapper capability, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This stub does not spawn npm or interpret a native executable path.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Reporting a fixed denial chooses no computation strategy.
+// @evidence contracts/performance.md#efficient-algorithms The denial formats every supplied argument into a new error string, with time and temporary/output bytes growing with argument count and text length. It performs no installation or native executable discovery.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work No installation computation is performed or coordinated.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stub acquires no retained resource.
 func DenyNpmInstall(_ string, args []string) ([]byte, error) {
