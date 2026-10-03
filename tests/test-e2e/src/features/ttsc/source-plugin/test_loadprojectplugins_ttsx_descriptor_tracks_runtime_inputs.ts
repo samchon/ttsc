@@ -25,19 +25,19 @@ import {
  *    fingerprints.
  *
  * @evidence contracts/testing.md#behavioral-verification Isolated ttsx returns selected source/config inputs, null fingerprints for absent candidates, and no proven hash for a config created during evaluation.
- * @evidence contracts/testing.md#independent-expectations Fixture topology fixes the selected and absent paths; inode comparisons handle equivalent spellings and the created config cannot have a pre-evaluation witness.
+ * @evidence contracts/testing.md#independent-expectations Authored topology fixes selected and absent paths, null missing proofs and the config created during evaluation. Native stat identity compares nonzero inodes; when unavailable, independent realpath equality compares only the fixture's resolved spelling, not arbitrary hard-link identity. A string config hash is observed, not compared with an independent byte digest.
  * @evidence contracts/testing.md#distinguishing-cases Extensionless and explicit-JS substitution, NODE_PATH package selection, orphan config absence, and config creation during evaluation retain separate assertions.
- * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs entry is discovered from features/ttsc/source-plugin by the E2E TestExecutor. One plain worker invokes the workspace-built loader with selected native ttsc/tsgo and scripted Go publication; actual evaluator attempts and compiler generations are not counted by these result assertions.
  * @evidence contracts/e2e.md#necessary-boundary Plain Node workers call the built descriptor loader, which crosses into the isolated TypeScript/ttsx evaluator. Extensionless source forces the fallback where specified; its result envelope, effective environment, logging and input witnesses must survive actual child transport. A direct loader-semantic call with the suite loader already active cannot prove this route.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Each plain worker has a fresh module cache so the actual fallback cannot be bypassed by the test runner. The isolated-process inputs are reused within a scenario; rewritten descriptors or loader-error snapshots require a fresh evaluation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#shared-execution One caller shares the authored descriptor graph. Separate orphan and refresh package roots preserve missing-ancestor and evaluation-time config creation; the cache root stays outside keyed source inputs. These four temporary roots share selected producers rather than four independent installations. A fresh caller module cache isolates the suite loader, but does not by itself certify the chosen evaluator route or preparation cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each tracked source/orphan/refresh/cache root is retained before preparation or use; the physical source path is resolved after retaining its original tracked spelling. Environment and NODE_PATH overrides are worker-local. Actual direct worker close plus status0/signalnull precede result inspection; error or join-deadline rejection does not permit root reuse and does not certify descendant closure. Created config and missing candidates remain distinct from proven hashes.
  * @evidence contracts/e2e.md#preserved-coverage Isolated ttsx returns selected source/config inputs, null fingerprints for absent candidates, and no proven hash for a config created during evaluation. These assertions stay in test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
   async () => {
-    const root = TestProject.physicalPath(
-      TestProject.tmpdir("ttsc-ttsx-descriptor-inputs-"),
-    );
+    const temporary = TestProject.tmpdir("ttsc-ttsx-descriptor-inputs-");
+    TestProject.retainTemporaryDirectory(temporary);
+    const root = TestProject.physicalPath(temporary);
     const source = root;
     fs.writeFileSync(path.join(root, "go.mod"), "module example/plugin\n");
     for (const file of [
@@ -101,8 +101,10 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
     );
     const probeEntryJson = path.join(probePackage, "entry.json");
     fs.writeFileSync(probeEntryJson, JSON.stringify("probe"), "utf8");
+    const orphanRoot = TestProject.tmpdir("ttsc-ttsx-orphan-input-");
+    TestProject.retainTemporaryDirectory(orphanRoot);
     const orphanPackage = path.join(
-      TestProject.tmpdir("ttsc-ttsx-orphan-input-"),
+      orphanRoot,
       "node_modules",
       "orphan-source",
     );
@@ -114,8 +116,10 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
       "utf8",
     );
     fs.writeFileSync(orphanSource, 'export const orphan = "orphan";\n');
+    const refreshRoot = TestProject.tmpdir("ttsc-ttsx-config-refresh-");
+    TestProject.retainTemporaryDirectory(refreshRoot);
     const refreshPackage = path.join(
-      TestProject.tmpdir("ttsc-ttsx-config-refresh-"),
+      refreshRoot,
       "node_modules",
       "config-refresh",
     );
@@ -174,6 +178,7 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
     // a cache among the sources the binary is keyed on is refused
     // (samchon/ttsc#1505).
     const caches = TestProject.tmpdir("ttsc-ttsx-descriptor-caches-");
+    TestProject.retainTemporaryDirectory(caches);
     const worker = path.join(root, "load-worker.cjs");
     fs.writeFileSync(
       worker,
@@ -196,6 +201,7 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
       script: worker,
     });
     assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.signal, null);
     const loaded = JSON.parse(result.stdout) as {
       hostInputHashes: Record<string, string | null>;
       hostInputs: string[];
@@ -250,6 +256,8 @@ function sameExistingFile(left: string, right: string): boolean {
   try {
     const leftStats = fs.statSync(left);
     const rightStats = fs.statSync(right);
+    if (leftStats.ino === 0 || rightStats.ino === 0)
+      return fs.realpathSync(left) === fs.realpathSync(right);
     return leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino;
   } catch {
     return false;
