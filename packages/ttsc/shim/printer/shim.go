@@ -9,14 +9,15 @@ import (
   innerprinter "github.com/microsoft/typescript-go/internal/printer"
 )
 
-// PrintHandlers supplies the pinned printer's global-name collision hook.
-// Node substitution hooks from the legacy TypeScript printer are not exposed
-// by this TypeScript-Go version.
+// PrintHandlers supplies the pinned printer's global-name collision hook and
+// before/after notifications for nodes, node lists and tokens. The legacy
+// node-substitution and custom emit-callback hooks are not exposed by this
+// TypeScript-Go version.
 //
-// @evidence contracts/common.md#principled-implementation The alias retains the upstream HasGlobalName callback and its exact signature, so generated names can consult the same collision boundary as the compiler.
-// @evidence contracts/common.md#clear-and-simple-design The printer receives one native hook value instead of another substitution or notification framework.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported callback injection supplies collision facts without replacing foreign printer methods; unavailable legacy hooks are not simulated.
-// @evidence contracts/common.md#meaningful-documentation Native prose names the available hook and documents the absence of legacy node-substitution capabilities.
+// @evidence contracts/common.md#principled-implementation The alias preserves HasGlobalName and the six node/list/token notification callbacks with their upstream signatures, allowing collision queries and traversal observations through the printer's actual supported boundaries.
+// @evidence contracts/common.md#clear-and-simple-design One upstream handler value groups collision queries and traversal notifications without a separate dispatch framework or a shim-owned substitution protocol.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported callback injection supplies collision facts and traversal observations without replacing foreign printer methods; unavailable legacy substitution and custom emit callbacks are not simulated.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the available callback families and distinguishes their notifications from unavailable legacy substitution and custom emission hooks.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
