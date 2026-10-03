@@ -18,12 +18,16 @@ import (
 // 3. Assert every main spelling matches and the companion differs.
 //
 // @evidence contracts/testing.md#behavioral-verification parseCorpusDiagnostics is run on authored renderer output including ANSI escapes and warning/error categories, and its result is compared with expectedCorpusDiagnostics for an entry.
-// @evidence contracts/testing.md#independent-expectations The authored banners follow the `file:line:col - category TSnnnn: [rule] message` shape; the expected record comes from expectedCorpusDiagnostics applied to a literal entry (src/Main.ts, fixture/rule, error, line 2) rather than from the parsed output, and the warning banner is checked against the literal severity "warn".
+// @evidence contracts/testing.md#independent-expectations The authored banners follow the `file:line:col - category TSnnnn: [rule] message` shape; expectedCorpusDiagnostics applied to the literal entry is first checked against the independently authored complete record (src/main.ts, fixture/rule, error, line 2), so shared path normalization cannot make both sides silently agree on a wrong identity, and the warning banner is checked against the literal severity "warn".
 // @evidence contracts/testing.md#distinguishing-cases The four main-file spellings are positives; a companion diagnostic with the same rule, severity and line must not equal the main-source expectation; a line that is not a banner is ignored.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusDiagnosticsAreAttributedToTheMainSource is a discoverable Go unit entry calling two pure functions on in-memory strings; the renderer itself is exercised by TestLintFixtureCorpus.
 func TestLintCorpusDiagnosticsAreAttributedToTheMainSource(t *testing.T) {
   entry := corpusEntry{SourcePath: "src/Main.ts", Expected: []corpusExpectation{{Rule: "fixture/rule", Severity: "error", Line: 2}}}
   want := expectedCorpusDiagnostics(entry)
+  literal := []corpusDiagnostic{{File: "src/main.ts", Rule: "fixture/rule", Severity: "error", Line: 2}}
+  if !reflect.DeepEqual(want, literal) {
+    t.Fatalf("entry expectation changed authored identity: got %+v, want %+v", want, literal)
+  }
   banner := func(file, category string) string {
     return file + ":2:1 - " + category + " TS9001: [fixture/rule] fixture diagnostic\n"
   }
