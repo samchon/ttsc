@@ -32,12 +32,18 @@ func TestResidentCacheServesACheckerFreeVerbFromTheCheckerProgram(t *testing.T) 
   if err != nil || withChecker == nil || len(diags) > 0 {
     t.Fatalf("warm acquire failed: err=%v prog=%v diags=%d", err, withChecker, len(diags))
   }
+  if withChecker.checker == nil {
+    t.Fatal("checker-bearing acquisition did not provide a checker")
+  }
   checkerFree, _, _, err := cache.acquire(opts, false)
   if err != nil {
     t.Fatal(err)
   }
   if checkerFree != withChecker {
     t.Fatal("a checker-free verb built its own Program instead of reusing the warm one")
+  }
+  if checkerFree.checker == nil {
+    t.Fatal("checker-free acquisition discarded the resident checker")
   }
   if len(cache.entries) != 1 {
     t.Fatalf("cache holds %d Programs for one project, want 1", len(cache.entries))
