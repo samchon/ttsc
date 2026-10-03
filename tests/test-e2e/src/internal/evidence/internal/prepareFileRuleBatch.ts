@@ -195,7 +195,7 @@ export function prepareEvidenceFileRuleBatch(): {
       excludes: [],
       passes: true,
       typingConfig:
-        'import type { ITtscLintConfig } from "@ttsc/lint";\nimport { evidence } from "@ttsc/evidence";\n\nconst accepted = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: { "evidence/singular": "error" },\n} satisfies ITtscLintConfig;\n\nconst rejected = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: {\n    // @ts-expect-error an optionless rule must not accept an options slot\n    "evidence/singular": ["error", { anything: true }],\n  },\n} satisfies ITtscLintConfig;\n\nvoid rejected;\n\nexport default accepted;\n',
+        'import type { ITtscLintConfig } from "@ttsc/lint";\nimport { evidence, type ITtscEvidenceRules } from "@ttsc/evidence";\n\nconst accepted = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: { "evidence/singular": "error" },\n} satisfies ITtscLintConfig<ITtscEvidenceRules>;\n\nconst rejected = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: {\n    // @ts-expect-error an optionless rule must not accept an options slot\n    "evidence/singular": ["error", { anything: true }],\n  },\n} satisfies ITtscLintConfig<ITtscEvidenceRules>;\n\nvoid rejected;\n\nexport default accepted;\n',
     },
     {
       /**
@@ -253,7 +253,7 @@ export function prepareEvidenceFileRuleBatch(): {
       excludes: [],
       passes: true,
       typingConfig:
-        'import type { ITtscLintConfig } from "@ttsc/lint";\nimport { evidence } from "@ttsc/evidence";\n\nconst accepted = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: { "evidence/review": "error" },\n} satisfies ITtscLintConfig;\n\nconst rejected = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: {\n    // @ts-expect-error an optionless rule must not accept an options slot\n    "evidence/review": ["error", { anything: true }],\n  },\n} satisfies ITtscLintConfig;\n\nvoid rejected;\n\nexport default accepted;\n',
+        'import type { ITtscLintConfig } from "@ttsc/lint";\nimport { evidence, type ITtscEvidenceRules } from "@ttsc/evidence";\n\nconst accepted = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: { "evidence/review": "error" },\n} satisfies ITtscLintConfig<ITtscEvidenceRules>;\n\nconst rejected = {\n  plugins: { "evidence": evidence },\n  files: ["src/**"],\n  rules: {\n    // @ts-expect-error an optionless rule must not accept an options slot\n    "evidence/review": ["error", { anything: true }],\n  },\n} satisfies ITtscLintConfig<ITtscEvidenceRules>;\n\nvoid rejected;\n\nexport default accepted;\n',
     },
   ];
   const files: Record<string, string> = {};
@@ -289,7 +289,7 @@ export function prepareEvidenceFileRuleBatch(): {
             "export default accepted;",
             "export default { ...accepted, " +
               JSON.stringify(entry).slice(1, -1) +
-              " } satisfies ITtscLintConfig;",
+              " } satisfies ITtscLintConfig<ITtscEvidenceRules>;",
           )
         : scenario.options === undefined
           ? JSON.stringify(entry)
