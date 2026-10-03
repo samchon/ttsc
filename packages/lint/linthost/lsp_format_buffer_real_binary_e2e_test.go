@@ -31,12 +31,13 @@ import (
 //    --arguments-json=[<file-uri>]
 //    --content-stdin
 //
-// with the full dirty buffer text piped to the child's stdin. This validates
-// the real proxy -> sidecar binary contract, not just the in-process function.
+// with the full dirty buffer text piped to the child's stdin. This exercises
+// the compiled sidecar with proxy-shaped arguments, without calling the real
+// proxy or its ownership, context/cancellation and result-validation logic.
 //
 // The on-disk source file is deliberately seeded with DIFFERENT, already
-// well-formatted text from the buffer, so that if the binary ever wrongly read
-// the file from disk the WorkspaceEdit would echo disk and the assertion would
+// well-formatted text from the buffer, so that if the binary wrongly used
+// the file contents instead of stdin the WorkspaceEdit would echo disk and the assertion would
 // fail. The test also re-reads the file afterward to prove it is byte-for-byte
 // unchanged.
 //
@@ -50,7 +51,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   // Disk holds DIFFERENT, already-formatted text from the buffer. The format
   // rule under test is `format/semi` (require semicolons). The buffer is
   // missing its trailing semicolon; disk already has one and uses a different
-  // identifier, so a disk read would be detectable.
+  // identifier, so substituting disk content would be detectable.
   diskContent := "const onDisk = 999;\n"
   root := seedLintProject(t, diskContent)
   seedLintConfig(t, root, map[string]any{
@@ -77,6 +78,9 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
     var edit lspWorkspaceEdit
     if err := json.Unmarshal([]byte(stdout), &edit); err != nil {
       t.Fatalf("parse WorkspaceEdit JSON: %v\nstdout=%q", err, stdout)
+    }
+    if len(edit.Changes) != 1 {
+      t.Fatalf("want exactly one logical URI change, got %+v", edit.Changes)
     }
     edits := edit.Changes[uri]
     if len(edits) != 1 {
@@ -109,7 +113,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   })
 
   // The on-disk file must remain byte-for-byte unchanged after both calls: the
-  // --content-stdin path never reads or writes the target file.
+  // assertion observes non-mutation; it does not count target reads.
   disk, err := os.ReadFile(file)
   if err != nil {
     t.Fatalf("ReadFile: %v", err)

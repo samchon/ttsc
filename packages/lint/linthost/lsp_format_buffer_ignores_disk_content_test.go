@@ -7,9 +7,9 @@ import (
 )
 
 // TestLSPFormatBufferIgnoresDiskContent verifies the in-memory path formats the
-// stdin buffer and never reads the target file from disk: the on-disk content
+// stdin buffer rather than using the target file contents: the on-disk content
 // is intentionally different from the passed buffer, and the result must
-// reflect the buffer, not disk.
+// reflect the buffer, not disk. This entry does not count target reads.
 //
 // A saved document and unsaved buffer can disagree; disk fallback would return the wrong identifiers or edit coordinates.
 //
