@@ -49,15 +49,16 @@ type projectInputRecord struct {
 }
 
 // ProjectInputs returns a stable copy of the current merged dependency
-// snapshot.
+// snapshot. The copy isolates mutable collections, not source acquisition time:
+// retained producer records can come from different refresh generations.
 //
 // @evidence contracts/common.md#principled-implementation Locked copies of every path slice and digest map isolate consumer mutations from the merged snapshot.
 // @evidence contracts/common.md#clear-and-simple-design A shared copy helper exposes the ready aggregate without rebuilding producer order.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted producer records supply the snapshot instead of guessed filesystem populations.
 // @evidence contracts/common.md#meaningful-documentation Native prose states stable-copy behavior, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor copies normalized values without interpreting native capabilities.
-// @evidence contracts/performance.md#efficient-algorithms Copy cost and returned storage are linear in path and digest entry counts.
-// @evidence contracts/performance.md#reuse-equivalent-work Callers share the flattened producer snapshot, replaced by successful generation stores.
+// @evidence contracts/performance.md#efficient-algorithms Slice copying transfers string headers and digest-map copying additionally hashes key bytes; immutable string contents are shared rather than deep-copied. The read lock can wait for native-key aggregation/equality work held by a writer, so entry counts do not bound elapsed time by themselves.
+// @evidence contracts/performance.md#reuse-equivalent-work Callers share the ready aggregate of per-producer retained records. Successful stores can publish individually and failed producers keep prior records; sharing does not certify one capture, complete current declarations or latest native topology.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices and maps belong to the caller; source stores own retained aggregates.
 func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
   if s == nil {
@@ -323,14 +324,14 @@ func projectInputSnapshotMatchesCandidate(
 // RefreshProjectInputs schedules a coalesced dependency rediscovery after a
 // configuration input changes.
 //
-// @evidence contracts/common.md#principled-implementation Successful normalized producer generations replace their own snapshot while unchanged selected reload entries retain the original baseline.
+// @evidence contracts/common.md#principled-implementation Successful decoded/normalized records replace their producer generation, preserving prior digests for still-selected reload keys. Publication is per producer and failed queries keep prior records; accepted path/fingerprint syntax is not authentication of the producer's claimed input capture.
 // @evidence contracts/common.md#clear-and-simple-design A dedicated scheduler separates dependency refresh from completion publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh does not advance executable baselines to conceal selection changes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states asynchronous discovery, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Normalization validates native roots and link-aware identities without treating OS labels as filesystem case policy.
-// @evidence contracts/performance.md#efficient-algorithms Distinct capable producers are queried once; deduplicated normalized populations are sorted for aggregate publication.
+// @evidence contracts/portability.md#os-neutral-implementation Normalization checks absolute native path syntax and selected-root key equality, using link/ancestor resolution and owning-directory flags when observable. Lexical fallback, unknown case and accepted digest markers remain observation limits rather than proof of physical capture.
+// @evidence contracts/performance.md#efficient-algorithms Each selected transport issues a direct project-inputs query, followed by JSON decoding, path-key/ancestor/case normalization, digest-map fallback searches and potentially selected file-byte/topology hashing. A changed store compares/preserves prior keys and rebuilds/deduplicates/sorts the full aggregate under its write lock, potentially once per producer; observer/log/trace IO add their own costs.
 // @evidence contracts/performance.md#reuse-equivalent-work Notifications share one active cycle and one rerun; flattened accepted snapshots serve matching and watcher consumers.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one queued rerun bound scheduling; Close cancels children and rejects later schedules. Aggregate input entries have no separate count cap.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One active worker and one queued rerun bound simultaneous scheduling, not total cycles or native runtime. Per-command response caps do not independently bound normalized/retained aggregate entries, path bytes or last-good age. File/Windows normalization probes are deferred-closed with errors ignored; Close requests process cancellation and rejects schedules without joining the running refresh/observer or clearing retained snapshots, and no computation deadline is imposed here.
 func (s *NativePluginSource) RefreshProjectInputs() {
   if s == nil {
     return
@@ -339,8 +340,9 @@ func (s *NativePluginSource) RefreshProjectInputs() {
 }
 
 // SetProjectInputsObserver registers the proxy callback that replaces the
-// client's dynamic watched-file registration after a successful topology
-// change.
+// client's dynamic watched-file registration when accepted stores change the
+// merged declaration view. A notification does not certify all producers succeeded
+// or that the view came from one input capture.
 // A nil observer removes future notifications; a callback already copied by a
 // refresh may still finish.
 //
@@ -351,7 +353,7 @@ func (s *NativePluginSource) RefreshProjectInputs() {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Callback registration performs no native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Assigning a callback chooses no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The source scheduler owns shared refresh work.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One callback reference is replaced or cleared under projectInputsMu; existing callback execution is not joined here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One callback reference is replaced or cleared under projectInputsMu, but its reachable captures have no imposed byte budget. Previously copied callbacks can still begin or finish after replacement; the setter does not join execution, cancel effects or release source-owned retained snapshots.
 func (s *NativePluginSource) SetProjectInputsObserver(observer func()) {
   if s == nil {
     return
