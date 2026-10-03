@@ -10,20 +10,16 @@ import (
 // the command cannot load exits non-zero, prints nothing to stdout, and names
 // what it could not load.
 //
-// The benchmark viewer pipeline runs this command through `execFileSync`, which
-// raises only on a non-zero exit and otherwise parses stdout as JSON. Every
-// failure path here therefore has to be a non-zero exit: turning one into 0
-// hands the pipeline an empty string, and the caller dies inside its JSON parse
-// with an opaque error instead of reading the diagnostic this command already
-// wrote. All three failure paths used to be unpinned, so replacing every
-// `return 1` with `return 0` broke no test.
+// A missing config must return status 1 without a JSON dump, leaving the failure
+// description on stderr. This case observes that one load-failure path, not every
+// command failure or an external viewer's process and JSON handling.
 //
 //  1. Run the command against a tsconfig that does not exist.
 //  2. Assert it returns 1 and wrote nothing to stdout.
 //  3. Assert stderr names the command and the path it could not load.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a project the command cannot load exits non-zero, prints nothing to stdout, and names what it could not load.
-// @evidence contracts/testing.md#independent-expectations The expected exit code 1, empty stdout and a stderr line naming the command and the missing tsconfig path are literals taken from the command's failure contract (nonzero exit so execFileSync callers raise, stdout reserved for JSON), not computed from run. Replacing the return 1 with 0, or printing a partial dump, fails the assertions.
+// @evidence contracts/testing.md#independent-expectations Literal status 1, empty stdout and stderr containing graphdump: and absent.json follow the command's missing-config failure policy and stdout-is-JSON rule. They are not computed from run; a successful status or partial dump on this path fails these assertions. Other load-failure paths and external process exit handling are outside this case.
 // @evidence contracts/testing.md#distinguishing-cases Run the command against a tsconfig that does not exist; Assert it returns 1 and wrote nothing to stdout; Assert stderr names the command and the path it could not load.
 // @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnloadableProjectWithoutPrintingADump is a Go source-unit entry. It calls run in-process against an empty temporary directory with a tsconfig name that does not exist, so driver.LoadProgram fails inside the test process; no consumer is installed and no binary is built or launched.
 func TestRunReportsAnUnloadableProjectWithoutPrintingADump(t *testing.T) {
