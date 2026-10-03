@@ -404,8 +404,9 @@ module.exports = {
     } catch (error) {
       // This helper may report failed shutdown; conservatively retain both inputs.
       const failures: unknown[] = [error];
-      try { TestProject.retainTemporaryDirectory(physicalRoot); } catch (retentionError) { failures.push(retentionError); }
-      try { TestProject.retainTemporaryDirectory(logicalParent); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainTemporaryDirectory(physicalRoot, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainTemporaryDirectory(logicalParent, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainSharedPluginCache("project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
       throw new AggregateError(failures, "project-rule LSP body or shutdown");
     }
 

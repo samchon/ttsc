@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint, TestProject, retainNativeLintProducer } from "@ttsc/testing";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -93,8 +93,8 @@ const CLIENT_CAPABILITIES = {
  * @evidence contracts/testing.md#distinguishing-cases Distinguishes native lint readiness from actual upstream hover, explicitly forwarded symbol requests and merged completion items filtered to exclude plugin ownership markers.
  * @evidence contracts/testing.md#execution-ownership The named server entry owns the actual launcher/proxy/upstream stream and server-initiated capability registration, with bounded language requests after one native diagnostic readiness wait.
  * @evidence contracts/e2e.md#necessary-boundary Synthetic merge or rule units cannot establish that real TypeScript-Go advances its dispatch loop after registerCapability and its responses survive the proxy.
- * @evidence contracts/e2e.md#shared-execution One source, one handshake and one server answer all three upstream feature requests plus native readiness; no separate native producer or language-feature session is built for each verb.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary source and lint config stay immutable, requests follow the required initialization/opening order, exact lint build identity may be shared, and session shutdown precedes cleanup.
+ * @evidence contracts/e2e.md#shared-execution One consumer/handshake/session carries all three original language requests and native readiness. The snapshotted workspace producer and explicit suite-owned cache are available for reuse, without a packed-installation, cache-hit, Program reuse, child/build total or minimum preparation claim. Snapshot preparation costs remain distinct from session request sharing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked source/config stay immutable and waiter/open/request order remains original. runTtscserverSession preserves body and shutdown failures and checks direct-child close/code before successful cleanup. Any startup/body/shutdown error conservatively retains consumer and already-owned snapshot/cache inputs and preserves retention failures; retention is not proof of arbitrary descendant closure or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage All provider, type, registration, symbol and non-plugin completion assertions remain, including the original timeout context that distinguishes an upstream hang from native diagnostics readiness.
  */
 export async function test_ttscserver_answers_typescript_go_language_requests() {
@@ -106,11 +106,10 @@ export async function test_ttscserver_answers_typescript_go_language_requests() 
     });
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
-    const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
-    });
-
     try {
+      const client = TtscserverClient.startLauncher(project.tmpdir, {
+        env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      });
       await runTtscserverSession(client, async () => {
         // 1. Handshake. Deliberately unbounded, matching the sibling session
         // test: the launcher builds project plugins before it spawns the server,
@@ -236,9 +235,16 @@ export async function test_ttscserver_answers_typescript_go_language_requests() 
           `completion must carry tsgo's own items: ${JSON.stringify(upstreamLabels.slice(0, 40))}`,
         );
       });
-    } finally {
-      project.cleanup();
+    } catch (error) {
+      const failures: unknown[] = [error];
+      const reason = "language-request session startup, body or shutdown failed";
+      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { retainNativeLintProducer(reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      throw new AggregateError(failures, reason);
     }
+    project.cleanup();
   }
 
 /**
