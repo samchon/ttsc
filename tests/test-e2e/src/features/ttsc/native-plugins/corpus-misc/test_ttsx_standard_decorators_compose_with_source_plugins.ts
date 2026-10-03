@@ -10,8 +10,8 @@ import {
 /**
  * Verifies standard decorators execute alongside native source transforms.
  *
- * The native host receives compiler overrides through TTSC_TSGO_ARGS rather
- * than its command-line parser. Both transforms must reach the executed emit.
+ * The ESNext configuration must reach the executed emit together with strip.
+ * This case observes their composed effects, not every internal child argv.
  *
  * 1. Configure the source-backed strip plugin at ESNext.
  * 2. Add a console.warn for the plugin to remove beside the decorator example.
@@ -22,8 +22,8 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases ESNext decorator lowering must compose with native strip; ordinary decorator-only cases own execution without a source plugin.
  * @evidence contracts/testing.md#execution-ownership The exported test_ttsx_standard_decorators_compose_with_source_plugins entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary The ttsx compiler/runtime connection must compose standard decorator lowering with the real strip source host; direct strip or decorator unit calls cannot prove the executed emit contains both effects.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution seedPackages junction-links the built workspace strip package into one consumer; this is not a packed installation. The suite compiler and Go toolchain are available for reuse, but this output does not count preparations, certify cache hits or prove minimum process cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks the temporary consumer; strip config and decorator source belong to that consumer. The PATH override is child-specific. The synchronous command result checks launch error, signal and exit status before consuming output; it does not certify arbitrary descendants or loaded executable bytes. No independent shared-plugin-cache selection is asserted here.
  * @evidence contracts/e2e.md#preserved-coverage ttsx executes the standard decorator class/method effects while strip removes the must-be-stripped warning. These assertions stay in test_ttsx_standard_decorators_compose_with_source_plugins with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_ttsx_standard_decorators_compose_with_source_plugins = () => {
@@ -45,6 +45,8 @@ export const test_ttsx_standard_decorators_compose_with_source_plugins = () => {
     cwd: root,
     env: { PATH: TestUtilityPlugins.goPath() },
   });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT);
   assert.doesNotMatch(result.stderr, /must-be-stripped/);

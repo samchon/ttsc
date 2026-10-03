@@ -30,17 +30,21 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases A source entry below the module root must select its main package; the direct go.mod source case owns module-file spelling.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_source_path_selects_a_sub_package entry is discovered by TestExecutor from corpus-source in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary The CLI selects a descriptor subpackage, invokes real Go against that entry and executes it to produce ENTRY in consumer emit. Module parsing alone cannot prove the selected main package reaches the native producer.
- * @evidence contracts/e2e.md#shared-execution A copied consumer/plugin fixture and private cold plugin cache retain this case's entry selection, build log or failure. The suite built compiler and Go toolchain are reused; the source mutation or forbidden replacement cannot reuse the canonical warm producer binary.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution The copied subpackage emitter and initially empty private cache preserve the original source-build log and ENTRY outcome. Suite compiler and Go toolchain preparation are available for reuse. This tiny emitter is not a substitute for compiler-backed SDK semantics, and its build log does not count all processes or prove minimum preparation cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks the copied consumer and private cache; the main output starts absent. Child-specific PATH and TTSC_CACHE_DIR do not mutate ambient state. The synchronous result checks launch error, signal and exit status before reading output; it does not certify arbitrary descendants or loaded executable bytes.
  * @evidence contracts/e2e.md#preserved-coverage ttsc --emit builds the named subpackage plugin and emits ENTRY with zero status. These assertions stay in test_plugin_corpus_source_path_selects_a_sub_package with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_source_path_selects_a_sub_package = () => {
   const root = copyProject("go-source-plugin-entry");
   const cacheDir = TestProject.tmpdir("ttsc-source-plugin-entry-");
+  assert.deepEqual(fs.readdirSync(cacheDir), []);
+  assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
     cwd: root,
     env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
   });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     result.stderr,
