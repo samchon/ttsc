@@ -23,16 +23,17 @@ func (rankedCompletionHintSource) CompletionHints() []LSPCompletionHint {
 // A completion label containing slashes cannot rely on the editor's default
 // word range: replacing only the last segment of `文档/sp` would duplicate the
 // path prefix. The range is measured in UTF-16 units, and explicit sort keys
-// preserve the publisher's ranking instead of letting the client alphabetize it.
+// must order the supplied items. This unit observes returned edits and keys,
+// not a client's sorting or application of those edits.
 //
 //  1. Match two ranked hints after a non-BMP character and a CJK path prefix.
-//  2. Merge them into the null completion response tsgo uses in JSDoc prose.
+//  2. Merge them into an authored null completion response.
 //  3. Assert both text edits replace the full filter and sort in slice order.
 //
 // @evidence contracts/testing.md#behavioral-verification Two ranked hints after a non-BMP character and a CJK path prefix merge into a null upstream response as text edits that replace the full filter, in publisher order.
-// @evidence contracts/testing.md#independent-expectations The expected ranges are UTF-16 columns written literally for the literal text.
+// @evidence contracts/testing.md#independent-expectations Literal UTF-16 columns 17..22 and ordered insertion strings docs/stable.md then docs/derived.md are independent expected values; sort-key ordering is compared separately. FilterText equality with NewText is a consistency check, not an independent content oracle.
 // @evidence contracts/testing.md#distinguishing-cases A path filter containing slashes and wide characters distinguishes a full-filter range from a last-segment range.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionReplacesFullFilterInRankOrder is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes actual Proxy.completionItemsFor and mergeCompletionResponseWithRequest on an owned hint source, supplied document map and authored JSON. It decodes the returned edits and keys; no directory, sidecar, compiler, process, installed consumer or LSP transport runs, and editor sorting/application is unobserved.
 func TestLSPCompletionReplacesFullFilterInRankOrder(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   const text = "/** 😀 @evidence 文档/sp"
@@ -71,7 +72,11 @@ func TestLSPCompletionReplacesFullFilterInRankOrder(t *testing.T) {
   if len(response.Result.Items) != 2 {
     t.Fatalf("merged %d completion items, want 2", len(response.Result.Items))
   }
+  wantInsertions := []string{"docs/stable.md", "docs/derived.md"}
   for index, item := range response.Result.Items {
+    if item.TextEdit.NewText != wantInsertions[index] {
+      t.Errorf("item %d inserted text = %q, want %q", index, item.TextEdit.NewText, wantInsertions[index])
+    }
     if item.TextEdit.Range.Start != (LSPPosition{Line: 0, Character: 17}) ||
       item.TextEdit.Range.End != (LSPPosition{Line: 0, Character: 22}) {
       t.Errorf("item %d replacement range = %+v, want character 17..22", index, item.TextEdit.Range)

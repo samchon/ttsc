@@ -18,21 +18,20 @@ func (jsdocTagCompletionHintSource) CompletionHints() []LSPCompletionHint {
 // TestLSPCompletionRefusesHintsInsideAStringLiteral verifies the scope decision
 // where it is observable.
 //
-// The lexical table proves the scanner; this proves the request path still asks
-// it. A refactor that recomputed scope from the line prefix, or that passed the
-// wrong offset, would put `jsdoc/check-tag-names` tags into ordinary source
-// text — a position the owning rule never inspects — and no unit test of the
-// matcher alone would notice.
+// The actual request helper classifies two supplied documents: a string
+// containing a JSDoc opener and a real doc comment. A prefix-only classifier
+// would incorrectly admit the first. These observations do not run the owning
+// lint rule, publish an LSP response or certify every scanner boundary.
 //
 //  1. Ask for completion after `@par` inside a string literal that contains the
 //     JSDoc opener.
 //  2. Ask again at the same tag inside a real doc comment.
-//  3. Assert silence for the first and the published item for the second.
+//  3. Assert silence for the first and the supplied item/range for the second.
 //
-// @evidence contracts/testing.md#behavioral-verification Completion after '@par' inside a string literal that contains the JSDoc opener is silent, and the same tag in a real doc comment returns the published item.
-// @evidence contracts/testing.md#independent-expectations Silence and the single published item are literal expectations for the two literal documents.
-// @evidence contracts/testing.md#distinguishing-cases The string literal and the real block differ only in lexical scope, so a prefix-only scope decision fails the first.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionRefusesHintsInsideAStringLiteral is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification Actual Proxy.completionItemsFor returns no items at the supplied string-literal cursor, then returns the supplied param item and literal line-1 range 4..7 for the real doc-comment cursor. The negative branch asserts item absence, not the reason for refusal or its range.
+// @evidence contracts/testing.md#independent-expectations Empty items, the supplied param insertion and the real comment's literal range columns are authored expectations, not computed from the scanner or matcher.
+// @evidence contracts/testing.md#distinguishing-cases Both cursors follow @par with the same supplied hint source; the containing documents, URI and cursor positions differ. The positive comment prevents unconditional empty results from satisfying the pair; the quoted opener distinguishes a prefix-only classifier.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes the actual request helper on an owned CompletionHints source, a supplied document map and authored JSON params. Actual position conversion, lexical classification, matching and range construction run in-process; no directory, sidecar, compiler, lint rule, process or LSP transport runs.
 func TestLSPCompletionRefusesHintsInsideAStringLiteral(t *testing.T) {
   const literalURI = "file:///project/src/literal.ts"
   const blockURI = "file:///project/src/block.ts"
@@ -66,7 +65,7 @@ func TestLSPCompletionRefusesHintsInsideAStringLiteral(t *testing.T) {
   if got := inserts(pending.items); !equalStrings(got, []string{"param"}) {
     t.Fatalf("a real doc comment was offered %v, want [param]", got)
   }
-  // The refusal must not have come from a broken filter range either.
+  // The admitted comment also has the literal replacement range.
   if pending.replaceRange.Start != (LSPPosition{Line: 1, Character: 4}) ||
     pending.replaceRange.End != (LSPPosition{Line: 1, Character: 7}) {
     t.Errorf("replacement range = %+v, want character 4..7", pending.replaceRange)
