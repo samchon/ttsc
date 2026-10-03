@@ -15,7 +15,7 @@ import "testing"
 //  3. Assert no format rule is enabled.
 //
 // @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore leaves every registered format rule disabled when only no-var/error is declared.
-// @evidence contracts/testing.md#independent-expectations Formatting is opt-in through the format block; the independently authored non-format rule map must not imply any formatter policy.
+// @evidence contracts/testing.md#independent-expectations For this parsed object, the independently authored non-format rule map must not imply an enabled formatter policy; command-level defaults are not this observation.
 // @evidence contracts/testing.md#distinguishing-cases Owns absent format with a valid ordinary rule; empty-block defaults and explicit warning severity are distinct cases.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go entry directly parses an authored no-var-only object and inspects EnabledRuleConfig in the shared lint process; no formatter source walk, fixture installation or native host is needed to observe opt-in policy.
 func TestFormatBlockAbsentKeepsFormatRulesOff(t *testing.T) {

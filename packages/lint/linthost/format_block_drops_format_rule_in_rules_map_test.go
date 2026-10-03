@@ -6,13 +6,13 @@ import (
 )
 
 // TestFormatBlockDropsFormatRuleInRulesMap verifies a `format/*` rule named
-// in the `rules` map is silently dropped, the same way an unknown rule name
-// is ignored. Formatter behavior is configured exclusively through the
-// top-level `format` block, so a stray `format/*` in `rules` neither errors
+// in the `rules` map is silently dropped. Formatter behavior is configured
+// exclusively through the top-level `format` block, so a stray `format/*` in
+// `rules` neither errors
 // nor takes effect: the format block keeps driving the rule.
 //
-// This replaces the former "rules-wins" override tests — the `rules` map no
-// longer overrides formatter rules at all.
+// This observes the current option winner for one conflicting semi setting,
+// not a former test population or the handling of unknown ordinary rules.
 //
 //  1. `format: { semi: true }` expands format/semi to prefer:"always", and
 //     `rules: { "format/semi": ["off", { prefer: "never" }] }` is also set.
