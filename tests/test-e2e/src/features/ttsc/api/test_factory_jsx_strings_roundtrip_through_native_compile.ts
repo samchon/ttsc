@@ -28,9 +28,9 @@ import { buildNativeCompiler } from "../../../../../../packages/ttsc/lib/compile
  * @evidence contracts/testing.md#distinguishing-cases Fifty-four empty, punctuation, entity, control, newline, separator and surrogate inputs cross both quote styles, widths 1/200 and three contexts. A combined payload and independently authored numeric-entity specimen additionally cover adjacent surrogate units and literal entity/backslash text; invalid JSX remains rejected.
  * @evidence contracts/testing.md#execution-ownership This named API feature is discovered by TestExecutor and owns all row failures, real native compile calls and returned output evaluation.
  * @evidence contracts/e2e.md#necessary-boundary Factory output must cross UTF-8, the pinned Go parser/emitter and JSON output transport without altering cooked string values. The separate factory source unit owns reference TypeScript parsing; it cannot prove native entity decoding.
- * @evidence contracts/e2e.md#shared-execution One validated compiler artifact from the existing shared API cache serves one positive program and one negative compile. No contributor, package installation or per-row native producer is created; a supplied formal-verification executable must have its identity verified by that caller.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One fresh tracked TestProject contains source/config only; synchronous process completion precedes evaluation or source replacement. Finally removes this exact fixture after both outcomes, while the shared cache remains owned by the surrounding API batch.
- * @evidence contracts/e2e.md#preserved-coverage The factory reference unit retains all original 648 checks. This native batch independently executes those inputs, a combined payload and an authored entity specimen, collects every value mismatch, and retains an invalid-grammar control without weakening reference assertions.
+ * @evidence contracts/e2e.md#shared-execution One selected executable path from the shared builder or supplied caller serves positive and negative compile invocations, not a per-row producer. This body does not independently verify executable bytes, cache hits or loaded image; the caller's prepared manifest and actual process/construction observations remain separate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One tracked project owns source/config and rejects disk emission in the positive phase. Direct synchronous results precede evaluation/source replacement, not arbitrary descendant shutdown. Positive and negative failures are retained independently; compiler-build preparation and final root-removal failures also remain observable, while the shared cache retains its separate owner.
+ * @evidence contracts/e2e.md#preserved-coverage This native batch retains the original 54-string matrix plus combined payload across twelve combinations and the independent entity specimen, all 661 value expectations and invalid status2/main.tsx error1002. tests/test-factory/src/features/printer/test_printer_preserves_jsx_attribute_values.ts directly owns the separate legacy TypeScript/V8 reference route, now expanded beyond its original648 checks. That source body does not replace native decoding or certify current runtime survival.
  */
 export const test_factory_jsx_strings_roundtrip_through_native_compile = (
   nativeCompiler?: string,
@@ -213,8 +213,14 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
     } catch (error) {
       failures.push(`negative native compile: ${String(error)}`);
     }
+  } catch (error) {
+    failures.push(`native compiler preparation: ${String(error)}`);
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    try {
+      fs.rmSync(root, { recursive: true, force: true });
+    } catch (error) {
+      failures.push(`native fixture cleanup: ${String(error)}`);
+    }
   }
   assert.equal(failures.length, 0, failures.join("\n"));
 };

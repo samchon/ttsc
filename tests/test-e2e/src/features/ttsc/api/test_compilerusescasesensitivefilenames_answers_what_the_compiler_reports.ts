@@ -9,15 +9,16 @@ import {
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../internal/ttsc/internal/plugin-cache";
 
 /**
- * Verifies ttsc answers the compiler's case policy before the compiler runs,
- * with the answer the compiler then reports, whatever `process.platform` says.
+ * Compares the early cache-root policy approximation with one actual compiler
+ * report while changing the apparent process platform.
  *
  * Hosts that decide project membership before any compile, the Metro key, the
  * unplugin selection of a referenced project, and its first walk, took the case
  * policy from `process.platform === "linux"`. TypeScript-Go takes it from the
  * executable it runs as (samchon/ttsc#1563).
- * `compilerUsesCaseSensitiveFileNames` applies that rule to the plugin cache
- * root the executable lives in.
+ * `compilerUsesCaseSensitiveFileNames` probes a physical cache-root proxy on
+ * non-Windows hosts, not the selected executable itself. Directory policy,
+ * lexical spelling and Unicode mapping can make that approximation disagree.
  *
  * 1. Transform a project through the compiler host in one cache root, and read the
  *    case policy its graph reports.
@@ -28,11 +29,11 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../internal/ttsc/internal/plugin-
  *
  * @evidence contracts/testing.md#behavioral-verification Transforms a real compiler project, reads its boolean graph policy, and compares compilerUsesCaseSensitiveFileNames in the same and sibling cache roots while process.platform is changed.
  * @evidence contracts/testing.md#independent-expectations The real native compiler graph is an independent producer for the JavaScript helper answer; the test checks agreement rather than hardcoding an OS policy.
- * @evidence contracts/testing.md#distinguishing-cases Same-volume sibling cache and opposite apparent process.platform distinguish executable/volume policy from a platform-name guess; cross-volume behavior is not exercised.
+ * @evidence contracts/testing.md#distinguishing-cases Shared-cache and project-local sibling-cache answers are compared with the native report under opposite apparent process.platform. Their equal policy/volume premise is not independently asserted; the comparison does not establish cross-volume, per-directory, Unicode or arbitrary-executable classifier accuracy.
  * @evidence contracts/testing.md#execution-ownership The exported API feature executes native transform and direct helper calls through TestExecutor.
- * @evidence contracts/e2e.md#necessary-boundary Only actual compiler reporting confirms the early JavaScript policy matches the executable it will invoke; a mocked platform oracle would repeat the discarded premise.
- * @evidence contracts/e2e.md#shared-execution One native transform supplies the reference policy for both helper calls. The suite shared plugin cache and built package are reused; the sibling path requires no second compiler process.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh registered project separates input state; process.platform is restored in finally before any subsequent case. Shared cache identity remains fixed and TestProject owns the fixture/sibling directory lifetime.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native transform reporting supplies a reference distinct from the helper's root proxy. Agreement checks this selected fixture observation, not an external OS specification or proof that every future executable matches the proxy.
+ * @evidence contracts/e2e.md#shared-execution One transform invocation supplies the report for two helper calls; the sibling helper uses filesystem probing, not a second transform. Internal child starts, Program constructions, cache hits and executable-byte identity are separate observations, not inferred from these call counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project is fresh and the exact process.platform descriptor is restored in finally after the controlled helper call. Shared cache/module state and the helper's per-root answer memo persist; TestProject tracks fixture paths. This does not certify arbitrary descendant shutdown or equivalent native directory policies for both roots.
  * @evidence contracts/e2e.md#preserved-coverage Original success, boolean policy and both equality assertions remain; equality can expose disagreement but cannot prove both components follow an external case specification.
  */
 export const test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports =
