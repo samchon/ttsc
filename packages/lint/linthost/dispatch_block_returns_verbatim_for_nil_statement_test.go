@@ -11,16 +11,15 @@ import (
 //
 // The per-statement nil guard `if stmt == nil { return verbatim(...) }` inside
 // the loop prevents a nil dereference when iterating the block's statements.
-// A nil element cannot appear in a parser-produced statement list, but it can
-// appear in a synthetic block constructed by the node factory — for example
-// when an error-recovery pass builds a partial statement list. Returning
-// verbatim is the safe fallback: the printer cannot reconstruct a partially
-// built statement, so it emits the whole block's source bytes unchanged.
+// This fixture explicitly constructs a factory block with one missing
+// statement. Its undefined range has no source bytes to copy, so the
+// fallback is empty. It does not establish parser or error-recovery
+// behavior, or preservation of a parsed block's source range.
 //
 //  1. Build a synthetic Block whose StatementList has exactly one nil element.
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.
 //  3. Call printBlock(ctx, syntheticBlock) directly.
-//  4. Assert the output is empty (verbatim of a zero-range block) and covered
+//  4. Assert the output is empty (verbatim of an undefined-range block) and covered
 //     is true (synthetic node spans no lines).
 //
 // @evidence contracts/testing.md#behavioral-verification printBlock must safely fall back to empty, covered output when a factory statement list contains nil.
