@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
+import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
 
 /**
  * A stub that answers a transform request (`file` set) with a valid `{
@@ -58,13 +59,17 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named process feature; it creates an actual Node child and exchanges two request/reply lines.
  * @evidence contracts/e2e.md#necessary-boundary Both legal negative replies must survive client shape validation and promise settlement on a live session; this proves transport acceptance rather than Go transformation semantics.
  * @evidence contracts/e2e.md#shared-execution One peer lifetime handles both operation kinds with no Go build or installation, retaining shared session state between requests.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private client queue belongs only to this entry and finally disposes its child on success or failure; no fixture filesystem or global environment is changed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private queue belongs to this entry, with actual child close subscribed before requests and awaited after disposal in finally. Primary/preparation and cleanup failures remain observable; private child access is cleanup-only. Timeout is failure, not arbitrary descendant termination, and no fixture files or global environment are mutated.
  * @evidence contracts/e2e.md#preserved-coverage Original found:false and updated:false assertions remain. They do not inspect optional fields or subsequent positive transformation behavior.
  */
 export const test_residenttransformprocess_resolves_valid_negative_replies =
   async () => {
-    const proc = spawnStub(NEGATIVE_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
+    const failures: unknown[] = [];
     try {
+      proc = spawnStub(NEGATIVE_STUB);
+      release = observeResidentTransformClose(proc);
       const transform = await proc.request({ file: "a.ts" }, "transform");
       assert.equal(transform.found, false);
 
@@ -73,7 +78,15 @@ export const test_residenttransformprocess_resolves_valid_negative_replies =
         "update",
       );
       assert.equal(update.updated, false);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) { failures.push(error); }
     }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Domain negative and fixture cleanup failed");
   };

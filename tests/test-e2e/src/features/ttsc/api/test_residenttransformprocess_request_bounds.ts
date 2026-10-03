@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
+import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
 
 /** A host that stays alive and consumes stdin but intentionally never replies. */
 const SILENT_STUB = `
@@ -61,7 +62,8 @@ function delay(ms: number): Promise<void> {
  * There is no deadline to exercise. A slow host is the user's own transform
  * running, and the client waits for it; a _dead_ host still settles every
  * pending call, because the reader closing is the signal that matters and it is
- * one the host cannot withhold.
+ * this entry exercises on its controlled peers. It does not establish a bound
+ * for a permanently silent un-aborted request or descendant-held pipes.
  *
  * 1. Preserve a delayed reply, however late it lands.
  * 2. Keep a pre-write cancellation as one caller's concern, leaving the host
@@ -72,19 +74,24 @@ function delay(ms: number): Promise<void> {
  *    settle a later caller; dispose remains idempotent.
  *
  * @evidence contracts/testing.md#behavioral-verification Exercises delayed reply acceptance, pre-enqueue abort without host damage, post-enqueue abort with distinct collateral retirement, empty pending queue and ignored late line after retirement.
- * @evidence contracts/testing.md#independent-expectations The independent delayed/silent peers determine whether replies can arrive; explicit abort reasons and filenames establish caller ownership without deriving expectations from queue internals.
+ * @evidence contracts/testing.md#independent-expectations Authored delayed/silent peers, abort reasons and filenames establish reply and error ownership independently. The pending-array length is a separate storage-shape observation, not an independent process or unsettled-request oracle.
  * @evidence contracts/testing.md#distinguishing-cases Pre-write and in-flight cancellation intentionally differ; delayed success distinguishes latency from failure, and synthetic late delivery checks the terminal reader branch.
  * @evidence contracts/testing.md#execution-ownership The named API feature runs three actual Node sessions through ResidentTransformProcess; one late-line probe also invokes the private reader boundary directly.
  * @evidence contracts/e2e.md#necessary-boundary Real pending requests, live pipes and abort delivery must settle without shifting FIFO ownership; the direct late-line injection isolates a race branch without claiming an actual OS kill ordering.
  * @evidence contracts/e2e.md#shared-execution Delayed success and preabort healthy reuse share one delayed peer; queued abort and late-tail terminal checks each require their own lifetime.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every private client is disposed in finally, including repeated disposal in the late-tail branch. AbortControllers and pending slots are case-local; no shared host survives retirement.
- * @evidence contracts/e2e.md#preserved-coverage All delay, abort-name/reason, collateral-error, empty-pending and later-request rejection assertions remain. The pending-array check couples to internal storage, while settlement predicates provide observable failure ownership.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each independent phase subscribes to actual child close before requests, then disposes and awaits that receipt in finally while preserving preparation/verdict/cleanup failures. Concurrent abort promises have settlement observers before abort. Private child access is cleanup-only and timeout is failure, not arbitrary descendant termination; controllers and slots remain phase-local.
+ * @evidence contracts/e2e.md#preserved-coverage Original 40ms delayed identity, preabort reason/healthy reply, in-flight AbortError/editor reason/collateral error, pending-length0, private late-line input/10ms pause/later rejection and repeated disposal remain. A finite delay does not prove every latency, and direct late injection is not an observed OS kill race. All three phases remain independently attempted.
  */
 export const test_residenttransformprocess_request_bounds = async () => {
+  const failures: unknown[] = [];
   // A host may be slow without being failed, and nothing bounds how slow.
   {
-    const proc = spawnStub(delayedReplyStub(40));
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     try {
+      proc = spawnStub(delayedReplyStub(40));
+      release = observeResidentTransformClose(proc);
+      const client = proc;
       const reply = await proc.request({ file: "slow.ts" }, "transform");
       assert.equal(reply.typescript, "slow.ts");
       // Pre-write cancellation rejects only this caller; the same peer remains healthy.
@@ -92,7 +99,7 @@ export const test_residenttransformprocess_request_bounds = async () => {
       controller.abort("caller stopped before write");
       await assert.rejects(
         () =>
-          proc.request({ file: "cancelled.ts" }, "transform", {
+          client.request({ file: "cancelled.ts" }, "transform", {
             signal: controller.signal,
           }),
         (error: Error) =>
@@ -101,8 +108,15 @@ export const test_residenttransformprocess_request_bounds = async () => {
       );
       const healthy = await proc.request({ file: "healthy.ts" }, "transform");
       assert.equal(healthy.typescript, "healthy.ts");
+    } catch (error) {
+      failures.push(new Error("Delayed/preabort phase", { cause: error }));
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("Delayed/preabort cleanup", { cause: error }));
+      }
     }
   }
 
@@ -110,14 +124,19 @@ export const test_residenttransformprocess_request_bounds = async () => {
   // caller sees AbortError, while a concurrent request settles with a distinct
   // collateral failure instead of hanging or receiving a mismatched reply.
   {
-    const proc = spawnStub(SILENT_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     const controller = new AbortController();
     try {
+      proc = spawnStub(SILENT_STUB);
+      release = observeResidentTransformClose(proc);
       const cancelled = proc.request({ file: "cancelled.ts" }, "transform", {
         signal: controller.signal,
       });
       const collateral = proc.request({ file: "other.ts" }, "transform");
+      const settled = Promise.allSettled([cancelled, collateral]);
       controller.abort("editor closed the file");
+      await settled;
       await assert.rejects(
         cancelled,
         (error: Error) =>
@@ -129,8 +148,15 @@ export const test_residenttransformprocess_request_bounds = async () => {
         /retired after another request was cancelled/,
       );
       assert.equal(pendingCount(proc), 0);
+    } catch (error) {
+      failures.push(new Error("In-flight abort phase", { cause: error }));
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("In-flight abort cleanup", { cause: error }));
+      }
     }
   }
 
@@ -138,9 +164,13 @@ export const test_residenttransformprocess_request_bounds = async () => {
   // reader boundary directly models that late pipe tail without relying on a
   // platform-specific child-process kill race.
   {
-    const proc = spawnStub(SILENT_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     const controller = new AbortController();
     try {
+      proc = spawnStub(SILENT_STUB);
+      release = observeResidentTransformClose(proc);
+      const client = proc;
       const cancelled = proc.request({ file: "late.ts" }, "transform", {
         signal: controller.signal,
       });
@@ -156,12 +186,25 @@ export const test_residenttransformprocess_request_bounds = async () => {
       ).onLine(JSON.stringify({ found: true, typescript: "late.ts" }));
       await delay(10);
       await assert.rejects(
-        () => proc.request({ file: "later.ts" }, "transform"),
+        () => client.request({ file: "later.ts" }, "transform"),
         /retired after another request was cancelled/,
       );
+    } catch (error) {
+      failures.push(new Error("Late-tail phase", { cause: error }));
     } finally {
-      proc.dispose();
-      proc.dispose();
+      try {
+        proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("Late-tail first disposal", { cause: error }));
+      }
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("Late-tail cleanup", { cause: error }));
+      }
     }
   }
+  if (failures.length)
+    throw new AggregateError(failures, "Resident request-bound failures");
 };
