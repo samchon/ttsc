@@ -19,7 +19,7 @@ import "testing"
 // same body so global-object binding exposure cannot mask this named guard.
 //
 // @evidence contracts/testing.md#behavioral-verification no-var leaves both var x declarations unchanged instead of making duplicate lets.
-// @evidence contracts/testing.md#independent-expectations The original two-declaration source and zero applied fixes preserve supported var redeclaration. Exact literal statement/header spans additionally require both distinct diagnostics.
+// @evidence contracts/testing.md#independent-expectations The original two-declaration source and zero applied fixes preserve supported var redeclaration. Two exact full-statement spans additionally require both distinct diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Two declarations differ from a single binding and from reassignment, which remains fixable.
 // @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsRedeclaration calls assertNoFixSnapshot on its two var statements. Its assertRuleFindingRanges call owns both declaration identities.
 func TestFixNoVarSkipsRedeclaration(t *testing.T) {
