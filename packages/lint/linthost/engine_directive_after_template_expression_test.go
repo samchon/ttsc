@@ -10,10 +10,9 @@ import (
 // continues to suppress findings on lines that follow a template literal containing a
 // `${...}` substitution earlier in the file.
 //
-// The shared comment scanner must preserve the template lexical goal across
-// substitutions before classifying later comments. A raw scanner that does not
-// rescan template head/middle/tail tokens can drift later comment positions and
-// target the wrong line, silently losing the next-line suppression.
+// The shared comment scanner excludes parser-classified template token spans
+// before scanning the gaps for real comments. A raw scan that mistakes template
+// text for code can miss the later directive and lose next-line suppression.
 //
 //  1. Declare a template literal with one `${...}` substitution.
 //  2. Place an `eslint-disable-next-line eqeqeq` directive before a `==` comparison.
