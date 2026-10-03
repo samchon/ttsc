@@ -24,4 +24,6 @@ jobs:
           cache-dependency-path: "**/go.sum"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run evidence
+        env:
+          EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
       - run: pnpm run build
