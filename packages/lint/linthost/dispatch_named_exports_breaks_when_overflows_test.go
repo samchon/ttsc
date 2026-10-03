@@ -7,12 +7,12 @@ import (
 )
 
 // TestDispatchNamedExportsBreaksWhenOverflows verifies a long
-// `export { … }` re-export reflows specifiers across lines.
+// `export { … }` clause reflows specifiers across lines.
 //
 // Symmetric partner of the named-exports flat case. Pinning the
-// broken-form output here ensures a regression specific to the
-// NamedExports dispatch branch (which differs from NamedImports
-// only in surrounding context) cannot slip in unnoticed.
+// broken-form output here checks printNamedExports directly, retaining
+// all five specifiers. It does not exercise PrintNode's dispatch branch
+// or a surrounding export declaration.
 //
 //  1. Parse `export { alpha, bravo, charlie, delta, echo };`.
 //  2. Print under printWidth=20.

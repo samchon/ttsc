@@ -11,9 +11,9 @@ import (
 // rather than panicking.
 //
 // Symmetric partner of the NamedImports nil-Elements test. The guard
-// `ne == nil || ne.Elements == nil` in printNamedExports is reached only
-// through a synthetically built node, but must be tested so the defensive
-// branch stays live under coverage enforcement.
+// `ne == nil || ne.Elements == nil` in printNamedExports is exercised with
+// both a factory node and a parsed node whose public Elements field is
+// cleared. Their different source ranges determine the fallback bytes.
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build a NamedExports node with nil Elements, call
@@ -30,12 +30,12 @@ func TestDispatchNamedExportsFallsBackWhenElementsNil(t *testing.T) {
   ctx := NewPrintContext(file, DefaultPrintOptions())
   factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
   node := factory.NewNamedExports(nil)
-  // Should not panic; verbatim on a synthetic node with zero-length
-  // source returns the empty string.
+  // Should not panic; verbatim on a synthetic node with an undefined
+  // source range returns the empty string.
   doc, _ := printNamedExports(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "export { a, b };\n")

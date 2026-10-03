@@ -87,13 +87,11 @@ func printNamedExports(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   }), covered
 }
 
-// printImportDeclaration renders the surrounding `import … from "x";`.
-// The default specifier, namespace import, named-imports clause, and
-// module specifier are all individually dispatched so the named-imports
-// portion can reflow while the rest stays verbatim.
-//
-// The dispatcher hands off to the per-clause printers; the top-level
-// frame stitches them together with the keywords and `from` token.
+// printImportDeclaration reconstructs a named-import declaration in one
+// list group, dispatching each named specifier and copying the module
+// specifier verbatim. The default binding, when present, joins the prefix.
+// Default-only, namespace, side-effect and attributed imports fall back
+// to the original declaration; this printer does not call printNamedImports.
 //
 // The second return value is the `covered` flag: see PrintNode.
 func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
