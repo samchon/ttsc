@@ -46,6 +46,7 @@ const tourOfProject = async (
 ): Promise<TourResult> => {
   let result!: TourResult;
   await withIdentityBoundary(async (client, root) => {
+    client.assertInputMutationAllowed();
     fs.writeFileSync(path.join(root, "src", "recursive-tour.ts"), source, "utf8");
     result = tourOf(
       (await client.request("tools/call", {
@@ -106,49 +107,75 @@ const REAL_FLOW = [
  * @evidence contracts/testing.md#behavioral-verification MCP tour keeps the real handle-to-work flow despite an earlier-ranked self-recursive seed and produces the same flow shape as the counterpart source variant without that recursion in the same project.
  * @evidence contracts/testing.md#independent-expectations Authored self recursion reaches no new handle, whereas handle calls work; literal flow-shape comparison is a metamorphic control independent of seed implementation.
  * @evidence contracts/testing.md#distinguishing-cases A self-only first candidate contrasts a moving flow and a no-recursion source variant in the same project; every returned flow must reach something and work must survive.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native recursive call edges and ranking facts must reach tour composition so a self-edge cannot consume its flow search budget at the real boundary.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
+ * @evidence contracts/e2e.md#shared-execution The recursive and no-recursion source variants reuse the same identity project/client, each scoped to recursive-tour.ts and settled before the next. Their actual MCP flow responses supply the comparison, not neighboring cached CLI facts. Client/input sharing does not prove Program reuse, construction counts or packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before either variant, the original source bytes or actual ENOENT absence are captured. Actual client authority guards each variant write and final byte/absence restoration; operation and reset failures are collected, and failed reset withdraws reuse. Scoped config restoration remains the existing owner. Unconfirmed transport forbids reset and retains inputs until owned joins establish cleanup authority.
  * @evidence contracts/e2e.md#preserved-coverage Work reachability, nonempty reached sets and exact normalized flow-shape comparison remain; no recursion fixture or comparative assertion is removed.
  */
 export const case_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =
   async () => {
-    const withRecursion = await tourOfProject(`${SELF_RECURSIVE}${REAL_FLOW}`, [
-      "attempt",
-      "handle",
-    ]);
+    await withIdentityBoundary(async (owner, root) => {
+      const sourceFile = path.join(root, "src", "recursive-tour.ts");
+      let originalSource: Buffer | undefined;
+      try {
+        originalSource = fs.readFileSync(sourceFile);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const failures: unknown[] = [];
+      try {
+        const withRecursion = await tourOfProject(`${SELF_RECURSIVE}${REAL_FLOW}`, [
+          "attempt",
+          "handle",
+        ]);
 
-    const reaches = (tour: TourResult, name: string): boolean =>
-      tour.primaryFlow.some((flow) =>
-        flow.reached.some((node) => node.name === name),
-      );
+        const reaches = (tour: TourResult, name: string): boolean =>
+          tour.primaryFlow.some((flow) =>
+            flow.reached.some((node) => node.name === name),
+          );
 
-    assert.ok(
-      reaches(withRecursion, "work"),
-      `the real chain must survive a self-recursive seed: ${JSON.stringify(withRecursion.primaryFlow)}`,
-    );
-    for (const flow of withRecursion.primaryFlow)
-      assert.ok(
-        flow.reached.length > 0,
-        `a flow that reached nothing was published: ${JSON.stringify(flow)}`,
-      );
+        assert.ok(
+          reaches(withRecursion, "work"),
+          `the real chain must survive a self-recursive seed: ${JSON.stringify(withRecursion.primaryFlow)}`,
+        );
+        for (const flow of withRecursion.primaryFlow)
+          assert.ok(
+            flow.reached.length > 0,
+            `a flow that reached nothing was published: ${JSON.stringify(flow)}`,
+          );
 
-    // The negative twin, and the reason the assertions above prove anything:
-    // the same project without the recursion must report the same flows, so the
-    // recursion's presence is what is measured rather than the fixture
-    // happening to rank the chain first.
-    const withoutRecursion = await tourOfProject(REAL_FLOW, ["handle"]);
-    const shape = (tour: TourResult): string =>
-      JSON.stringify(
-        tour.primaryFlow.map((flow) => [
-          flow.start.name,
-          flow.reached.map((node) => node.name).sort(),
-        ]),
-      );
-    assert.equal(
-      shape(withRecursion),
-      shape(withoutRecursion),
-      "the self-edge must not change which flows the tour reports",
-    );
+        // The negative twin, and the reason the assertions above prove anything:
+        // the same project without the recursion must report the same flows, so the
+        // recursion's presence is what is measured rather than the fixture
+        // happening to rank the chain first.
+        const withoutRecursion = await tourOfProject(REAL_FLOW, ["handle"]);
+        const shape = (tour: TourResult): string =>
+          JSON.stringify(
+            tour.primaryFlow.map((flow) => [
+              flow.start.name,
+              flow.reached.map((node) => node.name).sort(),
+            ]),
+          );
+        assert.equal(
+          shape(withRecursion),
+          shape(withoutRecursion),
+          "the self-edge must not change which flows the tour reports",
+        );
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        try {
+          owner.assertInputMutationAllowed();
+          if (originalSource === undefined) fs.rmSync(sourceFile, { force: true });
+          else fs.writeFileSync(sourceFile, originalSource);
+        } catch (error) {
+          owner.preventInputReuse("Recursive tour source restoration failed");
+          failures.push(error);
+        }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Recursive tour variants and reset failed");
+    });
   };

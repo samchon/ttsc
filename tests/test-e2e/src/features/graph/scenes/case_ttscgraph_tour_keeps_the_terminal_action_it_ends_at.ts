@@ -57,6 +57,7 @@ const tourOfProject = async (
 ): Promise<TourResult> => {
   let result!: TourResult;
   await withIdentityBoundary(async (client, root) => {
+    client.assertInputMutationAllowed();
     fs.writeFileSync(path.join(root, "src", "terminal-tour.ts"), source, "utf8");
     result = tourOf(
       (await client.request("tools/call", {
@@ -108,80 +109,106 @@ const reachedNames = (tour: TourResult): string[] =>
  * @evidence contracts/testing.md#behavioral-verification MCP tour retains the sole auditWrite terminal action and keeps the step entering commitTx even when its twelve callers make it a hub before flush.
  * @evidence contracts/testing.md#independent-expectations Authored twelve-way fan-in and named call chains define the terminal and intermediate actions; step strings must refer from a name retained by start/reached.
  * @evidence contracts/testing.md#distinguishing-cases A terminal hub-only flow contrasts a mid-chain hub with downstream work. The step-handle check covers its source endpoint, not both endpoints.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_tour_keeps_the_terminal_action_it_ends_at borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_tour_keeps_the_terminal_action_it_ends_at borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native fan-in/call edges and tour's hub demotion must interact over actual snapshot transport; a graph-free string/layout assertion cannot establish these flows.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
+ * @evidence contracts/e2e.md#shared-execution Terminal-only and mid-chain twelve-way fan-in variants reuse the same identity project/client, each scoped to terminal-tour.ts and settled before the next. Actual MCP flows supply retained-action/step checks; neighboring cached CLI facts do not. Sharing the client is not Program-reuse/count or packed-installation proof.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before either variant, original source bytes or actual ENOENT absence are captured. Actual client authority guards each variant write and final byte/absence restoration; operation and reset failures are collected and failed reset withdraws reuse. Scoped config restoration remains the existing owner. Unconfirmed transport forbids reset and retains inputs until owned joins establish cleanup authority.
  * @evidence contracts/e2e.md#preserved-coverage Original terminal flow, retained entering step and source-name handle checks remain. The negative logger-hub control is separately exercised by serves_graph_tools_over_mcp.
  */
 export const case_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
   async () => {
-    // Eleven callers plus `Service.handle` put `auditWrite` at exactly twelve,
-    // and nothing in this project drives a longer chain, so the whole tour is
-    // hop-into-a-hub. Eleven callers kept the flow and a twelfth erased it.
-    const terminal = await tourOfProject(
-      [
-        "export function auditWrite(): void {}",
-        "",
-        ...callersOf("auditCaller", "auditWrite"),
-        "export class Service {",
-        "  public handle(): void {",
-        "    auditWrite();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      ["Service.handle"],
-    );
-    assert.ok(
-      reachedNames(terminal).includes("auditWrite"),
-      `a flow whose only hop lands on a terminal action must survive: ${JSON.stringify(terminal.primaryFlow)}`,
-    );
+    await withIdentityBoundary(async (owner, root) => {
+      const sourceFile = path.join(root, "src", "terminal-tour.ts");
+      let originalSource: Buffer | undefined;
+      try {
+        originalSource = fs.readFileSync(sourceFile);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const failures: unknown[] = [];
+      try {
+        // Eleven callers plus `Service.handle` put `auditWrite` at exactly twelve,
+        // and nothing in this project drives a longer chain, so the whole tour is
+        // hop-into-a-hub. Eleven callers kept the flow and a twelfth erased it.
+        const terminal = await tourOfProject(
+          [
+            "export function auditWrite(): void {}",
+            "",
+            ...callersOf("auditCaller", "auditWrite"),
+            "export class Service {",
+            "  public handle(): void {",
+            "    auditWrite();",
+            "  }",
+            "}",
+            "",
+          ].join("\n"),
+          ["Service.handle"],
+        );
+        assert.ok(
+          reachedNames(terminal).includes("auditWrite"),
+          `a flow whose only hop lands on a terminal action must survive: ${JSON.stringify(terminal.primaryFlow)}`,
+        );
 
-    // `commitTx` carries the same fan-in with one outgoing execution edge, so
-    // it is still a hub by degree and the flow continues past it.
-    const midChain = await tourOfProject(
-      [
-        "export function flushBuffer(): void {}",
-        "export function commitTx(): void {",
-        "  flushBuffer();",
-        "}",
-        "",
-        ...callersOf("commitCaller", "commitTx"),
-        "export class Service {",
-        "  public report(): void {",
-        "    commitTx();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      ["Service.report"],
-    );
-    // Asserted on the step, not on `reached`: `reached` is derived from BOTH
-    // endpoints of every kept hop, so `commitTx` appears there even when only
-    // the hop OUT of it survived — which is the incoherent shape this rule
-    // exists to prevent, and an assertion that cannot see it proves nothing.
-    const steps = midChain.primaryFlow.flatMap((flow) => flow.steps);
-    assert.ok(
-      steps.some((step) => step.includes("-> commitTx")),
-      `a hub the flow continues past must keep its inbound hop: ${steps.join(" | ")}`,
-    );
+        // `commitTx` carries the same fan-in with one outgoing execution edge, so
+        // it is still a hub by degree and the flow continues past it.
+        const midChain = await tourOfProject(
+          [
+            "export function flushBuffer(): void {}",
+            "export function commitTx(): void {",
+            "  flushBuffer();",
+            "}",
+            "",
+            ...callersOf("commitCaller", "commitTx"),
+            "export class Service {",
+            "  public report(): void {",
+            "    commitTx();",
+            "  }",
+            "}",
+            "",
+          ].join("\n"),
+          ["Service.report"],
+        );
+        // Asserted on the step, not on `reached`: `reached` is derived from BOTH
+        // endpoints of every kept hop, so `commitTx` appears there even when only
+        // the hop OUT of it survived — which is the incoherent shape this rule
+        // exists to prevent, and an assertion that cannot see it proves nothing.
+        const steps = midChain.primaryFlow.flatMap((flow) => flow.steps);
+        assert.ok(
+          steps.some((step) => step.includes("-> commitTx")),
+          `a hub the flow continues past must keep its inbound hop: ${steps.join(" | ")}`,
+        );
 
-    // Every step names two symbols, and both have to be reachable as handles in
-    // the same flow. A dangling step is what breaks that.
-    for (const tour of [terminal, midChain])
-      for (const flow of tour.primaryFlow) {
-        const reached = new Set([
-          flow.start.name,
-          ...flow.reached.map((node) => node.name),
-        ]);
-        for (const step of flow.steps) {
-          const [lhs] = step.split(" -[");
-          const short = (lhs ?? "").split(".").pop() ?? "";
-          assert.ok(
-            [...reached].some((name) => name.endsWith(short)),
-            `step starts at a symbol the flow never reached: ${step}`,
-          );
+        // This control checks each step's source-name suffix against the flow's
+        // retained start/reached names. It does not validate the target endpoint.
+        for (const tour of [terminal, midChain])
+          for (const flow of tour.primaryFlow) {
+            const reached = new Set([
+              flow.start.name,
+              ...flow.reached.map((node) => node.name),
+            ]);
+            for (const step of flow.steps) {
+              const [lhs] = step.split(" -[");
+              const short = (lhs ?? "").split(".").pop() ?? "";
+              assert.ok(
+                [...reached].some((name) => name.endsWith(short)),
+                `step starts at a symbol the flow never reached: ${step}`,
+              );
+            }
+          }
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        try {
+          owner.assertInputMutationAllowed();
+          if (originalSource === undefined) fs.rmSync(sourceFile, { force: true });
+          else fs.writeFileSync(sourceFile, originalSource);
+        } catch (error) {
+          owner.preventInputReuse("Terminal tour source restoration failed");
+          failures.push(error);
         }
       }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Terminal tour variants and reset failed");
+    });
   };
