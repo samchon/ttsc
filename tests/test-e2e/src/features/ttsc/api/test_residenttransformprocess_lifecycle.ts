@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
+import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
 
 /**
  * A stub serve host: echoes one `{"typescript":"echo:<file>","found":true}`
@@ -58,47 +59,92 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named API feature; ResidentTransformProcess starts real Node children and exchanges stdin/stdout protocol lines.
  * @evidence contracts/e2e.md#necessary-boundary Real pipes can close or emit unhandled errors independently of promise/JSON logic; the abrupt-host case protects consumer survival, while the echo fixture supplies a controlled peer rather than a real Go transform oracle.
  * @evidence contracts/e2e.md#shared-execution One echo host handles both concurrent requests; a second handles dispose-after-warmup and a third intentionally dies. These terminal states require distinct lifetimes, with no native build or installation per peer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each client owns one fixture child and disposal ends its session; no reply or queue is shared across terminal-state scenarios. Every session disposes in finally, including failures before the intended terminal transition.
- * @evidence contracts/e2e.md#preserved-coverage Original FIFO identities, disposal rejection and host-death rejection remain. All three peer lifetimes are released on assertion failure as well as success.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every distinct client subscribes to its actual owned child's close before requests, then disposes and awaits that receipt in finally. The private child read is cleanup-only, not an oracle or method replacement. Close timeout remains failure, not a joined descendant tree; all independent scenario and cleanup causes are retained.
+ * @evidence contracts/e2e.md#preserved-coverage Original FIFO identities, warm reply, later-request rejection, repeated disposal and host-death rejection remain. Both FIFO promises have settlement observers before assertions, and all three independent lifetimes are attempted even after a prior failure. Actual fixture close is separate from Go producer correctness or total process completeness.
  */
 export const test_residenttransformprocess_lifecycle = async () => {
+  const failures: unknown[] = [];
   // 1. FIFO: two concurrent requests each resolve to their own ordered reply.
   {
-    const proc = spawnStub(ECHO_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     try {
-      const [a, b] = await Promise.all([
+      proc = spawnStub(ECHO_STUB);
+      release = observeResidentTransformClose(proc);
+      const replies = await Promise.allSettled([
         proc.request({ file: "a.ts" }, "transform"),
         proc.request({ file: "b.ts" }, "transform"),
       ]);
+      const first = replies[0]!;
+      const second = replies[1]!;
+      if (first.status !== "fulfilled" || second.status !== "fulfilled") {
+        const rejected: unknown[] = [];
+        if (first.status === "rejected") rejected.push(first.reason);
+        if (second.status === "rejected") rejected.push(second.reason);
+        throw new AggregateError(rejected, "FIFO echo requests rejected");
+      }
+      const a = first.value;
+      const b = second.value;
       assert.equal(a.found, true);
       assert.equal(a.typescript, "echo:a.ts");
       assert.equal(b.typescript, "echo:b.ts");
+    } catch (error) {
+      failures.push(new Error("FIFO echo", { cause: error }));
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("FIFO echo cleanup", { cause: error }));
+      }
     }
   }
 
   // 2. dispose() rejects any later request.
   {
-    const proc = spawnStub(ECHO_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     try {
+      proc = spawnStub(ECHO_STUB);
+      release = observeResidentTransformClose(proc);
+      const client = proc;
       const warm = await proc.request({ file: "warm.ts" }, "transform");
       assert.equal(warm.typescript, "echo:warm.ts");
       proc.dispose();
-      await assert.rejects(() => proc.request({ file: "after.ts" }, "transform"));
+      await assert.rejects(() => client.request({ file: "after.ts" }, "transform"));
+    } catch (error) {
+      failures.push(new Error("Dispose after warmup", { cause: error }));
     } finally {
-      proc.dispose(); // idempotent
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("Dispose after warmup cleanup", { cause: error }));
+      }
     }
   }
 
   // 3. A host that dies mid-session rejects the in-flight request and does not
   //    crash the consumer; the stream "error" handlers swallow the broken pipe.
   {
-    const proc = spawnStub(DIE_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
     try {
-      await assert.rejects(() => proc.request({ file: "x.ts" }, "transform"));
+      proc = spawnStub(DIE_STUB);
+      release = observeResidentTransformClose(proc);
+      const client = proc;
+      await assert.rejects(() => client.request({ file: "x.ts" }, "transform"));
+    } catch (error) {
+      failures.push(new Error("Abrupt host death", { cause: error }));
     } finally {
-      proc.dispose(); // safe on an already-dead host
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) {
+        failures.push(new Error("Abrupt host death cleanup", { cause: error }));
+      }
     }
   }
+  if (failures.length)
+    throw new AggregateError(failures, "Resident transform lifecycle failures");
 };

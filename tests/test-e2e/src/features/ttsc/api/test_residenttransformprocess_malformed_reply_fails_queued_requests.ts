@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
+import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
 
 /**
  * A stub that, on the first request it reads, writes one malformed line and
@@ -57,23 +58,37 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#execution-ownership The named API feature runs ResidentTransformProcess against an actual Node child under TestExecutor.
  * @evidence contracts/e2e.md#necessary-boundary The corruption and valid tail traverse real stdout/readline delivery, exposing FIFO desynchronization and retirement that pure JSON validation cannot detect.
  * @evidence contracts/e2e.md#shared-execution One child consumes both queued requests and the later-request probe; no separate host or build is needed per assertion.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each request is owned by this private client/queue, and finally disposes the fixture child even when an assertion fails. No leftover valid line is eligible for a new client.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both queued promises have settlement observers before sequential assertions; the actual fixture child close is subscribed before requests. Finally disposes and awaits that close, retaining primary and cleanup errors. A timeout is failure, not termination proof; arbitrary descendants and a Go producer are not certified.
  * @evidence contracts/e2e.md#preserved-coverage Both queued rejections, malformed error text and post-failure rejection remain. The peer is a deliberate corrupt transport fixture, not evidence of Go producer correctness.
  */
 export const test_residenttransformprocess_malformed_reply_fails_queued_requests =
   async () => {
-    const proc = spawnStub(CORRUPT_THEN_VALID_STUB);
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
+    const failures: unknown[] = [];
     try {
+      proc = spawnStub(CORRUPT_THEN_VALID_STUB);
+      release = observeResidentTransformClose(proc);
+      const client = proc;
       const first = proc.request({ file: "a.ts" }, "transform");
       const second = proc.request({ file: "b.ts" }, "transform");
+      await Promise.allSettled([first, second]);
       // The malformed line must not be delivered to the second request; both
       // reject rather than the late valid reply pairing with `second`.
       await assert.rejects(() => first, /malformed reply/);
       await assert.rejects(() => second);
       // The process is failed, so a fresh request rejects immediately instead
       // of being answered by the discarded valid line.
-      await assert.rejects(() => proc.request({ file: "c.ts" }, "transform"));
+      await assert.rejects(() => client.request({ file: "c.ts" }, "transform"));
+    } catch (error) {
+      failures.push(error);
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) { failures.push(error); }
     }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Malformed reply and fixture cleanup failed");
   };
