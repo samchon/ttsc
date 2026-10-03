@@ -4,10 +4,10 @@ import "testing"
 
 // TestFormatPrintWidthDeclinesLastArgHugAfterArrowLead verifies last-argument
 // hugging declines when a leading argument is an arrow with an expression
-// body. Prettier 3.8.3 never hugs after a function/arrow argument, so
-// `useMemo(() => expr, [deps])` explodes every argument rather than hugging
-// the trailing array. An expression-body arrow carries no hard break, so the
-// hard-break guard alone misses it — the function/arrow guard catches it.
+// body. The supported two-argument arrow-and-array layout explodes the
+// arguments rather than hugging the trailing array. This expression-body
+// arrow carries no hard break, so the hard-break guard alone does not select
+// that decision; the dedicated arrow-and-array shape guard does.
 //
 //  1. Parse a useMemo call whose first arg is an expression-body arrow and
 //     last arg is an array, overflowing 80.

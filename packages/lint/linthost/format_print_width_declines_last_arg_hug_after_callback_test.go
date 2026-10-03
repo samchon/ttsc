@@ -4,9 +4,9 @@ import "testing"
 
 // TestFormatPrintWidthDeclinesLastArgHugAfterCallback verifies last-argument
 // hugging declines when a leading argument is a block-bodied callback. The
-// callback forces the call multi-line on its own, so Prettier 3.8.3
-// explodes every argument onto its own line instead of hugging the trailing
-// object literal.
+// callback has a nonempty block body, so this supported plain-call layout
+// places each argument on its own line instead of hugging the trailing
+// object literal. The fixture owns this two-argument shape.
 //
 //  1. Parse a call whose first argument is a block callback and whose last
 //     is an object literal, overflowing 80.
