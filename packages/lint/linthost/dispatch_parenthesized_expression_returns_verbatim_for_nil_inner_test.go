@@ -14,13 +14,13 @@ import (
 // parenthesized-expression node with no inner expression. In that case the
 // printer emits the source bytes verbatim rather than trying to dispatch a
 // nil expression through PrintNode. The test constructs such a node via the
-// node factory, passing nil as the expression argument, because the parser
-// does not leave that field nil.
+// node factory, passing nil as the expression argument. This fixture does
+// not establish how the parser represents a missing inner expression.
 //
 //  1. Create a synthetic ParenthesizedExpression node with Expression=nil.
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.
 //  3. Call printParenthesizedExpression(ctx, syntheticNode) directly.
-//  4. Assert the output is empty and covered is true (zero-range verbatim).
+//  4. Assert the output is empty and covered is true (undefined-range verbatim).
 //
 // @evidence contracts/testing.md#behavioral-verification printParenthesizedExpression must safely return empty, covered output for a factory parenthesized node whose Expression is nil.
 // @evidence contracts/testing.md#independent-expectations The public factory provides no source range, so fallback cannot invent parentheses or inner text.
