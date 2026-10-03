@@ -76,23 +76,15 @@ func launcherReloadDirectoryDigest(
   if err != nil {
     t.Fatal(err)
   }
-  script := `
-    import { pathToFileURL } from "node:url";
-    const launcher = await import(pathToFileURL(process.argv[1]).href);
-    const location = process.argv[2];
-    const snapshot = launcher.fingerprintInitialLSPProjectInputSnapshot({
-      files: [],
-      globs: [],
-      reloadDirectories: [location],
-      root: process.argv[3],
-    });
-    process.stdout.write(snapshot.reloadDirectoryDigests[location]);
-  `
+  script, err := os.ReadFile(filepath.Join("..", "..", "test", "fixtures", "e2e", "launcher_reload_directory_fingerprint_parity_windows", "fingerprint.mjs.txt"))
+  if err != nil {
+    t.Fatal(err)
+  }
   command := exec.Command(
     "node",
     "--input-type=module",
     "--eval",
-    script,
+    string(script),
     module,
     directory,
     root,
