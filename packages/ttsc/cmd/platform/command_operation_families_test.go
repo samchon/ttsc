@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The five named private scenarios directly call run and preserve default help, all help/version aliases and the two invalid invocation categories with their original literal status and stream assertions.
 // @evidence contracts/testing.md#independent-expectations Existing literal help/banner/diagnostic fragments and zero/two statuses express the supported command contract independently of captured output; release metadata remains intentionally unconstrained.
 // @evidence contracts/testing.md#distinguishing-cases Empty argv, three help aliases, three version aliases and two rejection categories remain identifiable by their original case names. Private scenario documentation states each case's exact distinctions and oracle limits.
-// @evidence contracts/testing.md#execution-ownership This public default Go entry owns five sequential named scenarios in its implementation package. Each calls actual run without a producer, process host, compiler Program or project fixture. The Go adapter selects this aggregate; private scenario bodies remain full-surface review obligations.
+// @evidence contracts/testing.md#execution-ownership This public default Go entry owns five sequential named scenarios in its implementation package. Each calls actual run without a producer, process host, compiler Program or project fixture. The Go adapter selects this aggregate; its claims include the actual private scenario inputs and assertions below, not additional independently selected entries.
 func TestPlatformCommandOperationFamilies(t *testing.T) {
   t.Run("TestCommandPrintsHelpAliases", scenarioTestCommandPrintsHelpAliases)
   t.Run("TestCommandPrintsHelpWithoutArgs", scenarioTestCommandPrintsHelpWithoutArgs)
@@ -84,7 +84,7 @@ func scenarioTestCommandPrintsHelpWithoutArgs(t *testing.T) {
 
 // scenarioTestCommandPrintsVersion verifies the platform helper reports build metadata.
 //
-// Version output is the only metadata path owned by the platform package. It
+// Version output is a metadata path owned by the platform package. It
 // must stay project-free so package installation checks can identify the helper
 // binary even when no TypeScript project exists.
 //
