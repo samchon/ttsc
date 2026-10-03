@@ -7,9 +7,9 @@ import "testing"
 //
 // Tag functions like `String.raw`, `dedent`, `gql`, `css` read the raw
 // bytes of the template payload, so a backslash that looks redundant to
-// the JS lexer is meaningful at the tag boundary. ESLint canonical skips
-// tagged templates entirely. Pre-repair the rule both fired and
-// autofixed, silently changing the tag's input.
+// the JS lexer is meaningful at the tag boundary. ESLint skips the tag's
+// own template elements, while literals nested in substitutions remain
+// checked. This fixture pins silence for the tag's own raw payload.
 //
 //  1. Parse a tagged template literal with a backslash that would
 //     otherwise be flagged.
