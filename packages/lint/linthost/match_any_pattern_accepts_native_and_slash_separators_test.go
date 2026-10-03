@@ -13,8 +13,8 @@ import (
 // producer: tsgo file names arrive slash-normalized while config discovery
 // and LSP conversions produce `filepath.Join`-built native paths (backslashes
 // on Windows). matchAnyPattern normalizes both sides via `filepath.ToSlash`
-// before matching; a regression that compared raw separators would silently
-// disable every ignore on exactly one platform.
+// before matching. Comparing raw separators can miss slash-delimited patterns
+// on Windows; this case checks its authored glob and host-native spellings.
 //
 //  1. Build the same ignored file path once with filepath.Join (native) and
 //     once with forward slashes.
