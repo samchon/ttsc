@@ -5,7 +5,8 @@ import (
   "testing"
 )
 
-// TestNativeCompletionHintsDecodeFlatLintWire verifies the real lint boundary.
+// TestNativeCompletionHintsDecodeFlatLintWire verifies authored flat-wire
+// decoding followed by direct matching, without invoking a lint producer.
 //
 // @ttsc/lint publishes a flat []rule.Hint rather than the proxy's grouped
 // matching shape. Repeated triggers must coalesce without moving the group or
@@ -13,12 +14,12 @@ import (
 //
 //  1. Decode interleaved flat hints using the exact public rule.Hint JSON shape.
 //  2. Assert first-trigger group order and per-trigger item order are preserved.
-//  3. Feed the decoded corpus to the live matcher and verify it is offerable.
+//  3. Feed the decoded corpus to the actual matcher for one supplied prefix.
 //
-// @evidence contracts/testing.md#behavioral-verification Interleaved flat rule hints decode into groups ordered by first trigger with per-trigger item order preserved, and the decoded corpus is offered by the live matcher.
+// @evidence contracts/testing.md#behavioral-verification Three authored flat hints decode into two complete literal groups, retaining group and per-trigger item order and selected item fields. A direct matcher call with supplied inJSDoc=true requires docs/ filter and the first group's literal items; no real lint publication or lexical cursor classification runs.
 // @evidence contracts/testing.md#independent-expectations The expected group and item order are literals taken from the public rule.Hint JSON shape.
-// @evidence contracts/testing.md#distinguishing-cases Repeated triggers must coalesce without reordering, which slice order tests catch.
-// @evidence contracts/testing.md#execution-ownership TestNativeCompletionHintsDecodeFlatLintWire is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases Interleaving one repeated trigger around a distinct trigger distinguishes group/order preservation, including absent optional label/detail fields. One more-specific trigger wins in the supplied prefix; malformed or grouped input and false lexical admission are outside this case.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual decodeNativeCompletionHints and matchCompletionHints on authored JSON and prefix values, using complete literal expectations. It builds or starts no native artifact/producer, installs no consumer and creates no filesystem or product host.
 func TestNativeCompletionHintsDecodeFlatLintWire(t *testing.T) {
   body := []byte(`[
     {

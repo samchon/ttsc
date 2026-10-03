@@ -139,10 +139,10 @@ func TestCursorInJSDocTracksTheBlock(t *testing.T) {
 // A trigger matched against the whole document would let a `@evidence` three
 // lines up offer anchors on an unrelated line.
 //
-// @evidence contracts/testing.md#behavioral-verification linePrefixAt returns only the text of the cursor's own line, and the whole text when it has no newline.
+// @evidence contracts/testing.md#behavioral-verification Direct linePrefixAt calls return the literal last-line prefix at one multiline end offset and no at byte offset two of no newline. This checks text only up to the supplied cursor, not the entire single-line document or actual trigger matching.
 // @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings.
 // @evidence contracts/testing.md#distinguishing-cases A multi-line text and a single line distinguish line-local from document-wide matching.
-// @evidence contracts/testing.md#execution-ownership TestLinePrefixStopsAtTheLine is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual linePrefixAt with two authored strings and offsets. It uses no substitute operation, native process, temporary directory, installed consumer or product host; CR boundaries and invalid offsets are outside its two cases.
 func TestLinePrefixStopsAtTheLine(t *testing.T) {
   text := "/**\n * @evidence docs/spec.md#pri"
   if got, want := linePrefixAt(text, len(text)), " * @evidence docs/spec.md#pri"; got != want {
