@@ -50,7 +50,7 @@ func init() { rule.RegisterProject(topologyRule{}) }
  * The source imports an initially missing project-input JSON through
  * `resolveJsonModule`. Creating or deleting that file must cold-load the
  * Program while keeping the lint sidecar PID. Editing the loaded JSON and the
- * declared Markdown file must retain warm reuse.
+ * declared Markdown file must retain the expected data-reuse telemetry.
  *
  * 1. Start with an unresolved JSON import and one resident Program load.
  * 2. Create the JSON and require a second load in the same sidecar.
@@ -60,10 +60,10 @@ func init() { rule.RegisterProject(topologyRule{}) }
  * @evidence contracts/testing.md#behavioral-verification Real watch keeps the same PID while JSON creation/deletion cold-loads the Program and JSON/Markdown content edits retain the exact warm load/update counter states.
  * @evidence contracts/testing.md#independent-expectations The explicit unresolved JSON import and declared file/glob inputs distinguish membership from content; literal five-step counter tables independently encode the required invalidation policy.
  * @evidence contracts/testing.md#distinguishing-cases Owns missing-to-present and present-to-missing JSON roots versus existing JSON/Markdown content changes, with the original contributor project-input protocol present in all cycles.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one actual watcher, linked Go project-input contributor and native Program in the Linux batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one actual watcher, linked Go project-input contributor and selected native Program operations in the E2E population; no Linux-only admission is encoded by this named body.
  * @evidence contracts/e2e.md#necessary-boundary The rule-input response, real filesystem notifications and native resident update decisions must agree on root-set invalidation; a watcher topology unit cannot prove those protocol handoffs.
- * @evidence contracts/e2e.md#shared-execution All five transitions reuse one consumer, watcher, contributor build and resident PID; batch cache/Go objects are shared and only Program membership changes require another Program load.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The JSON/Markdown paths and contributor/config belong to a private fixture, each transition waits for its completed cycle and quiet interval, and finally closes the watcher; no warm cache bypasses the required load counters.
+ * @evidence contracts/e2e.md#shared-execution All five transitions use one consumer/watcher and the same observed resident PID. programLoads counts successful cold/full-load telemetry and programUpdates counts known-source data-reusing updates, not total Program object constructions; reused=true can still construct a new generation. Batch cache/Go object availability is not a measured cache hit or one-build proof.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The JSON/Markdown paths and contributor/config belong to a private fixture, each transition waits for its completed cycle and quiet interval, and finally retains body/shutdown causes separately through existing nonce/actual-close ownership. Literal counters remain observable policy, not total construction/load-attempt/descendant lifetime proof; normal root cleanup is not forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Original five cardinality/counter tables and mutation sequence remain unchanged. Neither extra cycles nor lost membership changes are ignored merely to shorten the run.
  */
 export async function test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident(): Promise<void> {
@@ -134,6 +134,7 @@ module.exports = {
       TTSC_WATCH_DEBUG_INPUTS: "1",
     },
   });
+  const failures: unknown[] = [];
   try {
     await session.waitForBuilds(1, 300_000);
     let samples = residentSamples(session.transcript());
@@ -197,9 +198,18 @@ module.exports = {
       programUpdates: 1,
       reused: false,
     });
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session.close();
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Resident check watch and shutdown failed");
 }
 
 function residentSamples(transcript: string): ResidentSample[] {

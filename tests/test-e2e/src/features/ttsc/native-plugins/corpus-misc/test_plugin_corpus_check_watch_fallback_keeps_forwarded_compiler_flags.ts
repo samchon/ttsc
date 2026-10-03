@@ -28,10 +28,10 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification Real watch reports TS7006 in a healthy resident cycle and exactly one additional TS7006 after killing that resident and editing the source.
  * @evidence contracts/testing.md#independent-expectations The explicit untyped parameter and forwarded noImplicitAny require TS7006 independently of strict:false config; the measured healthy count establishes the prior stream boundary rather than an expected diagnostic body.
  * @evidence contracts/testing.md#distinguishing-cases Owns healthy resident versus dead-host one-shot fallback under the same forwarded flag, complementing normal source/root/config resident transitions.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one real WatchSession, native lint process and OS process termination in the Linux native batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one real WatchSession, native lint process and OS process termination through the native E2E selection; no Linux-only admission is encoded by this named body.
  * @evidence contracts/e2e.md#necessary-boundary The watcher must carry compiler flags from resident startup into fallback spawn after a real child death; direct argument composition cannot prove failure recovery uses the same payload.
- * @evidence contracts/e2e.md#shared-execution The unchanged lint producer shares the batch plugin cache and Go objects; healthy and fallback cycles use one watcher, with an extra one-shot process required by the deliberately dead resident.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project owns strict:false config and source, the test stops only the PID obtained from actual telemetry, and finally closes the watcher even if the recovery assertion fails.
+ * @evidence contracts/e2e.md#shared-execution The unchanged lint producer shares the batch plugin cache and Go objects; healthy and fallback cycles use one watcher, with fallback required by the deliberately stopped resident. Actual fallback/native/Program populations require their own observations rather than host or banner counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project owns strict:false config and source, the test stops the safe positive non-self PID obtained from actual telemetry. After the first new marker it waits for started cycles to settle within the original recovery deadline before reading diagnostics. Finally retains body and close causes; nonce receipt/direct-child close is not arbitrary descendant retirement or forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Original healthy diagnostic presence, integer PID, recovery-cycle deadline and healthy-count-plus-one assertions remain; no real fallback is replaced with a simulated client failure.
  */
 export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags(): Promise<void> {
@@ -59,6 +59,7 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     },
   });
+  const failures: unknown[] = [];
   try {
     await session.waitForBuilds(1, 300_000);
     // A rerun queued during a cold first build would replace the resident
@@ -73,6 +74,7 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
       )?.[1],
     );
     assert.ok(Number.isInteger(pid), healthy);
+    assert.ok(Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid, healthy);
 
     process.kill(pid);
     fs.appendFileSync(source, "// edited after the resident host died\n");
@@ -83,15 +85,25 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
       assert.ok(Date.now() < deadline, session.transcript());
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    await session.waitForSettled(300, Math.max(1, deadline - Date.now()));
     const recovered = session.transcript();
     assert.equal(
       countTs7006(recovered),
       healthyCount + 1,
       `the fallback cycle must keep --noImplicitAny:\n${recovered}`,
     );
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session.close();
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Resident check watch and shutdown failed");
 }
 
 function countTs7006(transcript: string): number {
