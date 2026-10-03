@@ -7,29 +7,28 @@ import { projectModuleOptions } from "./projectModuleOptions";
 /**
  * Reuse a dependency another process (or an earlier import) already built.
  *
- * The completion marker names the exact emit generation, so this reads metadata
- * and emit as one unit: it returns a hit only when the marker parses to a valid
- * generation AND that generation's directory holds emitted JavaScript. A reader
- * that runs while a replacement build is populating a DIFFERENT generation
- * directory keeps returning the previous complete generation until the atomic
- * marker swap points at the new one — never a mix of old metadata and a partial
- * new emit.
+ * The marker selects one generation, then a separate native walk checks for
+ * JavaScript presence. With cooperative publication, noncolliding ids and
+ * retained immutable generations, replacement builds leave the previous
+ * marker's directory available until marker replacement. These sequential
+ * reads do not pin an artifact snapshot or authenticate its current bytes.
  *
  * Unreadable, malformed or incomplete markers are cache misses and leave
  * rebuilding to the dependency-build owner.
  *
- * Markers without actual compiler emit provenance are historical misses even
- * when their output filenames resemble the requested source.
+ * Markers without the producer's emit-provenance record shape are historical
+ * misses even when output filenames resemble the requested source. Shape
+ * validation preserves supplied observations; it does not authenticate their
+ * producer or establish current artifact integrity.
  *
- * @evidence contracts/common.md#principled-implementation Validated metadata and actual emit provenance select one immutable JavaScript-bearing generation; malformed or legacy records are misses, preventing publication mixing and filename-based guesses about source membership.
+ * @evidence contracts/common.md#principled-implementation Metadata and provenance shape checks select one JavaScript-bearing generation under cooperative publication/retention premises; malformed or legacy records are misses without reconstructing membership from filenames or authenticating supplied observations.
  * @evidence contracts/common.md#clear-and-simple-design Marker decoding, generation selection and the built-project result form one read boundary; module-option projection and physical identity use their shared owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing historical module, output or emitted-source fields trigger owning rebuild rather than guessing emit format or reconstructing source membership from a stem.
- * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain atomic generation publication and miss behavior; returned source identity and invalid historical markers are documented where they matter.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish sequential marker/presence reads and cooperative publication from artifact or producer authentication, and explain historical misses and root context.
  * @evidence contracts/portability.md#os-neutral-implementation Native fs and generation path construction preserve platform spelling; the source root uses the shared filesystem-identity resolver with its documented best-effort fallback.
- * @evidence contracts/performance.md#efficient-algorithms Parsing costs marker bytes and output entries; the emit walk stops at the first JavaScript file, with worst-case O(E) directory entries and recursion depth equal to tree depth.
- * @evidence contracts/performance.md#reuse-equivalent-work The published generation binds metadata to immutable emit; ensureProjectBuilt memoizes by the computed cache directory including current compiler proof, while an invalid marker requests new compilation.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read returns build metadata to its caller and closes synchronous reads immediately; generation directories are owned and reclaimed by the dependency cache container, not this reader.
+ * @evidence contracts/performance.md#efficient-algorithms Reading/parsing costs uncapped marker bytes; output and provenance checks process entries and native path text. The early-exit emit walk costs visited entries/listings/name/path text and active recursion listings/depth. Root resolution adds delegated identity-context/native case observations; no fixed metadata-check count bounds that work.
+ * @evidence contracts/performance.md#reuse-equivalent-work The caller supplies the computed cache directory; ensureProjectBuilt memoizes success/failure by that directory, including selected compiler identity, while a miss reaches build admission. This reader validates current marker shape and presence each invocation but does not independently authenticate producer records, immutable retention or the caller's cache-key equivalence.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Marker text, decoded metadata, validation pairs and native-walk/context temporaries are call-local; returned arrays/records escape to the caller's build cache. Synchronous reads retain no handle here, while the caller owns cached metadata and generation storage lifetime; this reader imposes no historical quota or artifact-release policy.
  */
 export function readDependencyCache(
   cacheDir: string,
