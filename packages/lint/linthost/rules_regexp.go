@@ -446,8 +446,9 @@ func regexpUselessFlags(parts regexpLiteralParts) string {
 
 // regexpUselessFlagRepair deletes the dead flags the analysis named. The
 // analysis is one-sided -- anything it cannot settle counts as using the flag
-// -- so a flag it does reach here is provably inert and the deletion is a fix
-// rather than a suggestion.
+// -- so an accepted flag is classified as inert for pattern matching and
+// removed as a fix. RegExp flag-property observations still change; this
+// pattern analysis does not establish equivalence for every object consumer.
 func regexpUselessFlagRepair(parts regexpLiteralParts) regexpRepair {
   useless := regexpUselessFlags(parts)
   if useless == "" {

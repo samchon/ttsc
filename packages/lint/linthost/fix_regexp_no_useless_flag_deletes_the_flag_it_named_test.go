@@ -11,11 +11,11 @@ import (
 //
 // The analysis already decided which of `i` and `m` the pattern cannot
 // exercise, and it is one-sided: anything it cannot settle counts as using the
-// flag, so a flag that reaches the fix is provably inert and the deletion is
-// safe to impose. The load-bearing part is that the live flags around it
-// survive — a whole-run rewrite would take `g` with it.
+// flag. The fix removes flags classified as inert for matching this pattern;
+// it does not preserve observations of .flags, .ignoreCase or .multiline.
+// Untargeted flags must survive: a whole-run rewrite would take `g` with it.
 //
-//  1. Fix `/\d+/gim`, where `g` is live and both `i` and `m` are dead.
+//  1. Fix `/\d+/gim`, retaining `g` while removing matching-inert `i` and `m`.
 //  2. Assert only `g` remains and the message names both dead flags.
 //  3. Assert the negative twins keep their flag: `/[a-z]/i`, where `i` is what
 //     extends the class, and `/^a$/m`, which has anchors for `m` to re-define.
