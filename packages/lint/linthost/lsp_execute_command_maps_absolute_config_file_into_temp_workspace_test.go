@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Fix-all remaps the absolute custom JSON config into its temp workspace so the src glob still enables no-var and the original source remains unchanged.
 // @evidence contracts/testing.md#independent-expectations The authored let replacement and original var disk text independently require configuration applicability and nonmutation.
 // @evidence contracts/testing.md#distinguishing-cases The config is named custom-lint.config.json, which discovery would not find, is passed as an absolute configFile, and carries a src/** files glob, so the let rewrite appears only if the absolute path was remapped into the temporary workspace; the original file must still contain var.
-// @evidence contracts/testing.md#execution-ownership The native Go loader, checker and private temp copy execute in process with JSON config; no executable config evaluator or installed compiler runs.
+// @evidence contracts/testing.md#execution-ownership The native Go config loader, fresh Program and private temp copy execute in process with JSON config. The no-var engine requests no type checker; no executable config evaluator or installed compiler runs.
 func TestLSPExecuteCommandMapsAbsoluteConfigFileIntoTempWorkspace(t *testing.T) {
   source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   root := seedLintProject(t, source)
