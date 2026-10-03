@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Engine requires zero findings for the actual zero-clause switch.
 // @evidence contracts/testing.md#independent-expectations The supported empty-switch boundary has no last clause for marker ownership; the literal zero findings do not come from a generated snapshot.
 // @evidence contracts/testing.md#distinguishing-cases Zero clauses stay clean; ReportsSwitchWithoutDefault owns the neighboring nonempty switch without a default.
-// @evidence contracts/testing.md#execution-ownership TestDefaultCaseAcceptsEmptySwitch is selected in the shared Go unit population. It calls assertDefaultCaseClean and lintDefaultCase, forwarding the actual authored source and option JSON through InlineRuleResolver and Engine.Run. No installed consumer, native artifact build or real product host runs.
+// @evidence contracts/testing.md#execution-ownership TestDefaultCaseAcceptsEmptySwitch is selected in the shared Go unit population. It calls assertDefaultCaseClean and lintDefaultCase with the authored zero-clause switch and empty options, using RuleConfig directly as the resolver for Engine.Run. No installed consumer, native artifact build or real product host runs.
 func TestDefaultCaseAcceptsEmptySwitch(t *testing.T) {
   assertDefaultCaseClean(t, `declare const foo: number;
 switch (foo) {
