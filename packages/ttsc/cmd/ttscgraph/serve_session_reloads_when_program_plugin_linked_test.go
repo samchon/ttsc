@@ -14,22 +14,22 @@ func (serveProgramPluginProbe) ApplyProgram(*driver.Program, driver.PluginContex
   return nil
 }
 
-// TestServeSessionReloadsWhenProgramPluginLinked verifies a project with an
-// active linked ProgramPlugin never takes the incremental source path.
+// TestServeSessionReloadsWhenProgramPluginLinked checks that one content rename
+// reports reload when the manifest pairs with the registered no-op ProgramPlugin.
 //
-// ProgramPlugin hooks mutate parsed ASTs in place and run exactly once per
-// Program, so an incremental source replacement would leave the new AST
-// without the plugin's mutations while the rest of the graph still carries
-// them. A content-only edit must therefore rebuild through a full reload.
+// ProgramPlugin implementations may mutate parsed ASTs, so the resident policy
+// requires full reload for such a linked member. This no-op probe exercises
+// classification and reported mode; it does not assert mutations, hook counts,
+// AST identity or every possible edit.
 //
 //  1. Register a linked ProgramPlugin and open a graph session.
 //  2. Apply a content-only edit that would otherwise refresh incrementally.
 //  3. Assert the snapshot reports a full reload with the post-edit node.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies a project with an active linked ProgramPlugin never takes the incremental source path.
-// @evidence contracts/testing.md#independent-expectations The expectation follows from the stated ProgramPlugin rule that hooks mutate parsed ASTs once per Program: with a linked plugin registered through the linked-plugins environment, a content-only rename (BeforeEdit to AfterEdit) must produce mode reload, changed, with a node named AfterEdit, whereas without the plugin the same edit is incremental (owned by the incremental-edit test).
+// @evidence contracts/testing.md#behavioral-verification A registered no-op ProgramPlugin paired with the linked manifest makes the BeforeEdit-to-AfterEdit source rename report reload, changed and AfterEdit present. Mutation effects, hook invocation counts and compiler object identity are not asserted.
+// @evidence contracts/testing.md#independent-expectations The resident policy requires reload when a linked member implements ProgramPlugin, because that capability permits AST mutation. Literal expected outcomes for this no-op implementation are reload, changed and AfterEdit; without that capability the same rename is incremental in the separate edit case. This does not certify actual mutation or once-per-Program dispatch.
 // @evidence contracts/testing.md#distinguishing-cases Register a linked ProgramPlugin and open a graph session; Apply a content-only edit that would otherwise refresh incrementally; Assert the snapshot reports a full reload with the post-edit node.
-// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsWhenProgramPluginLinked is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit entry runs actual resident state/projection with explicit empty ignore membership. The manifest environment is restored by t.Setenv; RegisterPlugin retains its no-op registration for process lifetime, and the one-entry manifest selects registry index zero. No global registry reset is asserted. No consumer is installed or native artifact built or started. Real Git acquisition belongs to the separate worktree E2E.
 func TestServeSessionReloadsWhenProgramPluginLinked(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"probe","stage":"transform"}]`)
   driver.RegisterPlugin(serveProgramPluginProbe{})

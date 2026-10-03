@@ -6,9 +6,9 @@ import (
   "testing"
 )
 
-// TestServeSessionReloadsTransitiveProjectReference verifies config and root
-// freshness traverses the complete project-reference graph, not only the
-// root config's direct references.
+// TestServeSessionReloadsTransitiveProjectReference checks leaf config tracking
+// and root-file freshness across the fixture's root-to-middle-to-leaf chain.
+// Other reference topologies and the added file's node are not asserted.
 //
 // 1. Load the root-to-middle-to-leaf project reference chain and inspect captured config identities.
 // 2. Publish the initial snapshot, then add leaf/src/added.ts.
