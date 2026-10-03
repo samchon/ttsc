@@ -127,6 +127,8 @@ export namespace TestProject {
    * Tracked ancestors are withheld too, so their recursive cleanup cannot
    * erase retained inputs. Failed identity validation also withdraws cleanup
    * authority over the obsolete spelling without accepting retention identity.
+   * Existing one-argument fixture owners use an explicit pending-closure reason;
+   * neither that default nor a supplied reason certifies a live process or join.
    *
    * @evidence contracts/common.md#principled-implementation Allocation records the physical directory and ancestor identities; retention checks the same native objects before withholding that exact owned root from exit cleanup.
    * @evidence contracts/common.md#clear-and-simple-design One explicit transfer changes only an existing tracked allocation; ordinary allocations retain their exit cleanup behavior.
@@ -137,7 +139,10 @@ export namespace TestProject {
    * @evidence contracts/performance.md#reuse-equivalent-work The recorded identity can authorize repeated retention only while every original directory and ancestor remains the same native object; changed identities are refused rather than reused.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Normal roots remain exit-owned; unresolved roots and tracked ancestors transfer to caller-owned later reclamation. The retained population grows with unresolved allocations, and no automatic release is claimed before descendant closure is established.
    */
-  export function retainTemporaryDirectory(root: string, reason: string): void {
+  export function retainTemporaryDirectory(
+    root: string,
+    reason: string = "Caller retains fixture inputs pending process closure observation",
+  ): void {
     const identities = TEMP_IDENTITIES.get(root);
     if (!TRACKED_TEMP_DIRS.has(root) || !identities || !reason.trim())
       throw new Error("Temporary retention requires an owned allocation and reason: " + root);
