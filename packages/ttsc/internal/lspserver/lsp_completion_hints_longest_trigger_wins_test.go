@@ -69,13 +69,16 @@ func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
 //  2. Ask with a scope this host does not know.
 //  3. Assert silence in both.
 //
-// @evidence contracts/testing.md#behavioral-verification A hint is silent in a decorator position outside a JSDoc block and when its scope is one this host does not know.
-// @evidence contracts/testing.md#independent-expectations Empty item lists are the contract for a wrong or unknown scope.
-// @evidence contracts/testing.md#distinguishing-cases The same trigger character in a JSDoc block is offered elsewhere, so scope is the only property that changes the result.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionHintsRefuseOutsideScope is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification The same supplied @Inj line and hint yields evidence with inJSDoc=true but no items with false; an authored unknown scope and empty-trigger/nil-item corpus also yield no items. This observes admission booleans, not actual decorator/JSDoc lexical classification or completion publication.
+// @evidence contracts/testing.md#independent-expectations The correct-scope control requires the literal evidence Insert; wrong/unknown scope and degenerate hint inputs require empty item lists. Filters and other item fields are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The first positive/negative pair differs only in supplied inJSDoc; unknown-scope and degenerate corpora are separate inputs. The positive control rejects blanket empty output, without authenticating scope parsing.
+// @evidence contracts/testing.md#execution-ownership Directly supplies strings, hint records, and inJSDoc booleans to matchCompletionHints in this process. It substitutes no seam, creates no directory, resolves no sidecar, loads no Program, and starts no product process, consumer, or editor connection.
 func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
+  }
+  if items, _ := matchCompletionHints(hints, "@Inj", true); !equalStrings(inserts(items), []string{"evidence"}) {
+    t.Errorf("correct-scope control offered %v, want evidence", inserts(items))
   }
   if items, _ := matchCompletionHints(hints, "@Inj", false); len(items) != 0 {
     t.Errorf("a decorator position was offered %v, want nothing", inserts(items))
