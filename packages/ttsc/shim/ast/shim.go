@@ -1231,8 +1231,8 @@ func GetNextJSDocCommentLocation(node *Node) *Node {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied name determines the result without consumer-specific module names.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes lexical symbol spelling from semantic existence.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsAmbientModuleSymbolName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsAmbientModuleSymbolName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsAmbientModuleSymbolName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent name-classification algorithm. Upstream checks one-byte quote prefix and suffix, costing O(1) time and space without scanning the name's interior.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This lexical forwarding predicate owns no completed-result cache or in-flight coordination.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsAmbientModuleSymbolName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsAmbientModuleSymbolName(name string) bool {
   return innerast.IsAmbientModuleSymbolName(name)
@@ -1514,8 +1514,8 @@ func IsTypeDeclarationName(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No binding names or fixture destructuring forms affect the result.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies binding-element purpose and nonnil/parent limits.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsBindingElement acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsBindingElement performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsBindingElement computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent binding classifier. Upstream compares one node kind in O(1) time and space without traversing parents or children.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; node owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsBindingElement computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsBindingElement(node *Node) bool {
   return innerast.IsBindingElement(node)
