@@ -37,9 +37,9 @@ import { shellQuote } from "../../../internal/ttsc/internal/source-build";
  * @evidence contracts/testing.md#distinguishing-cases An outer dependency installation contrasts the nearer empty boundary; its cold source publication contrasts a second equivalent source root served without compilation. The source copy unit preserves vendor/lib/dist/build, worktree .git and notes~ distinctions plus excluded files, directories and links.
  * @evidence contracts/testing.md#execution-ownership This E2E entry invokes the actual installed Go metadata and compiler through a recording forwarder, then executes its actual published binary. No fake metadata or fake plugin binary is used. test_source_copy_preserves_entry_kinds_and_keyed_bytes owns portable copy/digest assertions without child processes.
  * @evidence contracts/e2e.md#necessary-boundary Actual module materialization, Go compilation, executable publication and cache reuse must agree across the source builder and native producer. Direct path and copy units cannot prove that the returned artifact is executable or that a warm request avoids Go build.
- * @evidence contracts/e2e.md#shared-execution Five former independent fake producer fixtures and five cold publications become one actual Go forwarder and one cold publication. The second source root is an equivalent-input consumer necessary for cross-root reuse, not another producer. The sequential CommonJS runtime owner calls this case once and receives its actual executable; the case is not independently discovered by the test_ directory runner. Metadata requests remain actual forwarded Go requests.
+ * @evidence contracts/e2e.md#shared-execution This body requests one cold publication through the actual Go forwarder and an equivalent-source relocated request sharing the selected cache; its authored invocation log asserts one forwarded build entry before and after reuse. Logged entries are not total actual child starts or a measured five-to-one preparation reduction. The sequential CommonJS runtime parent calls this case once, while test_ discovery does not call it independently. Metadata/probes/wrapper/Go/native smoke are separate actual populations; baseline and later activation gates remain unverified.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One tracked container owns the module, forwarding script, log and managed caches. The first publication remains warm; source-only copying omits caches and avoids duplicating their ownership. Call-local environments select the tool and roots without changing process globals, and the synchronous smoke must return ordinary status/signal/PID metadata before literal result assertions. Any preparation failure withholds the owning container from exit cleanup, including failures before the borrower receives it; the returned root permits later unresolved runtime readers to retain that same owner. This receipt decision alone does not certify descendant closure.
- * @evidence contracts/e2e.md#preserved-coverage The former copy entry-kind assertions have executed in test_source_copy_preserves_entry_kinds_and_keyed_bytes with exact paths and bytes; conventional-directory materialization is also checked independently in the actual compiler scratch cwd by the Go forwarder. Default workspace placement, empty-boundary stability, publication success, identical cross-root binary identity and one-build reuse execute here through actual Go; the previous fake-binary text expectation is replaced by executing the authored actual program.
+ * @evidence contracts/e2e.md#preserved-coverage Exact portable entry-kind/byte assertions are authored at tests/test-ttsc/src/features/source-plugin/test_source_copy_preserves_entry_kinds_and_keyed_bytes.ts, with no verified runtime receipt connected here. Actual-go.cjs independently checks scratch conventional directories/worktree file/backup-shaped directory bytes. This body retains literal workspace placement, empty boundary stability, published smoke, same returned cross-root path and forwarded build-count1; a pre-reuse byte snapshot additionally detects changed artifact bytes, unlike reading the identical returned path twice. Original assertion remains. This is not immutable loaded-image/total preparation/survivor execution certification; donor and actual runtime/survival gates remain.
  */
 export const case_buildsourceplugin_defaults_to_workspace_local_cache = (): {
   binary: string;
@@ -195,6 +195,7 @@ export const case_buildsourceplugin_defaults_to_workspace_local_cache = (): {
       recursive: true,
       filter: (location) => copiesPluginSourceEntry(source, location),
     });
+    const firstBytes = fs.readFileSync(first);
     const second = request(secondSource, expected);
     assert.equal(
       second,
@@ -207,6 +208,7 @@ export const case_buildsourceplugin_defaults_to_workspace_local_cache = (): {
       "the relocated request must not compile again",
     );
     assert.deepEqual(fs.readFileSync(second), fs.readFileSync(first));
+    assert.deepEqual(fs.readFileSync(second), firstBytes, "warm reuse must preserve pre-request artifact bytes");
     return { binary: first, root: allocation };
   } catch (error) {
     // A failed preparation cannot hand its root to the sequential borrower.
