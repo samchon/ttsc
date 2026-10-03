@@ -7,11 +7,11 @@ import "testing"
 // clamping them to valid positions rather than panicking.
 //
 // Locks the two clamping guards inside sliceContainsNewline:
-//   - `if start < 0 { start = 0 }` prevents a negative loop lower bound.
+//   - `if start < 0 { start = 0 }` prevents a negative slice bound.
 //   - `if end > len(src) { end = len(src) }` prevents a slice-bounds panic.
 //
-// The guards matter because callers in Check derive start/end from SkipTrivia
-// which is guaranteed non-negative for valid sources, but defensive clamping
+// Check derives start from SkipTrivia and end from node.End(), validating
+// their bounds before this helper. Direct defensive clamping
 // keeps the helper safe for future callers that may pass unchecked values.
 //
 //  1. Call sliceContainsNewline with start=-5 on a source that contains a newline.

@@ -6,15 +6,11 @@ import "testing"
 // verifies trailingLineWidth stops at a `//` line comment instead of
 // charging the comment bytes against the suffix budget.
 //
-// A `//` line comment runs to the end of the source line by definition,
-// so the rule cannot move or wrap it. Counting its bytes as un-movable
-// suffix width over-shrinks the layout budget on the rule's shrunk
-// re-render and forces a flat-fitting call to break (Prettier 3 keeps
-// the call inline in that shape — see the typeorm `replaceAll(...) //
-// Null bytes' regression that pushed `formatPrintWidth: 'off'` onto
-// the ttsc-lint benchmark branch). The exclusion lives in the helper
-// because the same accounting needs to flow through both the fast-path
-// budget check and the shrunk-budget re-render.
+// A trailing line attachment does not spend the supported suffix
+// budget. This accounting is consumed by the rule's fast-path fit
+// check and flat-only suffix-reduced rendering. The direct helper
+// cases contrast line comments with counted block comments and a
+// newline boundary, without observing a benchmark branch or consumer.
 //
 //  1. Call trailingLineWidth across a `;` + trailing line comment.
 //  2. Assert the returned width covers only the un-movable `;`.
