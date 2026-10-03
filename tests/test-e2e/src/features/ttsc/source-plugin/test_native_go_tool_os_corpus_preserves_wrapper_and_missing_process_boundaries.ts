@@ -20,7 +20,7 @@ import { assert, fs, path } from "../../../internal/ttsc/internal/source-build";
  * 5. Close the round by removing only its verified owned temporary root.
  *
  * Returned direct request receipts are observations. Nested metadata counts
- * remain a reviewed callee plan. A failed prerequisite marks the report BLOCKED;
+ * remain a static callee plan. A failed prerequisite marks the report BLOCKED;
  * incomplete groups never claim full coverage.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual spawnGoTool preserves every original wrapper argv/environment and executable lookup assertion, distinguishes relative/extended tool identities and matches native missing-process fields.
@@ -28,8 +28,8 @@ import { assert, fs, path } from "../../../internal/ttsc/internal/source-build";
  * @evidence contracts/testing.md#distinguishing-cases Hostile Windows tokens, PATH whitespace/semicolon/casing, native precedence, cwd parent/child policy and all original missing spellings remain. The wrapper matrix is Windows-only and POSIX does not claim it executed.
  * @evidence contracts/testing.md#execution-ownership One named E2E owner runs both original matrices from one shared temporary root. The portable command plan remains in its existing source unit; this entry owns actual native OS lookup, cmd delivery and missing-process behavior.
  * @evidence contracts/e2e.md#necessary-boundary Node's actual spawn behavior and cmd expansion cannot be established by an argument formatter. Captured argv, native selection sentinels and native ENOENT fields independently observe this OS boundary.
- * @evidence contracts/e2e.md#shared-execution The Windows capture fixture and missing-process matrix share one root and process. Original OS request vectors remain separate calls; no Go compiler is built or invoked, and metadata requests in the identity assertions run the original capture/native fixtures.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The one TestProject root isolates wrappers, capture, native template copies and source identity files. All original ambient PATH/cwd-policy writes retain their finally restoration, and the missing matrix uses names absent from that shared root.
+ * @evidence contracts/e2e.md#shared-execution The Windows capture fixture and missing-process matrix share one fixture root in this test process. Original OS requests remain separate actual calls; capture/native metadata fixtures are not Go compiler builds. Returned positive PID receipts and static metadata plans are not actual primitive population, broker accounting or descendant closure; opt-in source traces retain those separate observations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked fixture root is retained before use; explicit cleanup verifies its native temporary-root containment and reports removal failure. Ambient PATH/cwd-policy writes retain exact finally restoration. A separate retained report directory prevents a later or concurrent owner overwriting this invocation's report. Synchronous returns and successful directory removal do not certify arbitrary descendant termination.
  * @evidence contracts/e2e.md#preserved-coverage Both complete original bodies retain every authored argument, error field, environment sentinel, key distinction and capability branch. Two independent temporary roots become one; original named entries remain until this full corpus is verified.
  */
 export function test_native_go_tool_os_corpus_preserves_wrapper_and_missing_process_boundaries(): void {
@@ -79,6 +79,9 @@ export function test_native_go_tool_os_corpus_preserves_wrapper_and_missing_proc
   let wrapperMatrixFinished = process.platform !== "win32";
   let nativeMissingMatrixFinished = false;
   const root = TestProject.tmpdir("ttsc-go-tool-os-corpus-");
+  TestProject.retainTemporaryDirectory(root);
+  const reportRoot = TestProject.tmpdir("ttsc-go-tool-os-report-");
+  TestProject.retainTemporaryDirectory(reportRoot);
   try {
     try {
       if (process.platform === "win32") {
@@ -708,7 +711,7 @@ export function test_native_go_tool_os_corpus_preserves_wrapper_and_missing_proc
     attempts,
     nativeMissingMatrixFinished,
     directToolRequests: receipts.length,
-    directLaunchedChildren: receipts.filter((receipt) => receipt.pid > 0)
+    directReturnedPositivePidResults: receipts.filter((receipt) => receipt.pid > 0)
       .length,
     directMissingResults: receipts.filter((receipt) => receipt.missing).length,
     syntheticMissingCandidates: receipts.filter(
@@ -718,7 +721,7 @@ export function test_native_go_tool_os_corpus_preserves_wrapper_and_missing_proc
     metadataRequestsFromCurrentCalleePlan: process.platform === "win32" ? 8 : 0,
     nativeMissingReferenceRequests: Number(nativeReferenceAttempted),
     countBoundary:
-      "Direct requests/returned pids are observed; nested metadata cardinality is a reviewed callee plan, not an OS process trace.",
+      "Direct requests/returned positive PID results are observed, not distinct actual launch events. Nested metadata cardinality is a static callee plan, not an OS process trace; broker/inner attempts and descendants require separate observations.",
     failures: failures.map((failure) => ({
       identity: failure.message,
       cause: String(failure.cause),
@@ -727,7 +730,7 @@ export function test_native_go_tool_os_corpus_preserves_wrapper_and_missing_proc
   try {
     fs.writeFileSync(
       path.join(
-        os.tmpdir(),
+        reportRoot,
         "ttsc-native-go-tool-os-corpus-last-round-1611.json",
       ),
       JSON.stringify(report, null, 2) + "\n",
