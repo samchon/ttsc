@@ -31,8 +31,11 @@ import { runTurbopackLoader } from "../../../../internal/unplugin/internal/adapt
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Temporary stderr writer is restored in finally; tracked roots end at process exit. Explicit per-case loader disposal is not asserted.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real scripts/tool.ts outside include returns its original bytes and stderr names module and tsconfig. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_passes_through_an_out_of_program_module(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
+export async function test_turbopack_loader_passes_through_an_out_of_program_module(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const stray = path.join(root, "scripts", "tool.ts");
   fs.mkdirSync(path.dirname(stray), { recursive: true });
   const source = "export const tool: string = 'STRAY';\n";
@@ -54,6 +57,7 @@ export async function test_turbopack_loader_passes_through_an_out_of_program_mod
     assert.equal(process.stderr.write, original);
     assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
   }
+  observeReturned?.();
 
   assert.equal(
     content,
