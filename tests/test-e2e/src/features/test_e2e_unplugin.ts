@@ -12,6 +12,8 @@ import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runShar
 import { runSharedViteBuildWatchLifecycle } from "../internal/unplugin/runSharedViteBuildWatchLifecycle";
 import { test_webpack_watch_reuses_the_generation_across_rebuilds } from "./unplugin/native-plugins/adapters/test_webpack_watch_reuses_the_generation_across_rebuilds";
 import { test_webpack_sequential_compilers_share_one_generation } from "./unplugin/native-plugins/adapters/test_webpack_sequential_compilers_share_one_generation";
+import { test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge";
+import { test_webpack_filesystem_cache_control_serves_stale_without_a_graph } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_control_serves_stale_without_a_graph";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_turbopack_loader_workers_share_one_compile } from "./unplugin/native-plugins/adapters/test_turbopack_loader_workers_share_one_compile";
@@ -385,6 +387,27 @@ export async function test_e2e_unplugin(): Promise<void> {
       fs.writeFileSync(typeOnly, prepared.originalType);
       assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
       await Scenarios.invoke("shared-unplugin", "test_webpack_sequential_compilers_share_one_generation", test_webpack_sequential_compilers_share_one_generation, prepared);
+      const configPath = path.join(prepared.root, "tsconfig.json");
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      assert.deepEqual(config.compilerOptions.plugins.map((entry: { name: string }) => entry.name), ["reader", "graph", "runs"]);
+      // Restore the original positive input; only this profile's webpack cache
+      // is reset between experiments, never between either pair of builds.
+      config.compilerOptions.plugins.pop();
+      fs.writeFileSync(typeOnly, prepared.originalType);
+      assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      const webpackCache = path.join(prepared.root, ".cache", "webpack");
+      fs.rmSync(webpackCache, { recursive: true, force: true });
+      await Scenarios.invoke("shared-unplugin", "test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge", test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge, prepared.root);
+      // Successful return includes both compiler closes. The control has the
+      // original reader alone, and gets its own initially empty kept cache.
+      fs.writeFileSync(typeOnly, prepared.originalType);
+      assert.deepEqual(fs.readFileSync(typeOnly), prepared.originalType);
+      config.compilerOptions.plugins.pop();
+      assert.deepEqual(config.compilerOptions.plugins.map((entry: { name: string }) => entry.name), ["reader"]);
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      fs.rmSync(webpackCache, { recursive: true, force: true });
+      await Scenarios.invoke("shared-unplugin", "test_webpack_filesystem_cache_control_serves_stale_without_a_graph", test_webpack_filesystem_cache_control_serves_stale_without_a_graph, prepared.root);
     });
   } catch (cause) {
     failures.push(new Error("webpack same-byte redelivery and type-edge replacement", { cause }));
