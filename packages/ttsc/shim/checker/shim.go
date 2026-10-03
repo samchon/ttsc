@@ -486,20 +486,25 @@ func ValueToString(value any) string {
   return innerchecker.ValueToString(value)
 }
 
-// Checker_typeToStringFullyQualified formats a type with the same stable,
-// alias-aware flags TypeScript uses in diagnostics that name union members.
+// Checker_typeToStringFullyQualified requests unique-symbol, external-alias
+// and fully qualified presentation from the upstream type formatter.
 // Keeping the flag bundle inside the shim avoids leaking checker-internal enum
 // types through consumer code.
 // Nil checker or type returns empty text. A nonnil type must belong to recv.
+// The optional enclosing declaration must belong to its program. This remains
+// diagnostic presentation: upstream output can be truncated or return its
+// serialization-depth marker, and is not a unique type-identity certificate.
+// Lazy member resolution can update checker state or produce diagnostics;
+// callers sharing the checker must synchronize access.
 //
 // @evidence contracts/common.md#principled-implementation AllowUniqueESSymbolType, UseAliasDefinedOutsideCurrentScope and UseFullyQualifiedType preserve unique-symbol and externally defined alias naming at the supplied declaration scope; this is a presentation query over the producing checker.
 // @evidence contracts/common.md#clear-and-simple-design One named formatting policy owns its flags, leaving graph consumers independent of internal formatting enums.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flags are compiler-defined formatting controls rather than patches to type identity or consumer-specific output strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains alias-aware scope, flag ownership, nil output and same-checker requirements.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_typeToStringFullyQualified acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_typeToStringFullyQualified performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_typeToStringFullyQualified computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_typeToStringFullyQualified computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives generated text storage; truncating the returned slice is not proof that its backing storage has that size. Upstream formatting acquires a text writer and builder arenas, defers arena release and verbosity restoration, and keeps its builder and semantic-resolution caches under checker ownership. This bridge keeps no separate output history or resource-release policy.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream lazy type/member resolution, node construction and printing own the semantic-graph, generated-node and text-byte costs, including serialization-depth and output-length policy. The shim selects a flag bundle rather than implementing or claiming constant-time type traversal.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The checker-owned builder and semantic caches coordinate upstream reuse. This wrapper introduces no independent formatted-text cache or shared producer whose validity it would establish across scopes or programs.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type presentation follows the supplied program's semantic graph, module authority and compiler options; this bridge chooses no independent filesystem, executable or platform policy.
 func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchecker.Type, enclosingDeclaration *innerast.Node) string {
   if recv == nil || t == nil {
     return ""
@@ -518,15 +523,19 @@ func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchec
 // at enclosingDeclaration. AllowAnyNodeKind lets the checker emit indexed
 // access for enum members whose names cannot use dot notation.
 // Nil checker or symbol returns empty text. Symbols must belong to recv.
+// An enclosing declaration must belong to its program. This is presentation,
+// not an accessibility or runtime-evaluation certificate. The formatter uses
+// upstream ignore-error node building; callers sharing the checker synchronize
+// access to its builder and semantic state.
 //
 // @evidence contracts/common.md#principled-implementation Value meaning and AllowAnyNodeKind delegate expression spelling to the checker's symbol formatter, allowing indexed access where an identifier-like name is unavailable.
 // @evidence contracts/common.md#clear-and-simple-design One wrapper owns value-position formatting policy without manual namespace concatenation or an AST printer fallback.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Indexed member spelling comes from the compiler's real symbol representation rather than a consumer-name escape table.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains expression-position output, indexed access and nil/same-checker limits before the tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_symbolToValueString acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_symbolToValueString performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_symbolToValueString computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_symbolToValueString computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives generated string storage. Upstream formatting acquires a pooled writer and builder arenas, defers writer return and arena release, and retains the checker-owned builder and semantic caches for their owner lifetime. Returning a writer to its pool is not a bound on retained output bytes or pooled storage; this bridge owns no separate formatting registry.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream chain lookup, recursive expression construction, identifier/name inspection and printing own the algorithm and its symbol-chain, declaration, generated-node and text-byte costs. The bridge selects value meaning and AllowAnyNodeKind but implements no second spelling or traversal algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Writer pooling, the checker-owned builder and semantic chain caches own reuse upstream. This bridge coordinates no additional formatting producer or cached string whose validity it would establish across programs.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Formatting follows the supplied program's symbol, alias and module authority; this bridge adds no independent filesystem, executable or platform selection.
 func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) string {
   if recv == nil || symbol == nil {
     return ""
@@ -952,20 +961,25 @@ func checkerResolveEntityName(
 ) *innerast.Symbol
 
 // Checker_resolveEntityName resolves a dotted entity name (identifier or
-// qualified name) to the symbol it denotes, filtered by meaning flags.
-// When ignoreErrors is true, resolution failures are silent. When
-// dontResolveAlias is true, the returned symbol may still be an alias.
-// Returns nil if recv or name is nil.
+// qualified name, or the upstream property-access form) under meaning flags.
+// Unsupported nonmissing node kinds panic upstream. ignoreErrors suppresses
+// the resolver's own missing-name/member diagnostics; it does not certify that
+// alias resolution or the CommonJS external-module route produces no diagnostic.
+// dontResolveAlias suppresses the final alias walk, not namespace resolution
+// for a qualified name's left side. The result can be an alias or unknown symbol.
+// Returns nil if recv or name is nil, or the resolver finds no symbol.
 // Name and optional location must belong to recv's checked program.
+// Alias/type-only metadata and semantic caches may change; callers sharing the
+// checker must synchronize access.
 //
 // @evidence contracts/common.md#principled-implementation The pinned entity-name resolver applies meaning flags, scope, alias-resolution and diagnostic controls to the actual AST name, preserving type/value/namespace distinctions.
 // @evidence contracts/common.md#clear-and-simple-design One bridge exposes the resolver's relevant controls explicitly rather than duplicating separate dotted-name lookup implementations.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The semantic name is resolved by compiler scope rules, not string concatenation or a consumer-specific namespace table.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains meaning filtering, diagnostic suppression, alias retention and input ownership in separated sentences.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_resolveEntityName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_resolveEntityName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_resolveEntityName computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_resolveEntityName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose states supported node forms, diagnostic and alias-control limits, unknown/nil outcomes and producing-program ownership rather than promising silent resolution of every delegated operation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned symbol can retain its checker/program graph. Upstream resolution owns alias targets, type-only metadata, export/module state and possible diagnostics; the caller owns the checker lifetime and returned reference. This bridge keeps no independent lookup registry or release policy for that state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream scope/name resolution, recursive qualified lookup, alias walks, export resolution and diagnostic suggestions own the algorithms and their scope, name-byte, declaration and symbol-graph costs. The shim only forwards explicit controls after nil guards, without selecting a second lookup algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The supplied checker owns alias/export/module caches and metadata that establish semantic reuse. This bridge coordinates no additional name-resolution producer or cross-program cache/invalidation policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Resolution uses the supplied checked program's scope and module authority, including its CommonJS route; this bridge chooses no independent host paths, executable or platform policy.
 func Checker_resolveEntityName(
   recv *innerchecker.Checker,
   name *innerast.Node,
