@@ -30,10 +30,10 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification Real watch updates the aged last-used timestamp after the edited source reaches the same resident PID.
  * @evidence contracts/testing.md#independent-expectations The explicitly forty-day-old stamp and twenty-four-hour-later lower bound distinguish actual refresh from untouched metadata; a literal edited source line confirms the relevant cycle occurred.
  * @evidence contracts/testing.md#distinguishing-cases Owns compatible resident reuse and cache-use refresh while a binary is already running, distinct from physically missing binary restoration.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export runs actual WatchSession, loader lookup and native cache metadata operations in the Linux native batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export runs actual WatchSession, loader lookup and native cache metadata operations in the generic corpus-misc population; no platform filter is present in this body.
  * @evidence contracts/e2e.md#necessary-boundary Each watcher cycle must record real use despite reusing an existing sidecar instead of resolving a new binary; a cache writer unit cannot prove the watch cycle invokes it.
- * @evidence contracts/e2e.md#shared-execution One private plugin cache is necessary because its stamp is aged; equivalent Go compiler objects remain shared and one resident serves the edit without another binary compilation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the isolated cache entry stamp is mutated, the source lives in a private consumer fixture, PID equality verifies process reuse, and finally closes the watcher before TestProject cleanup.
+ * @evidence contracts/e2e.md#shared-execution One private plugin cache is necessary because its stamp is aged; the suite Go-cache location is available and reported resident PID equality is asserted. No object-cache hit, recompilation count or loaded-image identity is measured.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the isolated cache entry stamp is mutated, the source lives in a private consumer fixture, a positive non-self reported PID is required before equality, and the private cache is tracked for retention on uncertain close. Body and close failures are retained independently; arbitrary descendant termination is not certified.
  * @evidence contracts/e2e.md#preserved-coverage Original edited-line wait, same PID and refreshed timestamp threshold remain. The private cache cannot be replaced by a globally warm entry because metadata aging is the tested transition.
  */
 export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_binary(): Promise<void> {
@@ -54,8 +54,10 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
   };
   const session = new WatchSession(root, {
     args: ["--noEmit", "--diagnostics"],
+    ownedInputRoots: [cacheDir],
     env,
   });
+  const failures: unknown[] = [];
   try {
     await session.waitForBuilds(1, 300_000);
     await session.waitForSettled();
@@ -74,6 +76,7 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
           .matchAll(/@ttsc\/lint resident check: pid=(\d+)/g),
       ].map((match) => match[1]!);
     const resident = residents().at(-1);
+    assert.ok(resident !== undefined && Number.isSafeInteger(Number(resident)) && Number(resident) > 0 && Number(resident) !== process.pid, session.transcript());
     const aged = Date.now() - 40 * 24 * 60 * 60 * 1000;
     fs.writeFileSync(lastUsed, `${aged}\n`);
 
@@ -98,7 +101,11 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
       recorded > aged + 24 * 60 * 60 * 1000,
       `the cycle recorded its use of the binary:\n${session.transcript()}`,
     );
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session.close();
+    try { await session.close(); } catch (error) { failures.push(error); }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, "Watch use recording and shutdown failed");
 }

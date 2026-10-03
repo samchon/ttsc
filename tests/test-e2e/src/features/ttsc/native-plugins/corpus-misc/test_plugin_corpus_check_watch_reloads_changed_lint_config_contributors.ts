@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
@@ -26,23 +28,21 @@ type ResidentSample = {
  * 1. Start check watch with contributor A selected by a helper outside the project
  *    and record its resident PID/finding.
  * 2. Change only that helper to select contributor B.
- * 3. Require a fresh PID, cold Program, and only B's behavior in that cycle.
+ * 3. Require a distinct PID, cold-load telemetry, and only B's behavior in that cycle.
  *
- * @evidence contracts/testing.md#behavioral-verification Real watch replaces alpha with beta after only the imported selection helper changes, uses a fresh PID/Program and proves the old resident exited.
+ * @evidence contracts/testing.md#behavioral-verification Real watch replaces alpha with beta after only the imported selection helper changes, requires distinct positive telemetry PIDs, fresh-load counters and native ESRCH for the old PID. These counters do not count total Program constructions.
  * @evidence contracts/testing.md#independent-expectations Literal alpha/beta finding markers and distinct contributor sources independently identify behavior; complete fresh-counter checks and old-PID liveness checks establish replacement rather than stale config reuse.
  * @evidence contracts/testing.md#distinguishing-cases Owns executable-config transitive input changes selecting a different compiled contributor, both positive and negative finding-family controls and old process disposal.
- * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export executes real CJS config evaluation, contributor compilation and watcher protocol in the Linux native batch.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export executes real CJS config evaluation, contributor compilation and watcher protocol in the generic corpus-misc population; no platform filter is present in this body.
  * @evidence contracts/e2e.md#necessary-boundary The imported helper observation must invalidate config evaluation, select a changed native binary and retire the old resident; direct source hashing or config parsing cannot prove the full transition.
- * @evidence contracts/e2e.md#shared-execution One watcher serves both selections and shared Go objects avoid recompiling unchanged dependencies; two native contributor identities legitimately require distinct builds because their linked behavior differs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The external selection helper has explicit finally cleanup, each project owns alpha/beta sources, the old PID is checked until exit and finally closes the active watcher; shared cache does not reuse an obsolete contributor identity.
+ * @evidence contracts/e2e.md#shared-execution One watcher serves both selections and the shared Go-cache location is available. Alpha and beta must select different behavior; cache hits, build totals and identical Program objects are not measured.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The external helper has a tracked allocation owned by the watcher alongside its project; cleanup waits for successful watcher close and uncertain close retains its inputs. Body/close/removal errors are retained separately. Old PID absence accepts only ESRCH, with EPERM still live and other errors propagated. This does not certify executable-image identity or arbitrary descendant shutdown.
  * @evidence contracts/e2e.md#preserved-coverage Original sample counts, fresh PID/load/update/reuse checks, alpha/beta presence and absence, no-unknown-rule control and old-process exit assertions remain through the same two-cycle transition.
  */
 export async function test_plugin_corpus_check_watch_reloads_changed_lint_config_contributors(): Promise<void> {
   const root = setupLintProject("lint-violations");
   const config = path.join(root, "lint.config.cjs");
-  const shared = fs.mkdtempSync(
-    path.join(path.dirname(root), "ttsc-lint-selection-"),
-  );
+  const shared = TestProject.tmpdir("ttsc-lint-selection-", path.dirname(root));
   const selection = path.join(shared, "selection.cjs");
   const alpha = path.join(root, "contributors", "alpha");
   const beta = path.join(root, "contributors", "beta");
@@ -53,8 +53,10 @@ export async function test_plugin_corpus_check_watch_reloads_changed_lint_config
   writeSelection(selection, "alpha", alpha);
 
   let session: WatchSession | undefined;
+  const failures: unknown[] = [];
   try {
     session = new WatchSession(root, {
+      ownedInputRoots: [shared],
       args: ["--noEmit", "--diagnostics"],
       env: {
         PATH: goPath(),
@@ -81,10 +83,17 @@ export async function test_plugin_corpus_check_watch_reloads_changed_lint_config
     assert.doesNotMatch(secondCycle, /\[alpha\/marker\]/);
     assert.doesNotMatch(secondCycle, /ignoring unknown rule/i);
     await waitForProcessExit(samples[0]!.pid);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await session?.close();
-    fs.rmSync(shared, { recursive: true, force: true });
+    let joined = session === undefined;
+    try { await session?.close(); joined = true; } catch (error) { failures.push(error); }
+    if (joined) {
+      try { fs.rmSync(shared, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, "Contributor reload and cleanup failed");
 }
 
 function writeContributor(directory: string, namespace: string): void {
@@ -141,6 +150,7 @@ function assertFreshSample(
   sample: ResidentSample,
   previousPid: number | undefined,
 ): void {
+  assert.ok(Number.isSafeInteger(sample.pid) && sample.pid > 0 && sample.pid !== process.pid);
   if (previousPid !== undefined) assert.notEqual(sample.pid, previousPid);
   assert.equal(sample.programLoads, 1);
   assert.equal(sample.programUpdates, 0);
@@ -164,7 +174,10 @@ function processIsAlive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return false;
+    if (code === "EPERM") return true;
+    throw error;
   }
 }
 
