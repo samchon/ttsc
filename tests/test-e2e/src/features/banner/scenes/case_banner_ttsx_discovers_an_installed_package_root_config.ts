@@ -10,22 +10,24 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  *
  * `banner-pkg` is installed under `node_modules` with its own tsconfig plugin
  * entry and `banner.config.cjs`. When the consumer's program requires it, the
- * runtime's dependency cache must hold a transpiled `index.js` carrying the
- * package's banner text, found through the runtime manifest the host exports.
+ * runtime's dependency cache must hold the JavaScript output whose recorded
+ * source is the independently resolved package index.ts, carrying that package's
+ * banner text. The runtime manifest selects the cache being inspected.
  *
  * 1. Copy the static package into the consumer's `node_modules`.
  * 2. Run `ttsx` on the consumer entry, which requires the package and scans the
- *    dependency cache from the runtime manifest.
- * 3. Assert the printed value and that a cached index carries the package banner.
+ *    dependency cache metadata from the runtime manifest.
+ * 3. Assert the printed value and that exactly one package-owned output carries
+ *    the package banner; absent or ambiguous source ownership cannot pass.
  *
- * @evidence contracts/testing.md#behavioral-verification A real ttsx run must execute the installed package, print root-ran, and find the package root banner text inside the transpiled dependency cache it reports.
- * @evidence contracts/testing.md#independent-expectations The authored package files determine the printed value and banner text; the entry source reads the runtime manifest's cache directory itself rather than relying on plugin claims.
- * @evidence contracts/testing.md#distinguishing-cases The package-root configuration of a dependency is the positive input; the consumer itself has no banner configuration, so a banner found in the cache must have come from the package's own discovery.
+ * @evidence contracts/testing.md#behavioral-verification A real ttsx run must execute the copied node_modules package, print root-ran and report bannered=true only when one JavaScript output in the selected cache names the independently resolved banner-pkg/index.ts as its singleton source and carries the package banner.
+ * @evidence contracts/testing.md#independent-expectations Authored package files determine root-ran and package root banner. The fixture resolves node_modules/banner-pkg/index.ts independently with native realpath, then checks existing emittedSources metadata; it does not derive its expected source from that metadata. Recorded ownership is not independent authentication of compiler provenance or the loaded image.
+ * @evidence contracts/testing.md#distinguishing-cases The dependency's own configuration is the positive input and the consumer has no banner config. Unrelated cached index files cannot satisfy the source-path match, and missing or ambiguous matching JavaScript outputs produce bannered=false. Known external-map output remains the ordinary configured-source contrast.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; execution crosses the built ttsx launcher, native plugin and Node runtime.
  * @evidence contracts/e2e.md#necessary-boundary ttsx dependency transpilation, per-package plugin discovery and the runtime manifest meet only in a real runtime process.
  * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link and plugin cache; the installed package is a static fixture copied once and its distinct execution mode requires one ttsx process.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The consumer carries no banner configuration and none lies on its ancestor path, so a banner found in the dependency cache cannot come from it; the package is copied only into this scenario's node_modules; the synchronous process is joined before assertions.
- * @evidence contracts/e2e.md#preserved-coverage Retains the former exit status and exact stdout assertion; the installed package files are now static fixtures with identical contents.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The package is copied only into this scenario's node_modules and the consumer has no ancestor banner configuration. Metadata is read after the actual dependency require; only its singleton independently resolved source output is inspected. The synchronous command result precedes assertions without certifying arbitrary descendant shutdown.
+ * @evidence contracts/e2e.md#preserved-coverage Retains original status0 and exact root-ran bannered=true stdout plus authored package/config inputs. The fixture observer is strengthened from any cached index.js to the package's singleton source-owned output using existing metadata, with no product API or new scenario. Its new actual runtime survival remains unverified.
  */
 export function case_banner_ttsx_discovers_an_installed_package_root_config(
   workspace: UtilityWorkspace.IWorkspace,
