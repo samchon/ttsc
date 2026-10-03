@@ -16,7 +16,7 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * (samchon/ttsc#1498). This is the negative twin of recording those roots: a
  * nearer package that came and went must leave them without proof.
  *
- * 1. For the CommonJS evaluator and the ttsx evaluator, write a workspace whose
+ * 1. For the cjs and ts descriptor requests, write a workspace whose
  *    project maps `#dep` to a package hoisted one directory above it, and whose
  *    descriptor creates and removes that package in the project's own
  *    `node_modules` after it imports `#dep`.
@@ -24,121 +24,133 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * 3. Assert the nearer candidates are inputs without proof, while the selected
  *    package keeps its proof, and no candidate past its root is an input.
  *
- * @evidence contracts/testing.md#behavioral-verification CommonJS and ttsx #import mappings keep selected-module proof but omit proof for nearer package candidates that appeared and disappeared.
- * @evidence contracts/testing.md#independent-expectations Node imports mapping to a bare package still performs ordinary root search; a transient nearer authored package changes its resolution premise.
- * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a workspace whose project maps `#dep` to a package hoisted one directory above it, and whose descriptor creates and removes that package in the project's own `node_modules` after it imports `#dep`. 2. Load the project's plugins. 3. Assert the nearer candidates are inputs without proof, while the selected package keeps its proof, and no candidate past its root is an input.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#behavioral-verification Cjs/ts #import requests keep selected-module proof but omit proof for the nearer empty directory that appeared and disappeared; neither a second valid package nor fallback execution is certified.
+ * @evidence contracts/testing.md#independent-expectations Authored imports mapping to bare selection contrasts stable selected bytes with nearer empty-directory creation/removal. Recorded membership without hash proof and farther empty are independent literal expectations.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the cjs and ts descriptor requests, write a workspace whose project maps `#dep` to a package hoisted one directory above it, and whose descriptor creates and removes that package in the project's own `node_modules` after it imports `#dep`. 2. Load the project's plugins. 3. Assert the nearer candidates are inputs without proof, while the selected package keeps its proof, and no candidate past its root is an input.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls workspace loadProjectPlugins and the actual isolated descriptor return/proof transport. Scripted Go publication is fixture preparation, not real Go compiler or packed-consumer semantics.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage CommonJS and ttsx #import mappings keep selected-module proof but omit proof for nearer package candidates that appeared and disappeared. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Each authored request uses its own fresh topology/cache and one load with the common scripted Go inventory. No warm hit, avoided preparation, Program reuse or actual child total is asserted; conditional evaluator selection needs actual observation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked roots are retained before preparation. Same-evaluator mutation belongs to its private topology, not a concurrent writer process. Synchronous returned output does not establish descendant join, and physical missing-path expectations propagate permission/other errors.
+ * @evidence contracts/e2e.md#preserved-coverage Package imports to bare selection preserve nearer recorded true/proven false, selected outer index proven true and farther empty for cjs/ts. The transient nearer directory contains no valid package files; typed suffix alone is not conditional ttsx execution proof. Original input bytes/assertions and failure identities remain; runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_package_import_proof_refuses_a_nearer_package_that_came_and_went =
   () => {
+    const failures: unknown[] = [];
     for (const format of ["cjs", "ts"] as const) {
-      const root = TestProject.tmpdir(
-        `ttsc-descriptor-import-nearer-${format}-`,
-      );
-      const project = path.join(root, "project");
-      const nearer = path.join(project, "node_modules", "selection");
-      writeGoModule(path.join(project, "go-plugin"));
-      write(path.join(root, "package.json"), '{ "private": true }\n');
-      write(
-        path.join(project, "package.json"),
-        JSON.stringify({ private: true, imports: { "#dep": "selection" } }),
-      );
-      fs.mkdirSync(path.join(project, "node_modules"));
-      write(
-        path.join(root, "node_modules", "selection", "package.json"),
-        '{ "name": "selection", "main": "index.js" }\n',
-      );
-      write(
-        path.join(root, "node_modules", "selection", "index.js"),
-        'module.exports = "go-plugin";\n',
-      );
-      write(
-        path.join(project, `plugin.${format}`),
-        [
-          format === "ts"
-            ? 'import fs = require("node:fs");\nimport path = require("node:path");'
-            : 'const fs = require("node:fs");\nconst path = require("node:path");',
-          'const source = require("#dep");',
-          `fs.mkdirSync(${JSON.stringify(nearer)});`,
-          `fs.rmdirSync(${JSON.stringify(nearer)});`,
-          format === "ts"
-            ? "export = (context: { dirname: string }) => ({ name: 'selection', source: path.join(context.dirname, source) });"
-            : "module.exports = (context) => ({ name: 'selection', source: path.join(context.dirname, source) });",
-          "",
-        ].join("\n"),
-      );
-      write(
-        path.join(project, "tsconfig.json"),
-        JSON.stringify({
-          compilerOptions: {
-            module: "commonjs",
-            plugins: [{ transform: `./plugin.${format}` }],
-          },
-        }),
-      );
-      const fakeGo = path.join(root, "fake-go");
-      fs.mkdirSync(fakeGo, { recursive: true });
-
-      const loaded = loadProjectPlugins({
-        binary: "",
-        cacheDir: path.join(root, "cache"),
-        cwd: project,
-        env: {
-          ...process.env,
-          TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
-          TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
-        },
-        tsconfig: path.join(project, "tsconfig.json"),
-      });
-
-      const proven = (file: string): boolean =>
-        loaded.hostInputs.some(
-          (input) =>
-            physical(input) === physical(file) &&
-            Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input),
+      try {
+        const root = TestProject.tmpdir(
+          `ttsc-descriptor-import-nearer-${format}-`,
         );
-      const recorded = (file: string): boolean =>
-        loaded.hostInputs.some((input) => physical(input) === physical(file));
-      assert.ok(
-        recorded(nearer),
-        `${format}: the nearer candidate is an input`,
-      );
-      assert.equal(
-        proven(nearer),
-        false,
-        `${format}: a nearer candidate that came and went keeps no proof`,
-      );
-      assert.equal(
-        proven(path.join(root, "node_modules", "selection", "index.js")),
-        true,
-        `${format}: the selected package keeps its proof`,
-      );
-      const selectedRoot = physical(path.join(root, "node_modules"));
-      const projectModules = physical(path.join(project, "node_modules"));
-      const farther = loaded.hostInputs.filter(
-        (input) =>
-          input.includes(path.join("node_modules", "selection")) &&
-          !physical(input).startsWith(selectedRoot + path.sep) &&
-          !physical(input).startsWith(projectModules + path.sep),
-      );
-      assert.deepEqual(
-        farther,
-        [],
-        `${format}: no candidate past the selected search root`,
-      );
+        TestProject.retainTemporaryDirectory(root, "Package proof descendants are not joined");
+        const project = path.join(root, "project");
+        const nearer = path.join(project, "node_modules", "selection");
+        writeGoModule(path.join(project, "go-plugin"));
+        write(path.join(root, "package.json"), '{ "private": true }\n');
+        write(
+          path.join(project, "package.json"),
+          JSON.stringify({ private: true, imports: { "#dep": "selection" } }),
+        );
+        fs.mkdirSync(path.join(project, "node_modules"));
+        write(
+          path.join(root, "node_modules", "selection", "package.json"),
+          '{ "name": "selection", "main": "index.js" }\n',
+        );
+        write(
+          path.join(root, "node_modules", "selection", "index.js"),
+          'module.exports = "go-plugin";\n',
+        );
+        write(
+          path.join(project, `plugin.${format}`),
+          [
+            format === "ts"
+              ? 'import fs = require("node:fs");\nimport path = require("node:path");'
+              : 'const fs = require("node:fs");\nconst path = require("node:path");',
+            'const source = require("#dep");',
+            `fs.mkdirSync(${JSON.stringify(nearer)});`,
+            `fs.rmdirSync(${JSON.stringify(nearer)});`,
+            format === "ts"
+              ? "export = (context: { dirname: string }) => ({ name: 'selection', source: path.join(context.dirname, source) });"
+              : "module.exports = (context) => ({ name: 'selection', source: path.join(context.dirname, source) });",
+            "",
+          ].join("\n"),
+        );
+        write(
+          path.join(project, "tsconfig.json"),
+          JSON.stringify({
+            compilerOptions: {
+              module: "commonjs",
+              plugins: [{ transform: `./plugin.${format}` }],
+            },
+          }),
+        );
+        const fakeGo = path.join(root, "fake-go");
+        fs.mkdirSync(fakeGo, { recursive: true });
+
+        const loaded = loadProjectPlugins({
+          binary: "",
+          cacheDir: path.join(root, "cache"),
+          cwd: project,
+          env: {
+            ...process.env,
+            TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+            TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+          },
+          tsconfig: path.join(project, "tsconfig.json"),
+        });
+
+        const proven = (file: string): boolean =>
+          loaded.hostInputs.some(
+            (input) =>
+              physical(input) === physical(file) &&
+              Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input),
+          );
+        const recorded = (file: string): boolean =>
+          loaded.hostInputs.some((input) => physical(input) === physical(file));
+        assert.ok(
+          recorded(nearer),
+          `${format}: the nearer candidate is an input`,
+        );
+        assert.equal(
+          proven(nearer),
+          false,
+          `${format}: a nearer candidate that came and went keeps no proof`,
+        );
+        assert.equal(
+          proven(path.join(root, "node_modules", "selection", "index.js")),
+          true,
+          `${format}: the selected package keeps its proof`,
+        );
+        const selectedRoot = physical(path.join(root, "node_modules"));
+        const projectModules = physical(path.join(project, "node_modules"));
+        const farther = loaded.hostInputs.filter(
+          (input) =>
+            input.includes(path.join("node_modules", "selection")) &&
+            !physical(input).startsWith(selectedRoot + path.sep) &&
+            !physical(input).startsWith(projectModules + path.sep),
+        );
+        assert.deepEqual(
+          farther,
+          [],
+          `${format}: no candidate past the selected search root`,
+        );
+      } catch (error) {
+        failures.push(new Error(`${format}: package proof`, { cause: error }));
+      }
     }
+    if (failures.length)
+      throw new AggregateError(failures, "Package proof profiles failed");
   };
 
 /** The path's physical spelling, or its own for a path that does not exist. */
 function physical(file: string): string {
   try {
     return fs.realpathSync.native(file);
-  } catch {
-    return path.join(physical(path.dirname(file)), path.basename(file));
+  } catch (error) {
+    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+      throw error;
+    const parent = path.dirname(file);
+    if (parent === file) throw error;
+    return path.join(physical(parent), path.basename(file));
   }
 }
 

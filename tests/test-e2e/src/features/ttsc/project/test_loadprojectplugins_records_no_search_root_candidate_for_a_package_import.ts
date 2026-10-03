@@ -14,98 +14,110 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * each proven absent by the metadata of a directory such as the home directory;
  * the isolated CommonJS evaluator already skipped them.
  *
- * 1. For the CommonJS evaluator and the ttsx evaluator, write a project whose
+ * 1. For the cjs and ts descriptor requests, write a project whose
  *    package maps `#dep` to a file, and whose descriptor imports `#dep`.
  * 2. Load the project's plugins.
  * 3. Assert the mapped file and the manifest are proven inputs, and no input names
  *    `#dep` below a `node_modules`.
  *
- * @evidence contracts/testing.md#behavioral-verification Both descriptor runtimes report the mapped file and imports manifest as proven inputs and report no node_modules/#dep candidates.
+ * @evidence contracts/testing.md#behavioral-verification Both authored format requests report mapped file and imports manifest proof and no node_modules/#dep candidates; actual selected evaluator is not established merely by suffix.
  * @evidence contracts/testing.md#independent-expectations Package imports resolve #dep from its authored imports map, independently of ordinary node_modules package search.
- * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a project whose package maps `#dep` to a file, and whose descriptor imports `#dep`. 2. Load the project's plugins. 3. Assert the mapped file and the manifest are proven inputs, and no input names `#dep` below a `node_modules`.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the cjs and ts descriptor requests, write a project whose package maps `#dep` to a file, and whose descriptor imports `#dep`. 2. Load the project's plugins. 3. Assert the mapped file and the manifest are proven inputs, and no input names `#dep` below a `node_modules`.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls workspace loadProjectPlugins and the actual isolated descriptor return/proof transport. Scripted Go publication is fixture preparation, not real Go compiler or packed-consumer semantics.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Both descriptor runtimes report the mapped file and imports manifest as proven inputs and report no node_modules/#dep candidates. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Each authored request uses its own fresh topology/cache and one load with the common scripted Go inventory. No warm hit, avoided preparation, Program reuse or actual child total is asserted; conditional evaluator selection needs actual observation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked roots are retained before preparation. Same-evaluator mutation belongs to its private topology, not a concurrent writer process. Synchronous returned output does not establish descendant join, and physical missing-path expectations propagate permission/other errors.
+ * @evidence contracts/e2e.md#preserved-coverage The cjs/ts requests preserve local dep.cjs and package.json proven membership plus empty node_modules/#dep candidates. Typed suffix alone is not actual fallback execution proof; imports to a local file differs from imports to a bare package. Original input bytes/assertions and failure identities remain; runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_records_no_search_root_candidate_for_a_package_import =
   () => {
+    const failures: unknown[] = [];
     for (const format of ["cjs", "ts"] as const) {
-      const root = TestProject.tmpdir(
-        `ttsc-descriptor-package-import-${format}-`,
-      );
-      const project = path.join(root, "project");
-      writeGoModule(path.join(project, "go-plugin"));
-      write(
-        path.join(project, "package.json"),
-        JSON.stringify({ private: true, imports: { "#dep": "./dep.cjs" } }),
-      );
-      write(path.join(project, "dep.cjs"), 'module.exports = "go-plugin";\n');
-      write(
-        path.join(project, `plugin.${format}`),
-        [
-          format === "ts"
-            ? 'import path = require("node:path");'
-            : 'const path = require("node:path");',
-          'const source = require("#dep");',
-          format === "ts"
-            ? "export = (context: { dirname: string }) => ({ name: 'package-import', source: path.join(context.dirname, source) });"
-            : "module.exports = (context) => ({ name: 'package-import', source: path.join(context.dirname, source) });",
-          "",
-        ].join("\n"),
-      );
-      write(
-        path.join(project, "tsconfig.json"),
-        JSON.stringify({
-          compilerOptions: {
-            module: "commonjs",
-            plugins: [{ transform: `./plugin.${format}` }],
-          },
-        }),
-      );
-      const fakeGo = path.join(root, "fake-go");
-      fs.mkdirSync(fakeGo, { recursive: true });
-
-      const loaded = loadProjectPlugins({
-        binary: "",
-        cacheDir: path.join(root, "cache"),
-        cwd: project,
-        env: {
-          ...process.env,
-          TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
-          TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
-        },
-        tsconfig: path.join(project, "tsconfig.json"),
-      });
-
-      const proven = (file: string): boolean =>
-        loaded.hostInputs.some(
-          (input) =>
-            physical(input) === physical(file) &&
-            Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input),
+      try {
+        const root = TestProject.tmpdir(
+          `ttsc-descriptor-package-import-${format}-`,
         );
-      assert.ok(
-        proven(path.join(project, "dep.cjs")),
-        `${format}: the mapped file is a proven input`,
-      );
-      assert.ok(
-        proven(path.join(project, "package.json")),
-        `${format}: the manifest that maps it is a proven input`,
-      );
-      const searched = loaded.hostInputs.filter((input) =>
-        input.includes(path.join("node_modules", "#dep")),
-      );
-      assert.deepEqual(searched, [], `${format}: no search root candidate`);
+        TestProject.retainTemporaryDirectory(root, "Package proof descendants are not joined");
+        const project = path.join(root, "project");
+        writeGoModule(path.join(project, "go-plugin"));
+        write(
+          path.join(project, "package.json"),
+          JSON.stringify({ private: true, imports: { "#dep": "./dep.cjs" } }),
+        );
+        write(path.join(project, "dep.cjs"), 'module.exports = "go-plugin";\n');
+        write(
+          path.join(project, `plugin.${format}`),
+          [
+            format === "ts"
+              ? 'import path = require("node:path");'
+              : 'const path = require("node:path");',
+            'const source = require("#dep");',
+            format === "ts"
+              ? "export = (context: { dirname: string }) => ({ name: 'package-import', source: path.join(context.dirname, source) });"
+              : "module.exports = (context) => ({ name: 'package-import', source: path.join(context.dirname, source) });",
+            "",
+          ].join("\n"),
+        );
+        write(
+          path.join(project, "tsconfig.json"),
+          JSON.stringify({
+            compilerOptions: {
+              module: "commonjs",
+              plugins: [{ transform: `./plugin.${format}` }],
+            },
+          }),
+        );
+        const fakeGo = path.join(root, "fake-go");
+        fs.mkdirSync(fakeGo, { recursive: true });
+
+        const loaded = loadProjectPlugins({
+          binary: "",
+          cacheDir: path.join(root, "cache"),
+          cwd: project,
+          env: {
+            ...process.env,
+            TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+            TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+          },
+          tsconfig: path.join(project, "tsconfig.json"),
+        });
+
+        const proven = (file: string): boolean =>
+          loaded.hostInputs.some(
+            (input) =>
+              physical(input) === physical(file) &&
+              Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input),
+          );
+        assert.ok(
+          proven(path.join(project, "dep.cjs")),
+          `${format}: the mapped file is a proven input`,
+        );
+        assert.ok(
+          proven(path.join(project, "package.json")),
+          `${format}: the manifest that maps it is a proven input`,
+        );
+        const searched = loaded.hostInputs.filter((input) =>
+          input.includes(path.join("node_modules", "#dep")),
+        );
+        assert.deepEqual(searched, [], `${format}: no search root candidate`);
+      } catch (error) {
+        failures.push(new Error(`${format}: package proof`, { cause: error }));
+      }
     }
+    if (failures.length)
+      throw new AggregateError(failures, "Package proof profiles failed");
   };
 
 /** The path's physical spelling, or its own for a path that does not exist. */
 function physical(file: string): string {
   try {
     return fs.realpathSync.native(file);
-  } catch {
-    return path.join(physical(path.dirname(file)), path.basename(file));
+  } catch (error) {
+    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+      throw error;
+    const parent = path.dirname(file);
+    if (parent === file) throw error;
+    return path.join(physical(parent), path.basename(file));
   }
 }
 
