@@ -9,7 +9,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification displayWidthFromColumn must advance tabs to the next configured stop while measuring emoji sequences whole between tabs.
 // @evidence contracts/testing.md#independent-expectations Literal tab-stop arithmetic and the independently measured complete/incomplete emoji widths establish the expected four/eight-column outcomes.
 // @evidence contracts/testing.md#distinguishing-cases Named cases cover zero and offset starts, existing text, wide text, two tabs, complete/incomplete ZWJ twins, no tab and zero-width default.
-// @evidence contracts/testing.md#execution-ownership TestDisplayWidthFromColumnExpandsTabsToStops is a public format unit selected by the lint semantic-unit Evidence claim. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
+// @evidence contracts/testing.md#execution-ownership TestDisplayWidthFromColumnExpandsTabsToStops is a top-level Go unit selected by the Go tests Evidence claim. Its nine named t.Run cases call displayWidthFromColumn directly in-process; it installs no consumer, builds no native artifact and starts no formatter child or product host.
 func TestDisplayWidthFromColumnExpandsTabsToStops(t *testing.T) {
   for _, tc := range []struct {
     name   string

@@ -8,7 +8,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification displayWidthAfterLastNewline must measure only the final tail, retaining full measurement when there is no break.
 // @evidence contracts/testing.md#independent-expectations Literal widths follow the Prettier-measured character widths (star is two columns, ASCII one) and the ECMAScript line terminators LF, CRLF, CR, U+2028 and U+2029, with the tail starting after the last one.
 // @evidence contracts/testing.md#distinguishing-cases Eight named subcases distinguish no break, nonempty LF tail, empty LF tail, and CRLF, bare CR, U+2028, U+2029 and last-of-two-breaks tails. The main width corpus owns character classification.
-// @evidence contracts/testing.md#execution-ownership TestDisplayWidthAfterLastNewlineMeasuresTail is a public format unit selected by the lint semantic-unit Evidence claim. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
+// @evidence contracts/testing.md#execution-ownership TestDisplayWidthAfterLastNewlineMeasuresTail is a top-level Go unit selected by the Go tests Evidence claim. Its eight named t.Run cases call displayWidthAfterLastNewline directly in-process; it installs no consumer, builds no native artifact and starts no formatter child or product host.
 func TestDisplayWidthAfterLastNewlineMeasuresTail(t *testing.T) {
   for _, tc := range []struct {
     name  string

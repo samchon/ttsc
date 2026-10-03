@@ -5,13 +5,10 @@ import "testing"
 // TestDisplayWidthMatchesPrettierGetStringWidth verifies displayWidth returns
 // the number Prettier 3.8.3 returns for each listed string.
 //
-// Every `want` below except the tab row (the documented deviation) was MEASURED
-// by calling `prettier.util.getStringWidth` on the exact code points beside it,
-// not derived from a specification of what Prettier ought to do. That distinction is this function's whole history: a
-// hand-written range table diverged on 11,482 code points, and the first repair
-// ported `string-width` — which the report named and Prettier does not use —
-// and regressed ordinary Devanagari, the Hangul fillers, the bidi controls, and
-// 98 astral text-presentation emoji before it was reverted.
+// These frozen expectations were recorded as Prettier 3.8.3 measurements,
+// except the documented tab deviation. The unit compares displayWidth with
+// those literals; it does not call Prettier or verify installed-version
+// agreement. The literals are not generated from the implementation under test.
 //
 // Inputs are written as `\u` escapes on purpose. Several are unassigned, several
 // are invisible, and one is a lone keycap mark; verify the code points, not the
@@ -20,9 +17,9 @@ import "testing"
 // neighbour inverts the assertion silently.
 //
 // @evidence contracts/testing.md#behavioral-verification displayWidth must reproduce the frozen Prettier width corpus, including complete versus incomplete emoji sequences, combining code points and the documented one-column tab deviation.
-// @evidence contracts/testing.md#independent-expectations Each named literal width was measured independently on Prettier 3.8.3, as the native prose records. Range shape checks run as prerequisites; they do not establish installed-version agreement.
+// @evidence contracts/testing.md#independent-expectations The independently supplied frozen literals are recorded as Prettier 3.8.3 measurements, with a documented tab deviation; this unit neither regenerates expectations from displayWidth nor remeasures Prettier. Range shape checks are prerequisites, not proof of installed-version agreement.
 // @evidence contracts/testing.md#distinguishing-cases The named matrix retains empty/control, assigned/unassigned, text versus emoji, combining marks, lone selectors, ASCII fast-path DEL and mixed lines. Each t.Run case keeps its name and assertion.
-// @evidence contracts/testing.md#execution-ownership TestDisplayWidthMatchesPrettierGetStringWidth is a public format unit selected by the lint semantic-unit Evidence claim. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
+// @evidence contracts/testing.md#execution-ownership TestDisplayWidthMatchesPrettierGetStringWidth is a top-level Go unit selected by the Go tests Evidence claim. It calls its private range-table precondition helper, then displayWidth in each named t.Run case in-process; it installs no consumer, builds no native artifact and starts no formatter child or product host.
 func TestDisplayWidthMatchesPrettierGetStringWidth(t *testing.T) {
   assertDisplayWidthOraclePreconditions(t)
   for _, tc := range []struct {
