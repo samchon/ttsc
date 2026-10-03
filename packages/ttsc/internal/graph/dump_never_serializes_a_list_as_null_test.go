@@ -9,24 +9,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDumpNeverSerializesAListAsNull verifies every list the provenance contract
-// declares reaches the wire as a list, even when the producer filled none of it.
-//
-// A nil Go slice encodes as `null`, and the TypeScript mirror types these as
-// `string[]` / `T[]`, so a nil would fail validation at the consumer rather than
-// here — and a consumer that did not validate would have to guess whether `null`
-// meant "empty" or "absent". The distinction the contract actually uses for
-// absence is `capabilities`, not the difference between `null` and `[]`, so the
-// wire must never offer the second question.
+// TestDumpNeverSerializesAListAsNull checks that the five origin list fields
+// decode as non-nil slices when the supplied origin is empty. It also rejects
+// any :null token in this fixture's compact JSON; no consumer validator runs.
 //
 //  1. Build a dump whose origin declares nothing at all.
 //  2. Assert it still parses into lists, not nulls.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies every list the provenance contract declares reaches the wire as a list, even when the producer filled none of it.
+// @evidence contracts/testing.md#behavioral-verification MarshalDump with empty DumpOrigin must emit no :null substring and decode non-nil capabilities, sources, universe configs, universe roots and diagnostics. This entry does not assert their lengths or validate other origin populations through a consumer.
 // @evidence contracts/testing.md#independent-expectations The expectation is the wire rule that lists are never null: marshaling a dump built with an empty DumpOrigin must contain no ':null' substring and must decode with non-nil provenance.capabilities, sources, universe.configs, universe.roots and diagnostics. A nil Go slice encoding as null fails both checks.
 // @evidence contracts/testing.md#distinguishing-cases Build a dump whose origin declares nothing at all; Assert it still parses into lists, not nulls.
-// @evidence contracts/testing.md#execution-ownership TestDumpNeverSerializesAListAsNull is a Go source-unit entry. Build, MarshalDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes a native project, constructs and closes its compiler Program in-process, invokes Build, MarshalDump and SourceTexts, and decodes actual JSON with the standard library. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or native product command runs.
 func TestDumpNeverSerializesAListAsNull(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), "export const value = 1;\n")
