@@ -6,10 +6,10 @@ import "testing"
 // `for (var i = …)` header to `let`.
 //
 // Loop-header `var` lists reach the rule through KindVariableDeclarationList
-// (issue #409). A header binding that is unique file-wide, referenced only
-// inside the loop's own span, and never captured by a closure behaves
-// identically under `let` (the per-iteration copy carries body mutations
-// forward exactly like the shared `var`), so the keyword rewrite must fire.
+// (issue #409). This initialized header has a unique binding, direct reads
+// only inside the loop and no closure or direct eval observation. Its
+// per-iteration let binding carries the update forward, preserving this
+// fixture's iteration behavior, so the keyword rewrite must fire.
 //
 // 1. Parse a `for` statement declaring `var i` and reading it directly.
 // 2. Apply the no-var finding's text edit through the disk-backed fixer.
