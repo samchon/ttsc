@@ -31,11 +31,11 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Exercises native emit without incremental build-information publication; asserts transformed JavaScript and absent configured build-information file, distinguishing lost delivery or incorrect assembly from valid compilation.
  * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
- * @evidence contracts/testing.md#distinguishing-cases This case pins declaring tsBuildInfoFile without incremental must not create a side product; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
- * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_non_incremental_project_writes_no_build_info_on_the_plugin_lane entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/testing.md#distinguishing-cases This case pins declaring tsBuildInfoFile with incremental and composite absent must not create a side product, while the existing incremental positive owner does; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_non_incremental_project_writes_no_build_info_on_the_plugin_lane entry executes from native-plugins/corpus-misc in the generic E2E population without a platform filter in this body; it starts the actual launcher and native producer.
  * @evidence contracts/e2e.md#necessary-boundary The real connection is native emit without incremental build-information publication; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
- * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; the compiler-lane selection is a distinct supported boundary input. This body does not measure hits/build totals or prove independent per-input preparation is minimal.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build/invalidation assertion or observed warm hit is claimed. Direct synchronous result and exit cleanup do not certify arbitrary descendants or loaded-image identity.
  * @evidence contracts/e2e.md#preserved-coverage Retains transformed JavaScript and absent configured build-information file with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
 export function test_plugin_corpus_non_incremental_project_writes_no_build_info_on_the_plugin_lane() {
@@ -64,10 +64,16 @@ export function test_plugin_corpus_non_incremental_project_writes_no_build_info_
       },
     );
 
+    const config = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"));
+    assert.equal(Object.hasOwn(config.compilerOptions, "incremental"), false);
+    assert.equal(Object.hasOwn(config.compilerOptions, "composite"), false);
+    assert.equal(fs.existsSync(path.join(root, ".cache", "app.tsbuildinfo")), false);
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr || result.stdout);
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
