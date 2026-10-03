@@ -17,8 +17,8 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification no-var reports the compound i/limit header without rewriting its shared var token.
 // @evidence contracts/testing.md#independent-expectations Original source and zero edits preserve both declarators; one literal declaration-list span requires exactly one diagnostic.
-// @evidence contracts/testing.md#distinguishing-cases Two declarators differ from a single safe for-header binding.
-// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForHeaderMultiDeclarator runs assertNoFixSnapshot and assertRuleFindingRanges on its i/limit header source.
+// @evidence contracts/testing.md#distinguishing-cases Two declarators differ from a single safe for-header binding; a function-local counterpart prevents script-global exposure from masking the compound-header guard.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForHeaderMultiDeclarator runs assertNoFixSnapshot and assertRuleFindingRanges on both the original and function-local i/limit headers.
 func TestFixNoVarSkipsForHeaderMultiDeclarator(t *testing.T) {
   assertNoFixSnapshot(
     t,
@@ -26,4 +26,7 @@ func TestFixNoVarSkipsForHeaderMultiDeclarator(t *testing.T) {
     "for (var i = 0, limit = 3; i < limit; i += 1) {\n  JSON.stringify(i);\n}\n",
   )
   assertRuleFindingRanges(t, "no-var", "for (var i = 0, limit = 3; i < limit; i += 1) {\n  JSON.stringify(i);\n}\n", "var i = 0, limit = 3")
+  functionSource := "function noVarFixture(){\nfor (var i = 0, limit = 3; i < limit; i += 1) {\n  JSON.stringify(i);\n}\n}\n"
+  assertNoFixSnapshot(t, "no-var", functionSource)
+  assertRuleFindingRanges(t, "no-var", functionSource, "var i = 0, limit = 3")
 }
