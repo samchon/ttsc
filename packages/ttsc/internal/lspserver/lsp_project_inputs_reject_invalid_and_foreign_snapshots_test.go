@@ -6,8 +6,8 @@ import (
 )
 
 // TestLSPProjectInputsRejectInvalidAndForeignSnapshots verifies the editor
-// consumer enforces the same absolute-local, selected-root contract as the CLI
-// watch consumer.
+// normalizer rejects the authored invalid snapshots and the explicit Windows
+// path predicate distinguishes its supplied syntax rows. No CLI watcher runs.
 //
 // The LSP manifest is an independent consumer of the sidecar protocol. It must
 // reject malformed paths before a broad editor watcher can be redirected to an
@@ -19,10 +19,10 @@ import (
 //     retaining fixed drive and UNC paths.
 //  4. Reject incomplete and malformed launcher-owned reload fingerprints.
 //
-// @evidence contracts/testing.md#behavioral-verification A valid snapshot under the selected root normalizes while relative paths, remote URLs, a different root, Windows device namespaces and malformed UNC volumes are rejected, fixed drive and UNC paths are retained and incomplete or malformed reload fingerprints are rejected.
-// @evidence contracts/testing.md#independent-expectations The expected accepts and rejects are literal inputs and errors.
+// @evidence contracts/testing.md#behavioral-verification A selected-root snapshot retains one entry in each of four lists; supplied valid reload digests are accepted and preserved, while six invalid snapshots and three malformed fingerprint cases return errors. Separate explicit-Windows predicate calls distinguish twelve path-syntax rows, and one explicit-Linux absolute input is accepted. No actual watcher or cross-platform filesystem is exercised.
+// @evidence contracts/testing.md#independent-expectations Counts, a literal 64-hex digest and boolean syntax outcomes are authored independently. Rejection assertions require an error without asserting its message; accepted list cardinalities do not certify every normalized path value or capture provenance of a supplied digest.
 // @evidence contracts/testing.md#distinguishing-cases Valid and each invalid category are separate rows.
-// @evidence contracts/testing.md#execution-ownership TestLSPProjectInputsRejectInvalidAndForeignSnapshots is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls normalizeLSPProjectInputSnapshot and isAbsoluteLocalLSPProjectInputPath. An owned temporary root permits real native ancestor/path and missing-reload observations; explicit windows/linux strings select predicate syntax only. It starts no child or product host, installs no consumer and substitutes no operation.
 func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   root := t.TempDir()
   valid := LSPProjectInputSnapshot{
@@ -41,6 +41,24 @@ func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
     len(normalized.ReloadFiles) != 1 ||
     len(normalized.ReloadDirectories) != 1 {
     t.Fatalf("normalized snapshot = %#v", normalized)
+  }
+  const suppliedDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  fingerprinted := valid
+  fingerprinted.ReloadFileDigests = map[string]string{valid.ReloadFiles[0]: suppliedDigest}
+  fingerprinted.ReloadDirectoryDigests = map[string]string{valid.ReloadDirectories[0]: suppliedDigest}
+  accepted, err := normalizeLSPProjectInputSnapshot(fingerprinted, root)
+  if err != nil {
+    t.Fatalf("valid supplied fingerprints: %v", err)
+  }
+  if len(accepted.ReloadFileDigests) != 1 || len(accepted.ReloadDirectoryDigests) != 1 {
+    t.Fatalf("supplied fingerprint counts changed: %#v", accepted)
+  }
+  for _, digests := range []map[string]string{accepted.ReloadFileDigests, accepted.ReloadDirectoryDigests} {
+    for _, digest := range digests {
+      if digest != suppliedDigest {
+        t.Fatalf("supplied fingerprint changed: %q", digest)
+      }
+    }
   }
 
   cases := []LSPProjectInputSnapshot{
