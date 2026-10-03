@@ -6,8 +6,8 @@ import "testing"
 //
 // A `null` in type position surfaces upstream as `TSNullKeyword`, not
 // `TSLiteralType`, so the upstream rule never reports `null as null`. The
-// tsgo parser wraps the same annotation in a LiteralType node, which the
-// rule previously matched by source text; this pins the corrected boundary.
+// tsgo parser wraps the same annotation in a LiteralType node. The native
+// matcher must exclude its null token despite equal source spelling.
 //
 // 1. Parse a source file with `null as null`.
 // 2. Run preferAsConst with the engine.

@@ -7,8 +7,8 @@ import "testing"
 // Upstream compares ESTree `Literal` nodes only; a no-substitution template
 // is a `TemplateLiteral` on both sides, so a template literal asserted to
 // its identically spelled template literal type is a valid upstream
-// fixture. The rule previously matched the shared source text and rewrote
-// the template type to `const`; this pins the corrected boundary.
+// fixture. Equal source text alone does not establish the ordinary literal
+// node shape required by the native matcher.
 //
 //  1. Parse a source file with a template literal asserted to a template
 //     literal type of identical spelling.
