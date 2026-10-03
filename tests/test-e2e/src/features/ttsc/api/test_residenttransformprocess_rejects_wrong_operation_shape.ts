@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
+import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
 
 /**
  * A stub serve host that sends the next authored JSON object per request line.
@@ -53,35 +54,48 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#independent-expectations The serve wire contract requires found boolean and found text for transform, and updated boolean for update; authored mismatched objects independently violate those fields.
  * @evidence contracts/testing.md#distinguishing-cases Three well-formed-object negatives isolate operation shape from malformed JSON; valid found:false and updated:false are covered separately.
  * @evidence contracts/testing.md#execution-ownership The named API feature runs actual Node peer processes and ResidentTransformProcess request/line settlement through TestExecutor.
- * @evidence contracts/e2e.md#necessary-boundary Operation-kind validation must reach request promises through actual pipe transport. These shape semantics could transfer to an extracted pure validator, but the present client owns no such public seam.
- * @evidence contracts/e2e.md#shared-execution One queued-reply peer serves all three invalid shapes and a legal negative reply, reducing three startups to one while proving recovery.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The ordered reply fixture belongs to one private client disposed in finally; each settled FIFO slot must leave the next request healthy.
+ * @evidence contracts/e2e.md#necessary-boundary Operation-specific rejection and later legal reply settle through actual pipes on the owning client. No new validator API is introduced merely to reclassify these assertions; this fixture is not a real Go transform producer.
+ * @evidence contracts/e2e.md#shared-execution One ordered peer supplies three invalid objects and the legal negative reply. This is one actual fixture lifetime, not a measured historical startup reduction or total native/Program count.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One client owns the ordered reply sequence; requests settle before the next is sent. Actual child close is subscribed before requests and awaited after disposal in finally, with primary and cleanup failures retained. The private child read is cleanup-only; timeout remains failure and close is not arbitrary descendant shutdown.
  * @evidence contracts/e2e.md#preserved-coverage Every original operation-specific rejection remains. The fixture peers do not exercise a real Go host, and a legal found:false reply after all three errors additionally proves the session remains usable.
  */
 export const test_residenttransformprocess_rejects_wrong_operation_shape =
   async () => {
-    const proc = spawnStub(jsonReplyStub([
+    let proc: ResidentTransformProcess | undefined;
+    let release: (() => Promise<void>) | undefined;
+    const failures: unknown[] = [];
+    try {
+      proc = spawnStub(jsonReplyStub([
       { updated: true },
       { found: true },
       { found: true, typescript: "x" },
       { found: false },
-    ]));
-    try {
+      ]));
+      release = observeResidentTransformClose(proc);
+      const client = proc;
       await assert.rejects(
-        () => proc.request({ file: "a.ts" }, "transform"),
+        () => client.request({ file: "a.ts" }, "transform"),
         /invalid transform reply/,
       );
       await assert.rejects(
-        () => proc.request({ file: "a.ts" }, "transform"),
+        () => client.request({ file: "a.ts" }, "transform"),
         /invalid transform reply/,
       );
       await assert.rejects(
-        () => proc.request({ content: "x", update: "a.ts" }, "update"),
+        () => client.request({ content: "x", update: "a.ts" }, "update"),
         /invalid update reply/,
       );
       const healthy = await proc.request({ file: "missing.ts" }, "transform");
       assert.equal(healthy.found, false);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      proc.dispose();
+      try {
+        if (release) await release();
+        else proc?.dispose();
+      } catch (error) { failures.push(error); }
     }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Operation shape and fixture cleanup failed");
   };
