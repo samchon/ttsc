@@ -15,8 +15,8 @@ import (
 // editor-facing sidecar. The direct ruleHints seam isolates both policies from
 // project evaluation so each failure mode is intentional.
 //
-//  1. Publish one valid hint alongside every degenerate shape.
-//  2. Assert only the valid item remains in its original order.
+//  1. Publish one valid hint alongside three authored malformed entries.
+//  2. Assert only the valid item remains unchanged.
 //  3. Panic from Hints and assert recovery returns no items and logs the rule.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual ruleHints retains one complete valid JSDoc hint among empty/missing-scope/missing-after inputs; a separate actual provider panic yields no items, no stdout and a contextual stderr diagnostic without escaping.
