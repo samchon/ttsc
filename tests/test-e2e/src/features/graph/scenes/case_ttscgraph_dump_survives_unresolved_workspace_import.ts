@@ -31,7 +31,7 @@ import { assert } from "../../../internal/graph/internal/ttsgraph";
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_dump_survives_unresolved_workspace_import runs the actual native dump producer on its fixture project; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual compiler resolution failure must not destroy usable graph output or invent workspace edges; a synthetic missing node cannot establish native failure tolerance.
  * @evidence contracts/e2e.md#shared-execution The existing identity workspace supplies the physical sibling and original link; all seven original unlinked fixture files temporarily replace its corresponding inputs while a renamed link produces the unlinked state. Changed compiler membership still requires a separate real dump, but no second workspace is allocated.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The owned link is renamed rather than removed; all replaced input bytes or original absence restore finally before its rename back. The separate synchronous CLI dump owns the unlinked producer facts and joins before restoration. The subsequent same-MCP lookup requires the restored linked declaration for later consumers; no intermediate unlinked MCP generation or refresh count is claimed. The experiment joins that MCP after all cases.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The actual client must permit input mutation before the owned link is parked and each original fixture file is replaced. The link is renamed rather than removed; all replaced input bytes or original absence restore finally before its rename back, subject to the existing mutation authority and reuse withdrawal on restore failure. The separate synchronous CLI dump returns before restoration; that return does not certify arbitrary descendant shutdown. The subsequent same-MCP lookup requires the restored linked declaration for later consumers; no intermediate unlinked MCP generation or refresh count is claimed. The experiment joins that MCP after all cases.
  * @evidence contracts/e2e.md#preserved-coverage App presence, shared absence, no alias leakage and successful dump remain. This is not a claim of an installed Yarn PnP connection.
  */
 export const case_ttscgraph_dump_survives_unresolved_workspace_import =
@@ -56,11 +56,14 @@ export const case_ttscgraph_dump_survives_unresolved_workspace_import =
         false,
         "the owned link parking location must start absent",
       );
+      client.assertInputMutationAllowed();
       fs.renameSync(link, parkedLink);
       const primaryFailures: unknown[] = [];
       try {
-        for (const { file, relative } of originalInputs)
+        for (const { file, relative } of originalInputs) {
+          client.assertInputMutationAllowed();
           fs.writeFileSync(file, originals[relative]!);
+        }
 
         // The original link is parked outside node_modules while this dump runs,
         // so `@scope/shared` cannot resolve through the checker: this is the
