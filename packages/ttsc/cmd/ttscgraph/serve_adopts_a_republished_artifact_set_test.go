@@ -25,7 +25,7 @@ import (
 // 4. Explicitly withdraw artifacts and require their nodes and claim removed.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual NDJSON requests retain an identical artifact set, replace it with rebuild publication, fail a missing named file without graph state and withdraw it on an explicit empty path.
-// @evidence contracts/testing.md#independent-expectations Literal pricing/discounts addresses and headings define the old and new nodes. Unedited compiler sources make unchanged and rebuild the expected modes; a missing file is an error, and explicit withdrawal removes both the node and artifactNodes claim.
+// @evidence contracts/testing.md#independent-expectations Literal pricing/discounts addresses define node membership; authored headings are fixture data, not separately asserted output. Unedited compiler sources and identical or replaced artifact bytes define unchanged and rebuild modes. A missing file requires an error without a dump; explicit withdrawal requires a real rebuild dump lacking the old node and the artifactNodes claim. These outcomes do not measure read/hash cost or compiler construction counts.
 // @evidence contracts/testing.md#distinguishing-cases Initial, repeated, republished, missing and empty-path requests contrast artifact identity, failure and withdrawal; absence of the artifacts field is owned by the startup-set case.
 // @evidence contracts/testing.md#execution-ownership TestServeAdoptsARepublishedArtifactSet is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
@@ -72,10 +72,8 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
     t.Fatal("the initial dump does not carry the artifact its request named")
   }
 
-  // Naming the same file again must cost nothing. The client states the path on
-  // every request because only it can see the inputs behind the set; a server
-  // that treated the statement itself as news would reproject the whole graph
-  // on every single call.
+  // Identical artifact bytes must not cause another projection. Adoption still
+  // reads and hashes the named file; this mode assertion does not measure cost.
   if repeated.Mode != serveModeUnchanged || repeated.Changed || repeated.Dump != nil {
     t.Fatalf("restating the same artifact file was treated as a change: %#v", repeated)
   }
@@ -112,7 +110,7 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   // project reaches by removing its plugin. Without it the only sayable things
   // are "here is a set" and "no opinion", and the removal would go on being
   // answered with the artifacts of a plugin that is gone.
-  if withdrawn.Mode != serveModeRebuild || !withdrawn.Changed {
+  if withdrawn.Mode != serveModeRebuild || !withdrawn.Changed || withdrawn.Dump == nil {
     t.Fatalf("withdrawing the artifacts answered %#v", withdrawn)
   }
   if dumpCarriesArtifact(withdrawn.Dump, "docs/sale.md#discounts") {
