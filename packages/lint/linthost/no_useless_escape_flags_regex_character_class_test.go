@@ -8,12 +8,12 @@ import (
 
 // TestNoUselessEscapeFlagsRegexCharacterClass verifies no-useless-escape inside `[...]`.
 //
-// Pins the issue-120 regression: escapes that are useless inside a regex
-// character class (e.g. `[\.]`, `[\$]`, `[\(]`) must be flagged, matching
-// ESLint core. The class context only widens the meaningful escape set for
-// `\\`, `]`, `-`, the backspace `\b`, and the standard shorthand classes —
-// every other regex meta-char loses its special meaning once it is inside a
-// `[...]`, so the backslash is noise.
+// The flagless authored class literals escape dot, dollar and an opening
+// parenthesis, which are ordinary members in these classes. The paired
+// outside dot, interior dash, closing bracket and word-class escapes
+// must remain meaningful. Character-class position and Unicode Sets mode
+// have additional escape rules; this finite fixture does not establish
+// an exhaustive allowlist for those cases.
 //
 // 1. Parse regex literals with redundant char-class escapes alongside legitimate ones.
 // 2. Enable only `no-useless-escape`.
