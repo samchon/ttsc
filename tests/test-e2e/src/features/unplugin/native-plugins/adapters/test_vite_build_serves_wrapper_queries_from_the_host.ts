@@ -30,8 +30,11 @@ const viteBuild: (config: object) => Promise<unknown> =
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real build keeps original goUpper text in raw, emits a main.ts asset for url, and transforms plain import to PLUGIN. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_build_serves_wrapper_queries_from_the_host(): Promise<void> {
-  const root = fs.realpathSync.native(TestUnpluginProject.createProject());
+export async function test_vite_build_serves_wrapper_queries_from_the_host(
+  preparedRoot?: string,
+  onBuildReturned?: () => void,
+): Promise<void> {
+  const root = fs.realpathSync.native(preparedRoot ?? TestUnpluginProject.createProject());
   const entry = path.join(root, "src", "entry.ts");
   fs.writeFileSync(
     entry,
@@ -56,6 +59,7 @@ export async function test_vite_build_serves_wrapper_queries_from_the_host(): Pr
     plugins: [unpluginVite()],
     root,
   });
+  onBuildReturned?.();
   const chunks = Array.isArray(output)
     ? output.flatMap((result: any) => result.output)
     : output.output;
