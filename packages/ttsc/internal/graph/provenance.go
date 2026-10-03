@@ -391,38 +391,42 @@ func NewProvenance(
   }
 }
 
-// NewDiagnostics projects the resident program's compiler diagnostics while
-// retaining physical file identities. NewDump maps and re-sorts them with the
+// NewDiagnostics projects the resident Program's driver diagnostic result while
+// retaining reported File spelling. NewDump maps and re-sorts it with the
 // rest of the snapshot so every path uses one vocabulary.
 //
-// This is one Program.Diagnostics() call over the already-warm checker rather
-// than a second compile, but it is not free: it forces the semantic check of
-// every file the graph would otherwise only have bound. Callers that do not
-// publish diagnostics should not call it.
+// This makes one Program.Diagnostics() call, without constructing a second
+// Program. Native syntax/options/global stages can short-circuit semantic work,
+// while queries that reach semantic checking may perform previously uncomputed
+// work. Nil-Program and latched linked-hook errors remain in the result too;
+// this adapter does not execute additional lint or transform producers.
 //
-// @evidence contracts/common.md#principled-implementation Resident Program diagnostics are projected without changing compiler codes, authored locations or messages.
+// @evidence contracts/common.md#principled-implementation Driver diagnostic fields, including fileless failures, are projected without changing supplied codes, authored locations or messages; this is not compiler-only origin or physical identity authentication.
 // @evidence contracts/common.md#clear-and-simple-design One shared projection supplies the complete generation view while Program owns semantic diagnostic acquisition.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic publication forces actual compiler findings rather than inferring success from graph binding or expected test outcomes.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical paths, warm compiler state and the cost of forcing complete semantic findings under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Physical diagnostic paths remain intact until the dump context normalizes all generation fields together.
-// @evidence contracts/performance.md#efficient-algorithms One acquisition and projection sorts D findings in O(D log D); semantic-check cost belongs to Program and is explicitly incurred only when diagnostics are requested.
-// @evidence contracts/performance.md#reuse-equivalent-work The warm Program provides its generation's reusable semantic findings rather than opening another compile.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The output slice transfers to the caller and no new Program owner or native handle is retained.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Publication asks the current driver for findings instead of inferring success from graph binding, dropping latched failures or injecting expected outcomes.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish reported paths, staged acquisition, possible first-query work and driver failures under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Reported File strings pass unchanged until the shared dump mapper; this constructor neither resolves native aliases nor authenticates physical identity.
+// @evidence contracts/performance.md#efficient-algorithms Each call includes native staged acquisition, driver filtering/conversion/sorting and a second record projection/sort with filename-byte comparisons. Finding count alone does not bound checker, message or source-location work.
+// @evidence contracts/performance.md#reuse-equivalent-work Program owns native diagnostic reuse; this adapter constructs no second Program but caches no converted result and does not guarantee every query is warm.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated driver findings and projected arrays coexist without a diagnostic cap. Returned scalar/string records belong to the caller; temporary raw AST references remain with acquisition, and no separate Program owner, checker lease or result cache is retained.
 func NewDiagnostics(prog *driver.Program) []Diagnostic {
   return newDiagnostics(prog.Diagnostics())
 }
 
-// NewDiagnosticsForFiles projects compiler findings for one invalidated source
-// closure without forcing semantic diagnostics for every unchanged file.
+// NewDiagnosticsForFiles projects the driver's selected-file query result.
+// A nil selection requests the whole Program; an empty non-nil selection makes
+// no compiler query but still preserves latched driver failure. Native stages
+// may include global findings or inspect dependent types outside the selection;
+// selection does not certify a checker-work boundary.
 //
-// @evidence contracts/common.md#principled-implementation Selected resident sources produce the invalidated closure's compiler findings while preserving authored coordinates and complete selected-file semantics.
+// @evidence contracts/common.md#principled-implementation The actual DiagnosticsForFiles result preserves nil-versus-empty selection, staged global findings, driver failures and authored coordinates instead of certifying selected-only origin.
 // @evidence contracts/common.md#clear-and-simple-design The partial adapter shares newDiagnostics with the complete view and delegates scoped semantic acquisition to Program.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The invalidation owner supplies scope; no diagnostic quota or fixture-specific suppression removes selected findings.
-// @evidence contracts/common.md#meaningful-documentation Native prose states scoped diagnostics without forcing unchanged files, with documentation-skill tag separation.
-// @evidence contracts/portability.md#os-neutral-implementation Captured physical paths are preserved for the dump's shared native path projection.
-// @evidence contracts/performance.md#efficient-algorithms Only the selected closure incurs semantic acquisition; its D findings are projected linearly and sorted in O(D log D).
-// @evidence contracts/performance.md#reuse-equivalent-work The Program's warm checker retains generation-valid semantic work; unchanged files are not reacquired through this adapter.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the resulting slice; no compiler lifetime or retained cache is acquired.
+// @evidence contracts/common.md#meaningful-documentation Native prose states selection semantics, global/dependency work and the empty-selection failure lane, with documentation-skill tag separation.
+// @evidence contracts/portability.md#os-neutral-implementation Driver-reported native File strings are preserved for the shared dump mapper without new alias resolution or physical identity certification.
+// @evidence contracts/performance.md#efficient-algorithms Native per-file staged queries may repeat global/config work or inspect dependent types; driver conversion/sorting precedes this record copy and text-key sort. Costs include selected population, checker work, accumulated findings and message/path bytes.
+// @evidence contracts/performance.md#reuse-equivalent-work Program owns any reusable native checker state and the caller owns invalidated selection; this adapter has no converted-result cache or independent proof that unselected dependencies perform no work.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated findings and projected arrays scale without a cap; returned scalar/string records transfer to the caller and acquire no separate Program owner or checker lease. Temporary acquisition references and caller-supplied AST selection remain with their existing owners.
 func NewDiagnosticsForFiles(prog *driver.Program, files []*shimast.SourceFile) []Diagnostic {
   return newDiagnostics(prog.DiagnosticsForFiles(files))
 }

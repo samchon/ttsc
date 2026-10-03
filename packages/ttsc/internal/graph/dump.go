@@ -343,15 +343,18 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 // dump path/evidence codec. The caller may pass a partial graph produced by
 // BuildFiles; no project-wide provenance, diagnostic walk or full Dump is
 // constructed.
+// The graph must be non-nil and supplied facts/text remain stable during the
+// call. Returned literal payloads may share the graph's original values; this
+// projection does not freeze native identity or deep-copy every fact.
 //
 // @evidence contracts/common.md#principled-implementation A partial graph uses the same identity and evidence codec as a full graph without pretending it carries project-wide origin facts.
 // @evidence contracts/common.md#clear-and-simple-design One shared projection function supplies the actual shard payload rather than constructing and trimming a full Dump.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No response cap or guessed diagnostic omission changes shard fact identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes partial-build input and absent project-wide work, with documentation-skill tag spacing.
-// @evidence contracts/portability.md#os-neutral-implementation Complete and partial graph builds retain their Program's case policy for shard coordinates, while the shared mapper rejects cross-root and identity-collision failures.
-// @evidence contracts/performance.md#efficient-algorithms Processing follows this shard's node/edge/fact counts, sorting its output and indexing only source files needed by its spans.
+// @evidence contracts/portability.md#os-neutral-implementation Shard coordinates retain the graph's reported case policy; shared best-effort native alias mapping may retain lexical spelling and rejects detected cross-root or identity-collision failures without certifying observation-time physical identity.
+// @evidence contracts/performance.md#efficient-algorithms Shared projection includes node/edge text-key sorting, member/tag/decorator payloads, path-byte hashing and native ancestor resolution on cache misses, source line construction and repeated trivia/signature scans for emitted spans; it omits project-wide provenance and diagnostic work.
 // @evidence contracts/performance.md#reuse-equivalent-work The shard-local context shares path and line-index results among all emitted facts; unchanged shard reuse belongs to its resident caller.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Projection scratch dies after return; the caller owns the completed replacement payload and its retention.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Uncapped mapping, grouping, line-index and output arrays scale with the supplied graph. Local caches become unreachable after return; the caller owns returned arrays and shared original literal payload lifetimes and keeps those borrowed values stable.
 func NewDumpFacts(g *Graph, project string, ignored map[string]bool, sources map[string]string) (DumpFacts, error) {
   facts, _, err := newDumpFacts(g, project, ignored, sources)
   return facts, err
