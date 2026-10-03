@@ -16,7 +16,7 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * nearer package appearing later left the cached descriptor proven for a state
  * that no longer held (samchon/ttsc#1498).
  *
- * 1. For the CommonJS evaluator and the ttsx evaluator, write a workspace whose
+ * 1. For the cjs and ts descriptor requests, write a workspace whose
  *    app package maps `#dep` to a package hoisted to the workspace root, once
  *    by name and once as a scoped package's subpath, and once to a package
  *    installed in the app itself.
@@ -26,17 +26,18 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  *    lies past the root the package resolved in; then create the nearer package
  *    and assert a recorded input no longer matches.
  *
- * @evidence contracts/testing.md#behavioral-verification Bare and scoped-subpath #import targets record nearer candidates and selected files, omit farther roots, and detect later nearer-package creation.
+ * @evidence contracts/testing.md#behavioral-verification Six cjs/ts layout requests retain selected index/subpath proof, farther empty and four hoisted nearer-manifest null proofs followed by actual creation/existence. No second load or observed invalidation/reselection follows that creation.
  * @evidence contracts/testing.md#independent-expectations Authored imports mappings and package locations establish which ordinary Node candidates can supersede the selected module.
- * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a workspace whose app package maps `#dep` to a package hoisted to the workspace root, once by name and once as a scoped package's subpath, and once to a package installed in the app itself. 2. Load the app's plugins. 3. Assert the candidates of the app's own `node_modules` are proven inputs for a hoisted package, the selected module is a proven input, and no candidate lies past the root the package resolved in; then create the nearer package and assert a recorded input no longer matches.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the cjs and ts descriptor requests, write a workspace whose app package maps `#dep` to a package hoisted to the workspace root, once by name and once as a scoped package's subpath, and once to a package installed in the app itself. 2. Load the app's plugins. 3. Assert the candidates of the app's own `node_modules` are proven inputs for a hoisted package, the selected module is a proven input, and no candidate lies past the root the package resolved in; then create the nearer package and assert a recorded input no longer matches.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner invokes actual isolated descriptor resolution/proof transport through workspace loadProjectPlugins. Requested typed format is not observed conditional fallback; scripted Go publication is not real compiler or packed-consumer semantics.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Bare and scoped-subpath #import targets record nearer candidates and selected files, omit farther roots, and detect later nearer-package creation. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Each format/topology has its own fresh root/cache and one load with the common scripted Go inventory. Independent row failures are collected; request count is not process/Program count or a proven cache hit. No post-creation second load is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked roots are retained before preparation. Existing physical expectations use only ENOENT/ENOTDIR ancestor fallback, preserving other errors. All authored edits are row-owned; returned synchronous results do not establish arbitrary descendant join before later reset.
+ * @evidence contracts/e2e.md#preserved-coverage Six cjs/ts layout requests retain selected index/subpath proof, farther empty and four hoisted nearer-manifest null proofs followed by actual creation/existence. No second load or observed invalidation/reselection follows that creation. Original input bytes/assertions remain; actual runtime/manifest/survival unverified and donor retained.
  */
 export const test_loadprojectplugins_records_the_package_a_package_import_maps_to =
   () => {
+    const failures: unknown[] = [];
     for (const format of ["cjs", "ts"] as const)
       for (const layout of [
         { hoisted: true, packageName: "selection", target: "selection" },
@@ -48,125 +49,132 @@ export const test_loadprojectplugins_records_the_package_a_package_import_maps_t
         { hoisted: false, packageName: "selection", target: "selection" },
       ]) {
         const label = `${format} ${layout.target}${layout.hoisted ? " hoisted" : ""}`;
-        const root = TestProject.tmpdir(`ttsc-descriptor-mapped-${format}-`);
-        const app = path.join(root, "packages", "app");
-        const installRoot = layout.hoisted ? root : app;
-        const installed = path.join(
-          installRoot,
-          "node_modules",
-          ...layout.packageName.split("/"),
-        );
-        const nearer = path.join(
-          app,
-          "node_modules",
-          ...layout.packageName.split("/"),
-        );
-        writeGoModule(path.join(app, "go-plugin"));
-        write(path.join(root, "package.json"), '{ "private": true }\n');
-        write(
-          path.join(app, "package.json"),
-          JSON.stringify({ private: true, imports: { "#dep": layout.target } }),
-        );
-        fs.mkdirSync(path.join(app, "node_modules"), { recursive: true });
-        write(
-          path.join(installed, "package.json"),
-          JSON.stringify({ main: "index.js", name: layout.packageName }),
-        );
-        write(
-          path.join(installed, "index.js"),
-          'module.exports = "go-plugin";\n',
-        );
-        write(
-          path.join(installed, "sub.js"),
-          'module.exports = "go-plugin";\n',
-        );
-        write(
-          path.join(app, `plugin.${format}`),
-          [
-            format === "ts"
-              ? 'import path = require("node:path");'
-              : 'const path = require("node:path");',
-            'const source = require("#dep");',
-            format === "ts"
-              ? "export = (context: { dirname: string }) => ({ name: 'mapped', source: path.join(context.dirname, source) });"
-              : "module.exports = (context) => ({ name: 'mapped', source: path.join(context.dirname, source) });",
-            "",
-          ].join("\n"),
-        );
-        write(
-          path.join(app, "tsconfig.json"),
-          JSON.stringify({
-            compilerOptions: {
-              module: "commonjs",
-              plugins: [{ transform: `./plugin.${format}` }],
-            },
-          }),
-        );
-        const fakeGo = path.join(root, "fake-go");
-        fs.mkdirSync(fakeGo, { recursive: true });
-
-        const loaded = loadProjectPlugins({
-          binary: "",
-          cacheDir: path.join(root, "cache"),
-          cwd: app,
-          env: {
-            ...process.env,
-            TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
-            TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
-          },
-          tsconfig: path.join(app, "tsconfig.json"),
-        });
-
-        const recorded = (file: string): string | undefined =>
-          loaded.hostInputs.find((input) => physical(input) === physical(file));
-        const proven = (file: string): boolean => {
-          const input = recorded(file);
-          return (
-            input !== undefined &&
-            Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input)
+        try {
+          const root = TestProject.tmpdir(`ttsc-descriptor-mapped-${format}-`);
+          TestProject.retainTemporaryDirectory(root, "Mapped package descendants are not joined");
+          const app = path.join(root, "packages", "app");
+          const installRoot = layout.hoisted ? root : app;
+          const installed = path.join(
+            installRoot,
+            "node_modules",
+            ...layout.packageName.split("/"),
           );
-        };
-        const selectedModule = path.join(
-          installed,
-          layout.target.endsWith("sub.js") ? "sub.js" : "index.js",
-        );
-        assert.ok(
-          proven(selectedModule),
-          `${label}: the selected module is a proven input`,
-        );
-        const outside = loaded.hostInputs.filter(
-          (input) =>
-            input.includes(
-              path.join("node_modules", ...layout.packageName.split("/")),
-            ) && !isBelow(input, installRoot),
-        );
-        assert.deepEqual(
-          outside,
-          [],
-          `${label}: no candidate past the root the package resolved in`,
-        );
-        if (!layout.hoisted) continue;
+          const nearer = path.join(
+            app,
+            "node_modules",
+            ...layout.packageName.split("/"),
+          );
+          writeGoModule(path.join(app, "go-plugin"));
+          write(path.join(root, "package.json"), '{ "private": true }\n');
+          write(
+            path.join(app, "package.json"),
+            JSON.stringify({ private: true, imports: { "#dep": layout.target } }),
+          );
+          fs.mkdirSync(path.join(app, "node_modules"), { recursive: true });
+          write(
+            path.join(installed, "package.json"),
+            JSON.stringify({ main: "index.js", name: layout.packageName }),
+          );
+          write(
+            path.join(installed, "index.js"),
+            'module.exports = "go-plugin";\n',
+          );
+          write(
+            path.join(installed, "sub.js"),
+            'module.exports = "go-plugin";\n',
+          );
+          write(
+            path.join(app, `plugin.${format}`),
+            [
+              format === "ts"
+                ? 'import path = require("node:path");'
+                : 'const path = require("node:path");',
+              'const source = require("#dep");',
+              format === "ts"
+                ? "export = (context: { dirname: string }) => ({ name: 'mapped', source: path.join(context.dirname, source) });"
+                : "module.exports = (context) => ({ name: 'mapped', source: path.join(context.dirname, source) });",
+              "",
+            ].join("\n"),
+          );
+          write(
+            path.join(app, "tsconfig.json"),
+            JSON.stringify({
+              compilerOptions: {
+                module: "commonjs",
+                plugins: [{ transform: `./plugin.${format}` }],
+              },
+            }),
+          );
+          const fakeGo = path.join(root, "fake-go");
+          fs.mkdirSync(fakeGo, { recursive: true });
 
-        const nearerManifest = path.join(nearer, "package.json");
-        assert.ok(
-          proven(nearerManifest),
-          `${label}: the nearer package's manifest is a proven input`,
-        );
-        assert.equal(
-          loaded.hostInputHashes[recorded(nearerManifest)!],
-          null,
-          `${label}: the nearer package is recorded missing`,
-        );
-        write(
-          nearerManifest,
-          JSON.stringify({ main: "index.js", name: layout.packageName }),
-        );
-        write(path.join(nearer, "index.js"), 'module.exports = "go-plugin";\n');
-        assert.ok(
-          fs.existsSync(recorded(nearerManifest)!),
-          `${label}: the nearer package moves a recorded input`,
-        );
+          const loaded = loadProjectPlugins({
+            binary: "",
+            cacheDir: path.join(root, "cache"),
+            cwd: app,
+            env: {
+              ...process.env,
+              TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+              TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+            },
+            tsconfig: path.join(app, "tsconfig.json"),
+          });
+
+          const recorded = (file: string): string | undefined =>
+            loaded.hostInputs.find((input) => physical(input) === physical(file));
+          const proven = (file: string): boolean => {
+            const input = recorded(file);
+            return (
+              input !== undefined &&
+              Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, input)
+            );
+          };
+          const selectedModule = path.join(
+            installed,
+            layout.target.endsWith("sub.js") ? "sub.js" : "index.js",
+          );
+          assert.ok(
+            proven(selectedModule),
+            `${label}: the selected module is a proven input`,
+          );
+          const outside = loaded.hostInputs.filter(
+            (input) =>
+              input.includes(
+                path.join("node_modules", ...layout.packageName.split("/")),
+              ) && !isBelow(input, installRoot),
+          );
+          assert.deepEqual(
+            outside,
+            [],
+            `${label}: no candidate past the root the package resolved in`,
+          );
+          if (!layout.hoisted) continue;
+
+          const nearerManifest = path.join(nearer, "package.json");
+          assert.ok(
+            proven(nearerManifest),
+            `${label}: the nearer package's manifest is a proven input`,
+          );
+          assert.equal(
+            loaded.hostInputHashes[recorded(nearerManifest)!],
+            null,
+            `${label}: the nearer package is recorded missing`,
+          );
+          write(
+            nearerManifest,
+            JSON.stringify({ main: "index.js", name: layout.packageName }),
+          );
+          write(path.join(nearer, "index.js"), 'module.exports = "go-plugin";\n');
+          assert.ok(
+            fs.existsSync(recorded(nearerManifest)!),
+            `${label}: the nearer package moves a recorded input`,
+          );
+        } catch (error) {
+          failures.push(new Error(label, { cause: error }));
+        }
       }
+    if (failures.length)
+      throw new AggregateError(failures, "Package import outcome profiles failed");
   };
 
 /** Whether a path lies below a directory, compared physically. */
@@ -184,8 +192,12 @@ function isBelow(file: string, directory: string): boolean {
 function physical(file: string): string {
   try {
     return fs.realpathSync.native(file);
-  } catch {
-    return path.join(physical(path.dirname(file)), path.basename(file));
+  } catch (error) {
+    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+      throw error;
+    const parent = path.dirname(file);
+    if (parent === file) throw error;
+    return path.join(physical(parent), path.basename(file));
   }
 }
 
