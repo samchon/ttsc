@@ -148,7 +148,8 @@ type Kind = innerast.Kind
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type KeywordExpressionSyntaxKind = innerast.KeywordExpressionSyntaxKind
 
-// KeywordTypeSyntaxKind names upstream primitive type keyword kinds.
+// KeywordTypeSyntaxKind names upstream type keyword kinds, including object,
+// any, unknown and intrinsic keywords alongside primitive type keywords.
 // This Kind alias does not itself reject other syntax kinds.
 //
 // @evidence contracts/common.md#principled-implementation Aliasing preserves compiler kind identity while documenting the intended type-keyword role.
