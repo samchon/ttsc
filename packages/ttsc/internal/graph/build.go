@@ -117,16 +117,16 @@ func (g *Graph) releaseBuildState() {
 
 // SourceTexts maps every program source to the resident checker text.
 // Declaration and virtual bundled files are included because external graph
-// leaves still carry facts and spans the source manifest must attest to.
+// leaves still carry facts and spans. A pending linked-plugin dispatch runs first; its error is latched by Program and not returned through this text-only API.
 //
 // @evidence contracts/common.md#principled-implementation Text comes from resident SourceFiles, including dependencies needed to ground external evidence, rather than a later disk snapshot.
 // @evidence contracts/common.md#clear-and-simple-design One map exposes Program-owned text without reimplementing file loading.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No filesystem reread or consumer-specific source substitution can mix source generations.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Text extraction does not reread disk or substitute fixture sources. Pending linked hooks can run first and change the Program; returned text alone does not certify their success or a concurrently stable generation.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes resident-source completeness and ownership, separated from tags under the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms One pass over loaded files builds a path map; source strings are shared rather than recopied by content.
+// @evidence contracts/performance.md#efficient-algorithms After any first linked-hook dispatch and its callback/context costs, one loaded-file pass builds a map with filename hashing. Source text strings are shared, not recopied by content; delegated hook work is not bounded by file count.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This extraction does not coordinate repeated requests; its Program owner decides when a generation's text map can be reused.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller receives the map and owns its lifetime; this function retains no Program reference after return.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation SourceTexts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The uncapped returned map and shared source/filename strings transfer to the caller; no Program pointer is stored in the map. Program owns linked state and callbacks, whose independently retained references are not released by this extraction.
+// @evidence contracts/portability.md#os-neutral-implementation Reported compiler filenames are preserved without native alias resolution. Pending linked callbacks can perform native work; this adapter does not certify path identity or hook effects.
 func SourceTexts(prog *driver.Program) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
@@ -150,14 +150,14 @@ func SourceTexts(prog *driver.Program) map[string]string {
 // shards still receive exact evidence and signatures, without walking or
 // retaining every unchanged source body again.
 //
-// @evidence contracts/common.md#principled-implementation The selected path set filters resident compiler text, preserving the replacement generation's evidence source without touching disk.
+// @evidence contracts/common.md#principled-implementation Exact selected filename strings filter resident compiler text after pending linked-hook dispatch. No disk reread occurs in extraction, but callbacks and concurrent caller mutation are not certified by the returned map.
 // @evidence contracts/common.md#clear-and-simple-design A selection map adapts SourceTexts' ownership rule for shard producers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Caller-selected paths determine inclusion; no source content heuristic or diagnostic expectation affects the text.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains selected-source coverage and snapshot ownership with documentation-skill paragraph and tag spacing.
-// @evidence contracts/performance.md#efficient-algorithms A set costs O(selected paths) and one resident-file pass costs O(loaded files), without repeated selected-path scans.
+// @evidence contracts/performance.md#efficient-algorithms A selection set and one whole resident-file pass include filename hashing/comparison bytes and output growth, plus any first linked-hook callback/context work. Selection does not bound delegated work or avoid enumeration of unchanged sources.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This function extracts a caller-owned generation view and does not own reuse across requests.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned strings and map transfer to the caller; no native handle or retained cache is acquired.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation SourceTextsForFiles computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The uncapped selection set is call-local and output map/shared strings transfer to the caller. Program owns linked state and independently retained callbacks; output selection is not their reclamation policy.
+// @evidence contracts/portability.md#os-neutral-implementation Selection uses exact reported filename spelling, not physical alias or per-directory case equivalence. Pending linked callbacks retain their own native boundary responsibilities.
 func SourceTextsForFiles(prog *driver.Program, files []string) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}

@@ -497,14 +497,14 @@ func nodeFile(id string) string {
 // Keeping the parser here prevents its LSP path comparison from drifting from
 // the dump producer's edge-evidence lookup.
 //
-// @evidence contracts/common.md#principled-implementation The shared escaped node-ID grammar recovers the declaration path while rejecting file-only or malformed identities.
+// @evidence contracts/common.md#principled-implementation The shared parser requires an unescaped separator and nonempty name/kind suffix, then decodes the reported path. It does not validate the kind vocabulary, path existence or producer authenticity.
 // @evidence contracts/common.md#clear-and-simple-design One public adapter exposes the same parser used by dump evidence and native graph consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy UNC handling serves the actual pre-codec identity format, not a fixture-specific path patch.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains shared grammar ownership and consumer drift prevention, with documentation-skill tag separation.
 // @evidence contracts/performance.md#efficient-algorithms Parsing scans ID bytes linearly and allocates only decoded path/name components.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser does not coordinate repeated requests; consumers own any identity index.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No source snapshots or native resources are retained.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation NodeFile computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/portability.md#os-neutral-implementation Protocol escaping and legacy UNC handling recover supplied path spelling without OS case folding or native resolution; this is not physical identity authentication.
 func NodeFile(id string) string {
   return nodeFile(id)
 }
