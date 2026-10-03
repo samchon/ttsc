@@ -21,8 +21,8 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification The four rules must report the Boolean-argument double negation, the undefined identifier compared with typeof, the parenthesized negative zero and Number.NaN, and must keep silent for their ordinary twins.
 // @evidence contracts/testing.md#independent-expectations ESLint documents each shape as incorrect: a Boolean call whose argument is already negated twice, typeof compared with the undefined value, a negative-zero comparison however parenthesized, and a comparison with Number.NaN; the authored literal sources are the oracle.
-// @evidence contracts/testing.md#distinguishing-cases Each reported source has an adjacent source that differs in one property, a plain argument, a string type name, a plain zero or a different Number constant, so a rule matching only text or only the first form fails one side.
-// @evidence contracts/testing.md#execution-ownership TestLogicRulesCoverBooleanCallArgumentsUndefinedTypeofNegativeZeroAndNumberNaN parses virtual sources and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
+// @evidence contracts/testing.md#distinguishing-cases Each reported source has an adjacent source that differs in one property, a plain argument, a string type name, a plain zero or a different Number constant, so dropping a required positive shape or reporting its named control fails the corresponding assertion; this is not a universal text-matcher rejection proof.
+// @evidence contracts/testing.md#execution-ownership TestLogicRulesCoverBooleanCallArgumentsUndefinedTypeofNegativeZeroAndNumberNaN materializes the authored sources through the shared snapshot helper and calls the actual engine in the shared Go unit process; the Boolean rule uses its required Program/checker, while AST-only rules use direct parsing. No consumer install or native build runs.
 func TestLogicRulesCoverBooleanCallArgumentsUndefinedTypeofNegativeZeroAndNumberNaN(t *testing.T) {
   report := func(rule, source string) {
     t.Helper()

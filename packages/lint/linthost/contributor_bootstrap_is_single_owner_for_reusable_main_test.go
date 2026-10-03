@@ -164,9 +164,10 @@ func init() {
 }
 
 // TestMain verifies the only fresh-process bootstrap before ordinary tests
-// reuse Main. The init-time contributors above deliberately cover every
-// collision class and metadata panic boundary; racing real entry calls proves
-// one owner inspects them and publishes the immutable registries to all peers.
+// reuse Main. The init-time contributors above cover file/file, file/project
+// and project/project collisions and their named metadata panic stages. Real
+// entry calls check one-time inspection and initial registry ownership; this
+// fixture does not cover optional TypeAwareRule or TaggedRule panic stages.
 // The Name-panicking "metadata boom" fixture is registered by the init in
 // contributor_panics_preserve_other_rules_in_process_test.go.
 //
@@ -179,7 +180,7 @@ func init() {
 // @evidence contracts/testing.md#behavioral-verification verifyInitialContributorBootstrap releases sixteen real Main calls, checks each exit, every collision and metadata-panic warning, metadata call counts and surviving contributor identities; duplicate initialization or wrong registry ownership fails before the ordinary suite starts.
 // @evidence contracts/testing.md#independent-expectations The registered fixture contributors deliberately define first-owner collisions and panic stages; literal warning counts and method counters follow those authored declarations rather than reading expected values from the resulting registries.
 // @evidence contracts/testing.md#distinguishing-cases File/file, file/project and project/project collisions contrast with successful contributors; each metadata panic stops at its intended stage, and repeated sequential commands must produce no new warnings after the concurrent bootstrap.
-// @evidence contracts/testing.md#execution-ownership Go invokes TestMain once before m.Run; Main executes in the same process and the private bootstrap helpers own these assertions. Ordinary tests keep their own entries and explanations, and no child compiler or contributor build is used here.
+// @evidence contracts/testing.md#execution-ownership Go invokes TestMain once before m.Run; Main executes in the same process and the private bootstrap helpers own these assertions. Ordinary tests keep their own entries and explanations; after a successful suite, the existing unfiltered-run predicate optionally checks recorded behavioral witnesses. No child compiler or contributor build is used here.
 func TestMain(m *testing.M) {
   if err := verifyInitialContributorBootstrap(); err != nil {
     fmt.Fprintf(os.Stderr, "contributor bootstrap lifecycle: %v\n", err)
