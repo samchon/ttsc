@@ -352,8 +352,10 @@ type LSPDiagnosticsResult struct {
 }
 
 // PluginSource is the seam between the LSP proxy and ttsc's plugin
-// pipeline. Returning empty slices/nil is a valid "no contribution"
-// answer; ttscserver still forwards the upstream tsgo response verbatim.
+// pipeline. Empty diagnostic and action collections are valid contributions;
+// the proxy still applies its routing and response-augmentation rules. Command
+// ownership comes from CommandIDs, and an advertised command returning
+// ErrCommandNotHandled is an error rather than an upstream fallback.
 //
 // The proxy never holds a PluginSource lock across upstream traffic, so
 // implementations must be safe to call from multiple goroutines.
