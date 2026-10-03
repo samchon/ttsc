@@ -11,8 +11,8 @@ import (
 // A rest parameter and runtime spreads have different roles and ESTree aliases.
 //
 //  1. Parse a typed rest parameter with array and object spreads.
-//  2. Run RestElement, SpreadElement and Property selectors with argument-name
-//     constraints.
+//  2. Run RestElement and its argument-name variant, plus SpreadElement and
+//     Property selectors.
 //  3. Assert each form reports only under its own alias and spreads never match
 //     Property.
 //
