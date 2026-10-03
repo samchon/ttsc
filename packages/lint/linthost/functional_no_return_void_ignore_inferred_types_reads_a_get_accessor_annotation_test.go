@@ -5,11 +5,10 @@ import "testing"
 // TestFunctionalNoReturnVoidIgnoreInferredTypesReadsAGetAccessorAnnotation
 // verifies a get accessor's declared return type counts as declared.
 //
-// A get accessor is the one function-like outside the annotation table that both
-// stops the enclosing walk and may annotate its return type. Reading annotations from a four-kind table while
-// walking over every kind made the accessor look annotation-less, so
-// `ignoreInferredTypes` spared a bare `return;` the rule reports in the
-// identical function-declaration shape.
+// A get accessor is the nearest function-like owner of its bare return.
+// Its explicit number annotation must prevent the inferred-only skip,
+// just as an explicit annotation on a function declaration does. The
+// input observes the getter boundary without asserting an earlier table.
 //
 // 1. Parse a get accessor that declares a return type and ends in a bare `return;`.
 // 2. Enable only functional/no-return-void with `ignoreInferredTypes: true`.

@@ -6,8 +6,7 @@ import "testing"
 //
 // A bare `return;` in a function with no return annotation is the one place
 // the rule rejects a void-ness it inferred instead of reading. That is exactly
-// what the published option offers to skip, and it decoded nothing before
-// #1132.
+// what the published option offers to skip.
 //
 // 1. Parse a function with no return annotation and a bare `return;`.
 // 2. Enable only functional/no-return-void with `ignoreInferredTypes: true`.

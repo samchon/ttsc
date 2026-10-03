@@ -4,7 +4,7 @@ import "testing"
 
 // TestFunctionalNoReturnVoidIgnoreInferredTypesKeepsAnnotatedBareReturn verifies ignoreInferredTypes spares only the unannotated bare return.
 //
-// The negative twin. A gate that skipped every bare `return;` would read as
+// The reporting twin. A gate that skipped every bare `return;` would read as
 // working against the positive case while quietly disabling the whole return
 // statement branch, which the annotation is what distinguishes.
 //

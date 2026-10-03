@@ -4,10 +4,10 @@ import "testing"
 
 // TestFunctionalNoReturnVoidIgnoreInferredTypesStopsAtTheNearestFunction verifies ignoreInferredTypes reads the nearest function-like, including one that cannot declare a return type.
 //
-// A constructor declares no return type and cannot, so a bare `return;` inside
-// one is always inferred. Walking past it to the enclosing function attributed
-// that function's annotation to the constructor's statement and reported it, the
-// exact misattribution this case pins.
+// A constructor cannot declare a return annotation, so its bare return
+// qualifies for the inferred-only skip. The enclosing function's number
+// annotation must not be attributed to that constructor statement. This
+// source distinguishes stopping at the nearest owner from walking past it.
 //
 // 1. Parse an annotated function containing a class whose constructor ends in a bare `return;`.
 // 2. Enable only functional/no-return-void with `ignoreInferredTypes: true`.
