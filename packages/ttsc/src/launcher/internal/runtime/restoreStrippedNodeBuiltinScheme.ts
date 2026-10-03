@@ -16,7 +16,7 @@ import type { ResolveResult } from "./ResolveResult";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The compatibility path addresses an actual supported Node result shape through isBuiltin; it neither overrides intentional user remaps nor patches a foreign resolver.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact restoration scope, user-hook ownership and unchanged ESM/builtin results.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns the supplied result or one shallow copy and retains nothing.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A constant number of string comparisons; there is no loop.
+ * @evidence contracts/performance.md#efficient-algorithms Builtin lookup and prefix/sliced-text equality observe the supplied specifier and URL text; restoration allocates one shallow result copy, observing its enumerable fields. There is no recursive filesystem scan or retained result memo.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its two arguments with nothing to share.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares specifier and URL strings and checks isBuiltin; it builds no path and touches no filesystem.
  */

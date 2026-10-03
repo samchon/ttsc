@@ -13,7 +13,7 @@ import type { RuntimeManifest } from "./RuntimeManifest";
  * @evidence contracts/performance.md#efficient-algorithms Descriptor evaluation exits immediately; ordinary selection scans at most M manifest policy fields and stops on the first disabled one without copying inputs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate selects current supplied policy; the build coordinator includes its result in the generation key before admitting reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Supplied manifests remain caller-owned and no history, process or handle is retained.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation selectRuntimePluginPolicy is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The body selects only the supplied descriptor boolean and manifest plugins discriminant; native project paths, runtime environment reads and build execution belong to the caller, not this predicate.
  */
 export function selectRuntimePluginPolicy(
   /** Build manifests already admitted to the current runtime. */
