@@ -27,10 +27,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Exercises default factory descriptor export loading; asserts zero exit and transformed PLUGIN JavaScript, distinguishing lost delivery or incorrect assembly from valid compilation.
  * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
  * @evidence contracts/testing.md#distinguishing-cases This case pins the default factory export assembles the native producer rather than being rejected; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
- * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_default_export_factory_is_accepted_as_a_native_descriptor entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_default_export_factory_is_accepted_as_a_native_descriptor entry executes from native-plugins/corpus-misc in the generic E2E population without a platform filter in this body; it starts the actual launcher and native producer.
  * @evidence contracts/e2e.md#necessary-boundary The real connection is default factory descriptor export loading; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
- * @evidence contracts/e2e.md#shared-execution Reuses the immutable transformer workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable transformer workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; the descriptor shape is a distinct actual loader input. This body does not prove per-input independent preparation is minimal, measure cache hits/builds or certify packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion is made and a warm hit is not observed. TestProject owns exit cleanup after direct synchronous return, which does not certify arbitrary descendants or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage Retains zero exit and transformed PLUGIN JavaScript with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
 export function test_plugin_corpus_default_export_factory_is_accepted_as_a_native_descriptor() {
@@ -50,6 +50,8 @@ export function test_plugin_corpus_default_export_factory_is_accepted_as_a_nativ
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr);
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
