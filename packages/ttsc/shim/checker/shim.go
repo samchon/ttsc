@@ -837,9 +837,9 @@ func checkerGetDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *inne
 // @evidence contracts/common.md#clear-and-simple-design Declaration provenance is queried separately from Checker_getAliasedSymbol target resolution, retaining the difference in the public API's native explanation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration is selected from the actual symbol's compiler declarations without a guessed import/export source.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes alias declaration from target, specifies last-match ordering and absent/nonnil conditions.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getDeclarationOfAliasSymbol acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getDeclarationOfAliasSymbol performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getDeclarationOfAliasSymbol computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The result is an existing declaration node that can reach its compiler tree through parents and metadata; the caller controls retention of that reference. The forwarding wrapper creates no collection and stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper chooses no search strategy. Upstream FindLast scans up to D symbol declarations in reverse order, with IsAliasSymbolDeclaration's syntax-dependent predicate work, and stops at the first match.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing compiler owns the symbol's declaration sequence and alias classification; this forwarding wrapper owns no declaration-query cache or coordination of repeated searches.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getDeclarationOfAliasSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Node {
   return checkerGetDeclarationOfAliasSymbol(recv, symbol)
@@ -1015,23 +1015,22 @@ func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*i
 //go:linkname checkerGetDeclaredTypeOfSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getDeclaredTypeOfSymbol
 func checkerGetDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type
 
-// Checker_getDeclaredTypeOfSymbol returns the declared (instance) type of a
-// class or interface symbol. Unlike Checker_getTypeOfSymbol, which yields the
-// constructor (static) type of a class symbol, the result IS a
-// ClassOrInterface type and is therefore safe to feed back into
-// Checker_getBaseTypes. This lets a consumer resolve a generic base's symbol to
-// its declared type and keep walking the base chain past the generic boundary
-// where getBaseTypes would otherwise dead-end (a Reference/Anonymous type has a
-// nil AsInterfaceType()). Returns nil if recv or symbol is nil.
+// Checker_getDeclaredTypeOfSymbol returns the compiler's declared type for a
+// symbol from recv's checker graph. For a class/interface symbol this is its
+// declared instance representation, suitable for Checker_getBaseTypes, rather
+// than a class value's constructor type or an instantiated reference.
+// Other symbol categories follow upstream declared-type dispatch and do not
+// promise a class/interface result; absence of a declared type yields the
+// checker's error type. Returns nil if recv or symbol is nil.
 //
-// @evidence contracts/common.md#principled-implementation The compiler's declared-type lookup distinguishes the instance-side class/interface from a class value's constructor type, preserving a representation valid for base-type traversal.
+// @evidence contracts/common.md#principled-implementation For class/interface symbols, compiler declared-type lookup distinguishes the instance-side representation from a class value's constructor type and supports base-type traversal. Other symbol categories retain upstream dispatch and error-type fallback.
 // @evidence contracts/common.md#clear-and-simple-design The wrapper exposes instance declaration typing separately from ordinary symbol value typing instead of making consumers coerce type representations.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Generic heritage traversal uses actual declared compiler types rather than a compensating name-based base lookup.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains constructor versus instance results, generic-boundary relevance and nil inputs in a coherent paragraph.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getDeclaredTypeOfSymbol acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getDeclaredTypeOfSymbol performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getDeclaredTypeOfSymbol computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getDeclaredTypeOfSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose scopes the class/interface result, states upstream dispatch/error-type behavior for other symbols, and specifies same-checker and nil conditions.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Declared-type links and any class/interface type, this-type or instantiation table remain checker-owned; the caller can retain that graph through the returned type. This forwarding wrapper keeps no separate cache, result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper guards nil inputs and delegates symbol-category dispatch. Upstream uncached class/interface construction includes outer/local parameter collection and recursive interface heritage checks, while other categories own their semantic resolution costs; this is not a fixed-step local strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The supplied checker owns declaredTypeLinks and type instantiation reuse. The forwarding wrapper does not coordinate or cache repeated declared-type queries.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Symbol typing and related resolution use the supplied checker/program; the wrapper introduces no path, host or platform policy.
 func Checker_getDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type {
   if recv == nil || symbol == nil {
     return nil
