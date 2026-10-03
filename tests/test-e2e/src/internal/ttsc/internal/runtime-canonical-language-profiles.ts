@@ -22,16 +22,16 @@ import { TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Twenty-one original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Twenty-three original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Twenty-one original roots become staged configurations on the one canonical allocation; twenty-eight native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
+ * @evidence contracts/e2e.md#shared-execution Twenty-three original roots become staged configurations on the one canonical allocation; thirty-five native public requests remain separate authored calls whose actual process and Program costs await remote measurement.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
- * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection. Actual surviving execution and donor removal remain pending.
+ * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs. Actual surviving execution and donor removal remain pending.
  */
 export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonicalRuntimeProfiles>[1] {
   const profiles: Parameters<typeof runCanonicalRuntimeProfiles>[1][number][] = [];
@@ -250,6 +250,37 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "-r"], { cwd: root });
       assert.notEqual(result.status, 0, `${result.stdout}${result.stderr}`);
       assert.match(result.stderr, /-r requires a value/);
+    },
+  });
+  profiles.push({
+    name: "public-runtime-module-preserve",
+    files: FixtureFiles.read("ttsc/ttsx_classifies_module_preserve_as_ecmascript_modules/inputs-1"),
+    run: (root, _persistent, spawn) => {
+      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), "preserve-stays-esm");
+    },
+  });
+  profiles.push({
+    name: "public-runtime-forwarded-module-and-response",
+    files: {
+      ...FixtureFiles.read("ttsc/ttsx_classifies_the_entry_by_a_forwarded_module_flag/inputs-1"),
+      "module.rsp": "--module\nesnext\n",
+    },
+    run: (root, _persistent, spawn) => {
+      const responseFile = path.join(root, "module.rsp");
+      const failures: Error[] = [];
+      for (const flags of [["--module", "esnext"], ["--module", "preserve"], [`@${responseFile}`]]) {
+        for (const [entry, expected] of [["src/main.ts", "inside helped"], ["outside.ts", "outside helped"]] as const) {
+          const label = `${flags.join(" ")} ${entry}`;
+          const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, ...flags, entry], { cwd: root });
+          try {
+            assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+            assert.equal(result.stdout.trim(), expected, label);
+          } catch (error) { failures.push(new Error(label, { cause: error })); }
+        }
+      }
+      if (failures.length) throw new AggregateError(failures, "forwarded module profiles failed");
     },
   });
   return profiles;
