@@ -12,8 +12,8 @@ import (
 //
 // The directive interval builder must record distinct open and close events for the same
 // rule so that code before the disable and after the enable still fires. Without both
-// halves, a disable-only implementation silences everything after the comment, and an
-// enable-without-matching-disable would re-open a rule that was never disabled.
+// halves, a disable-only implementation silences everything after the comment,
+// while omitting the disable leaves the middle statement unsuppressed.
 // This pins the open/close pairing and the resume-after-enable semantics.
 //
 // 1. Parse three var statements: one before, one inside, one after a disable/enable pair.
