@@ -6,6 +6,7 @@ import path from "node:path";
 import { Scenarios } from "../internal/Scenarios";
 import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runSharedWatcherlessViteDeliveries";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
+import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { createLinkedPluginProject } from "../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
 import { test_rollup_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_rollup_build_maps_transformed_modules_to_the_authored_source";
 import { test_esbuild_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_esbuild_build_maps_transformed_modules_to_the_authored_source";
@@ -44,7 +45,7 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * out-of-program and final missing-helper verdicts on the same producer.
  * A separately rooted linked-banner input is prepared once before host calls;
  * Rollup and esbuild consume its unchanged authored bytes, then the terminal
- * webpack/Rspack/Turbopack map profile writes its original marker source.
+ * webpack/Rspack/Turbopack map profile writes its original marker source; after successful return, exact baseline source restoration permits the original real Vite SSR authored-stack profile.
  * One independently rooted four-module watcherless Vite session shares first
  * delivery and one plugin edit across unseen-module retention and repeated
  * first-module replacement, then awaits its modeled buildEnd in finally.
@@ -56,7 +57,7 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * @evidence contracts/testing.md#behavioral-verification Vite and Rollup retain generated PLUGIN output. Dependency watchFiles contain exactly its project record, omit the compiler input, and the record names src/types.d.ts. Esbuild retains setup/context/replacement/disposal and counter1/2/3 assertions. Final built Turbopack loader retains native helper.ts error1, generated module throwing that exact emitted message, rejection without emitError and missing-config rejection before compilation.
  * @evidence contracts/testing.md#independent-expectations Original PLUGIN/goUpper literals and one-byte compile counters remain in their owning bodies. Rollup closure is observed only after the actual supported bundle.close resolves; it is not inferred from an output or failure result.
  * @evidence contracts/testing.md#distinguishing-cases A failed output assertion with successful bundle close still allows the next named host; absent/failed close blocks configuration mutation. Esbuild distinguishes failed setup, one/last context disposal, delayed old disposal and final one-shot release.
- * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls eighteen existing bodies with one generated native project and one separately rooted linked-banner input shared by three source-map bodies, plus one survivor joining the two original watcherless Vite matrices on a single four-module session. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
+ * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls nineteen existing bodies with one generated native project and one separately rooted linked-banner input shared by four source-map bodies, plus one survivor joining the two original watcherless Vite matrices on a single four-module session. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
  * @evidence contracts/e2e.md#necessary-boundary Actual Rollup/esbuild lifecycle callbacks connect built adapters to native transforms; a fabricated adapter or direct cache-policy unit cannot witness those host connections.
  * @evidence contracts/e2e.md#shared-execution One generated consumer/source descriptor and shared content-addressed plugin cache serve the native fixture profiles. Three banner source-map bodies borrow one physical linked project and package link, replacing three identical setup paths; this banner producer is distinct from the native fixture producer. Host sessions, source changes and config generations remain separately observed; callbacks do not prove process or Program counts.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The production-session startup proof runs first and independently requires the shared root tool directory absent; a parent bridge cannot supply its sibling proof. Its actual worker close gates Vite/Rollup, which then read unchanged baseline. Their completion gates precede dependency options, its close precedes count-runs, and esbuild successful lifecycle precedes exact authored baseline-config restoration. Default loader return precedes original plain-record observations, then their completed assertions precede the original empty-config-plugin/reporting input on the same root. Reporting return gates later option profiles; both original single-record channels and relative/absolute/duplicate/self inputs remain. The original A: prefix options return before volatile then hermetic options. The original numeric PLUGIN suffix, [false] and [] cacheability observations remain; hermetic callback return gates distinct emit-dependencies options and its two identical requests, then the absent host channel. Original Before/After declaration bytes require repeated record movement, redelivery and five-second stopped movement before exact baseline-byte restoration; failed acknowledgment blocks later profiles. Actual cold/native cache events remain separately observable, not inferred from request order. Out-of-program delivery must return and restore the exact stderr descriptor before final read-helper options. Original src/helper.ts absence is checked. Uncertain completion blocks mutation; common inputs remain retained. Public operation boundaries do not certify arbitrary descendants and no mutation follows the failed-loader terminal profile.
@@ -68,6 +69,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   const baselineConfig = fs.readFileSync(path.join(root, "tsconfig.json"));
   const baselineMain = fs.readFileSync(TestUnpluginProject.mainFile(root));
   const linkedBanner = createLinkedPluginProject(["banner"], path.join(root, "linked-banner"));
+  const linkedBaselineMain = fs.readFileSync(linkedBanner.main);
   const failures: unknown[] = [];
   // Startup proof must precede any parent-process loader/host bridge for root.
   let startupWorkerClosed = false;
@@ -282,14 +284,27 @@ export async function test_e2e_unplugin(): Promise<void> {
   } else {
     failures.push(new Error("esbuild source-map profile blocked: Rollup closure was unobserved"));
   }
+  let mapContractsReturned = false;
   if (mapBuildReturned) {
     try {
       await Scenarios.invoke("shared-unplugin", "test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source", test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source, linkedBanner);
+      mapContractsReturned = true;
     } catch (cause) {
       failures.push(new Error("webpack rspack and turbopack authored source-map composition", { cause }));
     }
   } else {
     failures.push(new Error("webpack source-map profile blocked: esbuild return was unobserved"));
+  }
+  if (mapContractsReturned) {
+    try {
+      fs.writeFileSync(linkedBanner.main, linkedBaselineMain);
+      assert.deepEqual(fs.readFileSync(linkedBanner.main), linkedBaselineMain);
+      await Scenarios.invoke("shared-unplugin", "test_vite_serve_reports_errors_at_the_authored_line", test_vite_serve_reports_errors_at_the_authored_line, linkedBanner);
+    } catch (cause) {
+      failures.push(new Error("Vite SSR authored source-map stack", { cause }));
+    }
+  } else {
+    failures.push(new Error("Vite SSR stack profile blocked: prior source-map contracts did not complete"));
   }
   try {
     await Scenarios.invoke("shared-unplugin", "watcherless-vite-unseen-and-repeated-deliveries", runSharedWatcherlessViteDeliveries);

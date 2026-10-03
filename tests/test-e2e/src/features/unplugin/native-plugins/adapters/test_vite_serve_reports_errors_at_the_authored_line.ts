@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
+import type { ILinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/ILinkedPluginProject";
 
 const viteCreateServer =
   TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").createServer;
@@ -32,10 +33,12 @@ const viteCreateServer =
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real server ssrLoadModule executes banner-shifted fail and its stack names authored new Error line and column. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_reports_errors_at_the_authored_line(): Promise<void> {
+export async function test_vite_serve_reports_errors_at_the_authored_line(
+  preparedProject?: ILinkedPluginProject,
+): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const project = createLinkedPluginProject(["banner"]);
+  const project = preparedProject ?? createLinkedPluginProject(["banner"]);
   const source = `${fs.readFileSync(project.main, "utf8")}export function fail(): never {\n  throw new Error("authored");\n}\n`;
   fs.writeFileSync(project.main, source, "utf8");
   assert.ok(
