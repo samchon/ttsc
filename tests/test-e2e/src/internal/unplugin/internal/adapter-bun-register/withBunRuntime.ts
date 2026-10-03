@@ -11,12 +11,17 @@ export async function withBunRuntime(
   body: () => Promise<void>,
 ): Promise<void> {
   const holder = globalThis as { Bun?: unknown };
-  const priorBun = holder.Bun;
-  holder.Bun = { plugin: (plugin: CapturedPlugin) => captured.push(plugin) };
+  const priorBun = Object.getOwnPropertyDescriptor(holder, "Bun");
+  Object.defineProperty(holder, "Bun", {
+    configurable: true,
+    enumerable: priorBun?.enumerable ?? true,
+    writable: true,
+    value: { plugin: (plugin: CapturedPlugin) => captured.push(plugin) },
+  });
   try {
     await body();
   } finally {
     if (priorBun === undefined) delete holder.Bun;
-    else holder.Bun = priorBun;
+    else Object.defineProperty(holder, "Bun", priorBun);
   }
 }

@@ -16,6 +16,8 @@ import { test_webpack_filesystem_cache_rebuilds_through_a_type_only_edge } from 
 import { test_webpack_filesystem_cache_control_serves_stale_without_a_graph } from "./unplugin/native-plugins/adapters/test_webpack_filesystem_cache_control_serves_stale_without_a_graph";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
+import { test_bun_register_preload_only_registers_a_single_default_plugin } from "./unplugin/native-plugins/adapters/test_bun_register_preload_only_registers_a_single_default_plugin";
+import { test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order } from "./unplugin/native-plugins/adapters/test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order";
 import { test_turbopack_loader_workers_share_one_compile } from "./unplugin/native-plugins/adapters/test_turbopack_loader_workers_share_one_compile";
 import { test_vite_build_end_disposes_the_last_overlapping_cache_owner } from "./unplugin/native-plugins/adapters/test_vite_build_end_disposes_the_last_overlapping_cache_owner";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
@@ -95,7 +97,19 @@ export async function test_e2e_unplugin(): Promise<void> {
   try {
     const bunRoot = TestUnpluginProject.createProject();
     TestProject.retainTemporaryDirectory(bunRoot, "Bun cold build and preload inputs retained for actual host observation");
+    const bunConfigPath = path.join(bunRoot, "tsconfig.json");
+    const bunConfig = fs.readFileSync(bunConfigPath);
     await Scenarios.invoke("shared-unplugin", "test_bun_native_host_owns_build_and_runtime_sessions", test_bun_native_host_owns_build_and_runtime_sessions, bunRoot);
+    // Both real Bun processes returned before parent-process registration.
+    fs.writeFileSync(bunConfigPath, bunConfig);
+    assert.deepEqual(fs.readFileSync(bunConfigPath), bunConfig);
+    await Scenarios.invoke("shared-unplugin", "test_bun_register_preload_only_registers_a_single_default_plugin", test_bun_register_preload_only_registers_a_single_default_plugin, bunRoot);
+    // Captured default delivery has completed and its temporary global is
+    // restored. The explicit-options original starts with no config plugins.
+    const explicitConfig = JSON.parse(bunConfig.toString("utf8"));
+    explicitConfig.compilerOptions.plugins = [];
+    fs.writeFileSync(bunConfigPath, JSON.stringify(explicitConfig, null, 2));
+    await Scenarios.invoke("shared-unplugin", "test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order", test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order, bunRoot);
   } catch (cause) {
     failures.push(new Error("real Bun build disposal and preload runtime session", { cause }));
   }

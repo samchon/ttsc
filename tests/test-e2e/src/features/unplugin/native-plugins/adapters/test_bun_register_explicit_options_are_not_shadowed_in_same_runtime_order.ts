@@ -33,11 +33,13 @@ import { withBunRuntime } from "../../../../internal/unplugin/internal/adapter-b
  * @evidence contracts/testing.md#distinguishing-cases Two module conditions, pending missing load, detached option snapshot, equal and different locked registrations.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built module conditions and native loader execute under a temporary Bun global; actual Bun plugin precedence remains simulated.
- * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun globals are restored in finally. Transform fixtures use private tracked roots. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.
+ * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories. The shared family borrows the default preload's completed native project after staging the original empty config plugins; explicit A/B options still come from built registrations, not the config.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun descriptors are restored exactly in finally. Preservation/missing-input and native B output use separate captured runtimes. The shared root is terminal after awaited B delivery, with no subsequent mutation. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: eSM/CJS evaluation captures one loader; pre-load B options beat A without later object mutation, equal locked calls succeed, C changes throw, and missing load rejects ENOENT. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order(): Promise<void> {
+export async function test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order(
+  preparedRoot?: string,
+): Promise<void> {
   const preservationCaptured: CapturedPlugin[] = [];
   await withBunRuntime(preservationCaptured, async () => {
     const registerEsm = await importFreshBunRegister();
@@ -98,7 +100,7 @@ export async function test_bun_register_explicit_options_are_not_shadowed_in_sam
     supplied.plugins[0]!.prefix = "MUTATED:";
     assert.equal(captured.length, 1);
 
-    const root = TestUnpluginProject.createProject({ plugins: [] });
+    const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
     const pending = loader({ path: TestUnpluginProject.mainFile(root) });
 
     // Handler entry locks synchronously before its first await. An equal call

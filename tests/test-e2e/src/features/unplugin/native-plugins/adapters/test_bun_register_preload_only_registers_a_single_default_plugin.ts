@@ -40,11 +40,13 @@ async function driveCapturedLoader(
  * @evidence contracts/testing.md#distinguishing-cases Opposite module evaluation order to explicit-options case, default configuration and locked idempotent calls.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_preload_only_registers_a_single_default_plugin is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built CJS/ESM entries share runtime registration and real native transform under a Bun global stub.
- * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun globals are restored in finally. Transform fixtures use private tracked roots. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.
+ * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories. The shared family borrows the completed real Bun project's exact restored default config and unchanged native source; standalone preparation remains private.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; the temporary Bun property's exact original descriptor or absence is restored in finally. Successful awaited native delivery and registration assertions gate the parent's explicit-config transition. Captured loader sessions have no per-case disposal assertion; no running Bun host or descendant closure is certified.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: cJS then ESM preload yields one captured loader, PLUGIN output and harmless repeated default registrations. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_register_preload_only_registers_a_single_default_plugin(): Promise<void> {
+export async function test_bun_register_preload_only_registers_a_single_default_plugin(
+  preparedRoot?: string,
+): Promise<void> {
   const captured: CapturedPlugin[] = [];
   await withBunRuntime(captured, async () => {
     const registerCjs = requireFreshBunRegister();
@@ -57,7 +59,7 @@ export async function test_bun_register_preload_only_registers_a_single_default_
       "importing the ESM condition after a CommonJS preload must share its loader",
     );
 
-    const root = TestUnpluginProject.createProject();
+    const root = preparedRoot ?? TestUnpluginProject.createProject();
     const output = await driveCapturedLoader(
       captured[0]!,
       TestUnpluginProject.mainFile(root),
