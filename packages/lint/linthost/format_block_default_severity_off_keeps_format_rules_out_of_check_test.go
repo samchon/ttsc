@@ -3,18 +3,17 @@ package linthost
 import "testing"
 
 // TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck verifies that
-// declaring an empty `format: {}` block does not turn formatting into a
-// check/build diagnostic policy.
+// an empty `format: {}` block keeps the six named formatter rules out of the
+// enabled map and retains options for four of them.
 //
-// The block still materializes per-rule options so `ttsc format` can use
-// Prettier-aligned defaults, but `format.severity` defaults to off. A
-// regression that reports format findings during check by default would make
-// formatting a compile policy again.
+// `format.severity` defaults to off while options remain available. These
+// direct map observations do not execute check/build or format and do not
+// enumerate every formatter's options.
 //
 //  1. Build an `ITtscLintConfig` object with `format: {}` only.
 //  2. Parse it through `parseExternalConfigStore`.
-//  3. Assert no `format/*` rules are enabled for check/build.
-//  4. Assert always-on format rules still have option blobs for format mode.
+//  3. Assert the six independently named rules are absent from the enabled map.
+//  4. Assert semi, quotes, trailing-comma and print-width retain option blobs.
 //
 // @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore keeps semi, quotes, trailing-comma and print-width out of check diagnostics while retaining their options; sort-imports and jsdoc are not enabled for checks.
 // @evidence contracts/testing.md#independent-expectations Default format severity is off even though formatting options remain available; independently selected public formatter names distinguish disabled diagnostics from missing options.

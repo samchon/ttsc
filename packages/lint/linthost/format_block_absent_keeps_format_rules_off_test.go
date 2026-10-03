@@ -6,10 +6,9 @@ import "testing"
 // contract: with no `format` block and no `format/*` entries in
 // `rules`, every format rule stays off.
 //
-// This is the round-trip safety net for users who don't want
-// formatting today. A regression that enabled format defaults
-// without an explicit block would silently rewrite source on
-// `ttsc format` for every existing project.
+// This directly observes opt-in configuration, not a formatter round trip.
+// It checks the enabled map after parsing a no-var-only object, without
+// invoking `ttsc format` or establishing whether source would change.
 //
 //  1. Build an `ITtscLintConfig` object with `rules: { "no-var": "error" }` only.
 //  2. Parse it through `parseExternalConfigStore`.
