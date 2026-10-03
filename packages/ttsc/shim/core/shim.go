@@ -193,15 +193,17 @@ func Version() string { return innercore.Version() }
 
 // ApplyDebugStackLimit applies a positive TS_GO_DEBUG_STACK_LIMIT byte count
 // to this process's Go runtime. Missing, invalid or nonpositive values do nothing.
+// Parsing uses the runtime's int width. A successful call changes process-wide
+// stack policy; this wrapper does not restore its previous setting.
 //
 // @evidence contracts/common.md#principled-implementation Upstream parsing and runtime.SetMaxStack preserve the documented opt-in process-wide limit and invalid-value no-op.
 // @evidence contracts/common.md#clear-and-simple-design One explicit operation leaves environment parsing and runtime policy with the compiler owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit upstream operation changes the process-wide stack limit only when its environment input requests a positive limit; no consumer-specific policy is substituted.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte units, process scope and the three no-op conditions.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ApplyDebugStackLimit acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ApplyDebugStackLimit performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ApplyDebugStackLimit computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ApplyDebugStackLimit computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream may persist a new process-wide runtime stack limit after parsing the environment. No file handle or independent cache is acquired by this bridge, but absence of those resources is not absence of lasting policy state. The runtime and caller own that setting and any later replacement; this adapter provides no scoped restoration.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns environment lookup, integer parsing over the supplied value bytes and runtime policy mutation. This direct bridge chooses no independent lookup/parser/stack-management algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Environment lookup and the explicit runtime setter are not coordinated as completed or in-flight shared work here; the runtime owns its policy state, and this bridge provides no separate producer or memoized setting.
+// @evidence contracts/portability.md#os-neutral-implementation Supported os.Getenv and runtime/debug.SetMaxStack obtain the actual process environment and change this Go runtime's policy without OS-name branches or shell interpretation. strconv.Atoi admits only a positive value representable by the runtime's int width; the setting is process-wide rather than a per-call platform capability certificate.
 func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
 
 // TypeScriptVersionSatisfiesRange reports whether the compiler's own version
@@ -212,9 +214,9 @@ func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
 // @evidence contracts/common.md#clear-and-simple-design One predicate owns range parsing and testing, leaving compiler version production with Version and grammar with upstream semver.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts typesVersions matching uses real compiler version and parser semantics rather than consumer names or lexicographic version guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies typesVersions, the upstream grammar and invalid-syntax refusal.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TypeScriptVersionSatisfiesRange acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms TypeScriptVersionSatisfiesRange performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work TypeScriptVersionSatisfiesRange computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream parsing allocates alternative/comparator and version-component storage for this invocation, potentially retaining substrings until its local values become unreachable. Only a boolean escapes this function; global compiler-version and regex state remain upstream-owned. No independent parse-result history or native handle is retained here, and no fixed input/alternative count cap is imposed.
+// @evidence contracts/performance.md#efficient-algorithms Parse the range once, return early when invalid, then parse the actual compiler version once and test it. Delegated regex/tokenization, component parsing and short-circuit alternative/comparator tests scale with supplied range/version text and parsed population; the wrapper's few calls do not make this fixed-cost work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate coordinates no completed/in-flight range-result cache; parsing and matching remain invocation-local while upstream owns static regex and compiler-version state. Caller owners decide whether a result remains equivalent for unchanged range and actual compiler identity.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation TypeScriptVersionSatisfiesRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func TypeScriptVersionSatisfiesRange(text string) bool {
   versionRange, ok := innersemver.TryParseVersionRange(text)
@@ -232,9 +234,9 @@ func TypeScriptVersionSatisfiesRange(text string) bool {
 // @evidence contracts/common.md#clear-and-simple-design One text-to-line-start adapter reuses the compiler model without a separate line scanner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation does not approximate compiler lines by splitting only on LF or guessing UTF-16 offsets.
 // @evidence contracts/common.md#meaningful-documentation Native prose enumerates LF, CRLF, CR, LS and PS and identifies UTF-8 source units.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ComputeECMALineStarts acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ComputeECMALineStarts performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ComputeECMALineStarts computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream allocates and may grow a line-start backing array; the returned slice keeps that storage reachable under the caller's lifetime. Initial capacity counts LF bytes, so other terminators can require growth. The bridge keeps no independent history cache or handle and imposes no fixed source/line-count cap.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The pinned compiler owns the LF-capacity count and ECMAScript byte/rune scan, both over source text, plus line-array append/growth. This direct bridge selects no independent scanner or storage algorithm; fixed-step wrapper syntax does not remove those input-size costs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This bridge does not coordinate a source-version cache or completed/in-flight index producer; compiler and caller owners decide whether an already computed line index can be reused for equivalent text.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ComputeECMALineStarts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ComputeECMALineStarts(text string) ECMALineStarts {
   return innercore.ComputeECMALineStarts(text)
@@ -249,8 +251,8 @@ func ComputeECMALineStarts(text string) ECMALineStarts {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Endpoints are not clamped to manufacture an apparently valid range for a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open byte endpoints, signed 32-bit representability and absence of constructor validation, separated from implementation grounds.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewTextRange acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewTextRange performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewTextRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The pinned constructor owns the two endpoint casts and range representation. This direct bridge chooses no separate normalization, traversal or validation algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This scalar range adapter is not a completed/in-flight work producer or cache coordinator; caller operations own reuse of ranges associated with source versions.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewTextRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, end) }
 
