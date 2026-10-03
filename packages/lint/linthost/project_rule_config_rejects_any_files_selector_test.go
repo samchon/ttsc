@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestProjectRuleConfigRejectsAnyFilesSelector verifies a project rule cannot
+// TestProjectRuleConfigRejectsAnyFilesSelector verifies a project-only rule cannot
 // appear in a file-scoped config object, even when disabled or scoped by an
 // explicitly empty selector.
 //
@@ -14,7 +14,7 @@ import (
 // retain selector presence separately from the selector's pattern count.
 //
 //  1. Parse non-empty and empty `files` selectors containing a project rule.
-//  2. Resolve the registered project-rule name.
+//  2. Resolve the explicitly requested project-rule name.
 //  3. Assert both declarations are rejected as scoped mentions.
 //
 // @evidence contracts/testing.md#behavioral-verification ResolveProjectRules rejects a project rule in both a nonempty files selector with off severity and an explicitly empty files selector with an error/options tuple.
