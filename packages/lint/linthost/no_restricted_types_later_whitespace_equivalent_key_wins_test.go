@@ -12,7 +12,7 @@ import (
 // Keys that differ only in spacing normalize to one policy and the final entry
 // decides.
 //
-//  1. Configure Banned twice with differing inner spacing, enabled then disabled and
+//  1. Configure Banned twice with differing outer or inner spacing, enabled then disabled and
 //     the reverse.
 //  2. Run the rule over a Banned type.
 //  3. Assert the final disable is clean and the final enable reports one exact-span
