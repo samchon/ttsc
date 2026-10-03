@@ -14,9 +14,8 @@ import (
 // `{ // note }` written across lines has no statements *and* a comment
 // — collapsing it to `{}` would silently delete the comment. The
 // printer must treat the comment-bearing statement-free block as
-// uncovered so the formatPrintWidth rule abstains and the comment
-// survives byte-identical. A regression that collapsed it would lose
-// the comment on the first `ttsc format` pass.
+// uncovered. This test checks the enclosing call's coverage flag; it
+// does not run formatPrintWidth or assert byte-identical disk output.
 //
 //  1. Parse a callback whose body holds only a `// note` comment on its
 //     own line.

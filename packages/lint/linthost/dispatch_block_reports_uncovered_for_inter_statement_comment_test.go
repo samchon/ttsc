@@ -13,9 +13,9 @@ import (
 // printBlock joins statements with bare Hardline separators that have
 // no carrier slot for trivia. A comment sitting between statements
 // would be silently dropped by a reflow. The printer must surface that
-// as `covered == false` so the formatPrintWidth rule abstains and the
-// comment survives byte-identical. A regression that ignored the
-// comment would delete it on the first `ttsc format` pass.
+// as `covered == false`. This test checks that flag on the enclosing
+// call; it does not run formatPrintWidth or assert byte-identical disk
+// output.
 //
 //  1. Parse a callback body with a `// note` comment between two
 //     statements.

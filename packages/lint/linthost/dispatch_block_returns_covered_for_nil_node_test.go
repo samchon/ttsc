@@ -7,12 +7,10 @@ import (
 // TestDispatchBlockReturnsCoveredForNilNode verifies that printBlock returns
 // an empty Doc and covered==true when called with a nil node.
 //
-// The nil guard is the first defensive check in printBlock. It protects
-// callers — primarily printFunctionLike — from panicking when the function
-// body pointer is nil due to a parse error. covered==true is correct: an
-// empty Doc has no multi-line verbatim content. A regression that panicked
-// or returned covered==false would break the printFunctionLike path that
-// dispatches the body.
+// The nil guard is the first defensive check in printBlock. This direct
+// call requires an empty Doc with no unsupported multiline content.
+// Normal PrintNode dispatch has its own nil guard, so this test does not
+// establish that a missing function body reaches printBlock.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printBlock(ctx, nil) directly.

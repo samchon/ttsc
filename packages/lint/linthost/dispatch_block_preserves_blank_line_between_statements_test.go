@@ -10,12 +10,10 @@ import (
 // block printer keeps a single user-authored blank line between two
 // statements instead of deleting it.
 //
-// printBlock mints fresh Hardline separators between statements; a bare
-// `Join(Hardline, …)` joined them with exactly one newline, so a blank
-// line a developer wrote between two callback-body statements was
-// silently erased on the first `ttsc format` pass. The blank line is
-// emitted as a Literalline so the empty line carries no trailing
-// indentation whitespace.
+// printBlock mints fresh Hardline separators between statements and
+// adds a LiteralLine for this two-break source gap. The expected empty
+// line has no trailing indentation whitespace. The test exercises this
+// direct printer output, not a `ttsc format` pass or historical behavior.
 //
 //  1. Parse a callback body with a blank line between `setup();` and
 //     `teardown();`.
