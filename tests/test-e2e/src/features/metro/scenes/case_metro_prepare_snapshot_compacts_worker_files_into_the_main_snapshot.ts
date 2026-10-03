@@ -24,11 +24,11 @@ import { prepareSnapshot, readMainSnapshot, listWorkerSnapshots, snapshotDirecto
  * @evidence contracts/testing.md#behavioral-verification Actual preparation rejects live lock ownership, recovers a proven-dead Node child lock and then compacts a valid worker into the unchanged main epoch with cleanup.
  * @evidence contracts/testing.md#independent-expectations The live current PID and actually exited child establish independent ownership facts; literal private-token grammar, retained worker and epoch equality require conservative recovery.
  * @evidence contracts/testing.md#distinguishing-cases Live owner contrasts proven-dead owner, followed by a new preparation that merges the retained valid worker.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
- * @evidence contracts/e2e.md#necessary-boundary Real process liveness determines lock recovery; a synthetic PID value cannot establish an owner has actually terminated.
- * @evidence contracts/e2e.md#shared-execution One trivial Node child supplies the dead-owner witness; all contention, recovery and merge observations share one prepared directory and start no native compiler or consumer installation. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The live lock is removed in finally and the dead child is synchronous/completed. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage Live-contender nonce/no-rewrite, dead-owner nonce/retirement marker, worker retention and final epoch/membership/removal assertions all remain.
+ * @evidence contracts/testing.md#execution-ownership This legacy E2E scenario directly invokes the fingerprint owning operation; the actual Node child only prepares an exited PID, not a shipped host connection. Authored direct owner tests/test-metro/src/features/cache/test_prepare_snapshot_preserves_live_ownership_and_retires_a_dead_owner.ts preserves the mapped live/dead/quarantine matrix; its actual runtime survival remains unverified.
+ * @evidence contracts/e2e.md#necessary-boundary Native PID liveness is a real input to this direct owning operation, not by itself an E2E justification. The existing direct unit retains actual exited PID and native ESRCH observation; synthetic PID or prefilled liveness must not replace them. Legacy selection stays until actual direct survival permits removal.
+ * @evidence contracts/e2e.md#shared-execution One Node child prepares the dead PID and one bare directory serves original live/dead/merge rows; no compiler/consumer install is deliberately prepared. Direct-unit execution will retain that necessary PID setup cost instead of counting relocation as savings; parent calls do not count unrelated descendants.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The live lock cleanup retains an original assertion error if removal also fails. The owned child result checks error/status/signal/positive PID and actual ESRCH before dead-owner use. Workspace slot reset/parent cleanup owns retained worker/quarantine files; synchronous child return is not arbitrary descendant-join proof.
+ * @evidence contracts/e2e.md#preserved-coverage Original live nonce/epoch/worker retention, dead nonce/fixedlock absence/quarantine, and final stable epoch/member/worker-empty assertions remain. Exact direct unit body and selection conditions are mapped, actual invocation/survival and legacy selection removal remain unverified; this does not certify the independent 150-round boundary.
  */
 export async function case_metro_prepare_snapshot_compacts_worker_files_into_the_main_snapshot(
   workspace: MetroWorkspace.IWorkspace,
@@ -59,6 +59,7 @@ export async function case_metro_prepare_snapshot_compacts_worker_files_into_the
     JSON.stringify({ pid: process.pid, token: "1".repeat(32) }),
     "utf8",
   );
+  const liveFailures: unknown[] = [];
   try {
     assert.match(
       await prepareSnapshot(root),
@@ -75,12 +76,32 @@ export async function case_metro_prepare_snapshot_compacts_worker_files_into_the
       1,
       "the contender must leave the owner's pending worker document intact",
     );
+  } catch (error) {
+    liveFailures.push(error);
   } finally {
-    fs.rmSync(compactionLock, { force: true, recursive: true });
+    try {
+      fs.rmSync(compactionLock, { force: true, recursive: true });
+    } catch (error) {
+      liveFailures.push(error);
+    }
+  }
+  if (liveFailures.length !== 0) {
+    throw new AggregateError(liveFailures, "Live compactor observation or owned lock cleanup failed");
   }
 
   const exited = spawnSync(process.execPath, ["-e", ""], { stdio: "ignore" });
+  assert.equal(exited.error, undefined);
   assert.equal(exited.status, 0);
+  assert.equal(exited.signal, null);
+  assert.ok(Number.isSafeInteger(exited.pid) && exited.pid > 0);
+  let absence: unknown;
+  try {
+    process.kill(exited.pid, 0);
+  } catch (error) {
+    absence = error;
+  }
+  assert.ok(typeof absence === "object" && absence !== null && "code" in absence);
+  assert.equal(absence.code, "ESRCH", "only native absence establishes this owner is dead");
   const staleToken = "2".repeat(32);
   fs.mkdirSync(compactionLock);
   fs.writeFileSync(
