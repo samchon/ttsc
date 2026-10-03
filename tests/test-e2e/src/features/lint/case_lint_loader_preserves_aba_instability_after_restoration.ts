@@ -74,8 +74,8 @@ export async function case_lint_loader_preserves_aba_instability_after_restorati
       writerPid: result.pid, location, label: "config file",
       evaluations: [1, 2, 3].map(() => ({
         value: input.duringValue,
-        rawDependencies: [{ path: input.rawHelperPath, fields: { identityStable: false, digest: "" } }],
-        normalizedDependencies: [{ path: input.normalizedHelperPath, fields: { identityStable: false, digest: "" } }],
+        rawDependencies: [{ path: input.rawHelperPath, fields: { kind: "file", identityStable: false, digest: "" } }],
+        normalizedDependencies: [{ path: input.normalizedHelperPath, fields: { kind: "file", identityStable: false, digest: "" } }],
         absentRawPaths: [], absentNormalizedPaths: [], cacheOutcomes: ["not-current"],
       })), fixedOutputs: [],
     });
