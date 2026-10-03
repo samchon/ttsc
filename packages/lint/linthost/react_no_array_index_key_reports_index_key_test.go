@@ -4,8 +4,8 @@ import "testing"
 
 // TestReactNoArrayIndexKeyReportsIndexKey verifies index keys are rejected.
 //
-// `key={index}` is a known reconciliation footgun and can be caught from the
-// JSX attribute expression alone.
+// A map callback ordinal used as a key can be recognized from the
+// JSX attribute expression and the surrounding callback parameter list.
 //
 // 1. Parse a JSX element with key={index}.
 // 2. Enable only `react/no-array-index-key`.

@@ -8,9 +8,9 @@ import "testing"
 //
 // The undeclared-name lookup was refactored from a per-tag whole-file walk
 // into a once-per-file declared-name set; this pins that the set still covers
-// every binding form the original predicate did — default / named / namespace
-// imports, function, class, variable, enum declarations, and parameters — so
-// the memoization changed cost, not findings.
+// the eight authored forms: default / named / namespace
+// imports, function, class, variable, enum declarations, and parameters.
+// This entry observes their accepted findings, not lookup cost or every historical input.
 //
 //  1. Declare one uppercase component through each recognized form.
 //  2. Use every one as a JSX tag with only react/jsx-no-undef enabled.
