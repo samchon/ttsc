@@ -739,15 +739,17 @@ func isSourcePreambleTarget(filePath string) bool {
   return false
 }
 
-// ApplySourcePreambleToFile applies a generated preamble only when filePath is
-// a non-declaration TypeScript or JavaScript source, matching sourcePreambleFS.
+// ApplySourcePreambleToFile uses a case-insensitive supported filename-suffix
+// check, excluding .d.ts/.d.mts/.d.cts, to admit preamble insertion exactly as
+// sourcePreambleFS does. This classifier does not inspect a file's physical kind
+// or independently certify the compiler's source admission.
 //
 // @evidence contracts/common.md#principled-implementation The shared eligibility predicate makes direct insertion match the parsing filesystem wrapper.
 // @evidence contracts/common.md#clear-and-simple-design One predicate delegates to the byte-preserving insertion operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler source extensions replace fixture filenames or parser mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies declaration exclusion and wrapper correspondence following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.ToSlash normalizes native separators without assuming a host separator.
-// @evidence contracts/performance.md#efficient-algorithms A fixed extension set is checked before allocating inserted text.
+// @evidence contracts/performance.md#efficient-algorithms Native separator conversion and lowercasing scan filename text before fixed suffix comparisons; admitted input then incurs the source/preamble scan and output allocation of ApplySourcePreamble. Filename and returned text bytes govern total work despite the fixed extension set.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work One source operation owns no repeated-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string is caller-owned without a resident collection or resource.
 func ApplySourcePreambleToFile(filePath string, text string, preamble string) string {
@@ -757,15 +759,17 @@ func ApplySourcePreambleToFile(filePath string, text string, preamble string) st
   return ApplySourcePreamble(text, preamble)
 }
 
-// ApplySourcePreamble inserts a generated source preamble without moving the
-// file's BOM or hashbang away from the first bytes of the physical output.
+// ApplySourcePreamble inserts a generated preamble into supplied source text,
+// preserving a represented UTF-8 BOM and hashbang as leading string prefixes.
+// It does not write a file or reconstruct an on-disk encoding/BOM already
+// removed by the caller's text decoder.
 //
 // @evidence contracts/common.md#principled-implementation BOM and hashbang positions remain lexical prefixes ahead of injected bytes.
 // @evidence contracts/common.md#clear-and-simple-design Empty, BOM, and hashbang branches construct the resulting text directly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source markers replace hardcoded filenames or compiler-internal mutation.
-// @evidence contracts/common.md#meaningful-documentation Native prose states the physical-byte guarantee following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose states supplied-text prefix preservation separately from disk encoding or output writes following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Source-byte insertion performs no native operation.
-// @evidence contracts/performance.md#efficient-algorithms Prefix checks and one newline search precede direct concatenation without reparsing the source.
+// @evidence contracts/performance.md#efficient-algorithms Fixed prefix checks and any hashbang newline scan precede one direct concatenation; scanned prefix and total source/preamble bytes govern work and output allocation, without parsing the source or an intermediate line array.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each requested source value has no shared-work ownership.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned string is retained by its caller.
 func ApplySourcePreamble(text string, preamble string) string {
