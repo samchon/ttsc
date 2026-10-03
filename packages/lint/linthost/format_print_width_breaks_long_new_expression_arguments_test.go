@@ -7,9 +7,9 @@ import "testing"
 //
 // NewExpression travels a sibling-but-distinct path through the
 // dispatcher from CallExpression: it prepends `new ` and has an
-// optional argument list. A regression in the keyword glue or in the
-// optional-arg handling would only show up at this exact site. The
-// case asserts both the keyword survives and the arguments break.
+// optional argument list. This present-arguments fixture protects the
+// constructor prefix and the argument-list join; it does not exercise
+// an absent argument list. The keyword must survive while arguments break.
 //
 //  1. Configure printWidth=20.
 //  2. Feed `new Foo(aaaaaa, bbbbbb, cccccc);`.
