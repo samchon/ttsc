@@ -1,3 +1,4 @@
+import { Scenarios } from "../internal/Scenarios";
 import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles } from "./ttsc/ttsx-runtime/test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles";
 
 /**
@@ -21,5 +22,5 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * @evidence contracts/e2e.md#preserved-coverage The named canonical profiles keep their original literal assertions, including the five extension fields and implicit-module contrary-manifest output. Other unmapped Runtime donations are not certified by this entry; actual selected coverage and reduced preparation remain remote measurement obligations.
  */
 export async function test_e2e_runtime(): Promise<void> {
-  await test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles();
+  await Scenarios.invoke("shared-family", "test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles", test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles);
 }

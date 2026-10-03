@@ -1,3 +1,4 @@
+import { Scenarios } from "../internal/Scenarios";
 import { TestProject } from "@ttsc/testing";
 import path from "node:path";
 
@@ -35,17 +36,17 @@ export async function test_e2e_consumer(): Promise<void> {
     const modules = path.join(workspace.root, "node_modules");
     prepareEvidenceDependencies(modules, "snapshot");
     try {
-      await test_e2e_utilities(workspace);
+      await Scenarios.invoke("shared-family", "test_e2e_utilities", test_e2e_utilities, workspace);
     } catch (cause) {
       failures.push(new Error("consumer utility profiles", { cause }));
     }
     try {
-      await test_e2e_evidence({ preparedModules: modules, workspaceParent: workspace.root, includeWatch: false });
+      await Scenarios.invoke("shared-family", "test_e2e_evidence", test_e2e_evidence, { preparedModules: modules, workspaceParent: workspace.root, includeWatch: false });
     } catch (cause) {
       failures.push(new Error("consumer Evidence profiles", { cause }));
     }
     try {
-      await test_e2e_lint({ root: path.join(workspace.root, "lint-consumers"), nativeProducer: "snapshot" });
+      await Scenarios.invoke("shared-family", "test_e2e_lint", test_e2e_lint, { root: path.join(workspace.root, "lint-consumers"), nativeProducer: "snapshot" });
     } catch (cause) {
       failures.push(new Error("consumer lint profiles", { cause }));
     }

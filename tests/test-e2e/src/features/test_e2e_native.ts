@@ -1,3 +1,4 @@
+import { Scenarios } from "../internal/Scenarios";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,12 +36,12 @@ export async function test_e2e_native(): Promise<void> {
   CompilerApiWorkspace.enter({ root: apiRoot }, "baseline");
   const failures: unknown[] = [];
   try {
-    await test_ttsccompiler_source_plugin_discovery_shares_one_project({ root: apiRoot });
+    await Scenarios.invoke("shared-family", "test_ttsccompiler_source_plugin_discovery_shares_one_project", test_ttsccompiler_source_plugin_discovery_shares_one_project, { root: apiRoot });
   } catch (cause) {
     failures.push(new Error("native source-plugin API profiles", { cause }));
   }
   try {
-    await case_evidence_positive_watch_consumers_share_one_watcher({ workspaceParent: root, preparedModules: modules });
+    await Scenarios.invoke("shared-family", "case_evidence_positive_watch_consumers_share_one_watcher", case_evidence_positive_watch_consumers_share_one_watcher, { workspaceParent: root, preparedModules: modules });
   } catch (cause) {
     failures.push(new Error("native live-producer watcher profiles", { cause }));
   }

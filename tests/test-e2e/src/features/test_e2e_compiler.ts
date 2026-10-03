@@ -1,3 +1,4 @@
+import { Scenarios } from "../internal/Scenarios";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +33,7 @@ export async function test_e2e_compiler(): Promise<void> {
   fs.mkdirSync(project);
   CompilerApiWorkspace.enter({ root: project }, "baseline");
   try {
-    await test_ttsccompiler_plugin_free_compile_and_transform_share_one_project({ root: project });
+    await Scenarios.invoke("shared-family", "test_ttsccompiler_plugin_free_compile_and_transform_share_one_project", test_ttsccompiler_plugin_free_compile_and_transform_share_one_project, { root: project });
   } catch (cause) {
     throw new AggregateError([new Error("real compiler API profiles", { cause })], "CLI profiles blocked by failed API prerequisite");
   }
@@ -40,5 +41,5 @@ export async function test_e2e_compiler(): Promise<void> {
   fs.mkdirSync(observed);
   for (const name of fs.readdirSync(project))
     fs.renameSync(path.join(project, name), path.join(observed, name));
-  await test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries(true, root);
+  await Scenarios.invoke("shared-family", "test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries", test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries, true, root);
 }
