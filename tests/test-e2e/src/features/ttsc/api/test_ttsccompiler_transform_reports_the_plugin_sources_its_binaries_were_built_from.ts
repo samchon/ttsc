@@ -12,6 +12,7 @@ import {
   path,
   tsgo,
   writeCompilerPlugin,
+  writeBasicProject,
 } from "../../../internal/ttsc/internal/compiler";
 
 /**
@@ -45,21 +46,28 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases The case owns unchanged ignored inputs, changed meaningful Go input, changed build environment and no-plugin absence, retaining both positive and negative provenance transitions.
  * @evidence contracts/testing.md#execution-ownership The named feature calls checkout built TtscCompiler with selected native compiler and private mutable Go module, with actual state-helper observations between transforms. It observes transport provenance, not independently validated build bytes/loaded image or packed installation.
  * @evidence contracts/e2e.md#necessary-boundary Published pluginSources must describe the artifact actually selected after source/environment changes; state-key unit tests alone cannot establish real artifact selection and returned provenance.
- * @evidence contracts/e2e.md#shared-execution The unchanged first/source-edit/GOFLAGS sequence reuses one project and keyed cache; changed Go bytes or explicit flag values require distinct keyed states, not an independently asserted new build invocation or artifact image. A final no-plugin transform needs no contributor build.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity writeCompilerPlugin creates a private mutable module rather than the immutable suite producer. An explicit ambient baseline GOFLAGS differs from the preserved scoped target literal, even when inherited GOENV would otherwise supply that target. Exact prior absent/value state is restored in finally on every return/failure. TestProject tracks both roots for normal cleanup; synchronous return does not certify arbitrary descendant closure or interruption cleanup.
+ * @evidence contracts/e2e.md#shared-execution First/source-edit/GOFLAGS requests reuse one project and keyed cache while changed Go bytes or flags require distinct keyed states, not inferred builds or artifact images. Standalone no-plugin contrast uses its original second root. Consolidated execution borrows one empty physical API root and holds the successfully observed plugin inputs aside before writing the exact no-plugin project there; all four native requests remain, with no contributor build required by the last input.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private mutable module remains distinct from the immutable suite producer. Borrowed execution requires an empty root and exact source/config/package. Only successful source/flag publication checks admit moving the plugin inputs outside that root for plugin-free staging. Baseline GOFLAGS differs from the scoped target even under inherited GOENV; exact prior absent/value state is restored in finally. Standalone tracked roots retain original cleanup, borrowed roots stay with the family. Synchronous return does not certify arbitrary descendants or interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage All original source-map equality, pruning predicates, ignored-state equality, source/flag inequality, subsequent publication and no-plugin absence checks remain. Shared helper equality is an acknowledged oracle limitation; the two explicit flag literals establish the contrasting environment premise without using that equality as the setup oracle.
  */
 export const test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries_were_built_from =
-  () => {
+  (prepared?: { root: string; observedRoot: string }) => {
     const previousGoFlags = process.env.GOFLAGS;
     process.env.GOFLAGS = "-tags=ttsc_build_environment_probe_baseline";
     try {
       const root = TestProject.physicalPath(
-        createProject({
+        prepared?.root ?? createProject({
           plugins: [{ transform: "./plugin.cjs" }],
           source: 'export const value = goUpper("plugin");\n',
         }),
       );
+      if (prepared !== undefined) {
+        assert.deepEqual(fs.readdirSync(root), [], "borrowed provenance project must be empty");
+        writeBasicProject(root, 'export const value = goUpper("plugin");\n', {
+          plugins: [{ transform: "./plugin.cjs" }],
+        });
+        fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }), "utf8");
+      }
       writeCompilerPlugin(root);
       const source = path.resolve(root, "plugin-go");
       const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
@@ -110,7 +118,17 @@ export const test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries
       assert.equal(third.pluginSources?.[source], tagged);
 
       // 5. No plugin, no plugin source.
-      const plain = createProject({ source: "export const value = 1;\n" });
+      let plain: string;
+      if (prepared === undefined) {
+        plain = createProject({ source: "export const value = 1;\n" });
+      } else {
+        fs.mkdirSync(prepared.observedRoot, { recursive: true });
+        for (const name of fs.readdirSync(root))
+          fs.renameSync(path.join(root, name), path.join(prepared.observedRoot, name));
+        writeBasicProject(root, "export const value = 1;\n");
+        fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }), "utf8");
+        plain = root;
+      }
       const bare = new TtscCompiler({ binary: tsgo, cwd: plain }).transform();
       assert.equal(bare.type, "success");
       if (bare.type !== "success") return;
