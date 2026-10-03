@@ -8,8 +8,8 @@ import "testing"
 // The reverse of the unescaped-`"` case: `'don\'t'` has one escaped quote
 // in the source. Converting to double quotes makes that escape unnecessary,
 // so the rule should emit `"don't"`. Without this branch the formatter
-// would produce valid-but-uglified `"don\'t"` output and reformat-twice
-// could end up oscillating between forms.
+// would retain an unnecessary apostrophe escape in the double form.
+// This one-pass assertion owns escape removal, not repeated-pass convergence.
 //
 //  1. Parse a source file with one escaped apostrophe in a single-quoted
 //     literal.

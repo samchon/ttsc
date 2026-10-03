@@ -10,10 +10,10 @@ import (
 // untouched by the quote-style formatter.
 //
 // Template literals use a distinct AST kind (NoSubstitutionTemplateLiteral /
-// TemplateExpression). Walking them as part of the StringLiteral kind list
-// would silently rewrite backticks to double quotes and strip every
-// interpolation. The rule's Visits() list deliberately omits template
-// kinds; this scenario pins that omission.
+// TemplateExpression). The rule's Visits() list omits those kinds, and
+// its delimiter guard also rejects non-single/double-quoted tokens.
+// These direct engine assertions require no finding on both template
+// forms; they do not prove that changing the visitor alone corrupts them.
 //
 // 1. Parse a source file using only backtick template literals.
 // 2. Run the engine with formatQuotes enabled.

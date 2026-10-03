@@ -6,10 +6,10 @@ import "testing"
 // rule flips an already-double-quoted literal to single quotes when that
 // strictly reduces escapes, even under the default prefer:"double".
 //
-// Prettier chooses the quote that yields fewer escapes and only honors
-// the configured preference on a tie. The old rule only converted
-// single->double and never re-examined a double-quoted literal, so
-// `"\""` (one escape) was left alone instead of becoming `'"'` (zero).
+// The supported policy chooses fewer required escapes before applying
+// delimiter preference on a tie. This already-double positive requires
+// the strictly cheaper single form; it does not execute an earlier
+// single-to-double-only implementation.
 //
 //  1. Parse a source file with a double-quoted literal holding one
 //     escaped double quote.
