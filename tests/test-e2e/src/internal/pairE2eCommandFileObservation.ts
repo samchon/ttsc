@@ -41,6 +41,7 @@ export function pairE2eCommandFileObservation(
     const event = row.observation;
     const data = event.data ?? {};
     if (event.event !== input.event || (input.owner !== undefined && data.owner !== input.owner)) continue;
+    if (before && data.realPath !== before.realPath && data.requestedPath !== before.requestedPath) continue;
     const sameCall = rows.filter(candidate => candidate.writerFile === row.writerFile &&
       candidate.observation.invocation === event.invocation);
     const attempt = sameCall.find(candidate => candidate.observation.event === "process-attempt");

@@ -7,6 +7,7 @@ import { E2eProcessTrace } from "../../utils/src/E2eProcessTrace";
 import { captureE2eTracePhase, type TracePhaseInput } from "./internal/captureE2eTracePhase";
 import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "./internal/pairE2eTraceWriterManifest";
 import { pairE2eColdCommandArtifact } from "./internal/pairE2eColdCommandArtifact";
+import { pairE2eCommandFileObservation } from "./internal/pairE2eCommandFileObservation";
 
 /**
  * Runs the unchanged legacy index in one owned, instrumented Node process.
@@ -43,6 +44,7 @@ export async function measureLegacyE2e(): Promise<void> {
     afterSequences?: Record<string, number>;
     boundaries: (Omit<TraceBoundaryRequirement, "writerPid"> & { writerPid: number | "coordinator" | "runner" })[];
     coldArtifacts?: (Omit<Parameters<typeof pairE2eColdCommandArtifact>[1], "writerPid"> & { boundary: string })[];
+    commandFiles?: (Omit<Parameters<typeof pairE2eCommandFileObservation>[1], "writerPid"> & { boundary: string })[];
   };
   if (!Array.isArray(input.assets) || !Array.isArray(input.cacheRoots) || !Array.isArray(input.boundaries) || input.boundaries.length === 0)
     throw new Error("Measurement input requires explicit asset/cache/boundary arrays");
@@ -60,6 +62,19 @@ export async function measureLegacyE2e(): Promise<void> {
       requirement.producerAssets.length === 0)
       throw new Error("Invalid or duplicate independently selected cold artifact requirement");
     coldNames.add(requirement.boundary);
+  }
+  if (input.commandFiles !== undefined && !Array.isArray(input.commandFiles))
+    throw new Error("Command file requirements must be an explicitly selected array");
+  const commandNames = new Set<string>();
+  for (const requirement of input.commandFiles ?? []) {
+    if (!requirement || typeof requirement.boundary !== "string" || !requirement.boundary ||
+      commandNames.has(requirement.boundary) ||
+      !["native-artifact", "selected-file-observation"].includes(requirement.event) ||
+      (requirement.owner !== undefined && typeof requirement.owner !== "string") ||
+      typeof requirement.producerAsset !== "string" || !requirement.producerAsset ||
+      !Number.isSafeInteger(requirement.minimumCalls) || requirement.minimumCalls < 1)
+      throw new Error("Invalid or duplicate independently selected command file requirement");
+    commandNames.add(requirement.boundary);
   }
   const entry = fileURLToPath(new URL("./legacyE2eTraceEntry.ts", import.meta.url));
   const index = fileURLToPath(new URL("./index.ts", import.meta.url));
@@ -115,7 +130,23 @@ export async function measureLegacyE2e(): Promise<void> {
         pairing: pairE2eColdCommandArtifact(phase, { ...requirement, writerPid }) })),
     };
   });
-  const report = JSON.stringify({ phase, pairing, coldArtifacts, descendantJoinCertified: false }, (_key, value) =>
+  const commandFiles = (input.commandFiles ?? []).map(requirement => {
+    const prepared = phase.assetsBefore.find(asset => asset.label === requirement.producerAsset);
+    const actualWriterPids = new Set((phase.traces?.writerObservations ?? [])
+      .filter(row => row.observation.event === requirement.event &&
+        (requirement.owner === undefined || row.observation.data?.owner === requirement.owner) && prepared &&
+        (row.observation.data?.realPath === prepared.realPath ||
+          row.observation.data?.requestedPath === prepared.requestedPath))
+      .map(row => row.observation.writerPid));
+    return {
+      boundary: requirement.boundary,
+      writerAdmission: "observed-command-file-not-ancestry-certified",
+      problems: actualWriterPids.size ? [] : ["Missing explicitly required command file writer"],
+      writers: [...actualWriterPids].map(writerPid => ({ writerPid,
+        pairing: pairE2eCommandFileObservation(phase, { ...requirement, writerPid }) })),
+    };
+  });
+  const report = JSON.stringify({ phase, pairing, coldArtifacts, commandFiles, descendantJoinCertified: false }, (_key, value) =>
     value instanceof Error ? { name: value.name, message: value.message, stack: value.stack,
       diagnostic: inspect(value, { depth: null, customInspect: false, getters: false,
         maxArrayLength: null, maxStringLength: null }) } : value, 2);
@@ -127,7 +158,9 @@ export async function measureLegacyE2e(): Promise<void> {
     phase.traces?.incompleteProcessInvocations.length !== 0 ||
     pairing.boundaries.some(boundary => boundary.problems.length !== 0) ||
     coldArtifacts.some(boundary => boundary.problems.length !== 0 || boundary.writers.some(writer =>
-      writer.pairing.problems.length !== 0 || writer.pairing.artifacts.some(artifact => artifact.problems.length !== 0)))) process.exitCode = 1;
+      writer.pairing.problems.length !== 0 || writer.pairing.artifacts.some(artifact => artifact.problems.length !== 0))) ||
+    commandFiles.some(boundary => boundary.problems.length !== 0 ||
+      boundary.writers.some(writer => writer.pairing.problems.length !== 0))) process.exitCode = 1;
   else process.exitCode = phase.outcome.value.status;
 }
 
