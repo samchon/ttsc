@@ -7,14 +7,14 @@ import (
   "testing"
 )
 
-// TestImportedTsxSourceJoinsTheReadScope verifies the widening is wired for
-// every TypeScript extension, not only `.ts`.
+// TestImportedTsxSourceJoinsTheReadScope verifies an imported `.tsx` file
+// joins the read scope when the config names only a `.ts` root.
 //
 // The extension table names four suffixes, and a table can be right while the
 // code path that consults it only ever sees one of them. A React or Solid
 // codebase imports components across package boundaries, so `.tsx` is the
-// extension most likely to arrive through an import rather than through the
-// tsconfig selection.
+// extension exercised here through an import rather than through the
+// tsconfig selection. This case does not exercise `.mts` or `.cts`.
 //
 // 1. Select a single `.ts` root in the tsconfig.
 // 2. Import a `.tsx` module the selection does not name.

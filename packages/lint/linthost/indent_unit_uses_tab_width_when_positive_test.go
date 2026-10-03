@@ -6,11 +6,12 @@ import "testing"
 // PrintOptions.TabWidth when the value is positive, and falls back to 2
 // when TabWidth is zero.
 //
-// The existing dispatch tests all call printList via per-node printers,
-// which internally calls ctx.indentUnit(). Since those tests use
-// DefaultPrintOptions (TabWidth=2 > 0), they cover only the
-// `return ctx.Opts.TabWidth` arm. The fallback arm (`return 2`) is reached
-// only when a context carries TabWidth == 0, which happens when a caller
+// DefaultPrintOptions supplies a positive TabWidth, so that configuration
+// takes the supplied-width branch. This case separately supplies zero
+// TabWidth while retaining a nonzero PrintWidth, which prevents
+// NewPrintContext from replacing the whole options value with defaults.
+// The fallback arm (`return 2`) is reached when a context carries
+// TabWidth == 0, which happens when a caller
 // passes a partially-filled PrintOptions with PrintWidth set but TabWidth
 // left at its zero value. Both branches are exercised here to confirm the
 // guard handles that case correctly.
