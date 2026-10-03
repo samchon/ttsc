@@ -25,11 +25,17 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Real Engine invocation of an authored panicking rule yields exactly one error under test/panic-bomb, marked engineFailure and retaining synthetic panic for engine-recovery test instead of escaping as a Go panic.
 // @evidence contracts/testing.md#independent-expectations The literal throwing message, rule identity, error severity and one-finding cardinality independently specify recovery; engineFailure distinguishes actual execution failure from an ordinary rule message containing panicked.
-// @evidence contracts/testing.md#distinguishing-cases A real SourceFile visit triggers the panic; recovered-failure semantics are deliberately tested directly rather than filtered through the normal semantic guard. Sibling quarantine units cover other rules and later files.
+// @evidence contracts/testing.md#distinguishing-cases A real SourceFile visit triggers the panic; recovered-failure semantics are deliberately tested directly rather than filtered through the normal semantic guard. A fresh-name guard and deferred owned cleanup invalidate derived rule codes. Sibling quarantine units cover other rules and later files.
 // @evidence contracts/testing.md#execution-ownership Actual Register and Engine.Run execute a synthetic internal rule in-process with deferred registration cleanup; no public adapter, native producer, installation or CLI recovery is claimed.
 func TestEngineRecoversFromRulePanic(t *testing.T) {
+  if LookupRule("test/panic-bomb") != nil {
+    t.Fatal("panic-recovery sentinel is already registered")
+  }
   Register(panickingRule{})
-  defer delete(registered.rules, "test/panic-bomb")
+  defer func() {
+    delete(registered.rules, "test/panic-bomb")
+    invalidateRuntimeRuleCodes()
+  }()
 
   file := parseTS(t, "const x = 1;\n")
   findings := NewEngine(RuleConfig{"test/panic-bomb": SeverityError}).
@@ -48,7 +54,9 @@ func TestEngineRecoversFromRulePanic(t *testing.T) {
   if !strings.Contains(f.Message, "panicked") {
     t.Fatalf("want message to mention panic, got %q", f.Message)
   }
-  if !f.engineFailure || !strings.Contains(f.Message, "synthetic panic for engine-recovery test") { t.Fatalf("panic was not retained as an actual execution failure: %+v", f) }
+  if !f.engineFailure || !strings.Contains(f.Message, "synthetic panic for engine-recovery test") {
+    t.Fatalf("panic was not retained as an actual execution failure: %+v", f)
+  }
 }
 
 type panickingRule struct{}
