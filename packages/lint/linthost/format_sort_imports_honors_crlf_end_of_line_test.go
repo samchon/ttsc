@@ -5,13 +5,12 @@ import "testing"
 // TestFormatSortImportsHonorsCRLFEndOfLine verifies the rebuilt import block
 // joins declarations with CRLF under endOfLine:"crlf".
 //
-// Regression shield for issue #616: buildSortedImportBlock joined declarations
-// with a hard-coded "\n", so re-sorting an otherwise-CRLF import block injected
-// lone LFs. The rule now accepts endOfLine (threaded from the top-level format
-// key by config_format.go). Bound to the CRLF oracle (LF twin: format_sort_
-// imports_groups_external_before_relative_test.go); the helper asserts zero
-// lone LFs.
-//
+// This entry supplies endOfLine directly to the rule options and fixes
+// the complete CRLF output independently. A hard-coded LF join would fail
+// both that literal and the helper's zero-lone-LF assertion. The LF twin is
+// format_sort_imports_groups_external_before_relative_test.go; this host
+// does not authenticate top-level option threading or historical failures.
+
 //  1. Parse a CRLF file with shuffled third-party and relative imports.
 //  2. Apply format/sort-imports with {"endOfLine":"crlf"}.
 //  3. Assert the declarations join with "\r\n" and no lone LF remains.

@@ -5,10 +5,9 @@ import "testing"
 // TestFormatSortImportsGroupSeparatorHonorsCRLFEndOfLine verifies the blank
 // line between import groups is two CRLF terminators under endOfLine:"crlf".
 //
-// Regression shield for issue #616 on the group-separator path: the block
-// builder emitted a hard-coded "\n\n" between groups, so the blank line dropped
-// two lone LFs into an otherwise-CRLF file. Bound to the CRLF oracle (LF twin:
-// format_sort_imports_separator_spans_empty_group_test.go); the helper asserts
+// The expected blank group separator contains two CRLF pairs; emitting
+// a hard-coded "\n\n" instead would introduce two lone LFs. The LF twin is
+// format_sort_imports_separator_spans_empty_group_test.go. The helper asserts
 // zero lone LFs, which specifically pins that BOTH newlines of the blank line
 // are "\r\n".
 //
