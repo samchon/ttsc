@@ -21,10 +21,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification The shim evaluates the temporary dependency state but omits its hash after A-B-A replacement, while the final bytes equal the original.
  * @evidence contracts/testing.md#independent-expectations The authored before/during module values and restored bytes independently distinguish the evaluation result from the final filesystem state.
  * @evidence contracts/testing.md#distinguishing-cases The shim evaluates the temporary dependency state but omits its hash after A-B-A replacement, while the final bytes equal the original.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The named generic project entry launches Node with the actual built CommonJS shim, which reads/evaluates the built resolution recorder and writes its descriptor envelope. The authored hook mutates real input bytes; no compiler, installed consumer or full ttsx bootstrap is certified.
  * @evidence contracts/e2e.md#necessary-boundary The real CommonJS descriptor shim runs in a Node child with supported module hooks and writes its descriptor/input-proof envelope; direct hashing cannot establish the module value observed during the authored filesystem mutation.
  * @evidence contracts/e2e.md#shared-execution One Node shim evaluation carries the mutation, returned descriptor and all proof assertions; no compiler, Go build, descriptor-cache warmup or consumer installation occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A tracked private root owns descriptor, dependencies and output; hook registration and module cache live only in the synchronous child, so mutation and loaded values cannot contaminate another case.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked private root is retained before setup and child-only environment carries entry/context/output. Hook/module-cache state belongs to this child; actual launch error/signal/status does not certify arbitrary descendant closure. Authored before bytes must be restored independently of the returned during value.
  * @evidence contracts/e2e.md#preserved-coverage The shim evaluates the temporary dependency state but omits its hash after A-B-A replacement, while the final bytes equal the original. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_commonjs_plugin_descriptor_aba_omits_stale_hash_proof =
@@ -32,6 +32,7 @@ export const test_commonjs_plugin_descriptor_aba_omits_stale_hash_proof =
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-descriptor-aba-"),
     );
+    TestProject.retainTemporaryDirectory(root, "descriptor ABA child has no descendant join acknowledgement");
     const dependency = path.join(root, "selection.cjs");
     const descriptor = path.join(root, "plugin.cjs");
     const output = path.join(root, "descriptor.json");
@@ -75,6 +76,8 @@ export const test_commonjs_plugin_descriptor_aba_omits_stale_hash_proof =
         windowsHide: true,
       },
     );
+    assert.equal(result.error, undefined, "descriptor ABA launch error");
+    assert.equal(result.signal, null, "descriptor ABA child terminated by signal");
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(fs.readFileSync(output, "utf8")) as {
       descriptor: { name: string };

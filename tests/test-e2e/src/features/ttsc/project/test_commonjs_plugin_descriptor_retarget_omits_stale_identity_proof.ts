@@ -19,17 +19,18 @@ import {
  * 2. Execute its isolated evaluator and assert the value, observed inputs and missing proof.
  *
  * @evidence contracts/testing.md#behavioral-verification The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation.
- * @evidence contracts/testing.md#independent-expectations Two distinct physical files carry equal bytes, so link identity rather than content alone must invalidate proof.
+ * @evidence contracts/testing.md#independent-expectations Equal authored selection bytes are checked in distinct old/new targets, and native realpath observes the link pointing to old before evaluation and new afterward. Returned literal old value plus missing proof distinguishes evaluated selection from final physical identity; no expected proof is computed from the SUT.
  * @evidence contracts/testing.md#distinguishing-cases The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The generic project entry launches the actual built CommonJS shim/recorder against a real linked descriptor. Child factory performs actual junction/directory-link retarget after require; no compiler, packed consumer or full ttsx bootstrap is certified.
  * @evidence contracts/e2e.md#necessary-boundary The real CommonJS descriptor shim runs in a Node child with supported module hooks and writes its descriptor/input-proof envelope; direct hashing cannot establish the module value observed during the authored filesystem mutation.
  * @evidence contracts/e2e.md#shared-execution One Node shim evaluation carries the mutation, returned descriptor and all proof assertions; no compiler, Go build, descriptor-cache warmup or consumer installation occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A tracked private root owns descriptor, dependencies and output; hook registration and module cache live only in the synchronous child, so mutation and loaded values cannot contaminate another case.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before setup. Distinct old/new targets, child-only entry/context/output and native before/after link observations isolate retarget; actual launch error/signal/status does not establish arbitrary descendant join. Fresh child module state does not certify future shared-profile reset.
  * @evidence contracts/e2e.md#preserved-coverage The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_commonjs_plugin_descriptor_retarget_omits_stale_identity_proof =
   (): void => {
     const root = TestProject.tmpdir("ttsc-descriptor-link-retarget-");
+    TestProject.retainTemporaryDirectory(root, "descriptor retarget child has no descendant join acknowledgement");
     const oldTarget = path.join(root, "old");
     const newTarget = path.join(root, "new");
     const link = path.join(root, "selection-link");
@@ -64,6 +65,9 @@ export const test_commonjs_plugin_descriptor_retarget_omits_stale_identity_proof
       process.platform === "win32" ? "junction" : "dir",
     );
     const linkedSelection = path.join(link, "selection.cjs");
+    assert.equal(fs.readFileSync(path.join(oldTarget, "selection.cjs"), "utf8"), selectionSource);
+    assert.equal(fs.readFileSync(path.join(newTarget, "selection.cjs"), "utf8"), selectionSource);
+    assert.equal(fs.realpathSync.native(linkedSelection), fs.realpathSync.native(path.join(oldTarget, "selection.cjs")));
     fs.writeFileSync(
       descriptor,
       [
@@ -92,7 +96,10 @@ export const test_commonjs_plugin_descriptor_retarget_omits_stale_identity_proof
         windowsHide: true,
       },
     );
+    assert.equal(result.error, undefined, "descriptor retarget launch error");
+    assert.equal(result.signal, null, "descriptor retarget child terminated by signal");
     assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.realpathSync.native(linkedSelection), fs.realpathSync.native(path.join(newTarget, "selection.cjs")));
     const payload = JSON.parse(fs.readFileSync(output, "utf8")) as {
       descriptor: { name: string };
       inputHashes: Record<string, string | null>;
