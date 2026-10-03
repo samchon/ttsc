@@ -5,11 +5,11 @@ import (
   "testing"
 )
 
-// TestLSPFormatPathsHonorEntryIgnores guards scoping parity across every
+// TestLSPFormatPathsHonorEntryIgnores guards scoping parity across the four exercised
 // formatting front door. A rules-bearing entry is important here: it proves
 // ignores are preserved even when the config is not an ignore-only entry.
 //
-// The rules-bearing ignore entry must apply to every formatting front door, rather than only the ignore-only resolver branch.
+// The rules-bearing ignore entry must apply to each exercised formatting front door, rather than only the ignore-only resolver branch.
 //
 //  1. Configure a source ignored by an entry that also carries a lint rule.
 //  2. Require empty action/edit responses and unchanged source from each format path.
@@ -28,6 +28,9 @@ func TestLSPFormatPathsHonorEntryIgnores(t *testing.T) {
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
 
   actions := runLSPCodeActionsForTest(t, root, uri, `{"only":["source.format"]}`)
+  if len(actions) != 0 {
+    t.Fatalf("ignored format actions = %#v, want none", actions)
+  }
   if got := actionCommandsForTest(actions); len(got) != 0 {
     t.Fatalf("ignored format actions = %#v, want none", got)
   }
