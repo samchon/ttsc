@@ -6,10 +6,12 @@ import (
 )
 
 // TestLintCorpusSkipsNameOneRuleAndOneHarness verifies that an audited skip is
-// honored only when it names its rule and the Go harness that proves it.
+// honored only when it names its rule and one existing Go harness path.
 //
 // A skipped fixture is excluded from the flat corpus run, so the skip is the
-// only record that its rule is covered elsewhere. It must carry a known
+// reference to the stated coverage elsewhere. This entry validates the pointer's
+// structure and existence, not the referenced harness's assertions or execution.
+// The skip must carry a known
 // constraint, a reason pointing at exactly one positive Go harness under
 // packages/lint/linthost that exists, and exactly one rule, and no rule may hold two skips.
 //
@@ -20,7 +22,7 @@ import (
 //    skips for one rule.
 // 3. Assert each fails with its own error.
 //
-// @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on real trees: a skip with a constraint, one harness path and one rule is excluded from the entries, while each malformed skip fails loading with the error of the rule it breaks.
+// @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on real trees: a skip with a constraint, one harness path and one rule is excluded from the entries, while each malformed skip fails loading with the error of the rule it breaks. Harness existence is checked during fixture interpretation; actual rule coverage in that harness is not certified.
 // @evidence contracts/testing.md#independent-expectations The skip contract (constraint in options|filename|project|checker|platform, one existing packages/lint/linthost/*_test.go harness, one rule, one skip per rule) is the specification; expected messages are literals written from it.
 // @evidence contracts/testing.md#distinguishing-cases One valid skip (its rule named only through @ttsc-corpus-rule) is the control; unknown constraint, missing or doubled harness, an escaping harness path, a harness file that does not exist, a harness in a subdirectory, a placeholder reason, a missing rule and a duplicate rule each isolate one violation.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusSkipsNameOneRuleAndOneHarness is a discoverable Go unit entry; each scenario is a named subtest over its own t.TempDir tree and calls only the loader.
