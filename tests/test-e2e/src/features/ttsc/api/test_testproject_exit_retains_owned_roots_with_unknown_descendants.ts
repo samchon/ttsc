@@ -25,11 +25,12 @@ import { pathToFileURL } from "node:url";
  * @evidence contracts/testing.md#execution-ownership The named features/api export belongs to E2E discovery and selection because it observes an actual Node exit listener across the process boundary.
  * @evidence contracts/e2e.md#necessary-boundary The owning process exits before the parent reads retained inputs. A mocked exit callback or a direct cleanup call cannot detect erroneous automatic release at real process termination.
  * @evidence contracts/e2e.md#shared-execution One Node child exercises all retention distinctions using the authored helper. No SDK installation, Go producer or product host is started.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All roots are below a unique parent fixture; the parent joins the child before reclaiming the retained input. Retention does not certify native descendant closure, and no foreign/shared root is removed.
- * @evidence contracts/e2e.md#preserved-coverage Adds exact retained-identity and refusal oracles without removing or weakening existing compiler/process tests; normal tracked exit release remains in the companion entry.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All allocations and deliberately untracked sentinel roots are below the parent-owned outer fixture. After successful unsignalled child termination the parent reclaims that outer fixture, including its sentinel roots; it removes no root outside that authority. Retention does not certify descendant closure. Body and cleanup failures are both retained.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves the original exact retained identity/bytes, ancestor/idempotence/refusal and foreign/link/replaced-occupant survival oracles. Declared uncertainty is not an observed native descendant; normal tracked release remains in the companion. Body and cleanup causes are retained without replacing compiler/process tests.
  */
 export const test_testproject_exit_retains_owned_roots_with_unknown_descendants = () => {
   const outer = TestProject.tmpdir("ttsc-exit-cleanup-retained-");
+  const failures: unknown[] = [];
   try {
     const helper = pathToFileURL(path.join(TestProject.TEST_PACKAGE_ROOT,
       "src", "TestProject.ts")).href;
@@ -86,7 +87,16 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
     assert.equal(fs.lstatSync(path.join(outer, record.linked)).isSymbolicLink(), true);
     assert.equal(fs.readFileSync(path.join(outer, record.foreign, "sentinel.txt"), "utf8"),
       "untracked input");
+  } catch (error) {
+    failures.push(error);
   } finally {
-    fs.rmSync(outer, { recursive: true, force: true });
+    try {
+      fs.rmSync(outer, { recursive: true, force: true });
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "TestProject exit fixture failed");
 };
