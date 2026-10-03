@@ -17,7 +17,7 @@ import { readE2eTracePayload } from "../../internal/readE2eTracePayload";
  * 3. Where the profile applies a fix, read the actual file and its literal output.
  *
  * @evidence contracts/testing.md#behavioral-verification Same writer/invocation joins actual Run result, captured result-file bytes, accepted native normalization and cache outcomes. Optional fix rows read actual disk output after the owning native operation, without supplying an evaluator response.
- * @evidence contracts/testing.md#independent-expectations Profile-authored value/dependency/cache arrays and complete fixed text are independent expected literals. Raw and normalized dependencies have separate expectations because normalization may default or order fields; trace values do not generate either oracle.
+ * @evidence contracts/testing.md#independent-expectations Profile-authored value, dependency field/absence, cache and complete fixed-text literals are independent expectations. Raw and normalized fields have separate oracles because normalization may default fields; unrelated private fields and order are not invented requirements.
  * @evidence contracts/testing.md#distinguishing-cases Expected evaluation count distinguishes cold/disabled/unstable re-evaluation from silent cache reuse. Actual raw bytes, accepted normalization and observed cache outcomes stay distinct; zero evaluations cannot certify a loader connection.
  * @evidence contracts/testing.md#execution-ownership Callable scene is not yet registered or executed. Shared consumer owns requests, prepared configs and actual writer/child joins. Direct format/cache policy units remain separate and this body is not their execution proof.
  * @evidence contracts/e2e.md#necessary-boundary Actual JS/TS loader result-file transport into the Go normalizer may lose raw option ordering or dependency information; direct Go parsing policy does not exercise that process/file connection.
@@ -34,8 +34,10 @@ export function case_lint_loader_preserves_observed_raw_normalization(
     label: string;
     evaluations: readonly {
       value: unknown;
-      rawDependencies: readonly unknown[];
-      normalizedDependencies: readonly unknown[];
+      rawDependencies: readonly { path: string; fields: Readonly<Record<string, unknown>> }[];
+      normalizedDependencies: readonly { path: string; fields: Readonly<Record<string, unknown>> }[];
+      absentRawPaths: readonly string[];
+      absentNormalizedPaths: readonly string[];
       cacheOutcomes: readonly string[];
     }[];
     fixedOutputs: readonly { file: string; text: string }[];
@@ -75,8 +77,25 @@ export function case_lint_loader_preserves_observed_raw_normalization(
       dependencies: unknown[];
     };
     assert.deepEqual(envelope.value, oracle.value);
-    assert.deepEqual(envelope.dependencies, oracle.rawDependencies);
-    assert.deepEqual(result.data?.dependencies, oracle.normalizedDependencies);
+    for (const [actual, required, absent] of [
+      [envelope.dependencies, oracle.rawDependencies, oracle.absentRawPaths],
+      [result.data?.dependencies, oracle.normalizedDependencies, oracle.absentNormalizedPaths],
+    ] as const) {
+      assert.ok(Array.isArray(actual));
+      for (const dependency of required) {
+        const selected = actual.filter(item => item !== null && typeof item === "object" &&
+          (item as Record<string, unknown>).path === dependency.path);
+        assert.equal(selected.length, 1, `dependency ${dependency.path}`);
+        const item = selected[0] as Record<string, unknown>;
+        for (const [field, value] of Object.entries(dependency.fields)) {
+          assert.equal(Object.hasOwn(item, field), true, `dependency field ${field}`);
+          assert.deepEqual(item[field], value);
+        }
+      }
+      for (const file of absent)
+        assert.equal(actual.some(item => item !== null && typeof item === "object" &&
+          (item as Record<string, unknown>).path === file), false, `excluded dependency ${file}`);
+    }
     const caches = paired.filter(row => row.event === "config-cache-outcome")
       .sort((left, right) => left.sequence - right.sequence);
     assert.deepEqual(caches.map(row => row.data?.outcome), oracle.cacheOutcomes);
