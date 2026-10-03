@@ -115,7 +115,7 @@ async function scopedBoundaries(): Promise<void> {
 consume({ forPositions, iterablePositions, conditionPositions, nestedForAwait, intentionalAsyncIteration, resourcePositions, scopedBoundaries });
 `
 
-// TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits verifies the complete ESLint traversal contract.
+// TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits verifies the authored repeated-position and implicit-await cases.
 //
 // A loop ancestor alone is insufficient: initializers and iterable operands run
 // once, while tests, updates, bodies, nested for-await statements, and await-using
@@ -129,7 +129,7 @@ consume({ forPositions, iterablePositions, conditionPositions, nestedForAwait, i
 // @evidence contracts/testing.md#behavioral-verification Direct Engine findings require all eleven exact ranges, rule/error severity and canonical messages; the check operation must render the same count and locations with exit two and no stdout.
 // @evidence contracts/testing.md#independent-expectations Authored target snippets identify repeated positions independently: conventional tests/updates/bodies and repeated implicit awaits; once-only initializers/iterables and deliberate for-await bodies are clean.
 // @evidence contracts/testing.md#distinguishing-cases Every loop kind, nested for-await, await-using and function/method/arrow boundary retains its positive or clean site, including long-comment syntax independent of source-window heuristics.
-// @evidence contracts/testing.md#execution-ownership TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits is selected in the shared Go unit population. It parses the complete authored source for Engine.Run, then invokes run(check) in-process on the same fixture with an explicit lint manifest. No native CLI process or contributor build is involved. No installed consumer, native artifact build or real product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits is selected in the shared Go unit population. It parses the complete authored source for Engine.Run, then invokes run(check) in-process on the same fixture with an explicit lint manifest. No native CLI process or contributor build is involved. The actual check dispatcher runs in the shared Go process; no installed consumer, native artifact build or external product host process runs.
 func TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits(t *testing.T) {
   nestedForAwaitTarget := `for /* a comment deliberately longer than the former source window */ await (const value of stream()) {
       await consumeAsync(value);
