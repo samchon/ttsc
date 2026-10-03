@@ -28,7 +28,7 @@ import { test_ttsccompiler_source_plugin_discovery_shares_one_project } from "./
  */
 export async function test_e2e_native(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-shared-native-lifecycle-");
-  TestProject.retainTemporaryDirectory(root);
+  TestProject.retainTemporaryDirectory(root, "Shared native API and watcher inputs retained for closure observation");
   const modules = path.join(root, "node_modules");
   prepareEvidenceDependencies(modules, "workspace");
   const apiRoot = path.join(root, "compiler-api");

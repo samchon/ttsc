@@ -30,7 +30,7 @@ import { test_e2e_utilities } from "./test_e2e_utilities";
  */
 export async function test_e2e_consumer(): Promise<void> {
   const workspace = UtilityWorkspace.open();
-  TestProject.retainTemporaryDirectory(workspace.root);
+  TestProject.retainTemporaryDirectory(workspace.root, "Shared consumer inputs retained for closure and trace observation");
   const failures: Error[] = [];
   try {
     const modules = path.join(workspace.root, "node_modules");

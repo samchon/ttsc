@@ -73,13 +73,13 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  */
 export async function test_e2e_unplugin(): Promise<void> {
   const root = TestUnpluginProject.createProject();
-  TestProject.retainTemporaryDirectory(root);
+  TestProject.retainTemporaryDirectory(root, "Shared unplugin host inputs retained for session and trace observation");
   const baselineConfig = fs.readFileSync(path.join(root, "tsconfig.json"));
   const baselineMain = fs.readFileSync(TestUnpluginProject.mainFile(root));
   const linkedBanner = createLinkedPluginProject(["banner"], path.join(root, "linked-banner"));
   const linkedBaselineMain = fs.readFileSync(linkedBanner.main);
   const candidateFixture = createLinkedWorkspaceFixture();
-  TestProject.retainTemporaryDirectory(path.dirname(candidateFixture.app));
+  TestProject.retainTemporaryDirectory(path.dirname(candidateFixture.app), "Linked candidate inputs retained for host and watcher closure observation");
   const failures: unknown[] = [];
   // Startup proof must precede any parent-process loader/host bridge for root.
   let startupWorkerClosed = false;

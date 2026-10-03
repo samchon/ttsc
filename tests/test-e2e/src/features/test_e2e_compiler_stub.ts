@@ -30,7 +30,7 @@ export function test_e2e_compiler_stub(): void {
   const forwarding = FixtureFiles.read("ttsc/compiler/consumer-fake");
   const provenance = FixtureFiles.read("ttsc/compiler/consumer-provenance");
   const root = TestProject.createProject({ ...provenance, ...forwarding });
-  TestProject.retainTemporaryDirectory(root);
+  TestProject.retainTemporaryDirectory(root, "Shared recorder inputs retained for launcher and probe closure observation");
   const failures: Error[] = [];
   let safeForNext = true;
   try {
