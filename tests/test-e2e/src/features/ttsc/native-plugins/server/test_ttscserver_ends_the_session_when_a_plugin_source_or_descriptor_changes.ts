@@ -40,13 +40,13 @@ const SELECTION_TIMEOUT = 120_000;
  * 4. Change the copy's descriptor module and report it: that session announces
  *    `ttsc/pluginSelectionChanged` too.
  *
- * @evidence contracts/testing.md#behavioral-verification A real session announces selection change after copied Go rule source changes, the next startup returns the edited diagnostic message, and changing its descriptor announces selection change again.
- * @evidence contracts/testing.md#independent-expectations Original and replacement literal rule messages plus the pluginSelectionChanged method independently prescribe source recompilation and descriptor restart outcomes.
+ * @evidence contracts/testing.md#behavioral-verification A real session announces selection change after copied Go rule changes and is joined before restart; the next startup returns the edited message and descriptor mutation announces selection change again. Both intentional restart exits preserve native error status1 instead of falsely requiring normal shutdown0.
+ * @evidence contracts/testing.md#independent-expectations Original/replacement literal messages and pluginSelectionChanged independently prescribe the original observations. Direct close is separately required before reset; the maintained selection sentinel/native command error-status contract supplies the explicit restart1 expectation, not a fabricated clean-shutdown result.
  * @evidence contracts/testing.md#distinguishing-cases Go-source mutation must affect the next actual binary message; descriptor-only mutation must also end selection even though the diagnostic rule source is unchanged.
- * @evidence contracts/testing.md#execution-ownership The named server entry owns two actual native startups against a private lint package copy and real watched-file notifications; source-key units do not prove rebuilt code reaches the editor.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named server export in the generic E2E population. Two actual native startups use a private workspace-package copy and authored editor-style watched-file protocol notifications; these are not kernel-watch events, packed installation or an inferred Program/process total. Source-key units do not prove edited native code reaches the editor.
  * @evidence contracts/e2e.md#necessary-boundary Source fingerprinting, native compilation, launcher manifest and LSP restart policy must agree on the current artifact rather than retaining an old binary or descriptor.
- * @evidence contracts/e2e.md#shared-execution One copied producer and consumer share both sessions and Go objects; two source identities and the restart are intentional inputs, so an immutable canonical binary cannot stand in for the edited rule.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied package and its node_modules link isolate all edits from workspace files; each session attempts shutdown, shared plugin cache keys distinguish original and edited source, and project cleanup always runs.
+ * @evidence contracts/e2e.md#shared-execution One copied producer/consumer and explicit suite cache carry both sessions; Go-object preparation is available for reuse. Original and edited source/restart are distinct inputs, so canonical immutable source cannot replace the edited rule. Messages and close outcomes do not certify hits, binary-byte identity, total builds/Programs/processes or minimum preparation cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied package/node_modules link isolate edits from workspace files. Each client is owned immediately on startup; after the original selection notification, direct-child close/status1 is joined before restart. Selection-change sentinel returns1 through the maintained native command/launcher, so it is not incorrectly treated as clean shutdown0. Startup/body/join failure preserves attempted shutdown errors and conservatively retains consumer/copy/already-owned shared cache; no unresolved input is reset or removed. Close is not arbitrary descendant or loaded-image proof.
  * @evidence contracts/e2e.md#preserved-coverage Keeps original message equality, actual source edit, edited-message equality and both selection notifications; no capability stub or cache opt-out substitutes for rebuilt source.
  */
 export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes() {
@@ -63,6 +63,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     // A copy, so the test edits no workspace file; its dependencies resolve
     // through the workspace package's own node_modules.
     const copy = TestProject.tmpdir("ttsc-lint-copy-");
+    const realCopy = fs.realpathSync.native(copy);
     for (const entry of [
       "package.json",
       "go.mod",
@@ -92,6 +93,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     );
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
+    let activeClient: TtscserverClient | undefined;
 
     /** Start a session and return it once the rule answers, with its message. */
     const start = async (): Promise<{
@@ -101,6 +103,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
       const client = TtscserverClient.startLauncher(project.tmpdir, {
         env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
       });
+      activeClient = client;
       await client.request("initialize", {
         capabilities: {},
         processId: process.pid,
@@ -143,42 +146,80 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
         changes: [{ type: 2, uri: pathToFileURL(changed).href }],
       });
       await selection;
+      const code = await waitForSelectionOutcome(
+        client.waitForExit(),
+        "plugin selection notified but direct child close was not joined",
+      );
+      activeClient = undefined;
+      assert.equal(code, 1, "plugin-selection restart must propagate the native sentinel exit");
     };
 
     try {
       // 1-2. The rule's Go source.
       const first = await start();
-      try {
         assert.equal(
           first.message,
           "Unexpected var, use let or const instead.",
         );
         const rule = path.join(copy, "linthost", "rules_var.go");
-        fs.writeFileSync(
-          rule,
-          fs
-            .readFileSync(rule, "utf8")
-            .replace(
-              '"Unexpected var, use let or const instead."',
-              '"Unexpected var, from the edited rule."',
-            ),
+        assert.equal(fs.lstatSync(rule).isFile(), true);
+        const ruleRelative = path.relative(realCopy, fs.realpathSync.native(rule));
+        assert.equal(path.isAbsolute(ruleRelative), false);
+        assert.notEqual(ruleRelative, "..");
+        assert.equal(ruleRelative.startsWith(".." + path.sep), false);
+        const originalRule = fs.readFileSync(rule, "utf8");
+        const editedRule = originalRule.replace(
+          '"Unexpected var, use let or const instead."',
+          '"Unexpected var, from the edited rule."',
         );
+        assert.notEqual(editedRule, originalRule, "expected to change the copied rule message");
+        fs.writeFileSync(rule, editedRule);
         await reportChange(first.client, rule);
-      } finally {
-        await shutdownTtscserverClient(first.client).catch(() => undefined);
-      }
 
       // 3-4. A new session runs the edited rule; its descriptor is an input too.
       const second = await start();
-      try {
         assert.equal(second.message, "Unexpected var, from the edited rule.");
         const descriptor = path.join(copy, "lib", "index.js");
+        assert.equal(fs.lstatSync(descriptor).isFile(), true);
+        const descriptorRelative = path.relative(realCopy, fs.realpathSync.native(descriptor));
+        assert.equal(path.isAbsolute(descriptorRelative), false);
+        assert.notEqual(descriptorRelative, "..");
+        assert.equal(descriptorRelative.startsWith(".." + path.sep), false);
         fs.appendFileSync(descriptor, "\n// edited\n");
         await reportChange(second.client, descriptor);
-      } finally {
-        await shutdownTtscserverClient(second.client).catch(() => undefined);
+    } catch (error) {
+      const failures: unknown[] = [error];
+      const reason = "copied plugin-selection session startup, body or join failed";
+      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainTemporaryDirectory(copy, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainSharedPluginCache(reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      if (activeClient !== undefined) {
+        try {
+          await waitForSelectionOutcome(
+            shutdownTtscserverClient(activeClient),
+            "failed plugin-selection session shutdown was not joined",
+          );
+        } catch (shutdownError) { failures.push(shutdownError); }
       }
-    } finally {
-      project.cleanup();
+      throw new AggregateError(failures, reason);
     }
+    project.cleanup();
   }
+
+/** Bound a supported close/shutdown outcome without forcing termination. */
+async function waitForSelectionOutcome<T>(operation: Promise<T>, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), SELECTION_TIMEOUT);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
