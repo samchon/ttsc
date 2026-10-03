@@ -161,15 +161,17 @@ func NewLintDiagnostic(
 // as a whole-project walk.
 // Paths are resolved against the compiler's project directory and canonicalized
 // with its actual case policy through the compiler's resident file index.
+// The first access can run plugin callbacks. Their latched error is not returned
+// by this accessor, so a returned mutable tree is not a successful-hook receipt.
 //
 // @evidence contracts/common.md#principled-implementation The compiler's indexed lookup applies its project anchor and case policy, while the latched plugin pass keeps single-file reads consistent with whole-program consumers.
 // @evidence contracts/common.md#clear-and-simple-design Lookup delegates source identity to the compiler instead of maintaining a second driver index.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing sources remain nil; no relative-name exception or repeated linear fallback guesses a match.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes canonical lookup, plugin ordering and the accessor's no-error channel under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation GetSourceFile canonicalizes against the current compiler's actual filesystem case policy and project directory.
-// @evidence contracts/performance.md#efficient-algorithms Path normalization depends on filename length, followed by the upstream map lookup instead of scanning every resident source.
+// @evidence contracts/performance.md#efficient-algorithms After any first-entry linked-plugin dispatch, filename text normalization precedes the upstream map lookup instead of a resident-source scan. That first dispatch includes entry/context work and arbitrary plugin callbacks; later latched access avoids repeating it.
 // @evidence contracts/performance.md#reuse-equivalent-work The current TSProgram owns an existing file index; an incremental replacement automatically supplies its updated index without a duplicate cache.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This borrowed-source accessor acquires no resource and adds no historical retained state.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The lookup returns a borrowed mutable AST reference and first dispatch can populate Program-owned plugin/input ledgers without a cap here. The accessor owns no separate disposal boundary; caller-held trees and callbacks can remain reachable after the checker lease is closed.
 func (p *Program) SourceFile(filename string) *ast.SourceFile {
   if p == nil || p.TSProgram == nil {
     return nil
@@ -862,15 +864,17 @@ func (p *Program) HasLinkedProgramPlugins() bool {
   return p != nil && p.plugins.hasProgramPlugins()
 }
 
-// PluginHostInputs returns the generation-wide native configuration files
-// reported by linked plugins while this Program was loaded or transformed.
+// PluginHostInputs returns the union of native file paths reported by linked
+// hooks while this Program was loaded or transformed. Each scope is copied
+// separately; this is not an atomic snapshot across concurrently reporting hooks
+// and it does not run a pending ProgramPlugin hook.
 //
 // @evidence contracts/common.md#principled-implementation Hook observations form a generation-wide union even when multiple hooks report one file.
 // @evidence contracts/common.md#clear-and-simple-design The ledger owns union and ordering rather than a second dependency collection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded inputs replace guessed plugin files or weakened unknown observations.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies input scope and lifetime following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Already recorded paths are returned without new native resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The delegated ledger owns union and ordering.
+// @evidence contracts/performance.md#efficient-algorithms The ledger copies the scope list and each scope's file/hash/realpath maps under their locks, unions file membership and sorts distinct paths. Cost includes all recorded metadata copied by the shared snapshot helper, path hashing/comparison bytes and distinct-path sort work, not only the returned slice length.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor has no independent shared-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The snapshot is caller-owned without another retained cache.
 func (p *Program) PluginHostInputs() []string {
@@ -880,15 +884,16 @@ func (p *Program) PluginHostInputs() []string {
   return p.plugins.hostInputs()
 }
 
-// PluginHostInputHashes returns evaluation-time fingerprints for the subset of
-// native host inputs whose exact state plugins reported without conflict.
+// PluginHostInputHashes returns supplied content-hash or nil-absence reports
+// that agree across every scope reporting the file. It does not independently
+// authenticate when a plugin consumed that state or read the file here.
 //
 // @evidence contracts/common.md#principled-implementation Unknown and conflicting observations remain absent from reusable content proof.
 // @evidence contracts/common.md#clear-and-simple-design One ledger projection retains one proof-merging owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Later filesystem reads cannot replace evaluation-time observations.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes proven and complete input sets following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes consistent supplied hash/absence reports from the full declared input set and independent read authentication following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Observation exposure performs no native path resolution or filesystem access.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The ledger owns proof merging and snapshot allocation.
+// @evidence contracts/performance.md#efficient-algorithms Per-scope snapshots copy file/hash/realpath metadata under locks; file membership then drives sticky unknown/conflict merging and a copied result map. Scope entries, path hashing and compared hash text govern work, including unrelated metadata copied by the shared helper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor exposes proof without deciding reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Copied results create no additional resident collection.
 func (p *Program) PluginHostInputHashes() map[string]*string {
@@ -898,16 +903,17 @@ func (p *Program) PluginHostInputHashes() map[string]*string {
   return p.plugins.hostInputHashes()
 }
 
-// PluginHostInputRealpaths returns evaluation-time physical identities for the
-// subset of native host inputs whose symlink or junction target was observed
-// without conflict.
+// PluginHostInputRealpaths returns consistent supplied physical-path or
+// nil-absence reports across the scopes that reported each file. The accessor
+// does not resolve symlinks/junctions or authenticate the supplied observation's
+// timing; a syntactically accepted absolute spelling alone is not that proof.
 //
-// @evidence contracts/common.md#principled-implementation Physical identity requires consistent observations from every reporting scope.
+// @evidence contracts/common.md#principled-implementation Exposed physical-path reports require consistent supplied values from every reporting scope; missing and conflicting reports remain unavailable.
 // @evidence contracts/common.md#clear-and-simple-design The ledger owns identity merging without accessor path reinterpretation.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Lexical guesses or later observations cannot fill missing identity proof.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains evaluation-time symlink/junction identity following the documentation skill.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts This accessor adds no lexical guess or later filesystem query to fill missing reported identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose separates supplied identity/absence agreement from independently authenticated symlink/junction observation following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor exposes the ledger's existing native observations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The ledger owns merging and copied results.
+// @evidence contracts/performance.md#efficient-algorithms Per-scope snapshots copy file/hash/realpath metadata under locks, then membership drives sticky unknown/conflict merging and copied result pointers. Scope entries and filename/realpath text hashing and comparison govern work, including all metadata copied by the shared helper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Identity exposure does not coordinate artifact work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or independent cache is acquired.
 func (p *Program) PluginHostInputRealpaths() map[string]*string {
@@ -930,7 +936,7 @@ func (p *Program) PluginHostInputRealpaths() map[string]*string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Neither absent declarations nor a successful fresh transform establish completeness, and the accessor does not remove actual conflict evidence.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs define the explicit signal, false-state meaning and fresh-output versus reuse distinction following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor reads recorded hook state and performs no native path operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The hook ledger owns bounded per-scope aggregation.
+// @evidence contracts/performance.md#efficient-algorithms The ledger first copies the scope list, then reads each sticky flag under its mutex until a true value is found; work and temporary references grow with recorded scope count, which is not capped by this accessor.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor reports a reuse limitation without owning artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or independent retained cache is created.
 func (p *Program) PluginObservationsIncomplete() bool {
