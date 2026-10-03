@@ -8,9 +8,9 @@ import "testing"
 //
 // format/indent measures depth by block nesting only; a callback body
 // hung under its call-argument column sits deeper than that depth, so
-// re-indenting it would both corrupt the (print-width-chosen or already
-// correct) layout and ping-pong against print-width every cascade pass.
-// The indentCededToReflow guard makes the rule abstain here.
+// this dedicated rule cannot derive that expression-owned column.
+// The indentCededToReflow guard makes the rule abstain here. This body
+// does not run print-width or assert convergence of a format cascade.
 //
 //  1. Parse a call whose arrow argument body is indented past its block
 //     depth.

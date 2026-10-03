@@ -6,9 +6,9 @@ import "testing"
 // does NOT de-indent a block body whose enclosing block opens on a wrapped
 // continuation line. The curried arrow's `): void => {` head sits
 // at a non-zero indent. The body hangs under that head's indent, not under
-// depth*tabWidth from column 0, so format/indent must cede. It previously
-// de-indented the correctly-indented `if`/`injectHook` lines, corrupting
-// Prettier-canonical input.
+// depth*tabWidth from column 0, so format/indent must cede. The literal
+// no-finding oracle protects the nested `if` and `injectHook` columns
+// without running a complete formatter or an external reference.
 //
 //  1. Parse a curried arrow with a correctly-indented multi-line body.
 //  2. Run format/indent.
