@@ -10,12 +10,10 @@ import (
 // TestDocTagsReadOnlyWhatTheParserAttached verifies the boundary cases that
 // decide whether a tag-shaped run of text is a fact about a declaration.
 //
-// Every case here is one a text scan would get wrong, and a wrong answer is
-// silent in both directions: a tag adopted from a line comment or from prose
-// attributes a citation to code that never made it, while a tag lost from a
-// merged declaration reports the declaration as citing nothing. The parser
-// already decides which block belongs to which declaration, so this pins that
-// the collection follows it rather than re-deciding.
+// The authored cases distinguish line-comment exclusion, a mid-sentence parsed
+// tag, overload-signature attachment and two reconstructed inline-link forms.
+// They do not enumerate every text-scanning algorithm, parser placement rule,
+// overload form or link spelling.
 //
 //  1. Build a fixture with a tag in a line comment, a tag written mid-sentence
 //     inside a documentation block, an overload run documented on its
@@ -28,8 +26,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Verifies the boundary cases that decide whether a tag-shaped run of text is a fact about a declaration.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal: a tag in a // comment must produce no tag, a tag written mid-sentence in a documentation block must be recorded with the text after the @evidence word (as TypeScript's parser opens it), an overload run's tag written on its first signature must be kept on the merged node, and a {@link ISale} or {@linkcode ISale} tag text must keep its braces and link keyword verbatim.
 // @evidence contracts/testing.md#distinguishing-cases Build a fixture with a tag in a line comment, a tag written mid-sentence inside a documentation block, an overload run documented on its signature, and a link tag whose braced form must survive verbatim; Assert the line comment contributes nothing and the mid-sentence one is the tag the parser says it is; Assert the overload keeps its signature's tag and the link keeps its braces.
-// @evidence contracts/testing.md#execution-ownership TestDocTagsReadOnlyWhatTheParserAttached is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, and calls Build. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command runs. Literal expected tag texts and target suffixes are authored independently of the collected facts.
 func TestDocTagsReadOnlyWhatTheParserAttached(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface ISale {
@@ -77,8 +76,8 @@ export function linkedCode(): void {}
     }
   }
 
-  // A tag written mid-sentence is still a tag, because TypeScript's own parser
-  // opens one at the `@` wherever it sits. This is deliberately not second-
+  // The authored mid-sentence @evidence is expected as a parser-attached tag.
+  // This fixture does not certify every @ placement. It is not second-
   // guessed: the population is "what the parser could not interpret", and a
   // graph that re-decided where a tag may begin would be reinterpreting the
   // compiler rather than reporting it. A convention that wants the stricter
