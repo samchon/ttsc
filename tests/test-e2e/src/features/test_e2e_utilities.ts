@@ -39,12 +39,12 @@ import { case_strip_rejects_inline_config_keys } from "./strip/scenes/case_strip
  * @evidence contracts/testing.md#distinguishing-cases The shared CommonJS output holds JSON copying, banner/shebang and configured/unconfigured strip controls; external maps, discovery, rejection, overrides and ttsx retain separate named inputs. Existing direct Go emitter/map matrices have their exact inputs and differences recorded separately, not blanket runtime equivalence to every loader or shebang input.
  * @evidence contracts/testing.md#execution-ownership This parent calls named utility scenes plus baseline observers and aggregates cleanup failures. It starts no GoBoundary selection; standalone direct Go units have their own root test:go selection. Package aliases in the test runner do not establish native producer or Program-object identity.
  * @evidence contracts/e2e.md#necessary-boundary Actual native output connects loaded plugin configuration, transforms, maps, JSON copying and Node execution. Direct command guard/emitter/map semantics remain separately owned; banner CJS build/check/transform loader connections are not all proven by this one baseline.
- * @evidence contracts/e2e.md#shared-execution One copied workspace and three checkout package links support shared immutable CommonJS output and distinct configuration/runtime inputs. The one-byte ApplyProgram probe records that fixture effect, not all Program constructions or successful cache hits. Historical removed calls and directory counts are not measured before/after reductions; actual process/generation populations and cold or invalidated inputs remain separately observed.
+ * @evidence contracts/e2e.md#shared-execution One copied workspace and three checkout package links support shared immutable CommonJS output and distinct configuration/runtime inputs. A supplied prepared workspace is borrowed without allocating or removing another dependency owner; the common consumer retains final cleanup. The one-byte ApplyProgram probe records that fixture effect, not all Program constructions or successful cache hits. Historical removed calls and directory counts are not measured before/after reductions; actual process/generation populations and cold or invalidated inputs remain separately observed.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Output identities and selected per-scene inputs remain distinct, with sibling configurations off ancestor paths. Shared environment/cache remain shared. Synchronous launcher/runtime results precede assertions; final cleanup checks root absence and surviving linked package manifests, not arbitrary descendant shutdown, loaded-image identity or every upstream resolution.
  * @evidence contracts/e2e.md#preserved-coverage All current JSON specifier/copy/no-data.js, configured JS/declaration, exact ordered runtime and named scene oracles remain. Exact direct owners include packages/paths/test/unit/utility_emit_preserves_bundler_and_nodenext_specifiers_test.go::TestUtilityEmitPreservesBundlerAndNodeNextSpecifiers and packages/banner/test/unit/utility_banner_maps_preserve_authored_lines_across_emit_modes_test.go::TestUtilityBannerMapsPreserveAuthoredLinesAcrossEmitModes. Their recorded matrices preserve portable serialized meanings with original loader/shebang differences disclosed; body presence is not runtime survival. Version/argv/unknown/manifest direct command owners do not certify product-process or executable-config transport; no further donor removal is permitted without actual survival proof.
  */
-export async function test_e2e_utilities(): Promise<void> {
-  const workspace = UtilityWorkspace.open();
+export async function test_e2e_utilities(preparedWorkspace?: UtilityWorkspace.IWorkspace): Promise<void> {
+  const workspace = preparedWorkspace ?? UtilityWorkspace.open();
   const banner = { ...workspace, root: path.join(workspace.root, "banner") };
   const strip = { ...workspace, root: path.join(workspace.root, "strip") };
   const failures: unknown[] = [];
@@ -176,7 +176,7 @@ export async function test_e2e_utilities(): Promise<void> {
     failures.push(error);
   }
   try {
-    UtilityWorkspace.close(workspace);
+    if (!preparedWorkspace) UtilityWorkspace.close(workspace);
   } catch (error) {
     failures.push(new Error("utility workspace cleanup", { cause: error }));
   }

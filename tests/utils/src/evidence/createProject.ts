@@ -9,7 +9,7 @@ import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
 import type { ITtscEvidenceProject } from "./ITtscEvidenceProject";
 import { linkDirectory } from "./linkDirectory";
 import { resolveDependency } from "./resolveDependency";
-import { suiteRoot } from "./suiteRoot";
+import { prepareEvidenceDependencies } from "./prepareEvidenceDependencies";
 
 /**
  * Materializes a throwaway project wired to the real toolchain.
@@ -27,13 +27,13 @@ import { suiteRoot } from "./suiteRoot";
  * workspace even before it can return a cleanup callback.
  *
  * @evidence contracts/common.md#principled-implementation The operation materializes original compiler/config inputs and actual package entrypoints, then returns one private workspace owner; preparation failure releases that workspace and preserves concurrent cleanup failure.
- * @evidence contracts/common.md#clear-and-simple-design One typed preparation operation owns writing, published Evidence entrypoints and package links; the optional nativeProducer choice is explicit and leaves other consumers on their original live producer.
+ * @evidence contracts/common.md#clear-and-simple-design One typed project preparation writes authored inputs and either prepares or borrows actual modules. Explicit nativeProducer selects the live or snapshot root; borrowed modules must resolve the same selected lint producer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Snapshot consumers resolve actual byte-proven copied lint source through their real package link, while cold/mutating consumers keep live source; no capability, provenance, source-key admission or compiler result is replaced.
  * @evidence contracts/common.md#meaningful-documentation Explains published-package assembly, ancestor fixture layout, explicit producer identity and release ownership, including transient removal retries that remain failures when exhausted.
  * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem APIs construct native workspace/link paths; package entrypoint strings keep their package-relative spelling, and the shared linkDirectory owner handles native directory-link creation.
  * @evidence contracts/performance.md#efficient-algorithms File writing visits each authored input once and dependency links follow the declared runtime manifest; retained fixture space scales with input bytes rather than copying installed dependency trees.
  * @evidence contracts/performance.md#reuse-equivalent-work Explicit non-mutating consumers reuse one verified authored lint snapshot and content-addressed native cache; the original live producer remains the default and changed test fixture inputs are written for every invocation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each invocation owns one exact private workspace; preparation failures release partial output. The returned callback refuses removal after unknown process-reader closure, retaining inputs and reporting its cause; known released fixtures use finite Node removal retries and propagate exhaustion.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each invocation owns one private ancestor workspace, optionally beneath a common manifest-free owner. Borrowed modules belong to that common owner and are not recursively removed through the project link; preparation failures release only partial private output. The returned callback refuses removal after unknown process-reader closure, retaining inputs and reporting its cause; known released fixtures use finite Node removal retries and propagate exhaustion.
  */
 export const createProject = (
   props: ICreateProjectProps,
@@ -44,7 +44,7 @@ export const createProject = (
   // would litter a directory every other case shares, and the ancestor
   // population is precisely what has to be reachable.
   const workspace: string = fs.mkdtempSync(
-    path.join(os.tmpdir(), `evidence-${props.name}-`),
+    path.join(props.workspaceParent ?? os.tmpdir(), `evidence-${props.name}-`),
   );
   try {
   const directory: string = path.join(workspace, "project");
@@ -104,21 +104,18 @@ export const createProject = (
   // compiler resolvable from the consuming project — it is a real consumer
   // requirement, not a test artifact.
   const modules: string = path.join(directory, "node_modules");
-  fs.mkdirSync(path.join(modules, "@ttsc"), { recursive: true });
-  linkEvidencePackage(modules);
-  linkEvidenceRuntimeDependencies(modules);
-  linkDirectory(
-    props.nativeProducer === "snapshot"
+  if (props.preparedModules) {
+    if (!path.isAbsolute(props.preparedModules))
+      throw new Error("Prepared modules must be an absolute caller-owned path");
+    const expectedLint = props.nativeProducer === "snapshot"
       ? getNativeLintProducer().packageRoot
-      : resolveDependency("@ttsc/lint"),
-    path.join(modules, "@ttsc", "lint"),
-  );
-  linkDirectory(
-    resolveDependency("typescript"),
-    path.join(modules, "typescript"),
-  );
-  linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
-
+      : resolveDependency("@ttsc/lint");
+    if (fs.realpathSync(path.join(props.preparedModules, "@ttsc", "lint")) !== fs.realpathSync(expectedLint))
+      throw new Error("Shared Evidence dependencies select a different native lint producer");
+    linkDirectory(props.preparedModules, modules);
+  } else {
+    prepareEvidenceDependencies(modules, props.nativeProducer);
+  }
   return { directory, workspace, cleanup: () => {
     EvidenceProcessOwnership.assertAvailable(directory);
     cleanupWorkspace(workspace);
@@ -144,71 +141,3 @@ const cleanupWorkspace = (directory: string): void => {
   fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 };
 
-/** Absolute path to the workspace's `packages/evidence`. */
-const evidencePackageRoot = (): string =>
-  path.resolve(suiteRoot, "..", "..", "packages", "evidence");
-
-/**
- * Links every runtime dependency `@ttsc/evidence` declares into the fixture.
- *
- * The package's `lib` is junctioned in, and a fixture cannot rely on Node
- * walking that link back into the workspace to resolve them: the loaders are
- * reached through ttsc's runtime hooks, which serve a module under the path it
- * was requested by rather than its physical one.
- *
- * The list comes from the manifest rather than being written here, so a
- * dependency the package gains upstream arrives with it instead of surfacing
- * later as one more "cannot find module" in a single failing case.
- */
-const linkEvidenceRuntimeDependencies = (modules: string): void => {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(evidencePackageRoot(), "package.json"), "utf8"),
-  ) as { dependencies?: Record<string, string> };
-  for (const name of Object.keys(manifest.dependencies ?? {})) {
-    const scope: string | undefined = name.startsWith("@")
-      ? name.slice(0, name.indexOf("/"))
-      : undefined;
-    if (scope !== undefined)
-      fs.mkdirSync(path.join(modules, scope), { recursive: true });
-    linkDirectory(
-      resolveDependency(name),
-      path.join(modules, ...name.split("/")),
-    );
-  }
-};
-
-const linkEvidencePackage = (modules: string): void => {
-  const source: string = evidencePackageRoot();
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(source, "package.json"), "utf8"),
-  ) as Record<string, unknown>;
-  const publishConfig: unknown = manifest.publishConfig;
-  if (
-    typeof publishConfig !== "object" ||
-    publishConfig === null ||
-    Array.isArray(publishConfig)
-  )
-    throw new Error(
-      "@ttsc/evidence must declare publishConfig before its consumer fixture can reproduce the published entry points.",
-    );
-
-  const destination: string = path.join(modules, "@ttsc", "evidence");
-  fs.mkdirSync(destination, { recursive: true });
-  fs.writeFileSync(
-    path.join(destination, "package.json"),
-    JSON.stringify(
-      { ...manifest, ...(publishConfig as Record<string, unknown>) },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-  for (const directory of ["lib", "native"]) {
-    const target: string = path.join(source, directory);
-    if (!fs.existsSync(target))
-      throw new Error(
-        `@ttsc/evidence ${directory} is missing; run the workspace build before the feature suite.`,
-      );
-    linkDirectory(target, path.join(destination, directory));
-  }
-};

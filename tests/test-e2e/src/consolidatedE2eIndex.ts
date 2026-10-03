@@ -5,7 +5,11 @@ import { TestExecutor } from "../../utils/src/TestExecutor";
 // Explicit opt-in population: retained legacy locations are never recursively
 // mixed into these shared preparations. The coordinator checks baseline identity
 // before launching this entry. Registration is not an observed coverage count.
-const registered = { runtime: "test_e2e_runtime.ts" } as const;
+const registered = {
+  runtime: "test_e2e_runtime.ts",
+  consumer: "test_e2e_consumer.ts",
+  watch: "test_e2e_watch.ts",
+} as const;
 const argument = process.argv.find((value) => value.startsWith("--family="));
 const selected = argument
   ? argument.slice("--family=".length).split(",").filter(Boolean)

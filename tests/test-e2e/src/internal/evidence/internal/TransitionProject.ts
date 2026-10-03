@@ -47,8 +47,9 @@ export namespace TransitionProject {
    * @evidence contracts/performance.md#reuse-equivalent-work The one linked consumer replaces one per scenario; the content-keyed native cache serves every check.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned project and releases it through its cleanup after the last scenario.
    */
-  export function open(): ITtscEvidenceProject {
+  export function open(preparation: { preparedModules?: string; workspaceParent?: string } = {}): ITtscEvidenceProject {
     const project = createProject({
+      ...preparation,
       nativeProducer: "snapshot",
       name: "transitions",
       lintConfig: "export default {};\n",

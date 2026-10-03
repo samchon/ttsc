@@ -22,6 +22,12 @@ export interface ICreateProjectProps {
    */
   readonly nativeProducer?: "snapshot" | "workspace";
 
+  /** Caller-prepared compatible dependency tree; never removed by this project. */
+  readonly preparedModules?: string;
+
+  /** Common manifest-free owner beneath which this private ancestor workspace lives. */
+  readonly workspaceParent?: string;
+
   /** File map, project-relative. Values are written verbatim. */
   readonly files: Readonly<Record<string, string>>;
 
