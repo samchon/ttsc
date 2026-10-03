@@ -316,21 +316,23 @@ func checkerArePropertiesAbstractOrInterface(
 ) bool
 
 // Checker_isPropertyAssignableTo asks the upstream assignability relater about
-// exactly one source/target property pair. The anonymous types retain the
+// one source/target property pair admitted by the upstream named value-member
+// filter. Reserved internal members and symbols without value meaning are not
+// supported property inputs. The anonymous types retain the
 // original property symbols, so propertyRelatedTo still enforces instantiated
 // generic types, overloads, optionality, and private/protected declaration
 // origins without an unrelated sibling member participating in the result.
 // The symbols must have the same name and belong to recv's type graph. A
 // shared checker requires caller-owned synchronization.
 //
-// @evidence contracts/common.md#principled-implementation Single-member anonymous types retain the original symbols so upstream structural assignability applies generic, optional and visibility semantics to exactly that member pair; both symbols must originate in the supplied checker.
+// @evidence contracts/common.md#principled-implementation Single-member anonymous types retain the original named value-property symbols so upstream structural assignability applies generic, optional and visibility semantics to that member pair; both symbols must originate in the supplied checker and pass its named-member filter.
 // @evidence contracts/common.md#clear-and-simple-design Two minimal anonymous type views isolate one relation without rewriting the upstream property relater or introducing sibling-dependent results.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Anonymous types use the compiler's constructor rather than monkey patching its relater; equal names include valid empty-string property symbols rather than treating an empty spelling as a missing-symbol sentinel.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain retained-symbol semantics, same-name/type-graph premises and caller synchronization rather than promising a syntax-only override check.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isPropertyAssignableTo acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isPropertyAssignableTo performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isPropertyAssignableTo computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isPropertyAssignableTo computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each call acquires two one-entry symbol maps and anonymous type views with property slices; the supplied checker owns type allocation and relation state, which can outlive this boolean result. These views retain original symbols instead of copying their graphs; the caller controls the checker's lifetime, and this bridge imposes no independent historical-state bound.
+// @evidence contracts/performance.md#efficient-algorithms Two single-member views isolate the selected pair without cloning or scanning its containing types. Name equality and map keys depend on name bytes; view setup is bounded in member count, but delegated assignability can traverse property types, signatures and declaration origins and use checker relation state. The boolean wrapper does not make that semantic work constant-time.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream checker relation caches own reuse of semantic comparisons. This bridge supplies fresh single-member views preserving symbol identity and does not coordinate a separate cross-request pair cache or its invalidation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This bridge constructs semantic views from the supplied checker graph and delegates its relation; it does not select a filesystem, executable or platform policy independently of that graph's producer.
 func Checker_isPropertyAssignableTo(
   recv *innerchecker.Checker,
   sourceProperty *innerast.Symbol,
@@ -1002,8 +1004,8 @@ func checkerIsArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Built-in arrays are not identified by a consumer's type name or numeric-property heuristic.
 // @evidence contracts/common.md#meaningful-documentation Native prose states built-in reference scope and nonnil same-checker inputs.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isArrayType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isArrayType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isArrayType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no classification strategy: the pinned checker tests the reference flag and compares its target with the two existing global array targets, without traversing members or type arguments.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker owns the existing global Array/ReadonlyArray identities. This forwarding boolean predicate owns no array-type discovery, cache or coordination of repeated semantic queries.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isArrayType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_isArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool {
   return checkerIsArrayType(recv, t)
@@ -1250,20 +1252,21 @@ func checkerNewSimpleTypeMapper(source *innerchecker.Type, target *innerchecker.
 func checkerNewTypeMapper(sources []*innerchecker.Type, targets []*innerchecker.Type) *innerchecker.TypeMapper
 
 // Checker_instantiateType substitutes the type parameters of `t` with the
-// concrete types in `mapper`, returning the instantiated type. A type-transform
-// plugin uses it to instantiate a generic class's constructor type with the
-// reference's type arguments, so a type parameter nested inside a container
-// (`A[]`, `[A, B]`) is substituted for free. Returns nil if recv or t is nil.
+// types selected by mapper through upstream semantic type structure. Nested
+// references, unions and other supported type forms use the compiler's
+// instantiation rules, not textual substitution. Types with no relevant type
+// variables can pass through; excessive depth/work can yield an error type
+// and a checker diagnostic. Returns nil if recv or t is nil.
 // Type and mapper entries must belong to recv; a nil mapper preserves the type.
 //
 // @evidence contracts/common.md#principled-implementation The compiler instantiator applies mapper identity through nested semantic type structure, preserving compiler type relationships instead of textual type-parameter replacement.
 // @evidence contracts/common.md#clear-and-simple-design One instantiation bridge consumes the same mapper model exposed by constructors, avoiding a separate recursive type copier.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Substitution uses actual type identities rather than parameter names or selected container special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains nested substitution, nil result, nil mapper identity and producing-checker premises.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_instantiateType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_instantiateType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_instantiateType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_instantiateType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Returned or constructed types and diagnostics belong to the producing checker graph, which the caller can retain through the result. Upstream active-mapper maps/lists own temporary instantiation state; normal pop clears map entries and mapper references while retaining storage for reuse. The wrapper stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper only guards nil inputs. Upstream type-variable detection, active-mapper lookup/cache-key work and recursive instantiation/reduction own graph/list costs, with compiler depth/count limits; the wrapper selects no replacement instantiation strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream active mapper caches and type-variable metadata coordinate instantiation reuse. The forwarding wrapper adds no instantiation cache or repeated-work policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type/mapper instantiation uses the supplied checker/program; the wrapper introduces no path, host or platform policy.
 func Checker_instantiateType(recv *innerchecker.Checker, t *innerchecker.Type, mapper *innerchecker.TypeMapper) *innerchecker.Type {
   if recv == nil || t == nil {
     return nil
