@@ -44,7 +44,7 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'runtime', 'native-consumer', 'unplugin'].includes(family));
+          assert.ok(['compiler', 'runtime', 'native-consumer', 'unplugin', 'graph'].includes(family));
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -60,6 +60,16 @@ jobs:
             { label: 'prepared-native-host', role: 'executable', file: native },
             { label: 'prepared-native-typescript', role: 'executable', file: tsgo },
           ];
+          if (family === 'graph') {
+            const { resolveGraphBinary } = require('./packages/graph/lib/resolveGraphBinary.js');
+            const graph = resolveGraphBinary(process.env, path.join(root, 'tests/test-e2e'));
+            assert.ok(graph && path.isAbsolute(graph));
+            const workspaceGraph = path.join(root, 'packages',
+              `ttsc-${process.platform}-${process.arch}`, 'bin',
+              process.platform === 'win32' ? 'ttscgraph.exe' : 'ttscgraph');
+            assert.equal(fs.realpathSync.native(graph), fs.realpathSync.native(workspaceGraph));
+            assets.push({ label: 'prepared-native-graph', role: 'executable', file: graph });
+          }
           const files = [
             'pnpm-lock.yaml', 'pnpm-workspace.yaml',
             'config/register-typescript-loader.mjs', 'config/typescript-loader.mjs',
@@ -109,7 +119,8 @@ jobs:
               'tests/test-e2e/fixtures/evidence',
               'tests/test-e2e/fixtures/lint',
               'tests/test-e2e/fixtures/utilities',
-            ] : ['tests/test-e2e/fixtures/unplugin']),
+            ] : family === 'unplugin' ? ['tests/test-e2e/fixtures/unplugin'] :
+              ['tests/test-e2e/fixtures/graph']),
             ...JSON.parse(process.env.E2E_COHORT_ASSET_TREES ?? '[]'),
           ]) selectTree(directory);
           for (const file of [...new Set(files)].sort())
@@ -125,7 +136,7 @@ jobs:
               ...(family === 'compiler' ? [{ boundary: 'native-driver-create', writerPid: 'observed', event: 'program-construction',
                 data: { origin: 'driver-create', outcome: 'constructor-returned' },
                 producerAssets: ['prepared-native-host', 'packages/ttsc/driver/program.go',
-                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : [{
+                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : family === 'graph' ? [] : [{
                 boundary: 'runtime-native-wrapper', writerPid: 'observed', event: 'process-attempt',
                 data: { origin: 'spawnSyncResilient' },
                 producerAssets: ['prepared-native-typescript', 'packages/ttsc/lib/internal/E2ETrace.js',
@@ -294,4 +305,40 @@ jobs:
         with:
           name: e2e-unplugin-comparison-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-unplugin-comparison
+          if-no-files-found: error
+      - name: Prepare unchanged Graph control inputs
+        id: graph-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &graph-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-graph-comparison
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-graph-cache
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-graph-cache
+          E2E_MEASUREMENT_FAMILY: graph
+          TTSC_TEST_DIRS: features/test_e2e_graph.ts
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src","tests/test-e2e/src/internal/graph","tests/test-e2e/src/features/graph","packages/graph/lib","packages/ttsc/cmd/ttscgraph","packages/ttsc/internal/graph","packages/ttsc/internal/graphsymbols"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/GoBoundary.ts","tests/test-e2e/src/internal/Scenarios.ts","tests/test-e2e/src/internal/FixtureFiles.ts","packages/graph/package.json","packages/ttsc/go.mod","packages/ttsc/go.sum"]'
+        run: *prepare-measurement-input
+      - name: Measure retained Graph control
+        id: graph-baseline
+        if: ${{ !cancelled() && steps.graph-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *graph-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual Graph baseline report
+        id: graph-baseline-report
+        if: ${{ !cancelled() && steps.graph-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-graph-comparison
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Graph control
+        if: ${{ !cancelled() && steps.graph-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *graph-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=graph
+      - name: Retain actual Graph observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-graph-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-graph-comparison
           if-no-files-found: error
