@@ -437,16 +437,19 @@ func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchec
 // literal type. TypeScript's checker uses this before comparing switch case
 // types because a source literal's fresh type and a union member's regular type
 // denote the same runtime value but have different pointers.
+// Unions regularize their constituent types through upstream mapping and cache
+// the result; other type categories pass through. Nonnil types must belong to
+// recv's checker graph when recv is supplied.
 // Nil checker or type leaves the supplied type unchanged.
 //
 // @evidence contracts/common.md#principled-implementation The pinned regular-literal helper canonicalizes fresh literal identity while preserving its semantic value, making pointer-based comparison use the same representation as union members.
 // @evidence contracts/common.md#clear-and-simple-design One guarded bridge exposes compiler canonicalization without duplicating literal interning or conversion rules.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The nil fallback preserves the input rather than constructing a desired literal; actual canonicalization remains with the producing compiler checker.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains fresh-versus-regular pointer identity, runtime meaning and nil input preservation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getRegularTypeOfLiteralType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getRegularTypeOfLiteralType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getRegularTypeOfLiteralType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getRegularTypeOfLiteralType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives an existing type or checker-owned regular type and can retain its semantic graph. Upstream union mapping owns temporary constituent slices and the cached regularType result; this wrapper keeps no independent result, buffer or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper's nil guards select no canonicalization strategy. Upstream fresh-literal access is direct, but uncached unions map constituent/origin lists recursively and can reconstruct a reduced union; their traversal, allocation and reduction costs belong to that checker implementation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Literal regularType references and union regularType caching own canonical reuse upstream. The forwarding wrapper adds no type cache or coordination of repeated canonicalization.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type canonicalization uses the supplied checker graph; this wrapper introduces no path, host or platform policy.
 func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type {
   if recv == nil || t == nil {
     return t
@@ -640,15 +643,17 @@ func Checker_getIndexInfosOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 // unions, properties must be available across constituents; intersections
 // combine constituent properties under checker semantics. recv and t must be
 // nonnil and belong to the same checker graph.
+// Reduced apparent-type normalization and member resolution happen upstream;
+// the returned slice shares the checker's resolved property state.
 //
 // @evidence contracts/common.md#principled-implementation Upstream property lookup applies union common-property and intersection combined-property semantics, retaining compiler-generated symbol identities and instantiated property types.
 // @evidence contracts/common.md#clear-and-simple-design One checker query owns composite-type property formation instead of an independent shim intersection or union merger.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Composite properties are not reduced to a common-member approximation for every type category.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes union from intersection behavior and states graph/nonnil premises.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getPropertiesOfType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getPropertiesOfType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getPropertiesOfType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getPropertiesOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolved object/composite property slices and synthesized symbols belong to the producing checker graph. Upstream composite collection also owns its temporary checked-name set; the caller can retain that graph through the returned slice, while the wrapper stores no independent cache or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects no normalization or collection strategy. Upstream object resolution can traverse/instantiate members and bases; composite collection visits constituent properties, hashes names and resolves each candidate under union/intersection semantics. Their graph/list/name costs belong to that implementation rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Structured member state and composite resolvedProperties own reuse within the supplied checker. This forwarding wrapper coordinates no additional property cache or repeated-query policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Property normalization and resolution use the supplied checker/program; the wrapper introduces no path, host or platform policy.
 func Checker_getPropertiesOfType(recv *innerchecker.Checker, t *innerchecker.Type) []*innerast.Symbol {
   return recv.GetPropertiesOfType(t)
 }
@@ -743,26 +748,21 @@ func checkerGetPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbol
 // Checker_getPropertyNameForKnownSymbolName returns the late-bound property
 // name the checker uses for a member keyed by the global well-known symbol
 // `Symbol.<symbolName>` (e.g. "asyncIterator", "asyncDispose", "iterator").
-// It resolves the unique-symbol type of that property on the global
-// `SymbolConstructor`, including lib-provided and `declare global` augmented
-// members, so `(*Checker).GetPropertyOfType(t, name)` with the returned name
-// finds exactly the members declared as `[Symbol.<symbolName>]`. This is the
-// same resolution the checker itself performs when it validates `for await`
-// iterability, which is why a lint rule that mirrors typescript-eslint's
-// well-known-symbol protocol checks must go through it instead of matching
-// property-name text. When the global `Symbol` constructor lacks the member,
-// the checker's internal fallback name (a `\xFE@`-prefixed string no
-// source-declared property can late-bind to) is returned, so lookups simply
-// find nothing. Returns "" if recv is nil.
+// It queries the global Symbol value's member type, including library and
+// global augmentation. A unique-symbol type supplies its semantic name;
+// upstream also accepts string/number literal member types and returns their
+// property names. Missing or unusable member types return the compiler's
+// internal-prefix fallback key, without proving that a protocol is supported.
+// Returns "" if recv is nil.
 //
-// @evidence contracts/common.md#principled-implementation The compiler resolves the global SymbolConstructor member's unique-symbol identity, so computed members match by semantic key even when libraries or global augmentation supply it.
+// @evidence contracts/common.md#principled-implementation Upstream global Symbol member typing selects a unique-symbol semantic name or a usable string/number literal name; missing or unusable types preserve the compiler fallback instead of claiming a supported protocol.
 // @evidence contracts/common.md#clear-and-simple-design One bridge owns well-known-symbol key resolution rather than duplicating a textual Symbol-name matcher in lint consumers.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing global members use upstream's unbindable fallback key rather than treating any similarly spelled property as the protocol.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains unique-symbol lookup, augmented globals, fallback absence and nil receiver behavior in useful context.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getPropertyNameForKnownSymbolName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getPropertyNameForKnownSymbolName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getPropertyNameForKnownSymbolName computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getPropertyNameForKnownSymbolName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or unusable global members preserve upstream's internal fallback key rather than using a similarly spelled public property as an invented protocol identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose states all usable type categories, global augmentation, fallback limits and nil receiver behavior.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned name is a semantic/literal string or a newly constructed fallback proportional to symbolName bytes; the caller owns its retention. Global symbol and type state remain checker-owned, and the wrapper retains no separate result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards a nil checker. Upstream global/member/type resolution owns semantic graph and name-lookup costs; literal number formatting or fallback string construction adds representation work. This forwarding wrapper chooses none of those algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing checker memoizes global Symbol lookup and owns semantic type/member reuse. This wrapper has no independent key cache or coordination policy, and fallback construction remains per query upstream.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Global member typing uses the supplied checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string {
   if recv == nil {
     return ""
@@ -1047,19 +1047,20 @@ func checkerGetMinArgumentCount(recv *innerchecker.Checker, signature *innerchec
 
 // Checker_getMinArgumentCount returns the minimum number of required arguments
 // a call/construct signature accepts under compiler rules, including required
-// tuple-rest positions and trailing void-accepting parameters. A type-transform
-// plugin uses this to gate the single-
-// required-parameter constructor strategy (`new C(x)`) and single-arg static
-// factory (`C.from(x)`). Returns 0 if recv or signature is nil.
+// tuple-rest positions and trailing void-accepting parameters. It uses the
+// upstream default arity flags, including the untyped-JavaScript zero rule;
+// this minimum alone does not validate a call's argument types or maximum arity.
+// Nonnil inputs must belong to the same checker graph. Returns 0 if recv or
+// signature is nil; computing a result can populate signature arity state.
 //
 // @evidence contracts/common.md#principled-implementation Upstream minimum-arity calculation accounts for required tuple-rest positions, optionality, untyped JavaScript and trailing void acceptance instead of counting declarations before a rest marker.
-// @evidence contracts/common.md#clear-and-simple-design One arity query exposes the compiler's complete rule without a second parameter-counting policy.
+// @evidence contracts/common.md#clear-and-simple-design One arity query exposes the compiler's default minimum-argument rule without a second parameter-counting policy or a promise of full call validation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The result comes from actual signature semantics rather than a consumer's constructor strategy or fixed expected arity.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes compiler minimum arity from declared parameter count, includes tuple/void cases and documents nil zero.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getMinArgumentCount acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getMinArgumentCount performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getMinArgumentCount computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getMinArgumentCount computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes default minimum arity from full call validation, includes tuple/void/JavaScript cases and documents same-checker and nil conditions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This forwarding wrapper returns an integer and owns no retained result graph, buffer or handle. Signature arity state and any semantic types resolved by the calculation remain owned by the producing checker.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs. Upstream calculation can scan tuple-rest elements and trailing parameters, resolve their types and examine void-containing constituents; those list and semantic-resolution costs belong to the checker rather than fixed local steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream resolvedMinArgumentCount coordinates ordinary default-flag reuse, while the untyped-JavaScript early-zero branch can return before caching. The wrapper owns no additional arity cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Signature typing uses the supplied checker graph; the wrapper adds no path, host or platform policy.
 func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int {
   if recv == nil || signature == nil {
     return 0
