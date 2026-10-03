@@ -8,10 +8,11 @@ import (
 
 // TestFormatClauseJoinKeepsABlankLineInsideAHoistedBody verifies a blank line inside a hoisted body neither shifts nor blocks the join.
 //
-// A blank line has no column to move. Charging it one produced a negative width
-// for every ordinary outdent, and treating that as unshiftable abandoned the whole
-// join, leaving `format/indent` to move the body's interior anyway and settling
-// the file on a hybrid layout Prettier never emits.
+// The continuation shift skips an empty line instead of assigning it an
+// indentation edit. The command must finish with the label joined, ordinary
+// body lines outdented and the separation between calls still empty. This
+// final-output assertion does not observe an earlier implementation or compare
+// an external formatter result.
 //
 //  1. Seed a project with a labeled loop whose body holds a blank line.
 //  2. Run `ttsc format`.

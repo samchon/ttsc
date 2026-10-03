@@ -6,11 +6,13 @@ import (
   "testing"
 )
 
-// TestFormatClauseJoinLeavesABlockCommentInteriorUntouched verifies the shift never rewrites a block comment's continuation lines.
+// TestFormatClauseJoinLeavesABlockCommentInteriorUntouched verifies the shift preserves this non-indentable comment's continuation line.
 //
-// Prettier prints a non-JSDoc block comment verbatim, so its interior columns are
-// content the author chose. This is the third member of the same class as the
-// string and template cases, and the one a reader is least likely to expect.
+// The continuation begins with `b`, not `*`, so the comment does not satisfy
+// the rule's indentable-comment predicate. Its interior is protected content,
+// while the opening comment line and surrounding statements may outdent.
+// Star-led comments have a separate adjacent case; this is not an assertion
+// that every block comment retains all columns.
 //
 //  1. Seed a project with a labeled loop whose body holds a multi-line block comment.
 //  2. Run `ttsc format`.
