@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { once } from "node:events";
 
 import {
   assert,
@@ -18,8 +19,9 @@ import {
  * restored before the build returned produced a binary under the key of the
  * version it was restored to; a later process with that version reused it
  * (samchon/ttsc#1534). The build now proves that every toolchain path the key
- * read still holds the metadata it was read with; the change time moves with
- * every write, so even a byte-identical restore is caught.
+ * read still holds the metadata it was read with. The race expects native
+ * metadata to distinguish the intervening writes even after bytes are restored;
+ * byte equality alone does not independently establish that metadata premise.
  *
  * 1. Use a fake Go tool whose build pauses at a barrier.
  * 2. While it pauses, rewrite the tool and write its original bytes back.
@@ -31,13 +33,14 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Changed then restored bytes must still invalidate the witness, contrasted with subsequent stable success.
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_changed_during_its_build entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Barrier-driven builds must retain their own initially cold publication state; the subsequent stable/reuse call consumes the same case cache. Mutations require another proof and cannot borrow a warm binary from a different case.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases. Barrier files establish the race before assertions; auxiliary editors are killed at their existing cleanup points. Cancellation cleanup is not stronger than those points.
- * @evidence contracts/e2e.md#preserved-coverage A paused build rejects a changed-and-restored toolchain, leaves no cached binary, and later publishes a stable build. These assertions stay in test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_changed_during_its_build with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#shared-execution One initially cold source/cache and actual editor feed the changed-restored rejection. The stable request uses that same cache only after direct editor close and original no-binary observation, so its publication is recovery, not a proven cache hit or zero-child reuse. Actual editor/wrapper/evaluator/tool attempts remain separate observed populations; no native Go compilation is certified.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before preparation. Actual editor spawn/error/close are observed before synchronous build can block delivery; its barrier wait has a 120-second deadline. Original kill attempt remains, but same-root restored-byte/cache/stable observations occur only after actual direct editor close within a bounded wait. Timed-out join is failure, not resource release; arbitrary editor descendants are not certified. Environments remain call-local and native changed/restored metadata authority is distinct from byte equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original six-file fixture, actual editor append-newline/restore/release order, exact toolchain-race rejection regex, restored Buffer equality, recursive plugin(.exe) empty population and stable binary existence remain. Spawn/error/close plus bounded barrier/join strengthen ownership without replacing native race inputs. New inline observer callbacks are AUTHORED/UNEXECUTED, not extra original686 verdicts; actual runtime/survival remain unverified and donor retained.
  */
 export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_changed_during_its_build =
-  () => {
+  async () => {
     const root = TestProject.tmpdir("ttsc-plugin-toolchain-race-");
+    TestProject.retainTemporaryDirectory(root, "Toolchain editor or build descendants are not joined");
     const plugin = path.join(root, "plugin");
     write(
       path.join(plugin, "go.mod"),
@@ -65,7 +68,8 @@ export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_cha
         "-e",
         [
           'const fs = require("node:fs");',
-          `while (!fs.existsSync(${JSON.stringify(barrier)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);`,
+          `const deadline = Date.now() + 120_000;`,
+          `while (!fs.existsSync(${JSON.stringify(barrier)})) { if (Date.now() >= deadline) throw new Error("Toolchain build barrier not reached"); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20); }`,
           `const original = fs.readFileSync(${JSON.stringify(tool)});`,
           `fs.writeFileSync(${JSON.stringify(tool)}, Buffer.concat([original, Buffer.from("\\n")]));`,
           `fs.writeFileSync(${JSON.stringify(tool)}, original);`,
@@ -74,6 +78,11 @@ export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_cha
       ],
       { stdio: "ignore" },
     );
+    const failures: unknown[] = [];
+    swapper.once("error", (error) => failures.push(error));
+    const closed = new Promise<void>((resolve) => {
+      swapper.once("close", () => resolve());
+    });
     const build = (env: NodeJS.ProcessEnv = {}): string =>
       buildSourcePlugin({
         baseDir: root,
@@ -88,6 +97,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_cha
       });
 
     try {
+      await once(swapper, "spawn");
       assert.throws(
         () =>
           build({
@@ -96,9 +106,29 @@ export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_cha
           }),
         /Go toolchain of plugin "toolchain-race" changed while it was being built/,
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
-      swapper.kill();
+      try {
+        swapper.kill();
+      } catch (error) {
+        failures.push(error);
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          closed,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => reject(new Error("Toolchain editor did not close")), 60_000);
+          }),
+        ]);
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Toolchain race and editor close failed");
     assert.deepEqual(fs.readFileSync(tool), original, "the tool was restored");
     const cached = fs
       .readdirSync(path.join(root, "cache"), { recursive: true })
