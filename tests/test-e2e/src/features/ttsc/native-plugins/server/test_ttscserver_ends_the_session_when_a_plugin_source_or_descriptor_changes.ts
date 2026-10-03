@@ -9,6 +9,7 @@ import {
   TtscserverClient,
   assert,
   shutdownTtscserverClient,
+  waitForTtscserverOutcome,
 } from "../../../../internal/ttsc/internal/ttscserver";
 
 type Diagnostic = { code?: unknown; message?: string };
@@ -146,8 +147,9 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
         changes: [{ type: 2, uri: pathToFileURL(changed).href }],
       });
       await selection;
-      const code = await waitForSelectionOutcome(
+      const code = await waitForTtscserverOutcome(
         client.waitForExit(),
+        SELECTION_TIMEOUT,
         "plugin selection notified but direct child close was not joined",
       );
       activeClient = undefined;
@@ -198,8 +200,9 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
       catch (retentionError) { failures.push(retentionError); }
       if (activeClient !== undefined) {
         try {
-          await waitForSelectionOutcome(
+          await waitForTtscserverOutcome(
             shutdownTtscserverClient(activeClient),
+            SELECTION_TIMEOUT,
             "failed plugin-selection session shutdown was not joined",
           );
         } catch (shutdownError) { failures.push(shutdownError); }
@@ -208,18 +211,3 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     }
     project.cleanup();
   }
-
-/** Bound a supported close/shutdown outcome without forcing termination. */
-async function waitForSelectionOutcome<T>(operation: Promise<T>, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), SELECTION_TIMEOUT);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}

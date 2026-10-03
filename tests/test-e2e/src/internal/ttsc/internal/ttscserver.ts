@@ -498,6 +498,30 @@ export async function runTtscserverSession<T>(
   return result;
 }
 
+/**
+ * Bound an already-started supported close/shutdown outcome. Timeout reports
+ * unknown completion, does not cancel or kill its operation, and requires its
+ * caller to preserve unresolved inputs. The losing Promise stays observed by
+ * Promise.race; the owned timer is cleared for either outcome.
+ */
+export async function waitForTtscserverOutcome<T>(
+  operation: Promise<T>,
+  timeout: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeout);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 function formatUnknown(value: unknown): string {
   if (!value) {
     return "";

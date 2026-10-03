@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint, TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,6 +9,7 @@ import {
   TtscserverClient,
   assert,
   shutdownTtscserverClient,
+  waitForTtscserverOutcome,
 } from "../../../../internal/ttsc/internal/ttscserver";
 
 type Diagnostic = { code?: unknown };
@@ -43,10 +44,10 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/testing.md#behavioral-verification Actual sessions must announce pluginSelectionChanged when tsconfig adds or removes the plugin and when a previously plugin-free manifest adds its dependency; the intervening session must publish no-var.
  * @evidence contracts/testing.md#independent-expectations Original configured and unconfigured tsconfig bytes, package dependency insertion, literal notification method and no-var publication independently prescribe the selection transitions.
  * @evidence contracts/testing.md#distinguishing-cases Exercises plugin addition and removal through compilerOptions and addition through package discovery, including a plugin-free initial state and a positive next-session diagnostic.
- * @evidence contracts/testing.md#execution-ownership The named server entry owns three intentionally distinct startup selections and real editor watched-file events; source fingerprint units cannot establish process lifecycle notifications.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named server export in the generic E2E population; three startup selections and authored editor-style watched-file protocol messages belong to this body. These are not kernel-watch events, packed installation or a count of every child/Program; source fingerprint units do not establish the real notification/close connection.
  * @evidence contracts/e2e.md#necessary-boundary The launcher selection snapshot and live native watched-file handling must agree on restart inputs, including inputs absent from a plugin-free initial selection.
- * @evidence contracts/e2e.md#shared-execution One consumer and canonical lint producer serve three sessions; restarting is the behavior being verified, so sessions cannot be collapsed into an unchanged host that masks selection boundaries.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only private tsconfig and manifest are changed, each notification waiter is installed before writing, and every started session attempts shutdown before final consumer cleanup.
+ * @evidence contracts/e2e.md#shared-execution One consumer, unchanged workspace lint producer and explicit suite cache carry the three original sessions. Restart selections cannot collapse to an unchanged host. Shared preparation is available, without cache-hit/build-Program-process total/binary-byte/minimum-cost certification.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked private config/manifest change. Every client is owned before initialize; selection waiters precede writes and positive no-var readiness is armed before didOpen. Each intentional native selection-error close/status1 is joined before the next session or mutation. Failure retains consumer/already-owned cache before bounded shutdown, preserving original and cleanup errors; no unresolved reset/removal, forced success, arbitrary descendant or loaded-image proof is claimed.
  * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
 export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes() {
@@ -65,26 +66,20 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
     const withoutPlugins = JSON.stringify(unconfigured, null, 2);
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
+    let activeClient: TtscserverClient | undefined;
 
     /** Start a session and open the file. */
     const start = async (): Promise<TtscserverClient> => {
       const client = TtscserverClient.startLauncher(project.tmpdir, {
         env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
       });
+      activeClient = client;
       await client.request("initialize", {
         capabilities: {},
         processId: process.pid,
         rootUri: pathToFileURL(project.tmpdir).href,
       });
       client.notify("initialized", {});
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          languageId: "typescript",
-          text: SOURCE,
-          uri,
-          version: 1,
-        },
-      });
       return client;
     };
     /** Write `changed`, report it as the editor would, and await the end. */
@@ -104,16 +99,43 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
         changes: [{ type: existed ? 2 : 1, uri: pathToFileURL(changed).href }],
       });
       await selection;
+      const code = await waitForTtscserverOutcome(
+        client.waitForExit(),
+        SELECTION_TIMEOUT,
+        "plugin selector changed but direct child close was not joined",
+      );
+      activeClient = undefined;
+      assert.equal(code, 1, "selection restart must propagate the native sentinel exit");
     };
     const session = async (
       body: (client: TtscserverClient) => Promise<void>,
+      expectNoVar = false,
     ): Promise<void> => {
       const client = await start();
-      try {
-        await body(client);
-      } finally {
-        await shutdownTtscserverClient(client).catch(() => undefined);
+      const publication = expectNoVar
+        ? client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              params.uri === uri &&
+              (params.diagnostics ?? []).some(
+                (diagnostic) => diagnostic.code === "no-var",
+              ),
+            PLUGIN_BUILD_TIMEOUT,
+          )
+        : undefined;
+      client.notify("textDocument/didOpen", {
+        textDocument: {
+          languageId: "typescript",
+          text: SOURCE,
+          uri,
+          version: 1,
+        },
+      });
+      if (publication !== undefined) {
+        const published = await publication;
+        assert.ok(published.diagnostics?.length);
       }
+      await body(client);
     };
 
     try {
@@ -122,20 +144,7 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
       await session((client) => change(client, tsconfig, configured));
 
       // 2. The next session runs it; removing it ends that session too.
-      await session(async (client) => {
-        const published =
-          await client.waitForNotification<PublishDiagnosticsParams>(
-            "textDocument/publishDiagnostics",
-            (params) =>
-              params.uri === uri &&
-              (params.diagnostics ?? []).some(
-                (diagnostic) => diagnostic.code === "no-var",
-              ),
-            PLUGIN_BUILD_TIMEOUT,
-          );
-        assert.ok(published.diagnostics?.length);
-        await change(client, tsconfig, withoutPlugins);
-      });
+      await session((client) => change(client, tsconfig, withoutPlugins), true);
 
       // 3. A dependency that publishes a plugin.
       const previous = fs.existsSync(manifest)
@@ -161,7 +170,23 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
           ),
         ),
       );
-    } finally {
-      project.cleanup();
+    } catch (error) {
+      const failures: unknown[] = [error];
+      const reason = "plugin-selector session startup, body or close failed";
+      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainSharedPluginCache(reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      if (activeClient !== undefined) {
+        try {
+          await waitForTtscserverOutcome(
+            shutdownTtscserverClient(activeClient),
+            SELECTION_TIMEOUT,
+            "failed selector session shutdown was not joined",
+          );
+        } catch (shutdownError) { failures.push(shutdownError); }
+      }
+      throw new AggregateError(failures, reason);
     }
+    project.cleanup();
   }
