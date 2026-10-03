@@ -26,15 +26,16 @@ import {
  * @evidence contracts/testing.md#behavioral-verification A stale legacy fence must fail to retire a later live v3 successor; inspection must still name the successor generation, whose own release succeeds and leaves the lock released.
  * @evidence contracts/testing.md#independent-expectations A child writes/removes a genuine legacy owner path before a second child reports its acquired v3 lease. Explicit role barriers and literal false/active/true/released outcomes define the expected namespace separation.
  * @evidence contracts/testing.md#distinguishing-cases Normal legacy disappearance precedes an unretired v3 successor, so the old fence cannot depend on an already occupied retirement destination. Same-v3 stale observers and delayed finalizers are owned by companion cases.
- * @evidence contracts/testing.md#execution-ownership The exported async entry starts legacy and v3 successor workers invoking shipped lock APIs and applies the captured legacy reclaim in the parent while the successor is alive.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic async export. Real legacy/successor workers invoke built workspace lock operations and the parent applies the captured legacy fence while actual successor ownership remains active; no compiler/payload/packed installation is asserted.
  * @evidence contracts/e2e.md#necessary-boundary A deletable legacy pathname and persistent v3 namespace must remain separate across real process handoff; a single stored protocol value cannot establish that old retirement leaves live successor ownership intact.
  * @evidence contracts/e2e.md#shared-execution One script and private lock root serve sequential legacy/successor roles. These two lifetimes are needed to keep legacy release and successor ownership distinct; no compiler or payload build is involved.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The parent signals successor release in finally around stale reclaim and awaits both workers on the successful path; an unexpected initial observation releases the legacy worker. An outer finally opens both role barriers and joins every immediately registered child, covering initial observation/barrier failures as well.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original normal legacy removal/close precedes successor ownership. Immediately registered workers and both release barriers remain; body/inner-release/outer-release/worker failures aggregate without masking initial observation or reclaim errors. Shared helper ordinary results/errors settle on actual direct close with signal guards, while a separate deadline rejects unjoined ownership. Tracked root is retained before preparation; retention is not OS/descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Legacy protocol, both process statuses, stale false result, exact live successor fence, successful successor release and final released state remain unchanged; no successor identity is inferred from an old pathname.
  */
 export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-legacy-successor-");
+    TestProject.retainTemporaryDirectory(root, "legacy-successor graph may outlive its worker close deadline");
     const lockDir = path.join(root, "entry.lock");
     const legacyReady = path.join(root, "legacy-ready");
     const legacyRelease = path.join(root, "legacy-release");
@@ -93,6 +94,7 @@ export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
     );
 
     const workers: Array<ReturnType<typeof spawnNodeWorker>> = [];
+    const failures: unknown[] = [];
     try {
       const legacyHolder = spawnNodeWorker({
         env: {
@@ -111,8 +113,8 @@ export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
       );
       const observation = inspectPluginBuildLock(lockDir);
       if (observation.state !== "active") {
-        fs.writeFileSync(legacyRelease, "release\n", "utf8");
-        await legacyHolder;
+        // Outer cleanup releases/joins the registered worker while preserving
+        // this original observation failure alongside cleanup failures.
         assert.fail(`expected active legacy holder, got ${observation.state}`);
       }
       assert.equal(observation.fence.protocol, "legacy");
@@ -123,6 +125,7 @@ export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
         "legacy holder normal release",
       );
       const legacyResult = await legacyHolder;
+      assert.equal(legacyResult.signal, null, "legacy worker terminated by signal");
       assert.equal(legacyResult.status, 0, legacyResult.stderr);
 
       const successor = spawnNodeWorker({
@@ -150,9 +153,11 @@ export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
         reclaimed = reclaimPluginBuildLock(lockDir, observation.fence);
         afterStaleReclaim = inspectPluginBuildLock(lockDir);
       } finally {
-        fs.writeFileSync(successorRelease, "release\n", "utf8");
+        try { fs.writeFileSync(successorRelease, "release\n", "utf8"); }
+        catch (error) { failures.push(error); }
       }
       const successorWorker = await successor;
+      assert.equal(successorWorker.signal, null, "successor worker terminated by signal");
       assert.equal(successorWorker.status, 0, successorWorker.stderr);
 
       assert.equal(reclaimed, false);
@@ -170,18 +175,20 @@ export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
       assert.deepEqual(inspectPluginBuildLock(lockDir), {
         state: "released",
       });
+    } catch (error) {
+      failures.push(error);
     } finally {
-      const releaseErrors: unknown[] = [];
       for (const releaseFile of [legacyRelease, successorRelease]) {
         try {
           fs.writeFileSync(releaseFile, "release\n", "utf8");
         } catch (error) {
-          releaseErrors.push(error);
+          failures.push(error);
         }
       }
-      await Promise.allSettled(workers);
-      if (releaseErrors.length !== 0) {
-        throw new AggregateError(releaseErrors, "worker release barriers failed");
+      for (const outcome of await Promise.allSettled(workers)) {
+        if (outcome.status === "rejected" && !failures.includes(outcome.reason))
+          failures.push(outcome.reason);
       }
     }
+    if (failures.length) throw new AggregateError(failures, "legacy-successor fencing or worker cleanup failed");
   };
