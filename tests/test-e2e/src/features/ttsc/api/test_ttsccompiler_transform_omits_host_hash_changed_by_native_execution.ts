@@ -7,6 +7,7 @@ import {
   fs,
   path,
   tsgo,
+  writeBasicProject,
 } from "../../../internal/ttsc/internal/compiler";
 
 /**
@@ -26,25 +27,43 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Transform success and check failure both invalidate the same descriptor proof, distinguishing lost input identity from intentional removal of stale authority.
  * @evidence contracts/testing.md#execution-ownership The named feature calls checkout built TtscCompiler through the shared subclass and selected compiler; real Go inputs mutate the file in distinct transform/check stages. Returned envelopes and readback observe that connection, not packed installation or every native child.
  * @evidence contracts/e2e.md#necessary-boundary Actual native execution mutates a descriptor-observed file between initial hashing and result publication, a temporal boundary no immutable decoder fixture can reproduce.
- * @evidence contracts/e2e.md#shared-execution The two stage descriptors use identical Go source bytes and a shared keyed plugin cache; stage selection differs and each supplies all original mutation/proof assertions. Both stage verdicts are collected even after an earlier failure; two API invocations do not establish total child/Program counts or a cache hit.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each stage gets a fresh physical registered project and old config bytes, preventing the first mutation from setting the second expectation. Readback follows the direct synchronous result and normal fixture cleanup is tracked by TestProject; neither establishes arbitrary descendant closure or forced-interruption cleanup.
+ * @evidence contracts/e2e.md#shared-execution Standalone stages own separate projects. Consolidated stages borrow one empty physical API root, write identical default source/config/package and Go module bytes, and differ in descriptor stage. After the first returned API result, its files move into an observed sibling before the second receives old config bytes again. Both original native calls and mutation/proof assertions remain, with distinct content-key and process events rather than inferred cache hits or Program reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone stages remain freshly registered. Borrowed stages require an empty root and exact old config bytes. A returned API result admits holding the prior inputs aside even if an assertion failed, so the second independent verdict remains observable; a thrown preparation/transport blocks replacement and is retained under the second stage's name. The outer owner retains all borrowed inputs. Synchronous return is an admission bound, not arbitrary descendant closure or interruption cleanup certification.
  * @evidence contracts/e2e.md#preserved-coverage Stage-specific result type, input-path presence, stale-hash absence and exact new bytes remain for both stages. The fixture exercises host proof invalidation, not arbitrary transform semantics.
  */
 export const test_ttsccompiler_transform_omits_host_hash_changed_by_native_execution =
-  () => {
+  (prepared?: { root: string; observedRoot: string }) => {
     const failures: unknown[] = [];
+    let previousReturned = true;
     for (const stage of ["transform", "check"] as const) {
+      let returned = false;
       try {
-        const root = TestProject.physicalPath(
+        if (prepared !== undefined && !previousReturned)
+          throw new Error(`${stage} input staging blocked by unsettled prior API transport`);
+        if (prepared !== undefined && stage === "check") {
+          const observed = path.join(prepared.observedRoot, "transform");
+          fs.mkdirSync(observed, { recursive: true });
+          for (const name of fs.readdirSync(prepared.root))
+            fs.renameSync(path.join(prepared.root, name), path.join(observed, name));
+        }
+        const root = TestProject.physicalPath(prepared?.root ??
           createProject({
             plugins: [{ transform: "./plugin.cjs" }],
           }),
         );
+        if (prepared !== undefined) {
+          assert.deepEqual(fs.readdirSync(root), [], "borrowed host-proof project must be empty");
+          writeBasicProject(root, 'const message: string = "api-ok";\nconsole.log(message);\n', {
+            plugins: [{ transform: "./plugin.cjs" }],
+          });
+          fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }), "utf8");
+        }
         const config = path.join(root, "native.config.json");
         fs.writeFileSync(config, "old\n", "utf8");
         writeMutatingPlugin(root, stage);
 
         const result = new TtscCompiler({ binary: tsgo, cwd: root }).transform();
+        returned = true;
 
         assert.equal(result.type, stage === "transform" ? "success" : "failure");
         assert.equal(result.hostInputs?.includes(config), true);
@@ -61,6 +80,8 @@ export const test_ttsccompiler_transform_omits_host_hash_changed_by_native_execu
         failures.push(
           new Error(`${stage} host proof invalidation failed`, { cause: error }),
         );
+      } finally {
+        previousReturned = returned;
       }
     }
     if (failures.length > 0)
