@@ -43,6 +43,9 @@ func assertDefaultCaseClean(t *testing.T, source string, options string) {
 func assertDefaultCaseReportsAtLines(t *testing.T, source string, options string, lines ...int) {
   t.Helper()
   file, findings := lintDefaultCase(t, source, options)
+  if err := validateSemanticRuleFindings(RuleConfig{"default-case": SeverityError}, findings); err != nil {
+    t.Fatal(err)
+  }
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(lines) {
     t.Fatalf("expected %d finding(s) at lines %v, got %+v", len(lines), lines, actual)
