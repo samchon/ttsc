@@ -6,9 +6,9 @@ import "testing"
 // type parameter whose `extends C = Default` overflows breaks after `=`,
 // hanging the default one level deeper, matching Prettier 3.
 //
-// This is the print-width symptom the benchmark flagged as the
-// type-parameter-default divergence: ttsc left the over-width line
-// verbatim; Prettier breaks at `=`.
+// The complete independent output requires both list explosion and the extra
+// indentation after `=`. This direct case observes those edits, not a past
+// benchmark result or an external formatter invocation.
 //
 //  1. Parse a class with one long defaulted type parameter (printWidth 50).
 //  2. Apply format/declaration-header.

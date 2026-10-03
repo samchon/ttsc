@@ -5,7 +5,8 @@ import "testing"
 // TestFormatDeclarationHeaderDropsBraceForClassBody verifies the opening
 // brace lands on its own line for a class with a non-empty body whose
 // header breaks, matching Prettier 3. The single `implements` clause keeps
-// its types inline (two-tier tier one); only the brace moves down.
+// its types inline on the keyword's continuation line (two-tier tier one),
+// followed by a separate opening-brace line.
 //
 //  1. Parse a class whose flat implements header overflows 80, with a
 //     non-empty body.
