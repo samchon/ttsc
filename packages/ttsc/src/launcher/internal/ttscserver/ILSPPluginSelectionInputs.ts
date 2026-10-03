@@ -1,15 +1,18 @@
 /**
  * What a `ttscserver` session's plugin selection was loaded from, as the native
- * host receives it in the plugin manifest (`selectionInputs`), so a change to
- * any of it ends the session.
+ * host receives it in the plugin manifest (`selectionInputs`). Native startup
+ * and later input checks reject a changed recorded fingerprint or relevant
+ * source listing; this shape alone does not guarantee every external change
+ * will be observed or delivered to a running session.
  *
  * Both kinds of input travel by directory, each directory with the names of the
  * files in it and the digest each had
  * (`LSPProjectInputDigest.lspProjectInputFileDigest`). The descriptors' inputs
- * are mostly resolution candidates that do not exist, a thousand of them across
- * a few dozen directories, and a plugin's Go sources can be thousands of files,
- * so the host resolves the identity of a directory once rather than of every
- * file. A source directory's listing is an input too, counted by the build's
+ * can include many missing resolution candidates, and plugin sources can span
+ * many files. At construction the host indexes resolved directory identity
+ * once per directory rather than separately for every recorded basename;
+ * later checks still perform native identity and file observations. A source
+ * directory's listing is an input too, counted by the build's
  * own rule: a residue file or a directory the build passes over changes
  * nothing.
  *
@@ -24,10 +27,11 @@
  */
 export interface ILSPPluginSelectionInputs {
   /**
-   * Every directory holding a file the plugin load read or probed, with the
-   * name of each such file and its digest: the project's config chain, the
+   * Every directory holding a non-deferred input the plugin load reported,
+   * with each recorded basename and digest: the project's config chain, the
    * manifests plugin discovery reads, the descriptors, and what they resolved.
-   * Only those files count.
+   * Only those reported files count; the record does not discover undeclared
+   * external reads.
    */
   descriptorFiles: Record<string, Record<string, string>>;
 
