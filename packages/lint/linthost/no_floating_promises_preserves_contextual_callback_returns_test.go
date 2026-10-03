@@ -22,7 +22,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Literal callback return context must not silently discard a possibly applicable unsafe overload.
 // @evidence contracts/testing.md#independent-expectations Authored plain/generic/constrained narrow candidates require uncertainty, their broad twins require applicability, and overall selection must remain nil; the actual original callback must return string.
-// @evidence contracts/testing.md#distinguishing-cases The same literal-return callback is compared under narrow and broad signatures and three generic configurations, preserving independently checked contextual widening.
+// @evidence contracts/testing.md#distinguishing-cases The same literal-return callback is compared under plain, explicit-generic and constrained-generic candidate pairs, preserving independently checked contextual widening.
 // @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesPreservesContextualCallbackReturns invokes loadProgram and direct Checker callback-return/signature applicability/selection operations in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesPreservesContextualCallbackReturns(t *testing.T) {
   root := t.TempDir()
