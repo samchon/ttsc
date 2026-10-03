@@ -48,7 +48,11 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph', 'metro'].includes(family));
+          assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph', 'metro', 'installation'].includes(family));
+          if (family === 'installation') {
+            assert.equal(process.platform, 'linux');
+            assert.equal(process.arch, 'x64');
+          }
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -134,7 +138,7 @@ jobs:
             ] : family === 'compiler-stub' ? [
               'tests/test-e2e/fixtures/ttsc/compiler/consumer-fake',
               'tests/test-e2e/fixtures/ttsc/compiler/consumer-provenance',
-            ] : family === 'metro' ? [
+            ] : family === 'installation' ? [] : family === 'metro' ? [
               'tests/test-e2e/fixtures/metro', 'tests/test-e2e/fixtures/unplugin',
             ] : family === 'unplugin' ? ['tests/test-e2e/fixtures/unplugin'] :
               ['tests/test-e2e/fixtures/graph']),
@@ -153,7 +157,7 @@ jobs:
               ...(family === 'compiler' ? [{ boundary: 'native-driver-create', writerPid: 'observed', event: 'program-construction',
                 data: { origin: 'driver-create', outcome: 'constructor-returned' },
                 producerAssets: ['prepared-native-host', 'packages/ttsc/driver/program.go',
-                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : ['graph', 'metro'].includes(family) ? [] : [{
+                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : ['graph', 'metro', 'installation'].includes(family) ? [] : [{
                 boundary: 'runtime-native-wrapper', writerPid: 'observed', event: 'process-attempt',
                 data: { origin: 'spawnSyncResilient' },
                 producerAssets: [...(family === 'compiler-stub' ? [
@@ -433,4 +437,40 @@ jobs:
         with:
           name: e2e-metro-shared-parent-control-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-metro-shared-parent-control
+          if-no-files-found: error
+      - name: Prepare Installation Linux shared-parent control inputs
+        id: installation-control-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &installation-control-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-installation-linux-shared-parent-control
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-installation-linux-shared-parent-control-cache
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-installation-linux-shared-parent-control-cache
+          E2E_MEASUREMENT_FAMILY: installation
+          TTSC_TEST_DIRS: features/test_e2e_installation.ts
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src","tests/test-e2e/src/features/ttsc/os-boundaries","tests/test-e2e/src/features/graph/os-boundaries","packages/graph/src","packages/ttsc/cmd","packages/ttsc/driver","packages/ttsc/internal","packages/ttsc/shim","packages/ttsc/src","packages/ttsc/tools","packages/ttsc/utility","packages/ttsc-linux-x64/bin"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/GoBoundary.ts","packages/ttsc/package.json","packages/ttsc/README.md","packages/ttsc/go.mod","packages/ttsc/go.sum","packages/ttsc-linux-x64/package.json","packages/ttsc-linux-x64/README.md"]'
+        run: *prepare-measurement-input
+      - name: Measure retained Installation Linux shared-parent control
+        id: installation-control-baseline
+        if: ${{ !cancelled() && steps.installation-control-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *installation-control-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual Installation Linux shared-parent control report
+        id: installation-control-baseline-report
+        if: ${{ !cancelled() && steps.installation-control-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-installation-linux-shared-parent-control
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Installation Linux shared-parent control
+        if: ${{ !cancelled() && steps.installation-control-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *installation-control-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=installation
+      - name: Retain actual Installation Linux shared-parent control observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-installation-linux-shared-parent-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-installation-linux-shared-parent-control
           if-no-files-found: error
