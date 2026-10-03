@@ -26,10 +26,10 @@ import { buildNativeCompiler } from "../../../../../../packages/ttsc/lib/compile
  * @evidence contracts/testing.md#behavioral-verification The real api-compile process emits the printer's UTF-8 TSX; V8 evaluates all emitted values and their exact UTF-16 units must match inputs. Invalid JSX must produce a nonzero exit and source error diagnostics.
  * @evidence contracts/testing.md#independent-expectations Literal input strings and unit iteration establish expected values before printing. V8 interprets native emitted JavaScript independently; the malformed authored attribute establishes the negative grammar case.
  * @evidence contracts/testing.md#distinguishing-cases Fifty-four empty, punctuation, entity, control, newline, separator and surrogate inputs cross both quote styles, widths 1/200 and three contexts. A combined payload and independently authored numeric-entity specimen additionally cover adjacent surrogate units and literal entity/backslash text; invalid JSX remains rejected.
- * @evidence contracts/testing.md#execution-ownership This named API feature is discovered by TestExecutor and owns all row failures, real native compile calls and returned output evaluation.
+ * @evidence contracts/testing.md#execution-ownership This named API feature is discovered by TestExecutor and owns all row failures, real native compile calls and returned output evaluation. The consolidated compiler entry supplies its empty physical project root and invokes the same matrix before CLI staging.
  * @evidence contracts/e2e.md#necessary-boundary Factory output must cross UTF-8, the pinned Go parser/emitter and JSON output transport without altering cooked string values. The separate factory source unit owns reference TypeScript parsing; it cannot prove native entity decoding.
- * @evidence contracts/e2e.md#shared-execution One selected executable path from the shared builder or supplied caller serves positive and negative compile invocations, not a per-row producer. This body does not independently verify executable bytes, cache hits or loaded image; the caller's prepared manifest and actual process/construction observations remain separate.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One tracked project owns source/config and rejects disk emission in the positive phase. Direct synchronous results precede evaluation/source replacement, not arbitrary descendant shutdown. Positive and negative failures are retained independently; compiler-build preparation and final root-removal failures also remain observable, while the shared cache retains its separate owner.
+ * @evidence contracts/e2e.md#shared-execution One selected executable path from the shared builder or supplied caller serves positive and negative compile invocations, not a per-row producer. Consolidated execution writes the same two authored files into the prior API project's empty physical root; the builder still performs its original artifact admission. This body does not independently verify executable bytes, cache hits or loaded image; prepared manifests and actual process/construction observations remain separate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One tracked or borrowed empty project owns source/config and rejects positive disk emission. Borrowed execution refuses source replacement after error/signal/null-status, retaining uncertainty and blocking later phases; ordinary assertion failures still allow the negative observation after a settled response. Synchronous results do not certify arbitrary descendant shutdown. Standalone root removal and its errors remain; a borrowed root is retained by the outer family. Shared cache ownership is separate.
  * @evidence contracts/e2e.md#preserved-coverage This native batch retains the original 54-string matrix plus combined payload across twelve combinations and the independent entity specimen, all 661 value expectations and invalid status2/main.tsx error1002. tests/test-factory/src/features/printer/test_printer_preserves_jsx_attribute_values.ts directly owns the separate legacy TypeScript/V8 reference route, now expanded beyond its original648 checks. That source body does not replace native decoding or certify current runtime survival.
  */
 export const test_factory_jsx_strings_roundtrip_through_native_compile = (
@@ -42,6 +42,7 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
     stdout: string;
     stderr: string;
   }) => void,
+  preparedRoot?: string,
 ): void => {
   const cases: [string, string][] = [
     ["empty", ""],
@@ -112,7 +113,7 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
   printed.push(
     '<div value="&#0;&#13;&#10;&#8232;&#55296;&#57343;&amp;quot;\\n&quot;" />',
   );
-  const root = TestProject.createProject({
+  const files = {
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -130,8 +131,15 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
       "function jsx(_tag: string, props: { value: string }): string { return props.value; }",
       `const values = [${printed.join(",\n")}];`,
     ].join("\n"),
-  });
+  };
+  const root = preparedRoot ?? TestProject.createProject(files);
+  if (preparedRoot !== undefined) {
+    assert.deepEqual(fs.readdirSync(root), [], "borrowed JSX input root must be empty");
+    for (const [name, bytes] of Object.entries(files))
+      fs.writeFileSync(path.join(root, name), bytes);
+  }
   const failures: string[] = [];
+  let inputsSettled = true;
   try {
     const binary =
       nativeCompiler ??
@@ -146,6 +154,10 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
         ["api-compile", "--cwd", root, "--tsconfig", "tsconfig.json"],
         { cwd: root },
       );
+      if (preparedRoot !== undefined && (result.error || result.signal !== null || result.status === null)) {
+        inputsSettled = false;
+        throw new Error("Positive JSX transport did not settle for shared input replacement");
+      }
       observe?.({
         binary, root, phase: "positive", status: result.status,
         stdout: result.stdout, stderr: result.stderr,
@@ -187,6 +199,8 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
       failures.push(`positive native compile: ${String(error)}`);
     }
     try {
+      if (!inputsSettled)
+        throw new Error("Negative JSX input replacement blocked by unsettled positive transport");
       fs.writeFileSync(
         path.join(root, "main.tsx"),
         'const value = <div value="broken"quote" />;\n',
@@ -196,6 +210,10 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
         ["api-compile", "--cwd", root, "--tsconfig", "tsconfig.json"],
         { cwd: root },
       );
+      if (preparedRoot !== undefined && (result.error || result.signal !== null || result.status === null)) {
+        inputsSettled = false;
+        throw new Error("Negative JSX transport did not settle for shared input replacement");
+      }
       observe?.({
         binary, root, phase: "negative", status: result.status,
         stdout: result.stdout, stderr: result.stderr,
@@ -217,7 +235,8 @@ export const test_factory_jsx_strings_roundtrip_through_native_compile = (
     failures.push(`native compiler preparation: ${String(error)}`);
   } finally {
     try {
-      fs.rmSync(root, { recursive: true, force: true });
+      if (preparedRoot === undefined)
+        fs.rmSync(root, { recursive: true, force: true });
     } catch (error) {
       failures.push(`native fixture cleanup: ${String(error)}`);
     }
