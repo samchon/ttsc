@@ -6,6 +6,7 @@ import {
   fs,
   path,
   tsgo,
+  writeBasicProject,
 } from "../../../internal/ttsc/internal/compiler";
 import { NativeTransformEnvelopeFixture } from "../../../internal/ttsc/internal/NativeTransformEnvelopeFixture";
 
@@ -27,15 +28,22 @@ import { NativeTransformEnvelopeFixture } from "../../../internal/ttsc/internal/
  * @evidence contracts/testing.md#distinguishing-cases Valid source and advisory subsets remain accepted, malformed optional fields are filtered, candidates remain ordered and distinct from selected edges, while missing or array-valued source maps reject without emission. All five cases execute even after an earlier assertion fails.
  * @evidence contracts/testing.md#execution-ownership This named API E2E owns the real Go producer-to-transform connection; NativeTransformEnvelopeFixture holds inputs and decoder units own portable shape decisions. This named invocation collects all five response verdicts using the checkout built API and selected native compiler; it is not packed installation or independent executable image/build-provenance validation.
  * @evidence contracts/e2e.md#necessary-boundary Direct decoder calls cannot detect Go compilation, transform command flags, stdout transport or API exception/publication wiring. This single producer retains that assembly boundary for the former envelope and candidate consumers.
- * @evidence contracts/e2e.md#shared-execution One immutable Go program and one compiler/project serve five response files. Only runtime JSON changes between requests, preserving source bytes and keyed preparation inputs. Identical source does not certify a cache hit, exactly one build/child, persistent native Program or loaded image; no installation or project is recreated per shape.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each transform overwrites the complete response file before synchronous execution. The producer owns no persistent mutable state and transform does not emit; the fresh project has no dist output, so rejected responses cannot inherit another case's output. Normal tracked project cleanup owns fixture roots while the shared source cache follows its separate owner. Direct synchronous outcomes do not prove arbitrary descendant closure or forced-interruption cleanup.
+ * @evidence contracts/e2e.md#shared-execution One immutable Go program and compiler/project serve five runtime JSON responses. Consolidated execution borrows the empty API allocation after prior external-config inputs move aside, writing the same source/config/package/producer. Source bytes and keyed preparation inputs stay fixed between responses, without certifying cache hits, exact build/child counts, a persistent Program or loaded image.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each transform replaces the complete response before synchronous execution. Standalone owns a fresh project; borrowed execution requires an empty root and exact original inputs with no dist, preventing rejected responses from inheriting output. The outer family retains borrowed inputs and the source cache keeps its separate owner. Direct synchronous results do not certify arbitrary descendants or interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Original valid, malformed advisory, missing-source and array-source assertions remain. The exact candidate graph assertion is retained here as a fifth real transport response and its separate direct decoder contribution must be mapped/selected/executed before removing a meaningful duplicate. This current connection does not certify an already executed decoder survivor or authorize another producer removal.
  */
-export function test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project() {
-    const root = createProject({
+export function test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project(preparedRoot?: string) {
+    const root = preparedRoot ?? createProject({
       plugins: [{ transform: "./plugin.cjs" }],
       source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
     });
+    if (preparedRoot !== undefined) {
+      assert.deepEqual(fs.readdirSync(root), [], "borrowed native-envelope root must be empty");
+      writeBasicProject(root, 'export const value = goUpper("plugin");\nconsole.log(value);\n', {
+        plugins: [{ transform: "./plugin.cjs" }],
+      });
+      fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }), "utf8");
+    }
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       'module.exports = { name: "native-envelope-transport", source: "./plugin-go" };\n',

@@ -20,6 +20,8 @@ import { test_ttsccompiler_prepare_builds_source_plugins_and_clean_removes_conte
 import { test_ttsccompiler_clean_removes_relative_context_env_cache } from "./ttsc/api/test_ttsccompiler_clean_removes_relative_context_env_cache";
 import { test_ttsccompiler_prepare_isolates_instances_by_context_env_cache } from "./ttsc/api/test_ttsccompiler_prepare_isolates_instances_by_context_env_cache";
 import { test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project } from "./ttsc/api/test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project";
+import { test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project } from "./ttsc/api/test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project";
+import { test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure } from "./ttsc/api/test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure";
 
 /**
  * Executes source-plugin API and live-loader watch profiles in one native owner.
@@ -27,18 +29,18 @@ import { test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_t
  * with the immutable snapshot dependency owner used by the consumer family.
  *
  * 1. Prepare one outer root, live dependency tree and source-plugin API corpus.
- * 2. Stage API, warning, host-proof, provenance, private cache cleanup/isolation and external-config discovery in the same allocation with original inputs held aside.
+ * 2. Stage API, warning, host-proof, provenance, cache/discovery and envelope profiles, then broken-plugin diagnostic recovery last, holding prior inputs aside.
  * 3. Execute the original six lightweight resident pipe-protocol owners with the same selected Node and built client modules.
  * 4. Close the watcher and retain failures under their original phase names.
  *
- * @evidence contracts/testing.md#behavioral-verification API retains discovery/environment, warning TS9001, host-proof invalidation and provenance source/flag/no-plugin assertions. Explicit and relative cache owners retain prepared count/location/presence, exact removed roots and absence, including the authored Go-cache seed. Six resident owners retain original negative/framing/shape/queue/bound/lifecycle assertions and cleanup. Watch retains thirteen cycles/cold comparison. No expected status is replaced.
+ * @evidence contracts/testing.md#behavioral-verification API retains discovery/environment, warning, host-proof and provenance assertions. Cache/discovery retains original cleanup/isolation/projectRoot findings. Five native envelopes retain exact accepted maps, advisory filtering/candidates and rejected-source exception/no-output predicates. Final broken Go setup retains both TS2322 and TTSC_PROCESS diagnostics. Six peers and watch retain their original protocol/notification matrices. No expected status is replaced.
  * @evidence contracts/testing.md#independent-expectations Authored source/Markdown/Swagger literals and exact findings remain in the existing callbacks; load telemetry is not Program-object identity.
  * @evidence contracts/testing.md#distinguishing-cases Initial absence, real creation/removal, documented/review recovery and destructive loader revocation retain different watcher phases and original controls.
  * @evidence contracts/testing.md#execution-ownership The explicit Native lifecycle entry lends one API slot and prepared live module tree to native API/watch owners and invokes six unchanged resident protocol exports. Every named failure remains collected. Legacy donors keep default preparation; registration is not actual invocation or survival proof.
  * @evidence contracts/e2e.md#necessary-boundary Filesystem notifications, native cycles and Node parser-loader revocation require their real connections. Resident programmed Node peers exercise actual pipe framing, request settlement and retirement of the built client; they are protocol inputs, not Go semantic or compatibility oracles.
- * @evidence contracts/e2e.md#shared-execution One allocation and fixed tools serve API/warning/host-proof/provenance/cache/root-discovery and a separate watch slot. Private modules and requests remain. Explicit/relative cleanup and two-instance isolation borrow verified unchanged source inputs but retain distinct original cache preparations and absent target namespaces. External-config discovery stages its original nested layout after prior inputs move aside. Six peers share Node/built client with necessary separate lifetimes. Live dependencies are prepared once; no child/Program/cache-hit reduction is inferred.
+ * @evidence contracts/e2e.md#shared-execution One allocation and fixed tools serve staged API/cache/discovery/envelope/recovery plus a separate watch slot. Original modules/requests remain. Cleanup/isolation shares verified source inputs with distinct original cache preparations and absent targets; external config keeps its nested layout. One envelope producer handles five response changes, then private invalid Go bytes distinguish final recovery. Six peers share Node/built client with necessary lifetimes. Live dependencies are prepared once; no child/Program/cache-hit reduction is inferred.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original live producer selection and API resets remain. Only successful completion of the API matrix admits moving its entries into api-observed and staging exact warning inputs in its now-empty root; failed API completion preserves inputs and blocks warning replacement. The API slot stays retained and is never overwritten by watcher inputs. Watch uses a separate child workspace, detachment mutates only this owner's library and revocation runs last. Independent watcher failures remain observable without claiming descendant joins.
- * @evidence contracts/e2e.md#preserved-coverage Original API/warning/host-proof/provenance/private-cache, six peer and positive-watch assertions remain. Prior failures block mutable API staging, and cache source-byte or empty-namespace conflicts block the relative profile rather than hiding failure. Independent peers/watch remain attempted with original cleanup. Additional Native profiles remain incomplete; baseline/survival are remote work and donors remain.
+ * @evidence contracts/e2e.md#preserved-coverage All connected API/cache/discovery/envelope/recovery, six peer and watcher assertions remain. Prior owner failures block mutable staging, preserving inputs; each envelope owner retains all five independent row verdicts. Peers/watch remain independent and attempted with original cleanup. Additional Native profiles remain incomplete; selected baseline/survival are remote work, no donor removal is authorized.
  */
 export async function test_e2e_native(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-shared-native-lifecycle-");
@@ -78,6 +80,16 @@ export async function test_e2e_native(): Promise<void> {
     for (const name of fs.readdirSync(apiRoot))
       fs.renameSync(path.join(apiRoot, name), path.join(isolatedObserved, name));
     await Scenarios.invoke("shared-family", "test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project", test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project, apiRoot);
+    const externalConfigObserved = path.join(root, "external-config-observed");
+    fs.mkdirSync(externalConfigObserved);
+    for (const name of fs.readdirSync(apiRoot))
+      fs.renameSync(path.join(apiRoot, name), path.join(externalConfigObserved, name));
+    await Scenarios.invoke("shared-family", "test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project", test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project, apiRoot);
+    const envelopeObserved = path.join(root, "envelope-observed");
+    fs.mkdirSync(envelopeObserved);
+    for (const name of fs.readdirSync(apiRoot))
+      fs.renameSync(path.join(apiRoot, name), path.join(envelopeObserved, name));
+    await Scenarios.invoke("shared-family", "test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure", test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure, apiRoot);
   } catch (cause) {
     failures.push(new Error("native source-plugin API profiles", { cause }));
   }

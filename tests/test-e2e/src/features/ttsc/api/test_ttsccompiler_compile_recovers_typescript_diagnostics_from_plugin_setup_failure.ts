@@ -6,6 +6,7 @@ import {
   path,
   tsgo,
   writeSourcePlugin,
+  writeBasicProject,
 } from "../../../internal/ttsc/internal/compiler";
 
 /**
@@ -30,16 +31,23 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases This combined failure distinguishes recovery from reporting only the first plugin build error. Successful plugin composition has separate API coverage.
  * @evidence contracts/testing.md#execution-ownership The named feature calls the checkout built TtscCompiler through the existing shared-cache subclass and selected resolveTsgo binary. Its unique corrupted Go-source input exercises actual setup/compiler recovery; it neither executes a successfully built contributor nor establishes packed installation.
  * @evidence contracts/e2e.md#necessary-boundary Only actual Go build failure followed by TypeScript diagnostic collection establishes that the JavaScript API retains both process and compiler failure families.
- * @evidence contracts/e2e.md#shared-execution One broken plugin input distinguishes setup rejection while the built package, selected compiler and keyed source cache are shared. All original predicates use one result; no plugin launch, new Program, process total or cold cache miss is inferred merely from that result.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The corrupted plugin belongs only to the registered project, so shared valid contributor sources remain untouched. The direct synchronous result precedes assertions and normal fixture cleanup is tracked by TestProject; it is not proof of arbitrary descendant closure or cleanup after forced interruption.
+ * @evidence contracts/e2e.md#shared-execution One broken plugin input distinguishes setup rejection using shared package/compiler/cache identities. Consolidated execution stages the same TS2322 source/default config/package and private corrupted module in the empty API allocation after the successful envelope batch. All predicates still use the original compile result; no plugin launch, Program/process total or cold miss is inferred.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone registered project remains; borrowed execution requires an empty root before exact broken-input staging. Earlier valid modules/envelopes stay in retained siblings and shared contributors remain untouched. This is the final mutable API profile, retained by the family on success/failure. Direct synchronous return does not certify arbitrary descendants or forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Both original independent diagnostic predicates and failure assertion remain. Diagnostic ordering, count and no-output publication are not asserted by this case.
  */
 export const test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure =
-  () => {
-    const root = createProject({
+  (preparedRoot?: string) => {
+    const root = preparedRoot ?? createProject({
       plugins: [{ transform: "./plugin.cjs" }],
       source: 'const wrong: number = "type-error";\nvoid wrong;\n',
     });
+    if (preparedRoot !== undefined) {
+      assert.deepEqual(fs.readdirSync(root), [], "borrowed broken-plugin root must be empty");
+      writeBasicProject(root, 'const wrong: number = "type-error";\nvoid wrong;\n', {
+        plugins: [{ transform: "./plugin.cjs" }],
+      });
+      fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }), "utf8");
+    }
     writeSourcePlugin(root);
     const goFile = path.join(root, "plugin-go", "main.go");
     fs.writeFileSync(
