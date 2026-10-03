@@ -290,15 +290,17 @@ type projectInputObserverSource interface {
 
 // NewProxy returns a Proxy ready to Run. A nil source selects NullPluginSource.
 // The instance serves one session and takes its source's Close responsibility.
+// Optional observer setters are invoked during construction; an embedding that
+// never runs the proxy must arrange their removal and source closure itself.
 //
 // @evidence contracts/common.md#principled-implementation Initialized maps represent empty correlation and diagnostic state; optional observers connect later source publications to the same proxy session.
 // @evidence contracts/common.md#clear-and-simple-design Constructor dependency capture leaves transport startup to Run and native execution to the source.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nil source is the explicit no-plugin state; optional interfaces preserve older source capabilities without replacing methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents nil default, one-session use and source closure ownership, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Construction captures injected streams and protocol policy without opening native paths or processes.
-// @evidence contracts/performance.md#efficient-algorithms Suppressed command IDs are indexed once; remaining empty maps add fixed setup before event-driven population.
+// @evidence contracts/performance.md#efficient-algorithms Suppressed command IDs are scanned and hashed once, including their string bytes, into a caller-independent set; empty maps and one buffered error channel add fixed setup. Optional observer setters are synchronous delegated calls whose custom-source cost is not bounded here.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction captures dependencies; serving operations coordinate source and refresh reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The proxy retains source observers and session maps until Run teardown or object reclamation. Constructing without running leaves observer removal with the embedding owner.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Source-held observers can retain the proxy even after the embedding drops its reference. Run teardown removes those registrations and attempts source closure once, ignoring its error; previously copied callbacks and their spawned tasks are not joined by removal. Constructing without Run leaves removal and closure with the embedding. Suppressed string bytes and later session populations have no constructor-imposed budget.
 func NewProxy(opts ProxyOptions) *Proxy {
   source := opts.Source
   if source == nil {

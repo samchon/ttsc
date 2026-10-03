@@ -261,17 +261,19 @@ func (b *limitedBuffer) Bytes() []byte {
   return b.buf.Bytes()
 }
 
-// NewNativePluginSource parses a launcher-produced manifest and discovers the
-// command ids owned by every LSP-capable sidecar.
+// NewNativePluginSource parses a launcher-produced manifest, discovers command
+// ownership, and initializes retained project inputs. Discovery failures are
+// logged and skipped; successful construction does not certify that every
+// sidecar answered or that sequential input observations share one capture.
 //
-// @evidence contracts/common.md#principled-implementation Parsed manifest snapshots are normalized and fingerprint-checked before acceptance; the source retains logical client identity while honoring physical sidecar context.
+// @evidence contracts/common.md#principled-implementation Parsed startup snapshots are normalized and their selected reload fingerprints compared before storage. Supplied digest syntax and sequential equality are not producer-capture authentication; native failure markers can compare equal. Logical client spelling remains separate from the supplied sidecar context.
 // @evidence contracts/common.md#clear-and-simple-design Static command discovery precedes snapshot initialization; optional corpus work starts through the ordinary refresh scheduler.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing initial snapshots trigger supported discovery rather than guessed selection; malformed startup identity is rejected.
-// @evidence contracts/common.md#meaningful-documentation Native prose states manifest parsing and command discovery; lifecycle comments explain asynchronous corpus startup under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native process arguments and snapshot paths use host path APIs; protocol URIs retain the client-selected spelling separately.
-// @evidence contracts/performance.md#efficient-algorithms Startup traverses descriptor entries and their input snapshots; transport selection deduplicates equivalent binaries before expensive command discovery.
-// @evidence contracts/performance.md#reuse-equivalent-work Command owners and capabilities are discovered once for immutable session descriptors; initial shared snapshot keys avoid rediscovering a launcher-proven graph.
-// @evidence contracts/performance.md#bound-retention-and-release-resources A construction failure closes the partially initialized source; success transfers lifetime to the caller's Close or Proxy.Run teardown. Corpus and diagnostic bytes grow with producer output under per-command caps, without a separate aggregate byte budget.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing snapshots use supported discovery; its failed producers are skipped rather than guessed. JSON decoding and snapshot/selection validation reject their stated malformed inputs, without authenticating the manifest's claimed physical context or producer completeness.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes accepted startup state from complete discovery; lifecycle prose explains scheduled corpus acquisition under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Direct command arguments preserve executable/argument separation and sidecar cwd. Snapshot normalization uses native identity attempts with lexical or unknown-case fallbacks; client protocol spelling remains separate, and supplied physical context is not independently authenticated here.
+// @evidence contracts/performance.md#efficient-algorithms Manifest JSON bytes and descriptor/key text are processed before deduplicated command queries. Startup normalization, file-byte hashing, directory listings and native case/path probes delegate real I/O; each accepted producer store can rebuild and sort the aggregate. Selection validation and scheduled corpus work add their own input-dependent costs; no startup deadline is imposed.
+// @evidence contracts/performance.md#reuse-equivalent-work Command ownership is retained for session descriptors after one discovery attempt per deduplicated transport, including skipped failures. Shared snapshot keys reuse supplied data after normalization and selected current comparisons, not an authenticated launcher graph; missing inputs invoke discovery and can coexist with retained successful startup records.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Failure requests shutdown of the partially initialized source; success transfers that responsibility to Close or Proxy.Run. Shutdown cancels context and attempts resident cleanup but does not join all direct calls or refresh callbacks or clear retained records. Manifest, command-owner and aggregate bytes have no independent session budget; per-command output caps do not bound total retained bytes or native execution time.
 func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource, error) {
   var manifest NativePluginManifest
   if strings.TrimSpace(opts.ManifestJSON) != "" {
@@ -384,10 +386,9 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     source.projectInputs = source.flattenProjectInputsLocked()
     source.projectInputsMu.Unlock()
   }
-  // The corpus fetch loads a Program, so it runs off the construction path.
-  // Blocking here would delay initialize — and therefore the editor's first
-  // response — for a feature most projects do not use. Until it lands,
-  // CompletionHints answers nil and the editor sees exactly what it sees today.
+  // Optional corpus queries run off the construction path so their native
+  // execution does not block initialize. CompletionHints may remain nil until
+  // an accepted corpus lands; nil does not certify successful absence.
   //
   // The first fetch goes through the same scheduler every later refresh uses,
   // so startup and mid-session rediscovery share one generation counter and one
