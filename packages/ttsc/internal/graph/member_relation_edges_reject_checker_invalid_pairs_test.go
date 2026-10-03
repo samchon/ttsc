@@ -8,13 +8,9 @@ import (
 )
 
 // TestMemberRelationEdgesRejectCheckerInvalidPairs verifies that an invalid
-// heritage relation cannot still manufacture authoritative member edges.
-//
-// The former TypeScript-memory synthesis compared only names and the broad
-// method/property set, so TS2416 and TS2425 diagnostics coexisted with
-// `implements`/`overrides` edges and those edges could become runtime dispatch
-// hops. A valid class in the same erroneous Program is the negative twin: an
-// unrelated diagnostic must not globally disable checker-owned relations.
+// member pair has no relation edge in the authored erroneous Program. Valid
+// members in the same classes and an unrelated valid class retain their edges.
+// No runtime dispatch follows these graph facts in this entry.
 //
 //  1. Compile invalid method/property, same-kind signature, and static/instance
 //     implementations plus an invalid class override and one valid class.
@@ -22,11 +18,12 @@ import (
 //  3. Assert invalid pairs have no member edges while the valid class still
 //     carries its checker-backed implementation edges.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that an invalid heritage relation cannot still manufacture authoritative member edges.
-// @evidence contracts/testing.md#independent-expectations The oracle is the checker's own TS2416 and TS2425 diagnostics, which the test requires first; then the six invalid pairs (wrong kind, wrong signature, static-only members of an implementing class, and an invalid class override) must have no member-relation edge, while the valid siblings (WrongKind.kept, Valid.value, Valid.run) must carry origin implements and InvalidDerived.kept must carry origin overrides, so a diagnostic in a class does not disable its valid pairs.
+// @evidence contracts/testing.md#behavioral-verification Actual Program diagnostics must include TS2416 and TS2425; Build must retain six rejected pair endpoints without their member edges, three literal implements pairs and one overrides sibling. Exact relation multiplicity, each pair's own diagnostic and runtime dispatch are not asserted.
+// @evidence contracts/testing.md#independent-expectations Literal authored member shapes define the six absent pairs and the four accepted origin expectations. Actual TS2416/TS2425 presence independently requires an erroneous fixture, but the codes are not correlated to each rejected pair. Resident endpoint checks distinguish relation rejection from dropped declarations; first matching origin checks do not prove uniqueness.
 // @evidence contracts/testing.md#distinguishing-cases Compile invalid method/property, same-kind signature, and static/instance implementations plus an invalid class override and one valid class; Require the checker diagnostics that prove the fixture is rejected; Assert invalid pairs have no member edges while the valid class still carries its checker-backed implementation edges.
-// @evidence contracts/testing.md#execution-ownership TestMemberRelationEdgesRejectCheckerInvalidPairs is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program, queries actual diagnostics and directly calls Build in-process. Actual filename/shared ID formatting select literal pairs, using presence-only hasEdge and first-match edgeOrigin helpers. A restored empty linked-plugin manifest excludes ambient hooks; no emit, installed consumer or product process runs.
 func TestMemberRelationEdgesRejectCheckerInvalidPairs(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Contract {
@@ -95,6 +92,9 @@ export class InvalidDerived extends Base {
     {nodeID(path, "InvalidDerived.run", NodeMethod), nodeID(path, "Base.run", NodeMethod)},
   }
   for _, pair := range absent {
+    if built.Nodes[pair.from] == nil || built.Nodes[pair.to] == nil {
+      t.Fatalf("rejected pair endpoints missing %s -> %s; nodes: %v", pair.from, pair.to, nodeIDSet(built))
+    }
     if hasEdge(built, pair.from, pair.to, EdgeMemberRelation) {
       t.Fatalf("checker-invalid pair gained an authoritative member edge %s -> %s; edges: %v", pair.from, pair.to, built.Edges)
     }

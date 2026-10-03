@@ -19,13 +19,15 @@ import (
 //  1. Build generic, overloaded, optional, merged, property/method, and
 //     accessor cases.
 //  2. Require checker diagnostics for the deliberately rejected declarations.
-//  3. Assert accepted pairs produce one member relation and rejected pairs none.
+//  3. Assert accepted pairs have their expected relation origin and rejected
+//     pairs have resident endpoint nodes but no member relation.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies the pair query retains instantiated, overloaded, optional, declaration-merged, mixed-symbol, and class-override semantics.
+// @evidence contracts/testing.md#behavioral-verification Build's eleven authored accepted pairs must have their literal first-matching relation origin, while six rejected pairs must have resident endpoints and no member-relation edge. One erroneous Program also contains accepted siblings; all generic/override rules or exact edge multiplicities are not certified.
 // @evidence contracts/testing.md#independent-expectations The oracle is the TypeScript checker's accept/reject decisions encoded in the fixture: eleven accepted pairs (generic instantiation, overload set, optional-to-required, property for method, abstract accessor, split and merged declarations, protected override) must carry the literal origin implements or overrides, and six rejected pairs (wrong generic method, optional for required, method for property, property over concrete accessor, mixed-flag symbol, protected pretender) must have no member-relation edge. The only diagnostic requirement is that the program has at least one diagnostic, so the rejection of each specific pair is shown by the absent edge, not by a named diagnostic.
 // @evidence contracts/testing.md#distinguishing-cases Accepted pairs and rejected pairs sit side by side in one erroneous program, so a rejected sibling must not suppress an accepted one and an accepted one must not admit a rejected one; each pair's edge presence or absence is asserted by node id, and presence is checked by origin equality rather than by a count of exactly one.
-// @evidence contracts/testing.md#execution-ownership TestMemberRelationEdgesPreserveCheckerBoundaries is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program, requires at least one actual diagnostic and directly calls Build in-process. Actual filename/shared ID formatting select literal pairs, with first-match edgeOrigin and presence-only hasEdge helpers. A restored empty linked-plugin manifest excludes ambient hooks; no emit, installed consumer or product process runs.
 func TestMemberRelationEdgesPreserveCheckerBoundaries(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Generic<T> {
@@ -189,6 +191,9 @@ export class ProtectedPretender implements ProtectedBase {
     {nodeID(path, "ProtectedPretender.token", NodeVariable), nodeID(path, "ProtectedBase.token", NodeVariable)},
   }
   for _, pair := range rejected {
+    if built.Nodes[pair.from] == nil || built.Nodes[pair.to] == nil {
+      t.Fatalf("rejected pair endpoints missing %s -> %s; nodes: %v", pair.from, pair.to, nodeIDSet(built))
+    }
     if hasEdge(built, pair.from, pair.to, EdgeMemberRelation) {
       t.Fatalf("checker-rejected boundary gained a member edge %s -> %s; edges: %v", pair.from, pair.to, built.Edges)
     }
