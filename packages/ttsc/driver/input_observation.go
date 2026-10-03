@@ -34,10 +34,12 @@ const (
   inputProofUnsupportedInputKind     inputProofFailure = "unsupported-input-kind"
 )
 
-// TransformInputReadObservation is the exact result of one compiler ReadFile
-// predicate. A failed read carries OK=false and no guessed filesystem kind.
+// TransformInputReadObservation reports one compiler ReadFile predicate's
+// success and the digest of its returned text. This is not necessarily a raw
+// disk-byte digest: the native VFS decodes UTF-16 and removes a UTF-8 BOM before
+// returning text. A failed read carries OK=false and no guessed filesystem kind.
 //
-// @evidence contracts/common.md#principled-implementation Failed reads and observed bytes remain distinct rather than turning an unreadable path into a guessed file kind.
+// @evidence contracts/common.md#principled-implementation Failed reads and returned compiler text remain distinct rather than turning an unreadable path into a guessed file kind or claiming a decoded-text hash proves raw disk-byte equality.
 // @evidence contracts/common.md#clear-and-simple-design Read success and content digest form one predicate value.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No later file read manufactures missing evaluation-time content proof.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes failure from file-kind inference following the documentation skill.
@@ -46,42 +48,46 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate value does not coordinate reusable work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no resource or independently retained collection.
 type TransformInputReadObservation struct {
-  // OK reports whether the compiler's ReadFile call returned bytes.
+  // OK reports whether the compiler's ReadFile call successfully returned text.
   OK bool `json:"ok"`
 
-  // Hash is the lowercase SHA-256 digest of those bytes, absent for a failed read.
+  // Hash is lowercase SHA-256 of the returned string's bytes, absent on failure.
   Hash string `json:"hash,omitempty"`
 }
 
-// TransformInputRealpathObservation is the exact result of one compiler
-// Realpath predicate or an identity read already performed beside a successful
-// existence predicate.
+// TransformInputRealpathObservation reports the filesystem adapter's Realpath
+// result, either queried directly or beside a successful existence predicate.
+// A nonempty result is cleaned and marked OK; the native VFS can return the
+// requested spelling when physical resolution fails, so OK alone is not an
+// independent certificate that every alias resolved physically.
 //
-// @evidence contracts/common.md#principled-implementation Observed physical identity remains separate from the lexical path so symlink or junction changes cannot be hidden by equal spellings.
+// @evidence contracts/common.md#principled-implementation Reported Realpath identity remains separate from the lexical input; successful physical resolution can expose symlink/junction identity, while adapter fallback remains a reported spelling rather than proven physical identity.
 // @evidence contracts/common.md#clear-and-simple-design Success and resolved path form one identity predicate.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown identity is not replaced by the requested lexical filename.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts An empty adapter result remains failed; a nonempty lexical fallback follows the adapter's actual result and is not independently relabeled as proven physical resolution.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies Realpath and adjacent existence observation following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation The representation carries actual native identity results, including failed resolution, instead of deriving identity from an OS name.
+// @evidence contracts/portability.md#os-neutral-implementation Path carries the cleaned native adapter result, distinct from slash-normalized envelope keys. OK distinguishes empty from nonempty results, not every native resolution error: the pinned OS VFS returns its requested spelling on resolution/absolute-path error. No OS-name guess upgrades that fallback into a physical capability proof.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The observer owns native identity lookup; the type is its result.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work An identity value does not coordinate artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no resource or resident cache.
 type TransformInputRealpathObservation struct {
-  // OK reports whether the native identity operation returned a path.
+  // OK reports a nonempty adapter path, including any adapter lexical fallback.
   OK bool `json:"ok"`
 
-  // Path is the native normalized identity observed for the lexical input.
+  // Path is the cleaned native adapter result, not independent physical proof.
   Path string `json:"path,omitempty"`
 }
 
 // TransformInputEntriesObservation is the exact result of one compiler
-// GetAccessibleEntries predicate. Both lists retain TypeScript-Go's sorted
-// lexical child names, including followed directory links and junctions.
+// GetAccessibleEntries predicate. Both lists retain returned lexical child
+// names. The native VFS returns sorted entries and follows recognizable links
+// when target stat succeeds; errors or unclassifiable entries can be omitted.
+// An empty list pair is not an independent successful-enumeration certificate.
 //
 // @evidence contracts/common.md#principled-implementation Files and directories preserve the compiler enumeration result, including followed native links, as separate membership constraints.
-// @evidence contracts/common.md#clear-and-simple-design Two sorted name lists represent one enumeration without collapsing them into path kind.
+// @evidence contracts/common.md#clear-and-simple-design Two returned name lists represent one enumeration without collapsing file and directory membership or inventing an enumeration-success flag.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Directory members come from the observed native predicate rather than a later guessed glob.
 // @evidence contracts/common.md#meaningful-documentation Native prose states ordering, lexical names, and followed-link behavior following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation The lists carry actual compiler filesystem enumeration rather than assumed separator, case, or link policy.
+// @evidence contracts/portability.md#os-neutral-implementation Lists preserve returned native child names, not joined paths or physical identities. The native VFS distinguishes file/directory targets through stat for recognized links/reparse points; failed enumeration or target classification can omit names. Neither empty lists nor discarded link metadata certify complete native membership or an OS-default case policy.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The filesystem observer owns enumeration and copying; this type carries the result.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Membership data does not itself coordinate computation reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned predicate value owns no separate resource lifecycle.
@@ -115,13 +121,13 @@ type TransformInputObservation struct {
   // FileExists records the requested file predicate, including false.
   FileExists *bool `json:"fileExists,omitempty"`
 
-  // ReadFile records read success and the digest of the returned bytes.
+  // ReadFile records read success and the digest of returned compiler text.
   ReadFile *TransformInputReadObservation `json:"readFile,omitempty"`
 
-  // Realpath records the observed physical identity or failed identity lookup.
+  // Realpath records the adapter result, including any nonempty lexical fallback.
   Realpath *TransformInputRealpathObservation `json:"realpath,omitempty"`
 
-  // Stat records "missing", "directory", or "file" from the requested stat.
+  // Stat records "missing" for a null adapter result, otherwise directory/file.
   Stat *string `json:"stat,omitempty"`
 }
 

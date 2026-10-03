@@ -48,7 +48,7 @@ export namespace ITtscCompilerTransformation {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidence contracts/portability.md#os-neutral-implementation Graph keys use the producer's cwd-relative slash spelling with absolute slash paths for outside-root or cross-volume inputs; this protocol spelling is distinct from native physical identities carried by inputRealpaths and observations. The reported compiler case policy governs compiler membership comparisons rather than an OS-name assumption; absent policy or proof does not establish native filesystem capabilities.
+   * @evidence contracts/portability.md#os-neutral-implementation Graph keys use the producer's cwd-relative slash spelling with absolute slash paths for outside-root or cross-volume inputs; this protocol spelling is distinct from reported native realpaths carried by inputRealpaths and observations, which can retain lexical fallback on native VFS errors. The reported compiler case policy governs compiler membership comparisons rather than an OS-name assumption; absent policy or proof does not establish native filesystem capabilities.
    */
   export interface IReferenceGraph {
     /**
@@ -103,7 +103,11 @@ export namespace ITtscCompilerTransformation {
      */
     inputHashes?: Record<string, string | null>;
 
-    /** Compiler-time physical identities paired with {@link inputHashes}. */
+    /**
+     * Compiler-time reported realpaths paired with {@link inputHashes}. Native
+     * VFS resolution errors can return lexical spelling; presence alone does
+     * not independently certify physical alias resolution.
+     */
     inputRealpaths?: Record<string, string | null>;
 
     /**
@@ -161,7 +165,11 @@ export namespace ITtscCompilerTransformation {
           ok: true;
         };
 
-    /** Result returned by `Realpath` or captured beside a successful predicate. */
+    /**
+     * Adapter `Realpath` result or a query beside a successful predicate. A
+     * nonempty native VFS fallback can retain the requested lexical spelling;
+     * `ok: true` alone is not independent physical-resolution proof.
+     */
     realpath?:
       | { ok: false }
       | {
