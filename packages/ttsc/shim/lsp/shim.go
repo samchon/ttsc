@@ -29,6 +29,8 @@ type Server = innerlsp.Server
 // ServerOptions mirrors the upstream construction parameters. Fields with
 // internal-package types (e.g. ParseCache *project.ParseCache) can be left
 // unset by callers when upstream accepts nil.
+// Native paths, filesystem operations and process callbacks remain supplied
+// by the embedding host; this alias adds no platform-specific defaults.
 //
 // @evidence contracts/common.md#principled-implementation The alias retains the upstream options fields and callback types exactly; no shadow struct loses filesystem, transport or construction distinctions.
 // @evidence contracts/common.md#clear-and-simple-design Server construction accepts its native configuration directly, avoiding a second options mapper beside NewServer.
@@ -37,7 +39,7 @@ type Server = innerlsp.Server
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+// @evidence contracts/portability.md#os-neutral-implementation The exact upstream options preserve Cwd, filesystem and library/typings paths, npm execution and parent-process callback boundaries; the embedding host supplies their native semantics, while the alias performs no path folding, shell construction or platform substitution.
 type ServerOptions = innerlsp.ServerOptions
 
 // Reader receives decoded lsproto.Message values from the upstream LSP transport.
