@@ -5,10 +5,10 @@ import "testing"
 // TestFixNoVarReplacesForOfHeaderBinding verifies no-var rewrites a safe
 // `for (var item of …)` header to `let`.
 //
-// A `for...of` header `var` with no initializer, no reference in the head
-// expression, and no closure capture receives each element in a fresh `let`
-// binding with the same observable sequence as the shared `var` binding, so
-// the rewrite must fire (issue #409).
+// This module fixture has no initializer or iterable self-reference, and
+// its only item read is directly inside the body. No closure, direct eval
+// or post-loop read observes the binding, so fresh `let` bindings preserve
+// the body's element sequence and the rewrite must fire (issue #409).
 //
 //  1. Parse a `for...of` statement declaring `var item` and reading it in the
 //     body.
