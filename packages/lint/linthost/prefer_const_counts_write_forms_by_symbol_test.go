@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestPreferConstCountsWriteFormsBySymbol verifies every reassignment surface.
+// TestPreferConstCountsWriteFormsBySymbol verifies five reassignment forms beside a stable binding.
 //
 // Compound and update expressions, destructuring targets, loop targets, and
 // closure writes must all disqualify only the symbol they resolve to. A stable
