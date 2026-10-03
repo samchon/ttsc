@@ -5,9 +5,9 @@ import "testing"
 // TestFunctionalPreferReadonlyTypeIgnoreClassKeepsModuleScopeChecked verifies
 // ignoreClass leaves everything outside a class checked.
 //
-// The two positive cases both live inside a class, so a position test that
-// answered "in a class" unconditionally would satisfy both of them and silence
-// the whole rule. This is the case that fails on that mistake.
+// This reporting alias is outside every class. An unconditional class
+// exemption would incorrectly silence it, whereas the configured policy
+// must leave this module-scope array annotation checked.
 //
 // 1. Parse a module-scope mutable array type alias.
 // 2. Enable only functional/prefer-readonly-type with `ignoreClass: true`.

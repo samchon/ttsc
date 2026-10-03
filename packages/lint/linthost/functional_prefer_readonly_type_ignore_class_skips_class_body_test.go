@@ -4,10 +4,10 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeIgnoreClassSkipsClassBody verifies functional/prefer-readonly-type honors ignoreClass: true.
 //
-// The rule dispatches by node kind with no scope filter, so a mutable type
-// inside a class body reports like any other. `ignoreClass` was published as the
-// way to turn that off and decoded nothing, and its first reserved note wrongly
-// claimed the rule visits no class-member position.
+// The configured class exemption covers both the mutable field type and
+// the mutable method-parameter type in this authored class. Its complete
+// zero-finding comparison observes both accepted positions without
+// claiming their absence from an earlier implementation.
 //
 // 1. Parse a class with a mutable array field and a mutable array parameter.
 // 2. Enable only functional/prefer-readonly-type with `ignoreClass: true`.
