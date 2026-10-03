@@ -39,10 +39,10 @@ const lookupArguments = (query: string) => ({
  * @evidence contracts/testing.md#behavioral-verification MCP graph access succeeds, reports isError with an invalid project configuration after corruption, then succeeds again and returns Recoverable after restoration in the same session.
  * @evidence contracts/testing.md#independent-expectations Malformed JSON cannot define a valid project; the literal error text and restored declaration name independently require fail-closed rejection and recovery.
  * @evidence contracts/testing.md#distinguishing-cases Valid, invalid and restored configuration states contrast within one live client. The initial success assertion checks the error flag, not a baseline declaration payload.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_fails_closed_for_invalid_config_and_recovers borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_fails_closed_for_invalid_config_and_recovers borrows the experiment's shared built workspace MCP/native session and drives its actual stdio connection with the explicit workspace binary override; this is not a consumer-local packed SDK installation. It remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The actual launcher, resident compiler refresh and MCP error conversion must reject invalid config without serving old facts and recover without restarting the client.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
+ * @evidence contracts/e2e.md#shared-execution Valid, malformed and restored config requests reuse the built workspace MCP/native identity client and the unchanged Recoverable declaration. Configuration changes may replace compiler generations even though the client is unchanged; no Program-object reuse, total construction/process count or packed publication identity is certified. Neighboring immutable observers use a separate cached CLI dump rather than substituting it for these live refresh responses.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The original config bytes are captured, and the actual client must permit mutation before corruption, recovery restore and finally restore. All tool requests settle before the next permitted write; operation and finally restoration failures are collected, with input reuse withdrawn on failed restore. A timed-out or lost transport forbids subsequent edits/resets and retains project and external receipt inputs through the outer boundary until actual child joins are attempted.
  * @evidence contracts/e2e.md#preserved-coverage Initial non-error, invalid error/message and recovered non-error/name assertions remain. The baseline oracle does not establish every initial graph fact.
  */
 export const case_ttscgraph_fails_closed_for_invalid_config_and_recovers =
@@ -58,6 +58,7 @@ export const case_ttscgraph_fails_closed_for_invalid_config_and_recovers =
       const original = fs.readFileSync(config);
       const failures: unknown[] = [];
       try {
+        client.assertInputMutationAllowed();
         fs.writeFileSync(config, "{ invalid");
         const invalid = (await client.request("tools/call", {
           name: GRAPH_TOOL_NAME,
@@ -66,6 +67,7 @@ export const case_ttscgraph_fails_closed_for_invalid_config_and_recovers =
         assert.equal(invalid.isError, true, JSON.stringify(invalid));
         assert.match(invalid.content[0]?.text ?? "", /invalid project/i);
 
+        client.assertInputMutationAllowed();
         fs.writeFileSync(config, original);
         const recovered = (await client.request("tools/call", {
           name: GRAPH_TOOL_NAME,
