@@ -6,13 +6,13 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatDefaultsApplyWithoutFormatConfig verifies the format paths apply the
-// documented default rules when the project configures no `format` block.
+// TestFormatDefaultsApplyWithoutFormatConfig verifies the format resolver admits
+// the documented default semi rule without configured format rules.
 //
-// formatOnSave must work out of the box: with an empty resolver (no format
-// rules configured) newFormatCommandResolver loads the always-on defaults, so
-// the engine still produces format findings, so the formatter does not no-op
-// when a `format` block is absent.
+// With an empty resolver, newFormatCommandResolver loads the always-on defaults.
+// This direct Engine case requires a fix-bearing format/semi finding. LSP and
+// format command consumers use the same constructor, but this body does not
+// execute an editor save or assert the final rewritten source.
 //
 // 1. Build a format resolver over an empty config from a temp dir.
 // 2. Run the engine on a source missing its statement terminator.
@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification An empty format resolver still runs the rule engine on const x = 1 without a terminator and must report a format/semi finding.
 // @evidence contracts/testing.md#independent-expectations The authored unterminated declaration and the documented always-on semi rule independently require the named finding; this host asserts admission, while fix snapshots own the edited text.
 // @evidence contracts/testing.md#distinguishing-cases One positive case: an empty rule config yields the always-on default format rules, so an unterminated `const x = 1` produces a format/semi finding. Only the presence of the finding is asserted, not its edit text; the rewritten output is owned by the command format tests.
-// @evidence contracts/testing.md#execution-ownership TestFormatDefaultsApplyWithoutFormatConfig owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatDefaultsApplyWithoutFormatConfig owns its empty resolver, parsed source and direct Engine finding assertions in the public Go unit population. It starts no consumer install, native build, editor session or separately built product host.
 func TestFormatDefaultsApplyWithoutFormatConfig(t *testing.T) {
   resolver, err := newFormatCommandResolver(RuleConfig{}, t.TempDir(), "")
   if err != nil {
