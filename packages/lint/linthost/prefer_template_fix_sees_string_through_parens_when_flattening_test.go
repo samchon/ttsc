@@ -11,8 +11,8 @@ import "testing"
 // `("a" + b)` evaluates to a string, so `+ c` appends and `c` can keep
 // its own `${"" + (c)}` slot. Were the containment gate opaque to parens it
 // would demote the whole left side to `${"" + (("a" + b) + c)}` — still
-// value-correct, but a needless behavior regression from the pre-gate
-// fixer and from upstream ESLint, which flattens here.
+// value-correct, but different from the authored separate-slot output. This
+// case pins that source grouping policy rather than a changed runtime value.
 //
 // 1. Snapshot a chain whose only string literal hides inside parens.
 // 2. Apply `prefer-template` fix.

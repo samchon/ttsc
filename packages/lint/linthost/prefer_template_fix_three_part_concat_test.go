@@ -7,10 +7,9 @@ import "testing"
 //
 // Detection fires only on the topmost `+` chain, so the fixer must
 // flatten the whole chain in one pass; otherwise a partial rewrite
-// would leave nested template literals or stranded `+` operators. The
-// zod and rxjs fixtures had to drop this rule because the cascade
-// could not converge — pinning the 3-part shape protects the
-// convergence guarantee.
+// would leave nested template literals or stranded `+` operators. This
+// snapshot requires the complete three-operand rewrite in one application;
+// it does not execute fixture benchmarks or a convergence loop.
 //
 // 1. Snapshot a 3-part concat (`"hi " + name + "!"`).
 // 2. Apply `prefer-template` fix.
