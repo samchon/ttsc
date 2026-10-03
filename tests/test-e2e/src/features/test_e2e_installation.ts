@@ -12,21 +12,21 @@ import { GoBoundary } from "../internal/GoBoundary";
 /**
  * Verifies installed SDK filesystem identities and actual process lifetimes.
  *
- * The preceding installation supplies every SDK owner. Testing a source copy
+ * This entry packs and installs its own SDK consumer. Testing a source copy
  * would miss a stale or missing owner in the package that users actually install.
  * Independent failures must also leave the other native boundaries observable.
  *
- * 1. Validate the preceding consumer's marker and confined temporary identity.
+ * 1. Pack and install the owned consumer and validate its confined temporary identity.
  * 2. Execute each filesystem, process and compiler case with its installed owner.
  * 3. Collect independent failures and release the consumer through its OS owner.
  *
  * @evidence contracts/testing.md#behavioral-verification Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable.
- * @evidence contracts/testing.md#independent-expectations The preceding CLI smoke owns installation identity; filesystem cases compare candidate decisions with real native alias, case-marker and fsutil observations. The process entry uses independently authored Node exit statuses and inherited pipes rather than a compiler result or fabricated close event.
+ * @evidence contracts/testing.md#independent-expectations This entry resolves its SDK from its authored tarball dependencies and compares the consumer's physical parent and basename with independent temporary-root facts, not a marker. Filesystem scenes own their native alias/case premises; observed authority is not an independent OS-name classifier oracle. Process scenes use authored exit statuses and inherited pipes rather than fabricated close events.
  * @evidence contracts/testing.md#distinguishing-cases Physical aliases, ordinary empty/missing-directory authority, Windows sensitive-directory overrides and open-descriptor rename refusal retain their distinct named cases. Installed process closure additionally distinguishes EOF zero/two, forced termination and short/long inherited pipe holds. Portable injected authority remains in source units and Windows Go kernel cases run in their own same-install batch.
- * @evidence contracts/testing.md#execution-ownership test_e2e_installation is the explicit sole setup matrix entry for four filesystem cases, the six-lifetime process entry, one ordinary-volume compiler resolution case, Windows junction/short-cwd compiler cases and two Windows command-shim cases. It prepares no new installer or native producer and uses the preceding installed SDK for process, resolution, junction and short-cwd connections.
+ * @evidence contracts/testing.md#execution-ownership This entry performs its own two packs and install, resolves SDK operations and calls the named filesystem/process/compiler scenes. The Graph line-peer scene explicitly imports authored Graph source, and VS Code command scenes own their source-side shim transport; those are not installed SDK owners. Per-case failures and final cleanup failures remain named and observable.
  * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement, process-closure and compiler-resolution owners must agree with real filesystem, child and pipe behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; direct source units cannot prove these installed connections.
- * @evidence contracts/e2e.md#shared-execution The TypeScript cases consume one installation and Node session. Windows additionally executes the package-owned junction command transport once in a tagged Go test binary; this source-owned operation has no SDK producer prerequisite. The setup matrix owns every OS row.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The CLI consumer marker and canonical temporary parent establish cleanup ownership. Each named case owns its separate filesystem inputs. The consumer is removed and absence asserted in finally on every OS, including preparation failure; Go t.TempDir and t.Setenv own junction inputs and environment restoration.
+ * @evidence contracts/e2e.md#shared-execution Installed SDK scenes share one prepared consumer and the caller's Node process, with distinct child/pipe lifetimes. Windows selects driver/windowsjunction::TestCreateTreatsPathsAsData through the Go boundary; its direct owning operation has no SDK prerequisite. Parent calls or terminal Go status do not establish internal process/Program totals or executed coverage on an unavailable platform.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The exact created temporary root is the cleanup owner; successful setup independently checks its physical parent and prefix. Each scene owns separate inputs and closure checks. Finally attempts root removal and asserts absence, including setup failure, retaining cleanup errors; removal is not arbitrary descendant shutdown or loaded-image identity. Go inputs/environment retain their own test owners.
  * @evidence contracts/e2e.md#preserved-coverage Calls each original filesystem OS function with the candidate operation and retains the real Windows junction runtime, short-cwd compiler and both VS Code shim argv cases. The six child/pipe lifetimes also retain their exact assertions with the actual installed constructor. Independent failures are collected before reporting; no assertion, existing capability guard or failure identity is dropped and no simulated OS result is introduced.
  */
 export async function test_e2e_installation(): Promise<void> {
@@ -117,9 +117,9 @@ export async function test_e2e_installation(): Promise<void> {
     }
     if (process.platform === "win32") {
       try {
-        GoBoundary.run("lint", "./linthost", ["TestWindowsJunctionTreatsPathsAsData"]);
+        GoBoundary.run("ttsc", "./driver/windowsjunction", ["TestCreateTreatsPathsAsData"]);
       } catch (error) {
-        failures.push(new Error("TestWindowsJunctionTreatsPathsAsData", { cause: error }));
+        failures.push(new Error("TestCreateTreatsPathsAsData", { cause: error }));
       }
       const runtimeCase = "case_ttsx_virtual_layout_junctions_symlinked_directory_entries_on_windows";
       const started = performance.now();
