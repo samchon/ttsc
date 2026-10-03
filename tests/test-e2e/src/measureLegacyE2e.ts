@@ -8,13 +8,14 @@ import { captureE2eTracePhase, type TracePhaseInput } from "./internal/captureE2
 import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "./internal/pairE2eTraceWriterManifest";
 import { pairE2eColdCommandArtifact } from "./internal/pairE2eColdCommandArtifact";
 import { pairE2eCommandFileObservation } from "./internal/pairE2eCommandFileObservation";
+import { requireE2eBaselinePreparation } from "./internal/requireE2eBaselinePreparation";
 
 /**
- * Runs the unchanged legacy index in one owned, instrumented Node process.
- * This is a measurement entry, not an activated consolidation runner. The fixed
+ * Runs either the legacy index or explicit consolidated families in one owned, instrumented Node process.
+ * The default remains legacy measurement. --consolidated requires a retained actual legacy baseline and matching producer assets before selecting shared families. The fixed
  * external trace root must contain measurement-input.json with explicit assets,
  * cacheRoots and independently selected boundary requirements. Optional named
- * coldArtifacts requirements must follow the actual legacy CLI selection; they
+ * coldArtifacts requirements must follow the actual selected CLI population; they
  * bind build-owner rows to observed writer PIDs, not certified process ancestry.
  * A cold output is observed after its actual build, never prewarmed. Producer/tool
  * paths are supplied by the prepared manifest, never resolved by a version probe.
@@ -30,10 +31,11 @@ import { pairE2eCommandFileObservation } from "./internal/pairE2eCommandFileObse
  * @evidence contracts/common.md#meaningful-documentation States external preparation input, fixed opt-in root, legacy selection preservation, observation overhead and remaining join/completeness limitations.
  * @evidence contracts/portability.md#os-neutral-implementation Uses the actual coordinator Node executable and explicit absolute loader/entry paths, native cwd and unchanged caller environment. Returned status/signal/error remain distinct without OS-name interpretation.
  * @evidence contracts/performance.md#efficient-algorithms Launches one runner and encodes one actual metadata report; capture/pairing costs follow explicit asset bytes, cache entries and trace rows. Report serialization allocates its complete text before its256MiB admission check.
- * @evidence contracts/performance.md#reuse-equivalent-work The original runner retains its existing preparations and assertions for baseline measurement; this coordinator does not consolidate, prewarm or reuse another run's outcomes.
+ * @evidence contracts/performance.md#reuse-equivalent-work The default preserves baseline preparations; consolidated mode selects explicit shared-family owners only after current producer identity matches the actual baseline, and uses its observed sequence cursor without borrowing behavioral outcomes.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Awaits the owned runner close before reading trace/report data; report writes close synchronously. Unknown descendants remain uncertified and the external root is retained, never recursively cleaned by this entry.
  */
 export async function measureLegacyE2e(): Promise<void> {
+  const consolidated = process.argv.includes("--consolidated");
   const traceRoot = process.env.TTSC_E2E_TRACE;
   if (!traceRoot || !path.isAbsolute(traceRoot))
     throw new Error("Legacy measurement requires the fixed absolute TTSC_E2E_TRACE root");
@@ -45,9 +47,27 @@ export async function measureLegacyE2e(): Promise<void> {
     boundaries: (Omit<TraceBoundaryRequirement, "writerPid"> & { writerPid: number | "coordinator" | "runner" })[];
     coldArtifacts?: (Omit<Parameters<typeof pairE2eColdCommandArtifact>[1], "writerPid"> & { boundary: string })[];
     commandFiles?: (Omit<Parameters<typeof pairE2eCommandFileObservation>[1], "writerPid"> & { boundary: string })[];
+    baselineReport?: string;
+    producerLabels?: Record<string, string>;
   };
   if (!Array.isArray(input.assets) || !Array.isArray(input.cacheRoots) || !Array.isArray(input.boundaries) || input.boundaries.length === 0)
     throw new Error("Measurement input requires explicit asset/cache/boundary arrays");
+  if (consolidated) {
+    if (!input.baselineReport || !path.isAbsolute(input.baselineReport) ||
+      !input.producerLabels || typeof input.producerLabels !== "object")
+      throw new Error("Consolidated measurement requires an actual baseline report and producer-label correspondence");
+    const baseline = JSON.parse(fs.readFileSync(input.baselineReport, "utf8")) as {
+      phase: Parameters<typeof requireE2eBaselinePreparation>[0];
+    };
+    requireE2eBaselinePreparation(
+      baseline.phase,
+      traceRoot,
+      input.assets,
+      input.producerLabels,
+    );
+    // Use the actual completed baseline cursor, never an authored event count.
+    input.afterSequences = { ...baseline.phase.traces!.lastWriterSequences };
+  }
   if (input.coldArtifacts !== undefined && !Array.isArray(input.coldArtifacts))
     throw new Error("Cold artifact requirements must be an explicitly selected array");
   const coldNames = new Set<string>();
@@ -77,13 +97,13 @@ export async function measureLegacyE2e(): Promise<void> {
     commandNames.add(requirement.boundary);
   }
   const entry = fileURLToPath(new URL("./legacyE2eTraceEntry.ts", import.meta.url));
-  const index = fileURLToPath(new URL("./index.ts", import.meta.url));
+  const index = fileURLToPath(new URL(consolidated ? "./consolidatedE2eIndex.ts" : "./index.ts", import.meta.url));
   const loader = fileURLToPath(new URL("../../../config/register-typescript-loader.mjs", import.meta.url));
   const cwd = fileURLToPath(new URL("../", import.meta.url));
   const requiredWriterPids = [process.pid];
   let runnerPid: number | undefined;
   const phase = await captureE2eTracePhase({
-    label: "legacy-baseline", traceRoot, cacheRoots: input.cacheRoots,
+    label: consolidated ? "consolidated" : "legacy-baseline", traceRoot, cacheRoots: input.cacheRoots,
     requiredWriterPids, afterSequences: input.afterSequences,
     assets: [
       ...input.assets,
@@ -152,7 +172,7 @@ export async function measureLegacyE2e(): Promise<void> {
         maxArrayLength: null, maxStringLength: null }) } : value, 2);
   if (Buffer.byteLength(report) > 256 * 1024 * 1024)
     throw new Error("Legacy measurement report exceeds coordinator observation limit");
-  fs.writeFileSync(path.join(traceRoot, `legacy-report-${process.pid}.json`), report + "\n", { flag: "wx" });
+  fs.writeFileSync(path.join(traceRoot, `${consolidated ? "consolidated" : "legacy"}-report-${process.pid}.json`), report + "\n", { flag: "wx" });
   if (!phase.outcome.returned || phase.outcome.value.status === null || phase.outcome.value.signal !== null ||
     phase.observationErrors.length !== 0 || phase.traces?.integrityProblems.length !== 0 ||
     phase.traces?.incompleteProcessInvocations.length !== 0 ||
