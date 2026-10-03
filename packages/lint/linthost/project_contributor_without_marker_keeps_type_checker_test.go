@@ -9,11 +9,9 @@ import (
 // TestProjectContributorWithoutMarkerKeepsTypeChecker verifies the conservative
 // default survives for a project contributor that says nothing.
 //
-// This is the negative twin of the AST-only case. The host cannot infer a
-// third-party rule's shape, and ProjectContext carries a Checker, so an
-// unmarked rule must keep receiving one. Losing this default would silently
-// hand nil to existing project contributors that read Context.Checker;
-// the marker exists to let a rule opt out, never to change what silence means.
+// This is the negative twin of the AST-only case. Marker absence keeps
+// the conservative engine-wide checker requirement. This entry observes
+// that selection; it does not allocate a checker or invoke project Check.
 //
 //  1. Install a project contributor with no TypeAwareRule method.
 //  2. Configure it globally at error severity.
