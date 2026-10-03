@@ -14,11 +14,12 @@ func (unicodeCompletionTriggerSource) CompletionHints() []LSPCompletionHint {
   }
 }
 
+// TestLSPCompletionTriggerUsesLastRune checks two supplied trigger endings.
 //
-// @evidence contracts/testing.md#behavioral-verification pluginCompletionTriggerCharacters reports the last rune of each trigger, including a multi-byte one.
+// @evidence contracts/testing.md#behavioral-verification Actual pluginCompletionTriggerCharacters returns the ordered literal pair @ and fullwidth slash from the two supplied After strings. The result does not establish client trigger registration, duplicate/empty-trigger handling or malformed UTF-8 behavior.
 // @evidence contracts/testing.md#independent-expectations The expected list is the literal pair '@' and the fullwidth slash.
 // @evidence contracts/testing.md#distinguishing-cases A multi-byte final rune distinguishes last-rune from last-byte extraction.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionTriggerUsesLastRune is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit supplies an owned CompletionHints source on a Proxy and directly invokes its actual trigger projection. It substitutes no projection operation and creates no directory or sidecar; no compiler, process, product host, initialization message or editor runs. Items are intentionally absent because this projection reads After rather than request admission.
 func TestLSPCompletionTriggerUsesLastRune(t *testing.T) {
   proxy := &Proxy{source: unicodeCompletionTriggerSource{}}
   got := proxy.pluginCompletionTriggerCharacters()

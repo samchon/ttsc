@@ -16,14 +16,13 @@ func (regexScopeCompletionHintSource) CompletionHints() []LSPCompletionHint {
   }}
 }
 
-// TestLSPCompletionScopeRefusesRegexHints verifies the request path never
-// offers JSDoc hints inside a regex while still offering one in a real JSDoc
-// block immediately after executable code.
+// TestLSPCompletionScopeRefusesRegexHints checks one regex cursor refusal and
+// one real JSDoc cursor admission through the actual request helper.
 //
-// @evidence contracts/testing.md#behavioral-verification The request path offers no hint inside a regex literal and still offers one in a real JSDoc block right after executable code.
+// @evidence contracts/testing.md#behavioral-verification Actual Proxy.completionItemsFor returns zero items at the authored regex-class cursor and one item at the authored real-doc cursor. This unit asserts counts, not item content, replacement range, the refusal's internal reason or all regex contexts.
 // @evidence contracts/testing.md#independent-expectations Zero items for the regex and one item for the block are literal expectations.
 // @evidence contracts/testing.md#distinguishing-cases The two documents contain the same '@tag' text in different lexical contexts.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionScopeRefusesRegexHints is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit uses an owned CompletionHints source and completionScopePending to replace the supplied document map and author request JSON before invoking the actual request helper. Cursor conversion/classification and matching run in-process; no directory, sidecar, compiler, process or LSP transport runs, and no response reaches an editor.
 func TestLSPCompletionScopeRefusesRegexHints(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   proxy := &Proxy{source: regexScopeCompletionHintSource{}}
