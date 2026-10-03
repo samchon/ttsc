@@ -288,15 +288,18 @@ func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError
 // callers can decide on an exit code.
 // Nil entries from either producer are ignored. Source files must remain the
 // versions described by their diagnostic byte ranges throughout rendering.
+// The writer and nonnil diagnostic graphs must satisfy upstream formatting
+// premises. Individual write errors are not returned; the count classifies
+// findings and is not a successful-output-delivery receipt.
 //
 // @evidence contracts/common.md#principled-implementation Upstream AST adapters and the lint interface implementation share one renderer; exact category comparisons count errors, and deterministic source/range/code/message ordering preserves both producers' complete findings.
 // @evidence contracts/common.md#clear-and-simple-design One mixed rendering entry owns filtering, ordering and summary composition, with a private comparator centralizing tie-breaking and upstream owning snippet formatting.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Real findings flow through a caller-supplied writer rather than a swapped global stream; nil filtering does not drop present findings or manufacture successful diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains mixed source context, returned error count, nil-entry handling and retained source-version requirements before these tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The combined slice is local to the call and released after formatting.
-// @evidenceExclude contracts/performance.md#efficient-algorithms One pass over each diagnostic slice, then one formatting call over the combined list.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The combined list is built once per call and formatted once.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Passes the supplied current directory to the upstream writer, which owns path display; this function builds no path itself.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The combined array, AST adapters, comparator-created message/related arrays and formatter/summary state are invocation-local and borrow diagnostic/source graphs. Writer buffers and source-owner caches can survive under their owners after return; this renderer does not close the writer, keep a historical batch registry or impose fixed byte/population limits. Unreferenced local state is eligible for collection rather than explicitly reclaimed at the last write.
+// @evidence contracts/performance.md#efficient-algorithms Collect and count nonnil diagnostics, then sort by source/range/code/category and localized/nested content before rendering and summary construction. Sorting adds comparison-dependent work over path/message bytes and recursive diagnostic graphs; upstream snippets, location conversion, summary grouping/sort and writer operations add further work. A single formatting call does not remove those scans or make the total linear in diagnostic count.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This renderer coordinates no completed/in-flight formatted-batch cache. The combined array is rebuilt per invocation; upstream/source owners manage reusable localization or position state, while output reuse for an equivalent diagnostic/context snapshot belongs to callers.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This renderer sorts diagnostic data and delegates display-path formatting using supplied cwd; it does not establish native file identity or select an executable/filesystem capability. The supplied writer's native destination and lifetime belong to its caller, and display spelling is not certified as a case-policy answer.
 func FormatMixedDiagnostics(
   output io.Writer,
   astDiags []*ast.Diagnostic,
