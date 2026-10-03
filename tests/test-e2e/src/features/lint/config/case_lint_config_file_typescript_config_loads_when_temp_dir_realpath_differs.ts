@@ -32,9 +32,9 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Project and linked temp tree are sibling paths under a synthetic root, and realpath changes the temp path; this distinguishes wrong generated import anchoring from ordinary same-path TS loading.
  * @evidence contracts/testing.md#execution-ownership This named entry constructs a real filesystem link and launches actual ttsc/ttsx under the changed temp environment, with no platform skip or fabricated filesystem capability.
  * @evidence contracts/e2e.md#necessary-boundary Real temporary-file materialization, Node module realpath resolution and ttsx generated imports must agree; direct path helpers or synthetic resolver records cannot establish that process/filesystem connection.
- * @evidence contracts/e2e.md#shared-execution One linked-temp launcher call verifies the whole loader connection. It reuses unchanged builtin native artifact identity, but its deliberately changed TMPDIR/TMP/TEMP cannot be replaced by a normal-env language result.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The link and project occupy an owned TestProject temporary root, and only the child receives the temp environment overrides; project cleanup runs in finally and TestProject owns the remaining root lifetime.
- * @evidence contracts/e2e.md#preserved-coverage Original successful config evaluation, exact one no-var/error finding and absence of ERR_MODULE_NOT_FOUND remain executable under actual symlink/junction resolution.
+ * @evidence contracts/e2e.md#shared-execution One linked-temp launcher call verifies the whole loader connection. It uses the shared workspace-selected tool/cache paths without certifying actual cache-hit or loaded artifact identity. Its deliberately changed TMPDIR/TMP/TEMP cannot be replaced by a normal-env language result.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The link and project occupy a sibling root within LintWorkspace, whose experiment close owns remaining inputs even if preparation fails. Only the child receives temp environment overrides; project cleanup is attempted in finally after the synchronous launcher result. That return does not certify arbitrary descendant or open-handle join.
+ * @evidence contracts/e2e.md#preserved-coverage Original successful config evaluation, exact one no-var/error finding and absence of ERR_MODULE_NOT_FOUND remain executable under actual symlink/junction resolution. Independent fs.realpath observations require the alias to reach the authored physical temp directory and its lexical input to differ before invoking the loader; inability to create or resolve it is not a passing outcome.
  */
 export function test_lint_config_file_typescript_config_loads_when_temp_dir_realpath_differs() {
     const base = LintWorkspace.caseRoot("ttsc-lint-realpath-base-", true);
@@ -48,6 +48,9 @@ export function test_lint_config_file_typescript_config_loads_when_temp_dir_real
       linkTemp,
       process.platform === "win32" ? "junction" : "dir",
     );
+    const physicalTemp = fs.realpathSync(realTemp);
+    assert.equal(fs.realpathSync(linkTemp), physicalTemp, "The temp alias must reach its independently allocated physical directory");
+    assert.notEqual(path.resolve(linkTemp), physicalTemp, "The loader input must retain a different lexical temp path");
 
     const project = createLintProject({
       name: "config-file-ts-realpath-temp",
