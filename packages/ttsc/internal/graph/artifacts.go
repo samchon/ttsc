@@ -79,22 +79,25 @@ func IsArtifactKind(kind NodeKind) bool {
   return false
 }
 
-// LoadArtifacts reads the artifact set a plugin published, or nil when no path
-// was given.
+// LoadArtifacts reads a supplied artifact publication, or nil for an omitted or
+// whitespace-only path and for os.IsNotExist acquisition failures.
 //
 // A missing file is not an error: the caller names a path a plugin may or may
 // not have produced, and a project that publishes nothing is the common case. A
 // file that exists and does not parse is an error, because that is a producer
 // the caller was told to expect.
+// Native reading is not an atomic snapshot or producer authentication. Decoding
+// checks JSON/field types; accepted artifact kinds and addresses are separate
+// ApplyArtifacts admission decisions.
 //
-// @evidence contracts/common.md#principled-implementation A supplied file is decoded as the publishing protocol; absence denotes no publication while malformed existing bytes remain an error.
+// @evidence contracts/common.md#principled-implementation A nonblank path is read verbatim and decoded; omitted/blank paths and os.IsNotExist mean no publication, while other acquisition and JSON decode errors propagate without certifying producer origin or artifact admission.
 // @evidence contracts/common.md#clear-and-simple-design Native acquisition delegates decoding to ParseArtifacts so callers needing byte identity can use the same parser.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Only the supported absent-publication case is optional; decoding failures are not hidden to satisfy an expected empty graph.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish omitted path, missing file and malformed publication, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation os.ReadFile and os.IsNotExist preserve native path and failure semantics without shell interpolation or OS-specific separators.
-// @evidence contracts/performance.md#efficient-algorithms One read and one JSON decode cost O(published bytes); whole-file allocation follows the protocol's array payload.
+// @evidence contracts/performance.md#efficient-algorithms Path whitespace inspection precedes native whole-file acquisition and JSON decoding; work includes path bytes, native open/read effects, payload scanning and record/string/slice allocation rather than a single syscall or schema-bounded payload.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This independent acquisition does not own snapshot identity or repeated-consumer reuse; callers that hash bytes use ParseArtifacts directly.
-// @evidence contracts/performance.md#bound-retention-and-release-resources os.ReadFile closes its handle; decoded records transfer to the caller and no file watcher or cache is retained.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native ReadFile defers descriptor close under its own error semantics. File bytes and decoded records coexist without a payload cap; the bytes are temporary and returned records belong to the caller, with no retained watcher or cache.
 func LoadArtifacts(path string) ([]Artifact, error) {
   if strings.TrimSpace(path) == "" {
     return nil, nil
@@ -115,15 +118,18 @@ func LoadArtifacts(path string) ([]Artifact, error) {
 // parses. Reading the file twice — once to state what it holds and once to
 // decode it — lets an overwrite land between the two, leaving a session whose
 // recorded identity describes a set it is not holding.
+// The caller must keep these bytes stable while parsing and separately bind any
+// hash to the same captured input. Standard JSON decoding accepts null and
+// unknown fields and does not validate artifact kinds, address identity or origin.
 //
-// @evidence contracts/common.md#principled-implementation encoding/json decodes precisely the bytes the caller captured, preserving equality between content identity and parsed publication.
+// @evidence contracts/common.md#principled-implementation encoding/json decodes the supplied stable bytes; binding a captured hash to those same bytes and admitting artifact identity remain with the caller, not this parser.
 // @evidence contracts/common.md#clear-and-simple-design A byte-only parser isolates protocol decoding from native acquisition.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Decode errors propagate without accepting fixture-specific malformed records or reparsing changed disk bytes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the same-byte identity requirement and why parsing is separate, with documentation-skill tag spacing.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Parsing a JSON byte slice owns no native filesystem or process boundary.
 // @evidence contracts/performance.md#efficient-algorithms Decode work and allocated record space scale linearly with the JSON payload.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse of parsed publication is the caller's snapshot decision, not this one-shot parser's responsibility.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed data transfers to the caller with no retained buffer or native handle.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Decoded strings, records and alias slices scale with supplied bytes without a parser-level payload cap; returned data belongs to the caller and this helper retains no independent buffer cache or native handle.
 func ParseArtifacts(data []byte) ([]Artifact, error) {
   var artifacts []Artifact
   if err := json.Unmarshal(data, &artifacts); err != nil {
