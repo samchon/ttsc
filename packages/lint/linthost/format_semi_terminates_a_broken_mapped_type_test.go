@@ -9,13 +9,12 @@ import "testing"
 // A mapped type is not a member list: `{ readonly [K in T as N]?: V }` holds
 // one clause, typescript-go hangs its parts off the MappedTypeNode itself,
 // and the optional `;` is consumed by parseSemicolon outside every child's
-// range, so no member node exists to carry it. The kind was absent from the
-// rule's Visits list entirely, which left every broken mapped type in a
-// typed codebase unterminated. The modifiers are here because they were
-// measured rather than assumed: `readonly`, its `+`/`-` variants, `+?`/`-?`,
-// and an `as` clause all come back from Prettier 3.8.3 terminated the same
-// way, so none of them needs its own answer.
-//
+// range, so no member node exists to carry it. The current mapped-type
+// path locates the typed clause end independently of those modifier parts.
+// These four authored modifier/remapping inputs specify identical default
+// termination while retaining every modifier byte; this entry itself does
+// not perform a reference measurement or establish earlier visitor history.
+
 //  1. Parse four broken mapped types covering `readonly`, `+readonly`/`+?`,
 //     `-readonly`/`-?`, and an `as` clause with `?`.
 //  2. Apply format/semi through the disk-backed fixer.

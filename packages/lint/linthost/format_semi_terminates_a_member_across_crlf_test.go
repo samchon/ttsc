@@ -7,9 +7,9 @@ import "testing"
 // an LF one.
 //
 // The insert fires only when a line break separates the member from the
-// next significant byte. A scan that read `\r` as ordinary whitespace
-// rather than a line terminator would see the closing `}` as same-line and
-// abstain, leaving every CRLF file unformatted while LF files converged.
+// next significant byte. This input contains both CR and LF, so ignoring
+// only CR while still recognizing LF would not change its insertion.
+// It verifies CRLF pair handling, not the bare-CR branch independently.
 // The `\r\n` bytes must also survive the edit, which is zero-width and so
 // never rewrites them.
 //
