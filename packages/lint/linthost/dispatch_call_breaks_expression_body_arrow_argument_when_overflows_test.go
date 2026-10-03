@@ -11,13 +11,11 @@ import (
 // argument list onto its own line when the flat call overflows the
 // printWidth budget.
 //
-// This pins the shouldHugLastArgument fix. An expression-bodied arrow
-// has no internal break point, so the last-argument-hugging shape
-// (printListHuggingLast — a flat Concat with no Group) pinned such a
-// call to one line at every width: `ttsc format` would collapse an
-// already-broken, fitting call into a single line that overflows
-// printWidth. Excluding expression-bodied arrows from hugging routes
-// the argument through the normal list Group, which can break.
+// This arrow's comparison body has no structural break point and is
+// excluded from last-argument hugging, allowing the ordinary argument
+// list Group to break. Other expression bodies, such as calls or
+// conditionals, can qualify for hugging. This test asserts the direct
+// printer result, not a `ttsc format` pass or historical behavior.
 //
 //  1. Parse `stocks.find((stock) => stock.id === wantedId);`.
 //  2. Dispatch the CallExpression through PrintNode under printWidth=24.
