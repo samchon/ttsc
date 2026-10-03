@@ -29,11 +29,11 @@ import { retireLockDirectory as installedOperation } from "../../../../../../../
  * @evidence contracts/testing.md#behavioral-verification retireLockDirectory must move the held owner record intact, remove current and probe names, yield exactly once for a Windows open file and never yield for missing or occupied retirement paths.
  * @evidence contracts/testing.md#independent-expectations An actually opened owner descriptor and literal owner bytes establish the rename premise; native Windows versus POSIX open-file semantics define the independent yield expectation, and a throwing yield exposes unexpected retries.
  * @evidence contracts/testing.md#distinguishing-cases Held descriptor, absent current and occupied nonempty tombstone distinguish transient contention from settled loss; exact directory listings expose leaked probes. Windows sharing refusal and POSIX rename success execute on their actual installation platforms.
- * @evidence contracts/testing.md#execution-ownership This named OS source-plugin entry receives the already installed candidate retirement primitive in the sole installation matrix and operates on native filesystem descriptors; it starts no compiler or plugin host.
- * @evidence contracts/e2e.md#necessary-boundary An actual open file interacting with native directory rename, especially Windows sharing refusal, is the connection being tested; supplied errno values cannot establish it. The same installed-SDK session retains actual Windows and POSIX observations.
- * @evidence contracts/e2e.md#shared-execution One held-generation fixture and one open descriptor serve the successful retirement and both settled negative calls, without Go builds or separate installations.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private current/retired tree isolates tombstones and probes. The yield closes the descriptor and an enclosing finally closes it on normal or exceptional retirement when still owned.
- * @evidence contracts/e2e.md#preserved-coverage The original success, byte-preservation, yield-count, probe-list and two false-result assertions remain in this entry, now executed through the candidate SDK on all six installation rows.
+ * @evidence contracts/testing.md#execution-ownership The supplied candidate primitive, or default built workspace operation, is directly called in the same process with actual native descriptors. An installed import alone does not establish compiler/plugin/product protocol necessity.
+ * @evidenceExclude contracts/e2e.md#necessary-boundary Native open-file inputs belong to the direct retirement operation. Exact tests/test-ttsc/src/features/source-plugin/test_retirelockdirectory_observes_native_open_file_retirement.ts preserves the original eight observations and fd setup; authored1c9ec660a801f6da2116ca4462abd59608142210 is UNEXECUTED. No separately necessary installed publication connection is asserted by this matrix.
+ * @evidence contracts/e2e.md#shared-execution Existing tree/descriptor/three direct calls remain until exact direct survivor selection/execution permits duplicate-call removal; no achieved E2E preparation or process reduction is claimed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private current/retired tree isolates tombstones/probes. The supported yield closes the descriptor and finally attempts closure if still owned; operation and close failures are both preserved. No arbitrary process or native sharing errno is synthesized.
+ * @evidence contracts/e2e.md#preserved-coverage Original retiretrue/currentabsence/owner bytes/Win1-POSIX0 yield/root and retired listings/missing and occupied false observations remain. Actual survivor execution and installation coverage are not certified; donor remains until surviving execution.
  */
 export const case_buildlock_retire_waits_out_a_peers_read_of_the_held_generation =
   (retireLockDirectory: typeof installedOperation = installedOperation) => {
@@ -50,7 +50,8 @@ export const case_buildlock_retire_waits_out_a_peers_read_of_the_held_generation
       "r",
     );
     let yields = 0;
-    let retiredNow: boolean;
+    let retiredNow: boolean | undefined;
+    const retirementErrors: unknown[] = [];
     try {
       retiredNow = retireLockDirectory(current, tombstone, () => {
         yields += 1;
@@ -59,9 +60,16 @@ export const case_buildlock_retire_waits_out_a_peers_read_of_the_held_generation
           read = undefined;
         }
       });
+    } catch (error) {
+      retirementErrors.push(error);
     } finally {
-      if (read !== undefined) fs.closeSync(read);
+      if (read !== undefined) {
+        try { fs.closeSync(read); }
+        catch (error) { retirementErrors.push(error); }
+      }
     }
+    if (retirementErrors.length !== 0)
+      throw new AggregateError(retirementErrors, "retirement or owned descriptor close failed");
 
     assert.equal(retiredNow, true, "the held generation was retired");
     assert.equal(fs.existsSync(current), false);
