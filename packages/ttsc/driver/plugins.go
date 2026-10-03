@@ -50,6 +50,9 @@ const TsgoArgsEnv = "TTSC_TSGO_ARGS"
 // TsgoArgsFromEnv decodes the forwarded tsgo argv the launcher published in
 // TsgoArgsEnv. An absent or whitespace-only value yields a nil slice and no
 // error, so a host can call this unconditionally.
+// Decoding follows Go JSON []string semantics: JSON null yields nil and null
+// elements keep their zero-value empty string. This does not independently
+// validate token meaning or authenticate the environment's producer.
 //
 // Hosts that also declare a `--tsgo-args` flag should prefer the explicit flag
 // value and fall back to this; LoadProgram already does that for every
@@ -61,8 +64,8 @@ const TsgoArgsEnv = "TTSC_TSGO_ARGS"
 // @evidence contracts/common.md#meaningful-documentation Native prose explains empty input and explicit precedence following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation os.Getenv and JSON argv do not depend on shell quoting or native separators.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The parsed slice is returned to the caller and nothing is retained.
-// @evidenceExclude contracts/performance.md#efficient-algorithms One environment read and one JSON.Unmarshal, linear in the payload size.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The payload is parsed afresh on each call and nothing is cached.
+// @evidence contracts/performance.md#efficient-algorithms Environment trimming, byte conversion and JSON decoding process payload bytes, with returned slice/string allocation driven by token count and decoded text. One decode preserves native JSON errors without an intermediate shell-tokenization pass.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The function coordinates no equivalent or in-flight requests and owns no parsed-argv cache; each call observes its current environment value.
 func TsgoArgsFromEnv() ([]string, error) {
   raw := strings.TrimSpace(os.Getenv(TsgoArgsEnv))
   if raw == "" {
@@ -79,15 +82,17 @@ func TsgoArgsFromEnv() ([]string, error) {
 // config-file discovery walk and resolves relative "configFile" paths.
 // The explicit PluginConfigDirEnv channel wins when set; otherwise the
 // tsconfig's directory is used, falling back to cwd when no tsconfig is set.
+// Selection is lexical: it does not stat, resolve symlinks or enforce an
+// absolute result. Callers supply the intended cwd/environment anchor.
 //
 // @evidence contracts/common.md#principled-implementation The project anchor keeps generated wrappers from moving discovery into the temporary-directory tree.
 // @evidence contracts/common.md#clear-and-simple-design Environment, config-directory, and cwd branches state precedence directly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Declared anchors replace guessed layouts or platform-specific temporary paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies precedence and relative resolution following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native filepath operations handle absolute, relative, and volume syntax without separator literals.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PluginConfigBaseDir acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms PluginConfigBaseDir performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work PluginConfigBaseDir computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned path strings are caller-owned; this selector keeps no historical cache or native handle and controls no later discovery lifetime.
+// @evidence contracts/performance.md#efficient-algorithms Environment trimming and native IsAbs/Join/Clean/Dir processing depend on selected environment/cwd/config path bytes. One precedence branch is selected without filesystem traversal or existence queries; string processing is not a universal fixed-cost operation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This selector coordinates no shared computation or cached anchor validation; each call uses its supplied cwd/config and current environment channel.
 func PluginConfigBaseDir(cwd, tsconfigPath string) string {
   if dir := strings.TrimSpace(os.Getenv(PluginConfigDirEnv)); dir != "" {
     if !filepath.IsAbs(dir) && cwd != "" {
