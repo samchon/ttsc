@@ -4,9 +4,9 @@ import "testing"
 
 // TestNoFallthroughAcceptsTerminatingFinally verifies a finally block that breaks terminates the case.
 //
-// Upstream valid case `try {} finally { break; }`: the finally block runs on
-// every path, so its abrupt completion makes the case end unreachable no
-// matter what the try block does. Locks the finally-completion-wins rule of
+// Upstream valid case `try {} finally { break; }`: the finally block runs when
+// control leaves the authored try, so its break makes the case end unreachable.
+// This pins the finally-completion-wins rule of
 // tryCompletion.
 //
 // 1. End a case with a try whose finally block breaks.
