@@ -4,7 +4,7 @@ import "testing"
 
 // TestNoFallthroughAcceptsWithStatementBodyBreak verifies a break inside a with statement terminates the case.
 //
-// `with` bodies always execute, so their completion is the with statement's
+// When evaluation enters the `with` body, its completion is the statement's
 // completion. TypeScript flags `with` as a grammar error but still parses
 // it; the rule must not misread the break as absorbed or lost. Locks the
 // with-statement passthrough of the completion analysis.

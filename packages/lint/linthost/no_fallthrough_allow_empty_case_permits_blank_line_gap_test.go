@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestNoFallthroughAllowEmptyCasePermitsBlankLineGap verifies the allowEmptyCase option through the typed options transport.
+// TestNoFallthroughAllowEmptyCasePermitsBlankLineGap verifies allowEmptyCase through the owning Engine's JSON options decoding.
 //
 // The same blank-line-separated empty case that reports under the defaults
 // must pass when `allowEmptyCase: true` arrives via the rule's options blob.
