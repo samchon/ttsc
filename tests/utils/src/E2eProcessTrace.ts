@@ -14,7 +14,7 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign methods or product APIs are changed; actual process fields and side-channel integrity limits remain separate from expected counts.
  * @evidence contracts/common.md#meaningful-documentation States delegated operation ownership, coordinator identity/completeness responsibilities and fixture preparation timing.
  * @evidence contracts/portability.md#os-neutral-implementation Native URL/path conversion locates the authored runtime; actual process shell/argv/environment/platform behavior remains delegated to the original Node primitive.
- * @evidence contracts/performance.md#efficient-algorithms Module initialization resolves one runtime entry; call adapters incur actual event serialization/append overhead, while fixture transformations allocate proportional to supplied text bytes.
+ * @evidence contracts/performance.md#efficient-algorithms Module initialization resolves one runtime entry; enabled calls incur event append and bounded selected-file hashing before direct absolute-file operations. Fixture transformations allocate proportional to supplied text bytes.
  * @evidence contracts/performance.md#reuse-equivalent-work Node module loading shares the same runtime instance and nonce; no mutable fixture/process outcome is reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Runtime methods synchronously close observation files; exported function references persist with the module, and payload retention/child joins belong to their explicit owners.
  */

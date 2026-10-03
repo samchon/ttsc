@@ -17,7 +17,7 @@ const { promisify } = require("node:util");
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign export is patched and missing PID/events are not replaced with expected process counts.
  * @evidence contracts/common.md#meaningful-documentation Documents original result/error preservation, IO opt-in and the coordinator-owned output lifetime.
  * @evidence contracts/portability.md#os-neutral-implementation Node native child/path operations retain caller shell, environment and platform options; PID evidence does not certify arbitrary descendants.
- * @evidence contracts/performance.md#efficient-algorithms Each event serializes its actual fields once; synchronous append IO and raw-byte capture are explicit measurement overhead.
+ * @evidence contracts/performance.md#efficient-algorithms Each event serializes its actual fields once. Before direct absolute-file calls, selected-file hashing reads at most512MiB in64KiB chunks; repeated starts reobserve bytes rather than trusting metadata-only reuse. Synchronous append IO, byte hashing and raw capture are disclosed opt-in overhead.
  * @evidence contracts/performance.md#reuse-equivalent-work One process/root state shares its nonce and sequence; process outcomes and captured values are never reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each append/capture is synchronously closed; writer output is capped at256MiB and payloads at64MiB, with coordinator-owned retention after joins.
  */
@@ -154,12 +154,92 @@ function selection(kind, args) {
       argvObservation: "requested-call-arguments", shell: options.shell ?? false } };
 }
 
+/**
+ * Retains requested-file bytes before cleanup can remove a cold-built artifact.
+ * This is a file observation, not proof of the OS-loaded image or interpreter.
+ * Shell/PATH selection is not guessed, and absent negative inputs stay absent.
+ * Reads close before the original call; observer failure cannot replace it.
+ */
+function observeSelectedFile(kind, args, invocation, selected) {
+  if (!invocation) return;
+  const shell = kind === "exec" || selected?.data?.shell;
+  const data = { primitive: kind, binding: "requested-file-before-call", imageLoadedCertified: false };
+  let requested;
+  try {
+    const options = (Array.isArray(args[1]) ? args[2] : args[1]) ?? {};
+    requested = kind === "fork" ? (options.execPath ?? process.execPath) : args[0];
+  } catch (error) {
+    const owner = sink();
+    if (owner) integrity(owner, error);
+    record("selected-file-observation", invocation, { pid: null,
+      data: { ...data, outcome: "failed", error: String(error) } });
+    return;
+  }
+  if (shell || typeof requested !== "string" || !path.isAbsolute(requested)) {
+    record("selected-file-observation", invocation, { pid: null,
+      data: { ...data, outcome: "unobserved", reason: shell ? "shell-selection" : "relative-or-nonstring-command" } });
+    return;
+  }
+  let descriptor;
+  let observation;
+  try {
+    const realPath = fs.realpathSync.native(requested);
+    descriptor = fs.openSync(realPath, "r");
+    const before = fs.fstatSync(descriptor, { bigint: true });
+    if (!before.isFile()) throw new Error("Selected process file is not regular");
+    if (before.size > 512n * 1024n * 1024n) throw new Error("Selected process file exceeds512MiB observation limit");
+    const chunk = Buffer.allocUnsafe(64 * 1024);
+    const digest = crypto.createHash("sha256");
+    let observedBytes = 0;
+    for (;;) {
+      const read = fs.readSync(descriptor, chunk, 0, chunk.length, null);
+      if (read === 0) break;
+      observedBytes += read;
+      if (observedBytes > 512 * 1024 * 1024) throw new Error("Selected process file grew beyond observation limit");
+      digest.update(chunk.subarray(0, read));
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    const identityBefore = { dev: String(before.dev), ino: String(before.ino), size: String(before.size),
+      mode: String(before.mode), mtimeNs: String(before.mtimeNs), ctimeNs: String(before.ctimeNs) };
+    const identityAfter = { dev: String(after.dev), ino: String(after.ino), size: String(after.size),
+      mode: String(after.mode), mtimeNs: String(after.mtimeNs), ctimeNs: String(after.ctimeNs) };
+    const pathAfter = fs.statSync(realPath, { bigint: true });
+    const identityAtPathAfter = { dev: String(pathAfter.dev), ino: String(pathAfter.ino), size: String(pathAfter.size),
+      mode: String(pathAfter.mode), mtimeNs: String(pathAfter.mtimeNs), ctimeNs: String(pathAfter.ctimeNs) };
+    if (!after.isFile() || JSON.stringify(identityBefore) !== JSON.stringify(identityAfter) ||
+        !pathAfter.isFile() || JSON.stringify(identityAfter) !== JSON.stringify(identityAtPathAfter) ||
+        BigInt(observedBytes) !== after.size || fs.realpathSync.native(requested) !== realPath)
+      throw new Error("Selected process file changed during observation");
+    observation = { ...data, outcome: "complete", requestedPath: requested, realPath, observedBytes,
+      sha256: digest.digest("hex"), identityBefore, identityAfter, identityAtPathAfter };
+  } catch (error) {
+    observation = { ...data, requestedPath: requested,
+      outcome: descriptor === undefined && (error?.code === "ENOENT" || error?.code === "ENOTDIR") ? "absent" : "failed",
+      error: String(error) };
+    if (observation.outcome === "failed") {
+      const owner = sink();
+      if (owner) integrity(owner, error);
+    }
+  } finally {
+    if (descriptor !== undefined) {
+      try { fs.closeSync(descriptor); }
+      catch (error) {
+        observation = { ...data, requestedPath: requested, outcome: "failed", error: String(error) };
+        const owner = sink();
+        if (owner) integrity(owner, error);
+      }
+    }
+  }
+  record("selected-file-observation", invocation, { pid: null, data: observation });
+}
+
 /** Preserves synchronous results; PID is observed only from the actual return. */
 function observeSync(args) {
   if (!process.env.TTSC_E2E_TRACE) return Reflect.apply(cp.spawnSync, cp, args);
   const invocation = begin();
-  const startLowerBound = new Date().toISOString();
   const selected = invocation ? selection("spawnSync", args) : undefined;
+  observeSelectedFile("spawnSync", args, invocation, selected);
+  const startLowerBound = new Date().toISOString();
   record("process-attempt", invocation, { ...selected, pid: null, startLowerBound });
   let result;
   try { result = Reflect.apply(cp.spawnSync, cp, args); }
@@ -179,8 +259,9 @@ function observeSync(args) {
 function observeChild(kind, args) {
   if (!process.env.TTSC_E2E_TRACE) return Reflect.apply(cp[kind], cp, args);
   const invocation = begin();
-  const startLowerBound = new Date().toISOString();
   const selected = invocation ? selection(kind, args) : undefined;
+  observeSelectedFile(kind, args, invocation, selected);
+  const startLowerBound = new Date().toISOString();
   record("process-attempt", invocation, { ...selected, pid: null, startLowerBound });
   let child;
   try { child = Reflect.apply(cp[kind], cp, args); }
