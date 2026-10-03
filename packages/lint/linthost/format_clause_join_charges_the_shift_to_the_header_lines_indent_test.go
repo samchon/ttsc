@@ -8,14 +8,15 @@ import (
 
 // TestFormatClauseJoinChargesTheShiftToTheHeaderLinesIndent verifies the delta is the header line's indent, not the anchor token's column.
 //
-// For Prettier's own canonical `} else` placement the anchor token sits two
-// columns in, so measuring from it charged the width of `} ` and shifted every
-// continuation line two columns too far. Only a body `format/indent` cedes shows
-// it, which is why a braced case would not.
+// In the literal `} else` header the anchor token starts two columns after the
+// line's indentation. The multiline labeled-loop fixture requires the final
+// continuation columns to follow the header line's indentation rather than
+// charge that prefix. The command assertion observes the final output, not
+// individual edits or an external formatter result.
 //
 //  1. Seed a project with a `} else` chain whose body is a labeled loop.
 //  2. Run `ttsc format`.
-//  3. Assert the nested body lands at Prettier's column.
+//  3. Assert the complete nested-body output has the independently stated columns.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process format entry must flatten the else-if header and outdent the labeled loop by the header line indentation; exact status, streams and file bytes distinguish accidentally adding the } prefix width to continuation columns.
 // @evidence contracts/testing.md#independent-expectations The literal canonical layout keeps } else at column zero and the labeled loop one level below its nested if. This formatter contract preserves all branch conditions and visit calls independently of computed edit offsets.
