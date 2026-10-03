@@ -1,6 +1,7 @@
 package main
 
 import (
+  "os"
   "path/filepath"
   "testing"
 
@@ -40,6 +41,17 @@ func TestServeSessionReusesUnchangedPreambleSource(t *testing.T) {
     initialized: true,
   }
   defer session.Close()
+  resident, ok := compiler.SourceText(filepath.Join(root, "index.ts"))
+  if !ok || resident != "declare const injected: number;\nexport const value = 1;\n" {
+    t.Fatalf("resident source lacks the literal injected preamble: found=%v text=%q", ok, resident)
+  }
+  disk, err := os.ReadFile(filepath.Join(root, "index.ts"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if string(disk) != "export const value = 1;\n" {
+    t.Fatalf("disk source changed during preamble load: %q", disk)
+  }
   if err := session.captureState(); err != nil {
     t.Fatal(err)
   }
