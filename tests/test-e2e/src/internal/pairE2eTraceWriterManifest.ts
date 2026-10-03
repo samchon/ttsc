@@ -5,6 +5,8 @@ import type { TracePhaseObservation } from "./captureE2eTracePhase";
  * Requirements must come from the selected runner's independent ownership
  * manifest, not be manufactured from the rows being checked. A matching row
  * does not certify loaded image identity, unobserved calls or descendant joins.
+ * One named boundary may select several actual writer PIDs; each receives its
+ * own result. Duplicate boundary/PID requirements remain an input error.
  *
  * @evidence contracts/common.md#principled-implementation Checks named actual writer/event/data observations against explicit requirements and before/after producer file identities, reporting missing or unstable evidence without expected process counts.
  * @evidence contracts/common.md#clear-and-simple-design One requirement list and one captured phase yield named pairing results; runtime/file facts and completeness remain separate responsibilities.
@@ -30,8 +32,9 @@ export function pairE2eTraceWriterManifest(
   }
   const names = new Set<string>();
   const boundaries = requirements.map(requirement => {
-    if (names.has(requirement.boundary)) throw new Error("Duplicate required boundary: " + requirement.boundary);
-    names.add(requirement.boundary);
+    const identity = JSON.stringify([requirement.boundary, requirement.writerPid]);
+    if (names.has(identity)) throw new Error("Duplicate required boundary/writer: " + identity);
+    names.add(identity);
     const problems: string[] = [];
     if (!Number.isSafeInteger(requirement.writerPid) || requirement.writerPid <= 0)
       problems.push("Required writer lacks actual positive PID");
