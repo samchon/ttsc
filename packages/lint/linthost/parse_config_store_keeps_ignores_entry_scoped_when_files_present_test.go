@@ -12,7 +12,7 @@ import (
 // file from the whole resolved chain) must not over-reach. When the author
 // paired `ignores` with `files`, the ESLint-compatible reading is "apply these
 // rules to `files` except `ignores`" — the excluded files are still linted by
-// every other entry.
+// other entries that independently select them.
 //
 //  1. Parse a config with `files`, `ignores`, and `rules`, then prepend an
 //     authored base entry supplying no-var.

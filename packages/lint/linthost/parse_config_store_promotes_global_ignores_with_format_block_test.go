@@ -6,12 +6,12 @@ import "testing"
 // config object whose only rule surface is a `format` block still promotes a
 // top-level `ignores` (no `files`) to a global ignore.
 //
-// The rules-branch early return that swallowed the promotion triggered on
-// `hasRules || hasFormat`, so a format-only config (`format: {...}` plus
-// `ignores`, common for "format everything except generated output") leaked
-// its expanded `format/*` rules onto the ignored paths exactly like a `rules`
-// config did. The fix must cover both halves of that condition, not just the
-// `rules` one.
+// Promotion must precede completion of the shared rules branch guarded by
+// `hasRules || hasFormat`. A format-only config (`format: {...}` plus
+// `ignores`) must globally exclude authored generated paths before folding
+// its expanded `format/*` entries, just as an ordinary `rules` object does.
+// This unit owns the format half of that branch; the companion owns the
+// ordinary-rules half.
 //
 //  1. Parse one object with a `format` block (severity warning, so format
 //     rules are active) plus `ignores` and no `files`.
