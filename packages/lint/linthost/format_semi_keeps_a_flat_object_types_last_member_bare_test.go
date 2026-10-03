@@ -6,14 +6,11 @@ import "testing"
 // the author opened on one line keeps its last member bare, wherever the
 // closing brace landed.
 //
-// Prettier preserves an object type's wrap by the break between its `{`
-// and its first member, not by where the `}` sits, and prints the trailing
-// terminator only for a list it breaks. It returns
-// `type Flat = { flat: number\n};` as `type Flat = { flat: number };`, so
-// reading the newline at the member would insert a `;` the oracle never
-// prints. The two terminators that are still owed are the contrast: a
-// separator between two members is printed in either layout, and an
-// interface body always breaks however its member's own type was written.
+// The supported object-type punctuation policy reads wrap between the
+// opening brace and first member. A flat list keeps its last member
+// bare even with a later closing brace, but a newline-separated interior
+// member still needs its separator. The outer interface has its own
+// termination decision; its nested flat type does not inherit that wrap.
 //
 //  1. Parse a flat-opened object type, a flat-opened one whose members are
 //     split, and an interface member whose type is a flat-opened literal.
