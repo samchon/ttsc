@@ -27,7 +27,7 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  *
  * @evidence contracts/testing.md#behavioral-verification Native reader/reporter output records the exact external/config input set and Go source tree, compaction retains the external path, its edit changes the key and output becomes PLUGIN:SECOND.
  * @evidence contracts/testing.md#independent-expectations The authored external helper, exact project/config paths and FIRST/SECOND markers independently identify dependency observation and regeneration.
- * @evidence contracts/testing.md#distinguishing-cases An external helper absent from the program walk contrasts in-project dependency invalidation; exact set assertions prevent over-recording.
+ * @evidence contracts/testing.md#distinguishing-cases An external helper absent from the project walk contrasts in-project invalidation; exact recorded sets reject over-recording, and repeated unchanged-input key equality prevents fallback nonce alone from satisfying edit inequality.
  * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected scenario. TestMetroRuntime uses the built transformer when TTSC_TEST_LAYER is not unit, and an authored echo upstream exposes delivered text; this is not an actual Metro server or OS worker harness. The source-layer override is not boundary execution proof.
  * @evidence contracts/e2e.md#necessary-boundary Actual plugin metadata and transformed output must traverse compiler-to-Unplugin-to-Metro delivery before an out-of-walk input can be guarded.
  * @evidence contracts/e2e.md#shared-execution One project and reader/reporter descriptors serve both external states through the selected shared plugin producer. Two awaited transform calls and compaction/key operations do not certify native process, Program generation or cache-hit totals. Fresh transformer query imports are suite-process modules, not additional OS workers; no separate fixture producer is prepared per marker.
@@ -96,6 +96,7 @@ export async function case_metro_cache_key_changes_when_a_recorded_external_inpu
   assert.deepEqual(listWorkerSnapshots(root), []);
   assert.ok(readMainSnapshot(root).files.includes(external));
   const before = await cacheKeyForRun(root, options);
+  assert.equal(await cacheKeyForRun(root, options), before, "unchanged external input must retain the key");
 
   fs.writeFileSync(external, "second\n", "utf8");
   const after = await cacheKeyForRun(root, options);

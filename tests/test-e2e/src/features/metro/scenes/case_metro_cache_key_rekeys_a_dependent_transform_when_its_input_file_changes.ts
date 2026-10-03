@@ -25,12 +25,12 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  *
  * @evidence contracts/testing.md#behavioral-verification An actual native plugin reads helper.ts and emits PLUGIN:FIRST, then editing only that helper changes the Metro key and emits PLUGIN:SECOND.
  * @evidence contracts/testing.md#independent-expectations The authored helper bytes and literal plugin markers independently require changed downstream output, while key inequality follows dependency invalidation.
- * @evidence contracts/testing.md#distinguishing-cases An unchanged transform entry depends on a mutated in-project helper, distinct from out-of-project observation retention.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#distinguishing-cases The unchanged entry depends on a mutated in-project helper. Each observation first checks unchanged-input key stability, rejecting random fallback nonce as the cause of inequality, then checks the independent FIRST or SECOND output marker; external observation retention is a separate input.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro calls this selected scenario. The default built transformer plus authored echo upstream exercises adapter/native output delivery, not a real Metro server/OS worker. TTSC_TEST_LAYER=unit instead selects authored modules and does not establish the built boundary.
  * @evidence contracts/e2e.md#necessary-boundary Native plugin dependency output must reach the Metro adapter and its subsequent compile, so direct fingerprint fixtures cannot prove transformed output refresh.
- * @evidence contracts/e2e.md#shared-execution Both observations reuse one project and the suite shared content-addressed plugin source/build cache. The changed helper genuinely requires a new compiler generation; no second installation occurs. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each fresh worker module belongs to its input state; only helper bytes change between runs and options are restored after each worker. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage The original FIRST/SECOND output markers and changed-key assertion remain in this native boundary; portable key and membership decisions retain source-unit owners.
+ * @evidence contracts/e2e.md#shared-execution Two transform observations reuse one project and selected shared producer cache. Repeated key calls add no transform; changed helper output is asserted without inferring Program generation/cache-hit/native child counts. Fresh query imports are same-suite modules, not OS workers, and no second installation is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each fresh transformer module sees its intended helper state, and runtime options env is restored after the awaited callback. Slot reset removes old snapshot input and the parent independently aggregates workspace cleanup. Module freshness, returned output and path removal do not certify descendant joins or loaded-image equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original FIRST/SECOND output markers, unchanged main entry and changed-key inequality remain, strengthened by repeated stable-key controls. No generic portable-owner address or execution is fabricated; registration, actual runtime survival and cost measurement remain unverified.
  */
 export async function case_metro_cache_key_rekeys_a_dependent_transform_when_its_input_file_changes(
   workspace: MetroWorkspace.IWorkspace,
@@ -49,28 +49,30 @@ export async function case_metro_cache_key_rekeys_a_dependent_transform_when_its
   };
   const runOne = await TestMetroRuntime.withTransformerEnv(
     options,
-    async (mod) => ({
-      key: mod.getCacheKey({ projectRoot: root }) as string,
-      result: await mod.transform({
+    async (mod) => {
+      const key = mod.getCacheKey({ projectRoot: root }) as string;
+      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "unchanged first input must retain the key");
+      return { key, result: await mod.transform({
         src: TestUnpluginProject.mainSource(root),
         filename: "src/main.ts",
         options: { projectRoot: root },
-      }),
-    }),
+      }) };
+    },
   );
   assert.match(runOne.result.ast.src, /PLUGIN:FIRST/);
 
   fs.writeFileSync(helper, "second\n", "utf8");
   const runTwo = await TestMetroRuntime.withTransformerEnv(
     options,
-    async (mod) => ({
-      key: mod.getCacheKey({ projectRoot: root }) as string,
-      result: await mod.transform({
+    async (mod) => {
+      const key = mod.getCacheKey({ projectRoot: root }) as string;
+      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "unchanged second input must retain the key");
+      return { key, result: await mod.transform({
         src: TestUnpluginProject.mainSource(root),
         filename: "src/main.ts",
         options: { projectRoot: root },
-      }),
-    }),
+      }) };
+    },
   );
   assert.notEqual(runTwo.key, runOne.key);
   assert.match(runTwo.result.ast.src, /PLUGIN:SECOND/);
