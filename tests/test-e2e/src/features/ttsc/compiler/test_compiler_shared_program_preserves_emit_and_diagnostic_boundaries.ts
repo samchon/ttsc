@@ -53,9 +53,9 @@ import { WatchSession } from "../../../internal/ttsc/internal/watch";
  */
 export async function test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries(
   runWatch = true,
+  preparedWorkspace?: string,
 ): Promise<void> {
-  const workspace = TestProject.createProject(
-    Object.fromEntries([
+  const files = Object.fromEntries([
       ...Object.entries(FixtureFiles.read("ttsc/compiler/corpus")).map(
         ([name, contents]) => [`project/${name}`, contents],
       ),
@@ -63,8 +63,15 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       ...Object.entries(FixtureFiles.read("ttsc/compiler/subprojects")).map(
         ([name, contents]) => [`subprojects/${name}`, contents],
       ),
-    ]),
-  );
+    ]);
+  const workspace = preparedWorkspace ?? TestProject.createProject(files);
+  if (preparedWorkspace) {
+    for (const [relative, bytes] of Object.entries(files)) {
+      const file = path.join(workspace, relative);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, bytes, "utf8");
+    }
+  }
   const root = path.join(workspace, "project");
   const link = path.join(workspace, "linked-project");
   const baseline = fs.readFileSync(path.join(root, "tsconfig.json"), "utf8");
@@ -1976,14 +1983,14 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       }
     }
   } finally {
-    if (ownershipProved)
+    if (ownershipProved && !preparedWorkspace)
       fs.rmSync(workspace, {
         recursive: true,
         force: true,
         maxRetries: 3,
         retryDelay: 100,
       });
-    else
+    else if (!ownershipProved)
       TestProject.retainTemporaryDirectory(
         workspace,
         "Shared compiler watch did not prove native closure",

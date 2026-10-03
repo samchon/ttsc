@@ -10,6 +10,7 @@ const registered = {
   consumer: "test_e2e_consumer.ts",
   native: "test_e2e_native.ts",
   "compiler-stub": "test_e2e_compiler_stub.ts",
+  compiler: "test_e2e_compiler.ts",
 } as const;
 const argument = process.argv.find((value) => value.startsWith("--family="));
 const selected = argument

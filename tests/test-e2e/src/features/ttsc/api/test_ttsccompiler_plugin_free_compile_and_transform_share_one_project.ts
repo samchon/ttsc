@@ -38,11 +38,11 @@ import { CompilerApiWorkspace } from "../../../internal/ttsc/internal/CompilerAp
  * @evidence contracts/testing.md#execution-ownership This ordinary test export is discovered by test-e2e src/index.ts under src/features and selected by tests/test-e2e/evidence.config.json; it runs the real native transform and compile lanes through TtscCompiler, so no unit call substitutes for it. Its named scenarios are collected to the end with body and cleanup failures retained. The shared compiler is the checkout built API subclass, not an installed package or one persistent native Program.
  * @evidence contracts/e2e.md#necessary-boundary The native producer's source and emit envelopes, diagnostics and path anchoring must cross the JavaScript API without touching disk; decoder or path-function units cannot show what the producer emits.
  * @evidence contracts/e2e.md#shared-execution One project and one JavaScript compiler instance serve seven named scenarios and nine API invocations; the baseline transform contributes source-record, included-file, completeness and independent-leaf observations together. Those static invocations and shared directory do not establish actual child reduction, native Program reuse or cache hits. A transient empty directory supplies the forged-context alternate project; measured process and construction events are separate.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each state resets the helper-owned source/output/package/node_modules trees and tsconfig before baseline/overlay copying; the directory helper does not reset shared process/module caches or join processes. Synchronous API outcomes precede the next state, while actual child/worker retirement remains owned by production. Finally retains body and close errors and verifies root absence; direct return is not arbitrary descendant closure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each state resets the helper-owned source/output/package/node_modules trees and tsconfig before baseline/overlay copying; the directory helper does not reset shared process/module caches or join processes. Synchronous API outcomes precede the next state, while actual child/worker retirement remains owned by production. A standalone owner closes and verifies root absence; a borrowed owner leaves that directory to the shared family. Body and close errors remain aggregated; direct return is not arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former output-record, no-write, structured-diagnostic, failure-source, source-record, no-emit-key, completeness, decorator-metadata, dotted-output, dotted-source and sealed-context assertions; the baseline main.ts now also imports a helper, so its declaration is asserted through the exported upper constant instead of an ambient message declaration.
  */
-export async function test_ttsccompiler_plugin_free_compile_and_transform_share_one_project(): Promise<void> {
-  const workspace = CompilerApiWorkspace.open();
+export async function test_ttsccompiler_plugin_free_compile_and_transform_share_one_project(preparedWorkspace?: CompilerApiWorkspace.IWorkspace): Promise<void> {
+  const workspace = preparedWorkspace ?? CompilerApiWorkspace.open();
   const failures: unknown[] = [];
   try {
     const root = workspace.root;
@@ -164,7 +164,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
     failures.push(error);
   } finally {
     try {
-      CompilerApiWorkspace.close(workspace);
+      if (!preparedWorkspace) CompilerApiWorkspace.close(workspace);
     } catch (error) {
       failures.push(error);
     }
