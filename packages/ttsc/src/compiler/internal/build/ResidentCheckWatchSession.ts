@@ -31,17 +31,17 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * The watch launcher must serialize cycles and use reload when invocation
  * selection or startup environment changes. A session does not independently
  * compare every option/environment field before reusing its cached context.
- * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and how many
- * sidecars it releases, and distinguishes a failed resident transport.
+ * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and the active
+ * sidecar count being retired, and distinguishes a failed resident transport.
  *
  * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle.
  * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency has an actual transport-failure one-shot path, not a successful-result substitution; configuration positions remain distinct even when processes share a key.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; run and dispose document lifecycle effects.
  * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks and cache touch helpers use selected binary paths; child creation delegates native executable/argv/environment handling to ResidentCheckProcess and BuildExecution.
- * @evidence contracts/performance.md#efficient-algorithms Per-cycle selection and buffer union scale with configured checks and pending paths; snapshot comparisons are linear in normalized inputs and accumulated output may recopy earlier phase text.
+ * @evidence contracts/performance.md#efficient-algorithms Per-cycle command planning, key serialization and buffer unions process configured checks and pending path text; sorting/comparison bytes, native cache observations, subscribed input discovery and delegated checks add work. Snapshot comparison visits normalized strings and accumulated output can repeatedly copy earlier phase text.
  * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs; current input snapshots and change requests determine warm Program updates.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Reset/dispose clear execution, snapshots, buffers and sidecar ownership; under stable options process keys are bounded by configured checks, but pending unique paths may grow during repeated earlier failures and OS-level termination is delegated to the child owner.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Reset clears active maps, execution and snapshots while retiring children and join promises remain separately retained. Unknown joins remain retained rejection and prevent replacement; delegated termination is not descendant settlement. Stable options bound active process keys by configured checks, but pending unique paths and repeated disposal promise chains have no independent historical ceiling.
  */
 export class ResidentCheckWatchSession {
   private execution:
@@ -77,9 +77,9 @@ export class ResidentCheckWatchSession {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resident transport retires that process and uses the established real check command; the fallback neither drops forwarded compiler options nor converts a nonzero check into success.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs document serialization, stable startup inputs, reload and failed-sidecar behavior instead of claiming arbitrary option changes are handled automatically.
    * @evidence contracts/portability.md#os-neutral-implementation Native binary existence and cache freshness use filesystem helpers; all commands preserve selected cwd and use native process/environment abstractions without shell interpolation.
-   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution, but still perform required dependency discovery and per-entry change union; total cost includes actual host work and pending-path sorting.
+   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution until a missing binary or changed subscribed topology resets selection. Native existence/cache touches, optional onProjectInputs discovery, command/key construction, per-entry unions/sorts, delegated host work and output normalization/merging retain their actual entry/text/byte costs.
    * @evidence contracts/performance.md#reuse-equivalent-work Selected context and capability-supported sidecars survive only stable invocation cycles; change requests update Programs, reload/topology transitions reset them, and effectful configured entries remain separately scheduled.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains successful sidecars and per-entry pending changes; failures retire their process, reset clears all state, and unconsumed path sets have no finite bound while an earlier entry repeatedly fails.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains active sidecars and per-entry pending changes; transport failure retires its process and awaits actual close before fallback. Reset clears active state but not unknown retiring ownership or its rejection. Unconsumed path sets have no finite bound while an earlier entry repeatedly fails; child close does not certify descendants.
    */
   public async run(
     options: RunBuildOptions,
@@ -185,7 +185,7 @@ export class ResidentCheckWatchSession {
 
   /**
    * Request termination of every retained sidecar and discard session state.
-   * This initiates release synchronously; a later run awaits actual child exit
+   * This initiates retirement synchronously; a later run awaits actual child close
    * before selecting a fresh session. Use close for terminal, awaitable release.
    * Child termination and queued-request rejection belong to the process owner.
    *
@@ -194,7 +194,7 @@ export class ResidentCheckWatchSession {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Release calls the supported child disposal API rather than replacing process methods or marking still-owned resources as successful check results.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes synchronous initiation, joined reuse and terminal close.
    * @evidence contracts/portability.md#os-neutral-implementation Platform-specific child termination is delegated to ResidentCheckProcess; this coordinator does not assume a POSIX signal guarantees process-tree exit on every OS.
-   * @evidence contracts/performance.md#efficient-algorithms Reset traverses the retained process population once and clears maps without scanning individual pending paths.
+   * @evidence contracts/performance.md#efficient-algorithms Reset deduplicates active and retiring children, traverses that population and collects previous/current promise outcomes; delegated disposal can reject queued child requests. Maps clear without a separate path-by-path pending-request scan, while debug serialization and callbacks add their own costs.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal invalidates shared execution ownership rather than establishing reusable computation.
    *
@@ -214,7 +214,7 @@ export class ResidentCheckWatchSession {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Closing forbids subsequent process acquisition or fallback and retains failed or unknown retirement as rejection.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes terminal closure from the compatible reusable dispose operation.
    * @evidence contracts/portability.md#os-neutral-implementation Native EOF and close validation belong to each process owner; the session joins outcomes without assuming POSIX signal behavior on Windows.
-   * @evidence contracts/performance.md#efficient-algorithms Terminal reset traverses the configured process population once and settles all retained joins before collecting failures.
+   * @evidence contracts/performance.md#efficient-algorithms Terminal reset deduplicates active and retiring children and observes their joins alongside the previous retirement promise. Outcome/failure collection and delegated queued-request disposal contribute work; unknown joins can reject at the child owner's event-loop deadline rather than becoming successful closes.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated terminal closes share the retirement promise, while subsequent computation is forbidden by terminal admission.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Closing releases maps and selected state immediately but retains join promises until every actual child outcome settles; failed or unknown ownership remains rejection.
    */
