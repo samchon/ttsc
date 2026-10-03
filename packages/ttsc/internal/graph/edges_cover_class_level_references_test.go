@@ -7,22 +7,15 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEdgesCoverClassLevelReferences verifies that the references living on a
-// class declaration itself — not in a member — are attributed to the class
-// node. The method-node split walks members one at a time, so without an
-// explicit class-level pass these edges are silently dropped:
+// TestEdgesCoverClassLevelReferences checks two type references on the authored
+// Service declaration, together with its heritage and decorator facts:
 //
 //   - a heritage type argument `extends Base<Payload>` -> type-ref to Payload
 //   - a type parameter constraint `<T extends Constraint>` -> type-ref to Constraint
 //
-// These are exactly the relationships generic-heavy codebases are built from, so
-// a top-level-only-then-per-member walk that forgot them would blind the graph
-// to generic-base edges.
-//
-// A decorator's own factory call (`@Injectable()`) is deliberately NOT a
-// value-call edge: the decoration is a fact on the node's decorators, and a
-// calls edge to the decorator function would make ubiquitous decorators the
-// busiest nodes in the graph. The test pins both halves of that contract.
+// The authored decorator produces metadata without a Service-to-Injectable
+// value-call edge. Other class-level syntax and runtime decorator effects are
+// not exercised by this entry.
 //
 // 1. Load decorated Service with generic Constraint, Base heritage and Payload arguments.
 // 2. Build its class-level type, heritage and decorator facts.
@@ -31,8 +24,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over the Service class: type-ref edges to Payload (heritage type argument) and Constraint (type parameter constraint), a heritage edge to Base, a recorded Injectable decorator on Service, and no value-call edge from Service to Injectable. The checks are by presence or absence of edges and do not assert spans.
 // @evidence contracts/testing.md#distinguishing-cases Load decorated Service with generic Constraint, Base heritage and Payload arguments. Build its class-level type, heritage and decorator facts. Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
-// @evidence contracts/testing.md#execution-ownership TestEdgesCoverClassLevelReferences is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native experimental-decorator project, constructs/closes its driver Program in-process and directly calls Build. Actual Program filenames and the shared nodeID formatter select literal-name endpoints; they are not an independent ID-grammar oracle. A restored empty linked-plugin manifest excludes ambient hooks; no emitted decorator code, installed consumer or product process runs.
 func TestEdgesCoverClassLevelReferences(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
