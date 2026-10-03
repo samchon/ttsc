@@ -43,6 +43,12 @@ const duplicateFlag = /[]/uu;
     "regexp/no-empty-character-class": SeverityError,
   }).Run([]*shimast.SourceFile{file}, nil)
 
+  for _, finding := range findings {
+    if finding == nil || finding.engineFailure || finding.Severity != SeverityError ||
+      (finding.Rule != "no-empty-character-class" && finding.Rule != "regexp/no-empty-character-class") {
+      t.Fatalf("unexpected empty-class finding: %+v", finding)
+    }
+  }
   lines := map[string][]int{}
   for _, finding := range normalizeRuleFindings(file, findings) {
     lines[finding.Rule] = append(lines[finding.Rule], finding.Line)
