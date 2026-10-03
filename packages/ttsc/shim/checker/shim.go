@@ -180,14 +180,17 @@ func IsTypeUsableAsPropertyName(t *Type) bool {
 
 // GetPropertyNameFromType returns a literal or unique-symbol property's
 // compiler name. t must satisfy IsTypeUsableAsPropertyName; other types panic.
+// The input must be a nonnil compiler type with its matching payload. String
+// and unique-symbol names use existing text; numeric literals use the upstream
+// JavaScript-number spelling, including its special values.
 //
 // @evidence contracts/common.md#principled-implementation Upstream literal-value and unique-symbol decoding preserves semantic property identity and numeric spelling.
 // @evidence contracts/common.md#clear-and-simple-design One decoder consumes the adjacent eligibility predicate's qualified semantic input.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Property identity is not guessed from source text or converted from unsupported types.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the qualification requirement and unsupported-type panic.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetPropertyNameFromType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetPropertyNameFromType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetPropertyNameFromType computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives existing name storage for string/unique-symbol types or newly formatted numeric text; retaining that string retains its bytes, not a shim-owned history. Upstream numeric formatting owns any temporary serialization bytes. The bridge opens no handle and keeps no independent name registry.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream property-name decoding owns type-flag dispatch and numeric spelling, including integer formatting or JSON number serialization. Existing strings are returned without traversal; numeric conversion/output cost belongs to that formatter rather than a second shim encoding strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The decoder transfers the type's name or numeric spelling and coordinates no repeated semantic producer, cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetPropertyNameFromType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetPropertyNameFromType(t *Type) string {
   return innerchecker.GetPropertyNameFromType(t)
@@ -195,14 +198,17 @@ func GetPropertyNameFromType(t *Type) string {
 
 // GetSetAccessorValueParameter returns the value parameter of a setter,
 // accounting for an explicit this parameter. accessor must be a setter node.
+// The upstream rule selects the second parameter only when there are exactly
+// two and the first is a this parameter; otherwise it selects the first, or nil
+// for an empty parameter list. It does not validate malformed setter arity.
 //
 // @evidence contracts/common.md#principled-implementation Delegation preserves upstream setter-parameter selection and explicit-this handling.
 // @evidence contracts/common.md#clear-and-simple-design One syntax query exposes the compiler's existing accessor convention.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Parameter selection follows actual setter syntax rather than a fixed consumer name.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the setter premise and explicit-this distinction.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSetAccessorValueParameter acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetSetAccessorValueParameter performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSetAccessorValueParameter computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives an existing parameter node, whose parent links can retain its source AST. The supplied AST owner controls that lifetime; this bridge allocates no parameter copy and keeps no additional node registry or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The upstream syntax helper owns direct list-length inspection and first/second parameter selection without scanning the list. This wrapper forwards the node and does not select a competing parameter-search or validation algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The helper projects existing syntax and coordinates no completed or in-flight producer, cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetSetAccessorValueParameter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetSetAccessorValueParameter(accessor *innerast.Node) *innerast.Node {
   return innerchecker.GetSetAccessorValueParameter(accessor)
