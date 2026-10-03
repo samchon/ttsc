@@ -34,7 +34,7 @@ func TestDispatchArrayLiteralFallsBackWhenElementsNil(t *testing.T) {
   doc, _ := printArrayLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "const values = [a, b];\n")

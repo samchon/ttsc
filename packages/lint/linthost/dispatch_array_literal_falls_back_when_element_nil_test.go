@@ -25,7 +25,7 @@ import (
 //     entry and assert the original `[a, b]` source is preserved.
 //
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when Elements.Nodes contains nil instead of synthesizing a corrupt list.
-// @evidence contracts/testing.md#independent-expectations The original source literal independently fixes element spelling and order; the synthetic zero-range expected output is empty.
+// @evidence contracts/testing.md#independent-expectations The original source literal independently fixes element spelling and order; the factory node has an undefined source range and independently requires empty fallback output.
 // @evidence contracts/testing.md#distinguishing-cases The malformed entry differs from absent Elements and valid flat/broken arrays, each owned by sibling cases.
 // @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementNil is a plain top-level Go unit test, selectable with go test -run, that calls printArrayLiteral directly on a factory-built array holding a nil element and a parsed array whose Elements.Nodes is replaced by nil inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchArrayLiteralFallsBackWhenElementNil(t *testing.T) {
@@ -39,7 +39,7 @@ func TestDispatchArrayLiteralFallsBackWhenElementNil(t *testing.T) {
   doc, _ := printArrayLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
   if got != "" {
-    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+    t.Fatalf("synthetic undefined-range fallback must be empty, got %q", got)
   }
 
   parsed := parseTS(t, "const values = [a, b];\n")
