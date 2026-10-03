@@ -5,21 +5,22 @@ import (
   "testing"
 )
 
-// BenchmarkCursorInJSDoc measures the scope decision on the completion hot path.
+// BenchmarkCursorInJSDoc times direct scope classification and its true check
+// for one repeated buffer exceeding one MiB, ending inside an open JSDoc block.
 //
-// Completion asks it per request on the live buffer, so its cost has to stay
-// small against the round trip to tsgo that the same request makes. The buffer
-// here is deliberately larger than a real source file and the cursor sits at its
-// end, which is the worst case for a forward scan: the whole prefix is walked.
+// The end cursor requires scanning this full authored prefix. This is not a
+// universal worst-case source or a measured real-file distribution; no latency
+// bound, completion request, tsgo round trip, or relative performance is asserted.
+// Buffer setup precedes ResetTimer; the timed loop includes the scope check.
 //
 // Usage:
 //
 //  go test ./internal/lspserver -run=^$ -bench=^BenchmarkCursorInJSDoc$
 //
-// @evidence contracts/testing.md#behavioral-verification The benchmark runs cursorInJSDoc over a buffer larger than a real source file with the cursor at the end, the worst case for a forward scan, and fails if the trailing doc comment is not recognized.
+// @evidence contracts/testing.md#behavioral-verification The timed loop calls cursorInJSDoc at the end of one buffer exceeding one MiB and fails unless the trailing open JSDoc is recognized. Timing includes that check, has no asserted threshold, and does not certify universal worst-case cost, real-file size, completion latency, or tsgo comparison.
 // @evidence contracts/testing.md#independent-expectations The in-loop check that the cursor is in a doc comment is the literal oracle; the timing itself is only measured, not asserted.
-// @evidence contracts/testing.md#distinguishing-cases Only the worst-case position is measured; scope correctness cases live in the table tests.
-// @evidence contracts/testing.md#execution-ownership BenchmarkCursorInJSDoc is a Go benchmark in the lspserver package run with go test -bench; it is never part of the correctness suite and starts no process.
+// @evidence contracts/testing.md#distinguishing-cases Only this end-of-buffer open-JSDoc position is timed. Repeated chunks contain closed JSDoc, quoted delimiter text, regex, and template interpolation; no negative scope outcome or alternate cursor position is asserted here.
+// @evidence contracts/testing.md#execution-ownership Owns constructed strings and direct in-process cursorInJSDoc calls through Go's benchmark entry. Ordinary go test does not invoke the benchmark without selection; Evidence's configured source inventory still selects its declaration. No native fixture, Program, completion protocol, child process, or installed consumer is owned.
 func BenchmarkCursorInJSDoc(b *testing.B) {
   chunk := strings.Join([]string{
     "/**",

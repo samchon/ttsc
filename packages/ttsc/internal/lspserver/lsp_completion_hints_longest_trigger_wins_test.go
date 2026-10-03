@@ -97,18 +97,18 @@ func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
 
 // TestCursorInJSDocTracksTheBlock pins the scope test itself.
 //
-// It is a backward scan rather than a parse, so the cases that matter are the
-// ones where a naive "is there a /** before me" would be wrong: after the block
-// closed, and inside a line comment that only looks like one.
+// Six authored end cursors distinguish open and closed JSDoc, a second open
+// block, a line comment, and code. The maintained helper scans forward; this
+// test observes booleans, not its algorithm, all comment forms, or a request.
 //
 //  1. A cursor inside an open block is in scope.
 //  2. A cursor after the block closed is not.
-//  3. A line comment is never a doc comment.
+//  3. The authored line-comment and ordinary-code cursors are not in JSDoc.
 //
 // @evidence contracts/testing.md#behavioral-verification cursorInJSDoc is true inside an open doc block, including a second block after a closed one, and false after the block closed, in a line comment and in ordinary code.
 // @evidence contracts/testing.md#independent-expectations Each source string carries its expected boolean written literally.
 // @evidence contracts/testing.md#distinguishing-cases Cases where a naive search for '/**' would be wrong, a closed block and a line comment, sit beside the open blocks.
-// @evidence contracts/testing.md#execution-ownership TestCursorInJSDocTracksTheBlock is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership Directly calls cursorInJSDoc on six authored strings and literal booleans in this process. It substitutes no seam, creates no directory, resolves no sidecar, loads no Program, and starts no consumer, child process, or LSP connection.
 func TestCursorInJSDocTracksTheBlock(t *testing.T) {
   cases := []struct {
     text string
