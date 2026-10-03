@@ -22,15 +22,16 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification Nonzero, stdout-only, enveloped, foreign, missing, malformed and successful evaluator replies preserve distinct API outcomes and remove loader directories; CLI/LSP preserve the nonzero cause.
  * @evidence contracts/testing.md#independent-expectations Authored reply envelopes and sentinel failure text establish which result belongs to the evaluator, independently of the fallback parser.
  * @evidence contracts/testing.md#distinguishing-cases 1. Drive non-zero, stdout-only, enveloped, foreign-result, missing, malformed, and successful results. 2. Assert each API result is distinct and its loader directory is removed. 3. Assert only a well-formed envelope becomes the failure reason. 4. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner starts actual Node API/CLI/LSP-setup surfaces with an authored fake ttsx responder and a real direct-loader cleanup worker. LSP descriptor rejection precedes native protocol startup; no real LSP session or compiler Program total is asserted.
  * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
- * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Nonzero, stdout-only, enveloped, foreign, missing, malformed and successful evaluator replies preserve distinct API outcomes and remove loader directories; CLI/LSP preserve the nonzero cause. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Seven API replies, CLI nonzero, LSP setup nonzero and physical-TEMP retarget share immutable worker/responder and private authored config while keeping distinct markers/outcomes. Ten surface requests are not total nested capability/evaluator/process counts or cache reuse proof; independent errors are collected.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before preparation. Actual sync results separately check error/signal, but do not establish arbitrary descendant join. Marker directories absent at observation certify the original cleanup oracle, not held handles/global namespace atomicity or later descendant absence; native alias retarget is preserved.
+ * @evidence contracts/e2e.md#preserved-coverage All seven original status/regex/exclusion/marker/loader-absence rows, CLI2/LSP1 failure text and direct cleanup status1/physical directory absence/two sentinel existence checks remain. Sentinel bytes are not asserted. Runtime/manifest/survival unverified, donor retained and no native LSP session is certified.
  */
 export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
   (): void => {
     const root = TestProject.tmpdir("ttsc-descriptor-bound-");
+    TestProject.retainTemporaryDirectory(root, "Descriptor surface descendants are not joined");
     const descriptorRoot = path.join(root, "descriptor");
     fs.mkdirSync(descriptorRoot, { recursive: true });
     fs.writeFileSync(
@@ -182,72 +183,97 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         pattern: /plugin "fake-success" source does not exist/,
       },
     ] as const;
+    const failures: unknown[] = [];
     for (const testCase of apiCases) {
-      const result = runNodeSurface({
-        args: [apiWorker],
-        fakeTtsx,
-        marker: path.join(root, `api-${testCase.mode}.txt`),
-        mode: testCase.mode,
-        root,
-      });
-      assert.equal(result.status, 1, testCase.mode);
-      assert.match(result.stderr, testCase.pattern, testCase.mode);
-      assert.doesNotMatch(
-        result.stderr,
-        /ERR_UNKNOWN_FILE_EXTENSION|Unknown file extension/,
-        `${testCase.mode} leaked the discarded direct-loader diagnostic`,
-      );
-      if ("absent" in testCase) {
-        assert.doesNotMatch(result.stderr, testCase.absent, testCase.mode);
+      try {
+        const result = runNodeSurface({
+          args: [apiWorker],
+          fakeTtsx,
+          marker: path.join(root, `api-${testCase.mode}.txt`),
+          mode: testCase.mode,
+          root,
+        });
+        assert.equal(result.error, undefined, testCase.mode);
+        assert.equal(result.signal, null, testCase.mode);
+        assert.equal(result.status, 1, testCase.mode);
+        assert.match(result.stderr, testCase.pattern, testCase.mode);
+        assert.doesNotMatch(
+          result.stderr,
+          /ERR_UNKNOWN_FILE_EXTENSION|Unknown file extension/,
+          `${testCase.mode} leaked the discarded direct-loader diagnostic`,
+        );
+        if ("absent" in testCase) {
+          assert.doesNotMatch(result.stderr, testCase.absent, testCase.mode);
+        }
+        assertLoaderRemoved(
+          path.join(root, `api-${testCase.mode}.txt`),
+          testCase.mode,
+        );
+      } catch (error) {
+        failures.push(new Error(testCase.mode, { cause: error }));
       }
-      assertLoaderRemoved(
-        path.join(root, `api-${testCase.mode}.txt`),
-        testCase.mode,
-      );
     }
 
-    const cliMarker = path.join(root, "cli-nonzero.txt");
-    const cli = TestProject.spawn(
-      TestProject.TTSC_BIN,
-      ["prepare", "--cwd", root, "--tsconfig", tsconfig],
-      {
-        cwd: root,
-        env: fakeEnvironment(fakeTtsx, cliMarker, "nonzero"),
-      },
-    );
-    assert.equal(cli.status, 2);
-    assert.match(cli.stderr, /plugin descriptor .* failed with exit code 2/);
-    assertLoaderRemoved(cliMarker, "CLI");
-
-    const lspMarker = path.join(root, "lsp-nonzero.txt");
-    const ttscserverLauncher = path.join(
-      TestProject.WORKSPACE_ROOT,
-      "packages",
-      "ttsc",
-      "lib",
-      "launcher",
-      "ttscserver.js",
-    );
-    const lsp = TestProject.spawn(
-      process.execPath,
-      [ttscserverLauncher, "--stdio", "--cwd", root, "--tsconfig", tsconfig],
-      {
-        cwd: root,
-        env: {
-          ...fakeEnvironment(fakeTtsx, lspMarker, "nonzero"),
-          // Descriptor setup fails before the launcher can execute this binary.
-          TTSCSERVER_BINARY: TestProject.NATIVE_BINARY,
+    try {
+      const cliMarker = path.join(root, "cli-nonzero.txt");
+      const cli = TestProject.spawn(
+        TestProject.TTSC_BIN,
+        ["prepare", "--cwd", root, "--tsconfig", tsconfig],
+        {
+          cwd: root,
+          env: fakeEnvironment(fakeTtsx, cliMarker, "nonzero"),
         },
-      },
-    );
-    assert.equal(lsp.status, 1);
-    assert.match(
-      lsp.stderr,
-      /ttscserver: plugin descriptor .* failed with exit code 2/,
-    );
-    assertLoaderRemoved(lspMarker, "LSP");
+      );
+      assert.equal(cli.error, undefined);
+      assert.equal(cli.signal, null);
+      assert.equal(cli.status, 2);
+      assert.match(cli.stderr, /plugin descriptor .* failed with exit code 2/);
+      assertLoaderRemoved(cliMarker, "CLI");
+    } catch (error) {
+      failures.push(new Error("CLI", { cause: error }));
+    }
 
-    assertEvaluatorCleanupPinsPhysicalTempDirectory(root);
+    try {
+      const lspMarker = path.join(root, "lsp-nonzero.txt");
+      const ttscserverLauncher = path.join(
+        TestProject.WORKSPACE_ROOT,
+        "packages",
+        "ttsc",
+        "lib",
+        "launcher",
+        "ttscserver.js",
+      );
+      const lsp = TestProject.spawn(
+        process.execPath,
+        [ttscserverLauncher, "--stdio", "--cwd", root, "--tsconfig", tsconfig],
+        {
+          cwd: root,
+          env: {
+            ...fakeEnvironment(fakeTtsx, lspMarker, "nonzero"),
+            // Descriptor setup fails before the launcher can execute this binary.
+            TTSCSERVER_BINARY: TestProject.NATIVE_BINARY,
+          },
+        },
+      );
+      assert.equal(lsp.error, undefined);
+      assert.equal(lsp.signal, null);
+      assert.equal(lsp.status, 1);
+      assert.match(
+        lsp.stderr,
+        /ttscserver: plugin descriptor .* failed with exit code 2/,
+      );
+      assertLoaderRemoved(lspMarker, "LSP");
+    } catch (error) {
+      failures.push(new Error("LSP setup", { cause: error }));
+    }
+
+    try {
+      assertEvaluatorCleanupPinsPhysicalTempDirectory(root);
+    } catch (error) {
+      failures.push(new Error("Physical TEMP cleanup", { cause: error }));
+    }
+    if (failures.length)
+      throw new AggregateError(failures, "Descriptor failure surface profiles failed");
   };
 
 /** Cleanup must not follow a TEMP/TMPDIR alias retargeted by the descriptor. */
@@ -321,6 +347,8 @@ function assertEvaluatorCleanupPinsPhysicalTempDirectory(root: string): void {
       TTSC_TEST_TEMP_SENTINEL: sentinel,
     },
   });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
   assert.equal(result.status, 1, result.stderr);
   assert.equal(fs.existsSync(marker), true, "direct evaluator did not run");
   const evaluatorDir = fs.readFileSync(marker, "utf8");
