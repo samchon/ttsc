@@ -19,6 +19,7 @@
  * @evidence contracts/performance.md#efficient-algorithms
  *   For n handles the snapshot and close pass require O(n) work and O(n)
  *   temporary references; no pairwise lookup or repeated removal is used.
+ *   Each caller-supplied close executes once, with its own cost and failure.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Closing owned handles is an ownership-ending effect, not a computation
  *   whose result another owner may reuse.
@@ -26,6 +27,7 @@
  *   The array transfers all current handles into this operation and becomes
  *   empty before callbacks. Every detached handle is attempted on failure as
  *   well as success; a throwing closer may still fail to release its resource.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Closes the handles it is given; it reads no path or filesystem.
  */
 export function closeDirectoryWatches(watchers: { close: () => void }[]): void {
   const owned = watchers.splice(0);

@@ -1,0 +1,185 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
+import fs from "node:fs";
+import path from "node:path";
+
+import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
+import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+
+/**
+ * Verifies case-distinct compiler outputs do not hide project inputs.
+ *
+ * Compiler topology keeps ordinary Windows path keys case-insensitive, but a
+ * project rule can declare a physical sibling under a case-sensitive directory.
+ * Output exclusion must compare those declarations by filesystem identity.
+ *
+ * 1. Put declaration output in `Output` and project inputs in sibling `output`.
+ * 2. Put build-info output at `State.json` and input at sibling `state.json`.
+ * 3. Assert both project-input watcher roots remain live.
+ * 4. Create exact and glob members and observe every project change.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: case-distinct compiler outputs do not hide project inputs. 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change.
+ * Unavailable initial filesystem capabilities return false so the runner reports SKIPPED; returns after a completed path-identity assertion retain that partial result.
+ *
+ * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
+ * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
+ * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ */
+export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distinct_outputs =
+  async (): Promise<void | false> => {
+    const root = TestProject.tmpdir("ttsc-project-input-output-project-");
+    const source = path.join(root, "src", "main.ts");
+    fs.mkdirSync(path.dirname(source), { recursive: true });
+    fs.writeFileSync(source, "export const value = 1;\n", "utf8");
+
+    const external = TestProject.tmpdir("ttsc-project-input-output-external-");
+    if (enableWindowsCaseSensitivity(external) === false) return false;
+    const outputRoot = path.join(external, "Output");
+    const inputRoot = path.join(external, "output");
+    fs.mkdirSync(outputRoot);
+    if (createCaseDistinctDirectory(inputRoot) === false) return false;
+    assert.notEqual(realpath(outputRoot), realpath(inputRoot));
+    const exactRoot = path.join(external, "Exact");
+    const exactDirectory = path.join(exactRoot, "nested");
+    const exactOutput = path.join(exactDirectory, "State.json");
+    const exactInput = path.join(exactDirectory, "state.json");
+    fs.mkdirSync(exactDirectory, { recursive: true });
+    if (enableWindowsCaseSensitivity(exactDirectory) === false) return;
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          declaration: true,
+          declarationDir: outputRoot,
+          incremental: true,
+          rootDir: "src",
+          tsBuildInfoFile: exactOutput,
+        },
+        files: ["src/main.ts"],
+      }),
+      "utf8",
+    );
+
+    const exact = path.join(inputRoot, "nested", "evidence.md");
+    const globRoot = path.join(inputRoot, "api");
+    fs.mkdirSync(globRoot);
+    const changes: WatchInputChange[] = [];
+    let liveRoots: readonly string[] = [];
+    const topology = new WatchTopology(
+      {
+        cwd: root,
+        files: [],
+        projectRoot: root,
+        tsconfig: path.join(root, "tsconfig.json"),
+      },
+      {
+        onError: (location, error) => {
+          throw new Error(`watch error on ${location}`, { cause: error });
+        },
+        onInputChange: (change) => changes.push(change),
+        onProjectInputWatchRoots: (roots) => {
+          liveRoots = [...roots];
+        },
+        onTopologyChange: () => undefined,
+      },
+    );
+    try {
+      topology.refresh(false);
+      topology.setProjectInputs({
+        root,
+        files: [exact, exactInput],
+        globs: [path.join(globRoot, "**", "*.json")],
+      });
+      assert.deepEqual(
+        liveRoots,
+        [realpath(exactRoot), realpath(inputRoot)].sort(),
+      );
+
+      await writeAndWait(changes, exact, "exact\n");
+      await writeAndWait(changes, exactInput, "case-distinct output\n");
+      await writeAndWait(changes, path.join(globRoot, "openapi.json"), "{}\n");
+    } finally {
+      topology.close();
+    }
+  };
+
+async function writeAndWait(
+  changes: readonly WatchInputChange[],
+  location: string,
+  content: string,
+): Promise<void> {
+  const count = changes.length;
+  fs.mkdirSync(path.dirname(location), { recursive: true });
+  fs.writeFileSync(location, content, "utf8");
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  while (
+    changes
+      .slice(count)
+      .some(
+        (change) =>
+          change.kind === "project" &&
+          change.path !== undefined &&
+          pathMatchesOrContains(change.path, location),
+      ) === false
+  ) {
+    if (Date.now() >= deadline) {
+      assert.fail(
+        `expected project change for ${location}: ${JSON.stringify(
+          changes.slice(count),
+        )}`,
+      );
+    }
+    await delay(25);
+  }
+  await delay();
+}
+
+function pathMatchesOrContains(changed: string, target: string): boolean {
+  const root = realpath(changed);
+  const candidate = realpath(target);
+  return (
+    candidate === root ||
+    candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
+  );
+}
+
+function enableWindowsCaseSensitivity(directory: string): boolean {
+  if (process.platform !== "win32") return true;
+  const result = childProcess.spawnSync(
+    "fsutil.exe",
+    ["file", "setCaseSensitiveInfo", directory, "enable"],
+    {
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  return result.status === 0;
+}
+
+function createCaseDistinctDirectory(directory: string): boolean {
+  try {
+    fs.mkdirSync(directory);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function realpath(location: string): string {
+  return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
+}
+
+function delay(milliseconds = 250): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}

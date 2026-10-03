@@ -9,15 +9,19 @@ import { WatchPaths } from "./WatchPaths";
  *
  * Starting at `location`, it escalates to the nearest existing parent while the
  * candidate is in `rejected` (a directory whose watcher already errored). It
- * never escalates to a directory that contains `projectRoot`, returning
- * `undefined` instead: losing the failed watcher is better than watching the
- * project from above.
+ * refuses a candidate strictly containing `projectRoot`, returning
+ * `undefined` instead; equal project identity remains admissible. Losing the
+ * failed root is preferred to selecting the project from above. This selector
+ * installs no watcher and does not establish native event delivery.
  *
  * @evidence contracts/common.md#principled-implementation Rejected roots climb existing ancestors within the same project-containment ceiling as initial selection, preserving the distinction between unavailable coverage and unsafe broadening.
  * @evidence contracts/common.md#clear-and-simple-design One ancestor loop combines rejection membership, existing-directory discovery and a shared identity policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery does not reopen a root known to contain the entire project merely to return a successful watcher candidate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery refuses strictly containing roots rather than treating any available ancestor as a safe candidate; project identity itself remains eligible.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rejection, escalation and the undefined result following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native ancestry uses path.dirname and the transaction resolver compares actual physical identities rather than an OS-derived case rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper acquires no watcher or historical state. Borrowed rejection/context state remains caller-owned; a default context becomes reclaimable when invocation references are discarded, and the returned path transfers to the caller.
+ * @evidence contracts/performance.md#efficient-algorithms Rejected candidates climb native lexical ancestors; fallback directory searches perform stat admission, and identity/containment adds realpath, ancestor, entry and possible case-query work. Depth/path/key text and observation populations are uncapped; no descendant corpus is enumerated. The initial candidate is assumed selected by the caller rather than independently checked for directory kind here.
+ * @evidence contracts/performance.md#reuse-equivalent-work A supplied transaction shares repeated identity/case observations across candidate and project-ceiling queries; an omitted context starts invocation-local observations. Native fallback stat admission is fresh and not memoized by this helper.
  */
 export function projectInputAvailableWatchDirectory(
   location: string,

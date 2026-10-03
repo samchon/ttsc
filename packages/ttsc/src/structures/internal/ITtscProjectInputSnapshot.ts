@@ -5,7 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One snapshot exposes normalized comparison inputs and optional pre-normalization watch inputs, keeping filesystem publication separate from watcher installation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing exact paths remain meaningful candidates; consumers do not replace them with a fabricated present-file list or compensate for lost symlink spellings.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain missing paths, slash glob vocabulary, reload scope and why declared spellings are retained; paragraph, member and tag spacing follow the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native exact paths and the declared forward-slash glob grammar are distinct vocabularies; retaining original spellings alongside physical identities supports link/junction replacement watchers without assuming case sensitivity from the OS name.
+ * @evidence contracts/portability.md#os-neutral-implementation Native exact paths and forward-slash glob patterns are distinct vocabularies. Normalization uses observed realpath prefixes and filesystem case policy, preserving unresolved spelling when evidence is unavailable. Retained pre-identity spellings let consumers consider link/junction replacement attention; the value itself certifies neither complete alias resolution nor installed watcher behavior.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscProjectInputSnapshot {
   /** Exact absolute paths, retained even while missing. */
@@ -20,18 +23,18 @@ export interface ITtscProjectInputSnapshot {
   /** Directories whose immediate topology changes execution selection. */
   reloadDirectories?: readonly string[];
 
-  /** Physical project root that anchored relative declarations. */
+  /** Selected root identity, with unresolved spelling where proof is absent. */
   root: string;
 
   /**
    * The spellings the contributors published, before identity normalization.
    *
-   * Normalizing a declaration resolves it through every symlink on its way, so
-   * the retained snapshot names the file the link currently points at rather
-   * than the link. That is what every comparison needs and the wrong thing to
-   * watch: retargeting or replacing the link is exactly what decides which
-   * bytes the declaration names next, and it happens at the spelling that
-   * normalization discarded. Consumers that install watchers keep both.
+   * Successful realpath observations can replace a link spelling with its
+   * target; missing or unavailable suffixes retain unresolved spelling. The
+   * merger retains absolute lexical spellings when they differ from normalized
+   * identity lists, so watcher consumers can consider both target changes and
+   * replacement attention at a declared link. These lists do not install or
+   * certify watcher delivery by themselves.
    */
   declared?: {
     /** Original exact-path spellings, including absent candidates. */

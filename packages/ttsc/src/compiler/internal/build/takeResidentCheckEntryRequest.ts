@@ -14,6 +14,7 @@ import { type ResidentCheckRequest } from "../ResidentCheckRequest";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation transfers pending data and does not establish equivalence for shared computation.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources Deletion releases the map's ownership before the request is returned; remaining slots stay owned by the session until their own consumption or reset.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Indexed transfer does not inspect request paths or invoke a filesystem or process API; the request adapter and native consumer own native interpretation.
  */
 export function takeResidentCheckEntryRequest(
   pending: Map<number, ResidentCheckRequest>,

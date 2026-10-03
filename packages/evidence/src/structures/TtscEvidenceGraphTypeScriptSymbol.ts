@@ -1,0 +1,107 @@
+/**
+ * A public TypeScript contract kind that can become an evidence unit or a
+ * selected host for ownership evidence.
+ *
+ * The selector is intentionally semantic rather than a list of AST node names:
+ * `"function"` includes the common ways a project exports callable behavior,
+ * and qualified identities keep nested contracts addressable without adding a
+ * file path to every target.
+ *
+ * - `"type"` selects exported interfaces, type aliases, classes, and namespaces.
+ *   Enums do not become type units.
+ * - `"function"` selects exported function declarations, exported `const`
+ *   variables initialized with an arrow function or function expression
+ *   (including parentheses and type-only expression wrappers), public instance
+ *   and static methods of exported classes, method signatures of exported
+ *   interfaces and object-shaped type aliases, every member of any of those
+ *   three written as a callable (an arrow/function initializer or a function
+ *   type spelled out), and the same callable forms exported from namespaces. An
+ *   overload run is one unit. Constructors and accessors are not selected.
+ * - `"property"` selects every member declared directly by an exported class,
+ *   interface, or object-shaped type alias that is not written as a callable,
+ *   plus exported `const`, `let`, and `var` declarations at module or namespace
+ *   scope. A `const` initialized with an arrow or function expression remains a
+ *   function; every other variable, including a function-typed declaration or
+ *   function-valued `let` or `var`, is a property. A member is the one place
+ *   that rule reads the other way, on all three containers alike: it is a
+ *   property unless it is function-valued **or** annotated with a function type
+ *   written out, either of which makes it a function. The test is syntactic,
+ *   because this rule reads no type checker: `charge: () => void` is a function
+ *   and `charge: Handler` is a property even where `Handler` is an alias of the
+ *   same type, as are a constructor type and a union. Every exported leaf in an
+ *   object or array binding pattern is a property. An accessor, including an
+ *   auto-accessor, is neither, and a `private` or `protected` member is not
+ *   selected whichever syntax declared it. A constructor parameter carrying any
+ *   property modifier declares a field and classifies exactly as the same field
+ *   written in the class body would, whatever the constructor's own visibility
+ *   is, so a `private` or `protected` one materializes nothing, exactly as the
+ *   body form does not. The property modifiers are TypeScript's own five:
+ *   `public`, `protected`, `private`, `readonly`, and `override`. The last is
+ *   the one to know about, because its meaning is about the base class rather
+ *   than about the field, so it does not read as a field declaration. It still
+ *   declares one: on a class extending one that declares `rate`,
+ *   `constructor(override rate: number)` is a public instance field. A
+ *   parameter property's citation belongs on the parameter: a constructor's own
+ *   block hosts nothing, because two parameter properties would leave
+ *   `@evidence` no way to say which field it means.
+ *
+ * TypeScript units form containment scopes. An interface or object-shaped type
+ * alias contains the members it declares, callables included. A class contains
+ * its selected members. A namespace contains every selected public unit nested
+ * below it, including nested namespaces. An `@evidence` target, or an
+ * `@evidenceExclude` target allowed by its reference policy, acknowledges its
+ * selected node and every selected descendant. A reference selector defines the
+ * obligation kinds while their unselected type ancestors remain addressable as
+ * aggregate scopes.
+ *
+ * Top-level identities use the public export name, and namespace members
+ * prepend their namespace, such as `Orders.create`. A namespace itself uses its
+ * qualified name, such as `Orders` or `Outer.Inner`. A local declaration
+ * exposed as `export { Local as Public }` therefore uses `Public`. A named
+ * default declaration or default alias is publicly addressed as `default`;
+ * anonymous default classes and functions also have that stable address. A
+ * default-only local binding is not a named export. Members of an ambient
+ * namespace are public without their own `export` modifier. A type-only alias
+ * exposes a namespace or a class, its public type-space descendants, and
+ * everything an object-shaped type alias, or an interface no class merges with,
+ * declares, callables included, because every member of those two is
+ * type-space. What it withholds is value-space: namespace data, namespace
+ * functions, and every class member, the last because a member is addressed
+ * through the class value the alias does not expose. An interface merged with a
+ * class is withheld with it, since its members are reached through that same
+ * value. Every type-only export withholds, in every spelling and across every
+ * module boundary: an export list in the declaring file, an inline `export {
+ * type Sale }`, and a re-export in any of `export type { Sale } from`, `export
+ * { type Sale } from`, `export type * from`, and `export type * as api from`. A
+ * member of an object-shaped type alias, or of an interface no class merges
+ * with, uses `TypeName.member`, whether it carries data or is written as a
+ * callable; one declared by an interface merged with a class is an instance
+ * member of that class and uses `ClassName.prototype.member` like the body
+ * form. Static class members use `ClassName.member`; instance members use
+ * `ClassName.prototype.member`, and a constructor parameter property is an
+ * instance member addressed that way. Computed names are not selected, even
+ * when their expression is a literal. File-qualified accessors use bracketed
+ * JSON strings for literal names, including spaces and dots. Existing inline
+ * links keep their dotted spelling and report ambiguous literal qualification.
+ *
+ * A code citation identifies its module through a file path or the citing
+ * TypeScript module's imports. A re-export whose declaration lives in another
+ * file does not create a second unit in the barrel file. TypeScript target
+ * characters are matched exactly; Markdown path-separator normalization does
+ * not rewrite literal symbol names.
+ *
+ * Every supported public declaration described here may carry
+ * `@evidenceExclude` when its file belongs to a claim, even when that claim's
+ * selector omits its kind. The selector still controls `@evidence`; an
+ * unsupported or unexported declaration carries neither form.
+ *
+ * @evidence contracts/common.md#principled-implementation The three semantic kinds distinguish types, callable contracts and data contracts using the documented syntactic host rules; enums, accessors and hidden members remain outside those rules.
+ * @evidence contracts/common.md#clear-and-simple-design A single literal union is shared by claims, references and documentation selection, avoiding divergent kind vocabularies across rules.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification follows declared syntax and public identity rather than guessing callable aliases with an unavailable checker or special-casing a consumer's declarations.
+ * @evidence contracts/common.md#meaningful-documentation The native comment explains callable versus data classification, containment, export aliases, type-only visibility and exact addressing so users can select and cite contracts without inferring the parser.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type lists TypeScript unit kinds and names no path, file, filesystem or process.
+ */
+export type TtscEvidenceGraphTypeScriptSymbol =
+  | "type"
+  | "function"
+  | "property";

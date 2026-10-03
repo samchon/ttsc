@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -13,51 +13,37 @@ import path from "node:path";
  * `jsconfig.json` while the CLI default uses `tsconfig.json`.
  *
  * 1. Create a project containing canonical and variant config files.
- * 2. Import the VS Code resolution helper through Node's TypeScript loader.
+ * 2. Call the authored VS Code resolution helper in the unit process.
  * 3. Assert the candidate selects `tsconfig.json`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates selects the existing canonical tsconfig over variant and jsconfig files.
+ * @evidence contracts/testing.md#independent-expectations default CLI project selection prefers tsconfig.json; literal filename is the independent oracle.
+ * @evidence contracts/testing.md#distinguishing-cases a fixture contains all three candidates and the selected result must exist and name the canonical file.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_prefers_canonical_tsconfig_over_variants function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
  */
-export const test_vscode_server_resolution_prefers_canonical_tsconfig_over_variants =
-  () => {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const project = TestProject.tmpdir("vscode-tsconfig-priority-");
-    fs.mkdirSync(path.join(project, "src"), { recursive: true });
-    fs.writeFileSync(path.join(project, "src", "main.ts"), "export {};\n");
-    for (const name of [
-      "jsconfig.json",
-      "tsconfig.app.json",
-      "tsconfig.json",
-    ]) {
-      fs.writeFileSync(path.join(project, name), "{}\n");
-    }
-
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
-      const candidate = mod.createResolutionCandidates({
-        activeFile: ${JSON.stringify(path.join(project, "src", "main.ts"))},
-        activeWorkspaceRoot: ${JSON.stringify(project)},
-      })[0];
-      console.log(candidate.tsconfig);
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      {
-        cwd: repo,
-        encoding: "utf8",
-      },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(
-      path.normalize(result.stdout.trim()),
-      path.normalize(path.join(project, "tsconfig.json")),
-    );
-  };
+export function test_vscode_server_resolution_prefers_canonical_tsconfig_over_variants() {
+  const repo = TestProject.WORKSPACE_ROOT;
+  const project = TestProject.tmpdir("vscode-tsconfig-priority-");
+  fs.mkdirSync(path.join(project, "src"), { recursive: true });
+  fs.writeFileSync(path.join(project, "src", "main.ts"), "export {};\n");
+  for (const name of [
+    "jsconfig.json",
+    "tsconfig.app.json",
+    "tsconfig.json",
+  ]) {
+    fs.writeFileSync(path.join(project, name), "{}\n");
+}
+  const observed = (() => {
+    const candidate = mod.createResolutionCandidates({
+      activeFile: (path.join(project, "src", "main.ts")),
+      activeWorkspaceRoot: (project),
+    })[0]!;
+    return candidate.tsconfig;
+  
+  })();
+  assert.ok(typeof observed === "string", "the selected config must exist");
+  assert.equal(
+    path.normalize(observed),
+    path.normalize(path.join(project, "tsconfig.json")),
+  );
+}

@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { fallbackToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
-import { farmPersistentCacheWithoutRecords } from "../../../../../packages/unplugin/lib/core/farm/farmPersistentCacheWithoutRecords.mjs";
+import { fallbackToolDirectory } from "../../../../../packages/unplugin/src/core/bridge/fallbackToolDirectory";
+import { farmPersistentCacheWithoutRecords } from "../../../../../packages/unplugin/src/core/farm/farmPersistentCacheWithoutRecords";
 
 /**
  * Verifies Farm keeps its persistent cache where the adapter can write a
@@ -25,6 +25,11 @@ import { farmPersistentCacheWithoutRecords } from "../../../../../packages/unplu
  * 3. Configure another such root while no fallback can be established either, and
  *    assert the cache is turned off, a configuration that turned it off is
  *    kept, and one warning names the directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls farmPersistentCacheWithoutRecords and fallbackToolDirectory; asserts writable local and fallback records preserve configuration, unusable local and fallback storage disable caching, an already disabled cache stays disabled, and one warning names the root.
+ * @evidence contracts/testing.md#independent-expectations A host cache cannot validate output without a writable project record. Exact preserved configuration and persistentCache false are independent consequences of that storage contract; no Farm host is launched.
+ * @evidence contracts/testing.md#distinguishing-cases Owns local success, fallback success, total failure and repeated failure with warning deduplication. TEMP/TMP/TMPDIR and the warning listener are restored in finally; native Farm restart delivery remains separate.
+ * @evidence contracts/testing.md#execution-ownership Unit test: test_farm_turns_its_persistent_cache_off_without_records calls the real farmPersistentCacheWithoutRecords and fallbackToolDirectory over real temporary roots (one writable, two with a file where .ttsc belongs) while pointing TEMP/TMP/TMPDIR at its own directory. No Farm host starts; the process warning listener and environment variables are restored in finally.
  */
 export async function test_farm_turns_its_persistent_cache_off_without_records(): Promise<void> {
   const writable = TestProject.tmpdir("ttsc-unplugin-farm-writable-");

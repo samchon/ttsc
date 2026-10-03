@@ -195,7 +195,7 @@ Use `invocation.Go` for asynchronous work that belongs to the result. Register i
 The published `@ttsc/wasm` tarball ships:
 
 - A rewritten root `go.mod` whose `replace` directives point at `./shim-vendor/shim/*` (vendored at pack time from `packages/ttsc/shim/`).
-- The full `host/`, `cmd/`, `build/` Go source so consumers can `go build -tags '...'` their own wasm against your host helper.
+- The full `host/` and `cmd/` Go source and the `build/` scripts so consumers can `go build -tags '...'` their own wasm against your host helper.
 - `dist/ttsc.wasm` + `dist/wasm_exec.js`: the no-plugin sanity binary and the Go runtime loader.
 
 The tarball intentionally drops the `replace github.com/samchon/ttsc/packages/ttsc => ../ttsc` directive that the in-repo `go.mod` carries: consumers of the published module who want to rebuild the wasm must supply their own `replace` (or vendor `packages/ttsc` themselves). The published `dist/ttsc.wasm` is plug-and-play for runtime use; the Go module is for **plugin authors extending the host**, not for vanilla consumers.

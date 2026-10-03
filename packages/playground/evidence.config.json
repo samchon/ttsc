@@ -2,62 +2,16 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": [
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "!src/sandbox/loadTypiaRuntimePack.ts",
-        "!src/compiler/loadTypiaSourcePack.ts",
-        "!src/npm/installPlaygroundDependencies.ts",
-        "!src/sandbox/createSandboxRequire.ts",
-        "!src/react/createCompilerClient.ts",
-        "!src/react/PlaygroundShell.tsx",
-        "!src/react/SourceEditor.tsx",
-        "!src/compiler/lineColumnOf.ts",
-        "!src/compiler/mapDiagnostic.ts",
-        "!src/compiler/pickEmittedJS.ts",
-        "!src/compiler/internal/parseLintDiagnostics.ts",
-        "!src/npm/collectExternalPackageNames.ts",
-        "!src/npm/packageNameFromSpecifier.ts",
-        "!src/compiler/createWorkerCompiler.ts",
-        "!src/index.ts"
-      ],
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": ["contracts/common.md"],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "browser algorithms, shared computation and owned resources",
-      "type": "typescript",
-      "files": [
-        "src/sandbox/loadTypiaRuntimePack.ts",
-        "src/compiler/loadTypiaSourcePack.ts",
-        "src/npm/installPlaygroundDependencies.ts",
-        "src/sandbox/createSandboxRequire.ts",
-        "src/react/createCompilerClient.ts",
-        "src/react/PlaygroundShell.tsx",
-        "src/react/SourceEditor.tsx",
-        "src/compiler/lineColumnOf.ts",
-        "src/compiler/mapDiagnostic.ts",
-        "src/compiler/pickEmittedJS.ts",
-        "src/compiler/internal/parseLintDiagnostics.ts",
-        "src/npm/collectExternalPackageNames.ts",
-        "src/npm/packageNameFromSpecifier.ts",
-        "src/compiler/createWorkerCompiler.ts"
-      ],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     }
   ]

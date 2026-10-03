@@ -21,8 +21,9 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * is lost to a filesystem race.
  *
  * A capture whose snapshot could not be proven stable is disposed and attempted
- * again. The second failure that says the project moved becomes a terminal
- * `TtscUnstableGenerationError` that carries the failed environment, so later
+ * again. At the movement or absolute attempt cap, a coherent diagnostic verdict
+ * is returned; otherwise a terminal `TtscUnstableGenerationError` carries the
+ * failed environment, so later
  * deliveries replay the verdict until that environment provably changes instead
  * of each repeating a whole-project compile.
  *
@@ -76,9 +77,9 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
- * @evidence contracts/performance.md#efficient-algorithms At most twice the two-movement bound captures occur, reusing witnessed dependency paths and learned case policy; a successful or current diagnostic capture returns immediately.
- * @evidence contracts/performance.md#reuse-equivalent-work The attempt carries learned input witnesses and policy forward, and session publication classification permits equivalent proven compiles to be adopted instead of redundantly compiling each worker's state.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Every nonterminal rejected capture is disposed before retry, terminal error creation disposes the final failed capture and successful/diagnostic return transfers its resources to the cache owner; at most four attempt witness sets remain local.
+ * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt scans its external dependencies into the cumulative witnessed Set and copies that Set for the next capture; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Learned dependency names and reported compiler case policy carry into the next capture, which takes new observations; previous witness bytes are not reused as fresh proof. Refuted publication state bypasses its next lookup while a changed state may adopt a separately proven publication. This loop shares no cache entry itself; its caller owns generation/terminal Promise sharing and current-environment replay admission.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each nonterminal rejected capture is detached through the shared disposer before retry; terminal error construction does the same for the final failed capture, while diagnostic/success/fresh-only return transfers the generation to its caller. Cleanup failures do not certify native release. Up to four attempt aggregates remain, but their path/detail bytes and cumulative witnessed dependency names have no byte cap; the terminal error retains comparison data under cache-owner lifetime. Capture owns its own acquisition-failure cleanup and escaped errors.
  */
 export async function transformProject(props: {
   /** Adapter aliases re-stated over inherited project paths for compilation. */

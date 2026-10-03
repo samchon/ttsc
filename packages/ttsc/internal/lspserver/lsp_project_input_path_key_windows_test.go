@@ -15,8 +15,8 @@ import (
 // TestProjectInputPathKeyRespectsDirectoryCaseSemantics verifies the Go host
 // keeps case-distinct Windows dependencies without splitting ordinary aliases.
 //
-// The original global case fold merged distinct files below an opted-in
-// case-sensitive directory, while preserving every spelling instead split
+// A global case fold would merge distinct files below an opted-in
+// case-sensitive directory, while preserving every spelling would split
 // ordinary NTFS, UNC, and recreated-directory aliases. Identity must instead
 // follow the case semantics of the directory that owns each path segment.
 //
@@ -27,6 +27,11 @@ import (
 //  4. Prove missing suffixes also retain case under an opted-in directory.
 //  5. On an ordinary directory, prove existing and missing aliases converge.
 //  6. Change a live directory's flag and normalize UNC volume aliases.
+//
+// @evidence contracts/testing.md#behavioral-verification Case-distinct dependencies below a case-sensitive Windows directory keep distinct identities through publication, owner matching, glob matching and reload containment, while ordinary directory aliases converge and UNC volume aliases normalize.
+// @evidence contracts/testing.md#independent-expectations The expected identities follow from real files the test creates with differing case.
+// @evidence contracts/testing.md#distinguishing-cases Case-sensitive and ordinary directories, existing and missing paths and UNC aliases are separate decision cases.
+// @evidence contracts/testing.md#execution-ownership TestProjectInputPathKeyRespectsDirectoryCaseSemantics is a Go unit test built only on Windows in the lspserver package: it calls the unexported operation in-process against real temporary directories and starts no product host.
 func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
   sensitiveRoot := t.TempDir()
   enableProjectInputCaseSensitivity(t, sensitiveRoot)

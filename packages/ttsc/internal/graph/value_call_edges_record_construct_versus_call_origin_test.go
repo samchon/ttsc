@@ -23,6 +23,11 @@ import (
 //  2. Build the graph.
 //  3. Assert the handle->Service.run edge has Origin "call" and the
 //     handle->Service edge has Origin "new".
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a value-call edge carries the syntactic Origin the dump splits into the schema's `calls` versus `instantiates` kinds: a plain call records "call", a `new T()` records "new".
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "call", "new"; the handle->Service.run edge has Origin "call" and the handle->Service edge has Origin "new".
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where Controller.handle both calls Service.run and constructs `new Service()`; Build the graph; Assert the handle->Service.run edge has Origin "call" and the handle->Service edge has Origin "new".
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesRecordConstructVersusCallOrigin is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesRecordConstructVersusCallOrigin(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

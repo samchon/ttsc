@@ -17,6 +17,9 @@ import type { IWasmExecFS } from "./IWasmExecFS";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains copying, directory creation, missing reads and stream
  *   reset scope, following the documentation skill's ownership/context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IMemFSHost only groups the virtual-filesystem members and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IMemFSHost only groups the virtual-filesystem members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IMemFSHost only groups the virtual-filesystem members and coordinates no computation.
  */
 export interface IMemFSHost {
   /** Bridge installed before evaluating wasm_exec.js. */
@@ -29,6 +32,9 @@ export interface IMemFSHost {
    * @evidence contracts/common.md#clear-and-simple-design One convenience operation owns caller-data copying and parent creation; low-level open keeps its separate contract.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller data is copied into the real backing tree, not an alternate fixture store.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states encoding, copying and parent creation under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources writeFile is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms writeFile is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work writeFile is a signature only; sharing of repeated work belongs to createMemFS.
    */
   writeFile(path: string, data: string | Uint8Array): void;
 
@@ -39,16 +45,25 @@ export interface IMemFSHost {
    * @evidence contracts/common.md#clear-and-simple-design Byte readback has one nullable result and leaves text conversion to the separate text operation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Readback uses the compiler's backing tree rather than reconstructing expected output.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains ownership and null meaning under the documentation skill's absence guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFile is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms readFile is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work readFile is a signature only; sharing of repeated work belongs to createMemFS.
    */
   readFile(path: string): Uint8Array | null;
 
   /**
    * Decode file bytes as UTF-8; return null for an absent path or directory.
    *
+   * Decoding follows `TextDecoder`: a leading byte-order mark is dropped and a
+   * malformed sequence becomes U+FFFD. `readFile` returns the exact bytes.
+   *
    * @evidence contracts/common.md#principled-implementation Text decoding adapts the same byte store using TextDecoder's UTF-8 behavior.
    * @evidence contracts/common.md#clear-and-simple-design A text view shares the stored file identity and hides decoding/cache details from callers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The text view does not introduce a separately mutable source cache.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names encoding and null meaning under the documentation skill's units/context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFileText is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms readFileText is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work readFileText is a signature only; sharing of repeated work belongs to createMemFS.
    */
   readFileText(path: string): string | null;
 
@@ -59,6 +74,9 @@ export interface IMemFSHost {
    * @evidence contracts/common.md#clear-and-simple-design A separate presence predicate includes directories without expanding the file-read result shape.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual tree membership determines presence, without an extension-based guess.
    * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes presence from file readability under the documentation skill's clarity guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources exists is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms exists is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work exists is a signature only; sharing of repeated work belongs to createMemFS.
    */
   exists(path: string): boolean;
 
@@ -69,6 +87,9 @@ export interface IMemFSHost {
    * @evidence contracts/common.md#clear-and-simple-design Parent creation is one named convenience operation instead of being hidden in every bridge path.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A file is not reclassified as a directory to force a requested path to exist.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains rejection effects under the documentation skill's failure guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources mkdirp is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms mkdirp is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work mkdirp is a signature only; sharing of repeated work belongs to createMemFS.
    */
   mkdirp(path: string): void;
 
@@ -85,6 +106,9 @@ export interface IMemFSHost {
    * @evidence contracts/common.md#clear-and-simple-design Stream reset has one explicit boundary and does not combine filesystem cleanup with capture management.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Reset does not erase compiler input or hide failed operations as a filesystem reset.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states the reset boundary under the documentation skill's ownership guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resetStdio is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms resetStdio is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work resetStdio is a signature only; sharing of repeated work belongs to createMemFS.
    */
   resetStdio(): void;
 }

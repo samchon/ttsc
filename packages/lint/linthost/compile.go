@@ -33,12 +33,16 @@ import (
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
+// RunCheck implements `@ttsc/lint check`: typecheck + lint, no emit.
 //
 // @evidence contracts/common.md#principled-implementation Process streams delegate to the same no-emit check entry point used by injected-stream callers.
 // @evidence contracts/common.md#clear-and-simple-design This wrapper owns only default stream selection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Delegation preserves the supported command path without an alternate diagnostic implementation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the check command and its no-emit effect; tags are separated from prose.
+// @evidence contracts/portability.md#os-neutral-implementation RunCheck selects process-owned standard writers and preserves the native project-loading and optional emit boundary of RunCheckWithIO. The wrapper constructs no path or shell text; its delegated command owns actual cwd/config/source representations and filesystem capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Stream selection adds fixed wrapper work to the complete RunCheckWithIO operation. Total cost still includes its flags/config/Program/diagnostic and policy-permitted emit workload; delegation does not make the command constant-cost or omit temporary project storage.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This wrapper owns only stream defaults and delegates to RunCheckWithIO, whose shared Program and config/resident reuse premises remain unchanged. It is not an additional cross-request producer or result coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by the wrapper. RunCheckWithIO and its shared project runner own acquired Program/checker state and delegated evaluator resources, while separate cache owners retain their state; this stream adapter controls no independent retained population.
 func RunCheck(args []string) int {
   return RunCheckWithIO(args, os.Stdout, os.Stderr)
 }
@@ -51,6 +55,10 @@ func RunCheck(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design Shared orchestration owns setup and diagnostics while this entry point selects check policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported writer injection carries output without replacing process globals.
 // @evidence contracts/common.md#meaningful-documentation Native prose names invocation ownership of writers; the underlying command documentation explains no emit.
+// @evidence contracts/portability.md#os-neutral-implementation RunCheckWithIO resolves cwd through filepath.Abs or os.Getwd, then loads native config/source paths through the shared project runner and compiler host. Emit, when command/config policy permits it, uses filepath parent directories and os writes; mode bits depend on the filesystem. Injected writers do not replace this native boundary or authorize path-case assumptions.
+// @evidence contracts/performance.md#efficient-algorithms Flags and forwarded argument bytes are parsed once per invocation, config policy is loaded and one Program is built before shared compiler/lint diagnostics. Work includes config/dependency bytes, compiler-selected source/checker work, engine visits/findings, formatted diagnostics and optional emitted bytes. Shared setup avoids separate Programs for lint and typecheck; no constant complete-command cost or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work One invocation shares its Program across compiler and lint diagnostics and uses the config loader's recorded-dependency evaluation cache. The resident rule cache, when installed by its owner, establishes its own equivalence premises. This entry creates no additional cross-invocation Program/result cache; effectful diagnostics or emission are not replayed merely because flags match.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Command writers remain caller-owned. After successful Program acquisition, runProject defers close to drop the standalone lint checker; Program/config/findings/output become reclaimable when no longer referenced. Config evaluator caches and any installed resident-rule memo retain state under their separate owners. No command history cache, global input/output byte cap or caller cancellation deadline is introduced here.
 func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("check", args, stdout, stderr)
   if err != nil {
@@ -61,13 +69,17 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
   return runProject(opts)
 }
 
-// RunBuild implements `@ttsc/lint build` — same diagnostic flow as
+// RunBuild implements `@ttsc/lint build`: same diagnostic flow as
 // `check`, plus the tsgo emit pipeline when emit is requested.
 //
 // @evidence contracts/common.md#principled-implementation Default process writers delegate to the build entry point that preserves compiler emit configuration.
 // @evidence contracts/common.md#clear-and-simple-design The wrapper adds only process stream selection to shared build behavior.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses the compiler pipeline rather than rewriting generated output for expected examples.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes build's emission from check's no-emit operation; tags are separated.
+// @evidence contracts/portability.md#os-neutral-implementation RunBuild selects process-owned standard writers and preserves the native project-loading and optional emit boundary of RunBuildWithIO. The wrapper constructs no path or shell text; its delegated command owns actual cwd/config/source representations and filesystem capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Stream selection adds fixed wrapper work to the complete RunBuildWithIO operation. Total cost still includes its flags/config/Program/diagnostic and policy-permitted emit workload; delegation does not make the command constant-cost or omit temporary project storage.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This wrapper owns only stream defaults and delegates to RunBuildWithIO, whose shared Program and config/resident reuse premises remain unchanged. It is not an additional cross-request producer or result coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by the wrapper. RunBuildWithIO and its shared project runner own acquired Program/checker state and delegated evaluator resources, while separate cache owners retain their state; this stream adapter controls no independent retained population.
 func RunBuild(args []string) int {
   return RunBuildWithIO(args, os.Stdout, os.Stderr)
 }
@@ -80,6 +92,10 @@ func RunBuild(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design The project runner owns the common pipeline and this adapter owns command policy and streams.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Writer injection preserves invocation isolation through the documented boundary.
 // @evidence contracts/common.md#meaningful-documentation Native prose states stream ownership and the adjacent build documentation states the emit distinction.
+// @evidence contracts/portability.md#os-neutral-implementation RunBuildWithIO resolves cwd through filepath.Abs or os.Getwd, then loads native config/source paths through the shared project runner and compiler host. Emit, when command/config policy permits it, uses filepath parent directories and os writes; mode bits depend on the filesystem. Injected writers do not replace this native boundary or authorize path-case assumptions.
+// @evidence contracts/performance.md#efficient-algorithms Flags and forwarded argument bytes are parsed once per invocation, config policy is loaded and one Program is built before shared compiler/lint diagnostics. Work includes config/dependency bytes, compiler-selected source/checker work, engine visits/findings, formatted diagnostics and optional emitted bytes. Shared setup avoids separate Programs for lint and typecheck; no constant complete-command cost or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work One invocation shares its Program across compiler and lint diagnostics and uses the config loader's recorded-dependency evaluation cache. The resident rule cache, when installed by its owner, establishes its own equivalence premises. This entry creates no additional cross-invocation Program/result cache; effectful diagnostics or emission are not replayed merely because flags match.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Command writers remain caller-owned. After successful Program acquisition, runProject defers close to drop the standalone lint checker; Program/config/findings/output become reclaimable when no longer referenced. Config evaluator caches and any installed resident-rule memo retain state under their separate owners. No command history cache, global input/output byte cap or caller cancellation deadline is introduced here.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("build", args, stdout, stderr)
   if err != nil {
@@ -97,6 +113,10 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // @evidence contracts/common.md#clear-and-simple-design This wrapper selects process output without duplicating transformation orchestration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Transformation remains compiler-owned rather than a special source-text substitute.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains whole-program lint context and the target-only emit boundary.
+// @evidence contracts/portability.md#os-neutral-implementation RunTransform passes process standard writers to RunTransformWithIO without constructing shell text or rewriting paths. Its delegated operation owns native project/target/output representation and filesystem capabilities; stream selection does not remove that boundary.
+// @evidence contracts/performance.md#efficient-algorithms Fixed stream selection is added to RunTransformWithIO config/Program/diagnostic/target-emit work and output bytes. The complete command retains that input-dependent cost and temporary storage despite this wrapper's lack of a loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This adapter selects stream defaults, not a cross-request producer. Program/config/resident reuse and effectful output premises remain those of RunTransformWithIO and its owners.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by this adapter. RunTransformWithIO owns acquired checker/command/captured-output state and delegates cache/evaluator lifetime to their owners; the stream wrapper controls no independent retained population.
 func RunTransform(args []string) int {
   return RunTransformWithIO(args, os.Stdout, os.Stderr)
 }
@@ -104,12 +124,17 @@ func RunTransform(args []string) int {
 // RunTransformWithIO runs transform with invocation-owned output streams.
 // Writers must be nonnil. Output goes to stdout unless --out selects a file;
 // returns 2 for configuration or diagnostics errors and 3 for failed emission
-// or output writes. A successful transformation returns 0.
+// or file output writes. A successful transformation returns 0. Writes to
+// the provided stdout do not propagate writer errors through the exit code.
 //
 // @evidence contracts/common.md#principled-implementation Parsed project context selects a normalized source file from the loaded program; compiler emission captures only JavaScript output for that target and surfaces missing output or write failures.
 // @evidence contracts/common.md#clear-and-simple-design Flag parsing, diagnostics, target lookup and output capture form one explicit command pipeline.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported emit callbacks and stream injection replace neither compiler globals nor generated content.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies stream ownership while the transform declaration explains project context and output scope.
+// @evidence contracts/portability.md#os-neutral-implementation The working directory and --file use the cwd resolver and shimtspath.ResolvePath, while semantic config uses the environment channel. Config/source loading retains the compiler host native boundary. The --out path is passed to filepath.Dir/os.MkdirAll/os.WriteFile: a relative output path follows the process cwd, not the --cwd override. Mode bits depend on the filesystem; paths are not inferred from URL spelling or OS-based case policy.
+// @evidence contracts/performance.md#efficient-algorithms Flags and their bytes are parsed once; config policy and one Program supply project-wide compiler/lint diagnostics. Target lookup scans source files and path bytes, while Emit selects one target but retains compiler-chosen transform work and generated byte cost. The last JavaScript output is captured and optional file writes convert it to bytes. All config/dependency, Program, diagnostics and target/output dimensions contribute; no universal dominant stage or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work One invocation uses the same Program for compiler/lint diagnostics and target emission. Config evaluation and any installed resident rule memo retain their separate dependency/equivalence premises; this command adds no cross-invocation Program or emitted-output cache. Matching flags or target bytes alone do not justify replaying diagnostics or file writes.
+// @evidence contracts/performance.md#bound-retention-and-release-resources After successful Program acquisition a deferred close drops the standalone lint checker; Program and ordinary command references become reclaimable after their owners release them. The capture retains the last JavaScript string until output and return, and a file write adds a temporary byte conversion. Writers remain caller-owned, config/resident caches retain their own state, and no Program/output-size cap or caller cancellation deadline is established here.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)

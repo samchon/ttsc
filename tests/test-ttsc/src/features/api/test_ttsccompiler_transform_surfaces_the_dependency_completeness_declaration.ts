@@ -1,13 +1,10 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  tsgo,
-  writeCompilerPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
+import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform surfaces the envelope's
+ * Verifies native transform decoding surfaces the envelope's
  * `dependenciesComplete` declaration alongside the dependency list it
  * qualifies.
  *
@@ -17,23 +14,22 @@ import {
  * dropped the field would silently keep every adopting plugin on the coarse
  * baseline, with no error to point at.
  *
- * 1. Create a project whose fixture plugin reports `dependencies` for
- *    `src/main.ts` and declares that list complete.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert the success result carries both fields unchanged.
+ * 1. Decode the valid fixture envelope, which reports src/main.ts consulting src/consulted.d.ts and declares src/main.ts dependency-complete.
+ * 2. Assert dependencies equals { "src/main.ts": ["src/consulted.d.ts"] }.
+ * 3. Assert dependenciesComplete equals ["src/main.ts"].
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls parseNativeTransformOutput and checks both the dependency record and the dependenciesComplete list for the same transformed source.
+ * @evidence contracts/testing.md#independent-expectations Independently authored src/main.ts dependency and completeness declarations establish literal expected values. Merely retaining one field cannot satisfy both assertions.
+ * @evidence contracts/testing.md#distinguishing-cases This positive case distinguishes dropping completeness from retaining ordinary dependencies. Mixed malformed completeness members are owned by the dedicated negative-filtering case; host admission is not inferred from decoder success.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on in-memory JSON; it starts no compiler, install or native producer.
  */
 export const test_ttsccompiler_transform_surfaces_the_dependency_completeness_declaration =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeCompilerPlugin(root);
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+    const result = parseNativeTransformOutput(
+      JSON.stringify(NativeTransformEnvelopeFixture.valid),
+      "",
+    );
 
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
     assert.deepEqual(result.dependencies, {
       "src/main.ts": ["src/consulted.d.ts"],
     });

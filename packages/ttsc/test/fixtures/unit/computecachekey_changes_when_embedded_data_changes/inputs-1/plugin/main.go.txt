@@ -1,0 +1,6 @@
+package main
+
+import _ "embed"
+
+//go:embed rules.json
+var rules string

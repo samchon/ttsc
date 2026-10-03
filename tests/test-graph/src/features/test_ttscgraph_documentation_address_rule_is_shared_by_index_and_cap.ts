@@ -1,24 +1,11 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import path from "node:path";
+import { documentationTarget, leadingToken } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { docTagsOf as sourceDocTagsOf } from "../../../../packages/graph/src/server/runDetails";
 
-const require = createRequire(import.meta.url);
-const graphEntry = require.resolve("@ttsc/graph");
-const graphLib = path.dirname(graphEntry);
-const { documentationTarget, leadingToken } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as {
-  documentationTarget(text: string | undefined): string | undefined;
-  leadingToken(text: string | undefined): string | undefined;
-};
-const { docTagsOf } = require(
-  path.join(graphLib, "server", "runDetails.js"),
-) as {
-  docTagsOf(
-    node: { docTags?: { name: string; text?: string }[] },
-    keep?: (tag: { name: string; text?: string }) => boolean,
-  ): { name: string; text?: string }[] | undefined;
-};
+const docTagsOf = sourceDocTagsOf as (
+  node: { docTags?: { name: string; text?: string }[] },
+  keep?: (tag: { name: string; text?: string }) => boolean,
+) => { name: string; text?: string }[] | undefined;
 
 /**
  * Verifies one definition of "the address" governs both the citation index and
@@ -34,9 +21,13 @@ const { docTagsOf } = require(
  * 1. Check the address rule accepts every form in use and refuses prose.
  * 2. Cap a tag whose address alone exceeds the budget, and one that fits.
  * 3. Assert the address survives both, and that only a real cut is marked.
+ *
+ * @evidence contracts/testing.md#behavioral-verification documentationTarget, leadingToken and docTagsOf assert literal address recognition, prose rejection, whole-address preservation and actual elision marks.
+ * @evidence contracts/testing.md#independent-expectations Graph citation grammar distinguishes addresses from prose and preserves a complete braced link; only text actually cut may acquire an ellipsis.
+ * @evidence contracts/testing.md#distinguishing-cases Path, operation, Prisma, symbol, URL and braced-link forms contrast prose, blanks and unclosed braces; long address plus reason, address-only and filtered short tags cover cap boundaries.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
  */
-export const test_ttscgraph_documentation_address_rule_is_shared_by_index_and_cap =
-  (): void => {
+export function test_ttscgraph_documentation_address_rule_is_shared_by_index_and_cap(): void {
     // Addresses: a path with an anchor, an operation, a data model, a qualified
     // symbol, a URL, and an inline link.
     for (const address of [
@@ -123,4 +114,4 @@ export const test_ttscgraph_documentation_address_rule_is_shared_by_index_and_ca
     assert.deepStrictEqual(both, [
       { name: "reference", text: "https://example.com Other." },
     ]);
-  };
+}

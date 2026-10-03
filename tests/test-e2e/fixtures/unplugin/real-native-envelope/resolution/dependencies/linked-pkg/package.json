@@ -1,0 +1,6 @@
+{
+  "main": "index.js",
+  "name": "linked-pkg",
+  "type": "module",
+  "version": "0.0.0"
+}

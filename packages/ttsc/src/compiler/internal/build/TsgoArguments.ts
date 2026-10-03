@@ -9,13 +9,13 @@ import type { RunBuildOptions } from "./RunBuildOptions";
  * The argv ttsc hands to TypeScript-Go, directly or through a native host.
  *
  * One place composes the forwarded user flags with the flags ttsc itself must
- * add: the pinned `rootDir` for an injected `outDir`, the output sandbox of a
+ * add: the pinned `rootDir` for an injected `outDir`, the compiler-output isolation of a
  * private build, threading, and emitted-file listing. Ordering is part of the
- * contract. ttsc's own additions come first so a flag the user forwarded wins,
- * except for output isolation and the requested noEmitOnError guard, which
- * follow forwarded arguments to enforce the private-build and emission policy.
+ * contract. Ordinary defaults precede forwarded arguments; direct commands then
+ * append output isolation and the requested noEmitOnError guard. Native JSON
+ * payloads likewise append isolation, while their host owns its emit-error policy.
  *
- * @evidence contracts/common.md#principled-implementation Shared composition preserves user precedence for defaults and authoritative final guards for private output and error policy across direct argv and native compiler payloads.
+ * @evidence contracts/common.md#principled-implementation Shared composition orders defaults before forwarded options and places private-output overrides last in direct argv and native payloads; the requested noEmitOnError guard is appended by the direct composer, while native host emission policy has its own owner.
  * @evidence contracts/common.md#clear-and-simple-design Compiler argument policy has one grouping, with separate helpers for diagnostics, threading, inferred layout and output isolation rather than lane-specific copies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options and the driver environment protocol express requirements without patching compiler APIs or injecting unknown flags into foreign hosts.
  * @evidence contracts/common.md#meaningful-documentation Namespace prose explicitly documents ordering exceptions; native function paragraphs explain layout, option transport and private output effects.
@@ -86,20 +86,17 @@ export namespace TsgoArguments {
    * See {@link RunBuildOptions.pinInferredRootDir} for why an injected `outDir`
    * needs one at all. Three conditions gate it, and each one is load-bearing:
    *
-   * - The caller injected the `outDir` itself, so a user `--outDir` keeps tsgo's
-   *   own TS5011 answer;
+   * - The caller requested pinInferredRootDir for its injected layout; this
+   *   helper does not independently verify that an outDir was injected;
    * - This pass emits, because a no-emit pass has no layout to pin (tsgo skips
    *   the check for `noEmit` too);
    * - The project declares no `rootDir` of its own, so a declared layout is never
    *   overridden.
    *
-   * `execution.projectRoot` is the directory of the tsconfig ttsc resolved and
-   * hands tsgo as `-p`, which is exactly the directory tsgo infers, and it is
-   * spelled the way tsgo will spell the input file names it compares against it
-   * — both come from the same `fs.realpathSync` pass. Resolving it any further
-   * (a Windows 8.3 expansion, say) would leave the comparison lexically mixed,
-   * and `ContainsPath` is lexical: every input would count as outside `rootDir`
-   * and tsgo would emit it beside the user's source instead of under `outDir`.
+   * Preserve the selected project-root spelling rather than adding another
+   * physical alias expansion here. This is the caller's inferred-layout policy,
+   * not a proof that every compiler input shares one realpath transaction or
+   * that arbitrary aliases have identical lexical containment behavior.
    */
   function pinnedRootDirArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -118,8 +115,9 @@ export namespace TsgoArguments {
    *
    * When the user explicitly forwarded `--pretty` (any value), the internal
    * `--pretty false` shadow is dropped so the user wins on the surface. ttsc's
-   * own diagnostic parser will then see pretty-formatted output and fall back
-   * to preserving text it cannot parse. Presence is recognized even for a
+   * own diagnostic parser then sees the user-selected rendering and preserves
+   * text it cannot parse; an explicit false still selects nonpretty output.
+   * Presence is recognized even for a
    * malformed inline spelling, which remains for the compiler to reject.
    *
    * @evidence contracts/common.md#principled-implementation Structured output requests add nonpretty rendering only when the user supplied no pretty option identity; explicit or malformed user spelling stays under compiler ownership.
@@ -129,7 +127,7 @@ export namespace TsgoArguments {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Selecting compiler option tokens does not inspect paths, filesystem capabilities or a native process.
    *
-   * @evidence contracts/performance.md#efficient-algorithms A disabled structured request exits immediately; otherwise one short-circuit argv presence scan selects a fixed-size result.
+   * @evidence contracts/performance.md#efficient-algorithms A disabled structured request exits immediately; otherwise the delegated short-circuit presence scan includes option identity/name text classification before returning a fixed-size token result.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This option adapter coordinates no completed or in-flight producer across requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a returned small argv array is allocated and no retained resource is acquired.
@@ -186,7 +184,7 @@ export namespace TsgoArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported environment payload carries compiler options instead of injecting unknown flags into strict foreign host parsers.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains why rootDir travels with compiler options rather than through the host flag set.
    * @evidence contracts/portability.md#os-neutral-implementation The already-selected native project-root spelling is preserved in JSON argv, avoiding further alias expansion or shell/path quoting.
-   * @evidence contracts/performance.md#efficient-algorithms Constant root selection precedes one forwarded-argv serialization, costing O(payload bytes).
+   * @evidence contracts/performance.md#efficient-algorithms Root selection precedes delegated visible-option filtering, isolation path resolution, argv copies and JSON serialization. Work/storage follow argument count, normalization/lookahead text and serialized payload/path bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This adapter composes one current payload without caching project-derived argv across invocations.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned JSON is transferred to the process boundary; no retained process or cache is owned.
@@ -204,27 +202,14 @@ export namespace TsgoArguments {
    * parser onto `CompilerOptions`, so a flag like `ttsc --strict` reaches a
    * plugin build the same way it reaches the plain tsgo lane.
    *
-   * The payload travels in the `TTSC_TSGO_ARGS` environment variable, not on
-   * the sidecar's command line. #113 shipped it as a `--tsgo-args` flag, which
-   * is an addition to a plugin protocol third-party hosts had already frozen: a
-   * Go `flag.FlagSet` created with `flag.ContinueOnError` treats an undeclared
-   * flag as fatal, so every pre-#113 sidecar answered `flag provided but not
-   * defined: -tsgo-args` and exited 2. That took down `ttsc --strict`, `ttsc
-   * --declaration`, `ttsx --strict` and — because {@link isolatedTsgoOutputArgs}
-   * makes this payload non-empty on its own — plain `ttsc <file.ts>`, on every
-   * project carrying a typia/nestia-era transform host (issue #1188).
-   *
-   * The environment is the channel ttsc already uses for host-owned payloads
-   * that must not collide with a third-party flag set
-   * (`TTSC_LINKED_PLUGINS_JSON`, `TTSC_PLUGIN_CONFIG_DIR`). It reaches those
-   * hosts without any change on their side, because
-   * `buildSourcePlugin.ts::sourceBuildWorkspaceReplacements` builds every
-   * source plugin against the installed ttsc's own driver, and
-   * `driver.LoadProgram` reads the variable whenever the caller supplied no
-   * explicit argv. It is strictly better than the capability gate `ad3443a`
-   * used for `--singleThreaded` / `--checkers`: that one drops the flag for
-   * hosts that cannot take it, which is acceptable for a threading knob and not
-   * for `--strict`.
+   * The payload travels in `TTSC_TSGO_ARGS`, avoiding a new host command-line
+   * flag that an older strict host parser may reject. Hosts using the shipped
+   * driver's LoadProgram read this environment fallback only when their caller
+   * supplied no explicit argv; an explicit empty argv also overrides it.
+   * Recognized visible diagnostics assignments are omitted for the host's own
+   * timing channel. Response-file contents remain under native expansion.
+   * This transport preserves remaining argv boundaries, not a guarantee that
+   * every third-party host consumes the fallback or accepts every forwarded flag.
    *
    * Returns the JSON payload, or `undefined` when this lane forwards nothing.
    *
@@ -233,7 +218,7 @@ export namespace TsgoArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Environment transport is an actual driver protocol that avoids unsupported foreign host flags; invalid compiler arguments remain for the compiler to report.
    * @evidence contracts/common.md#meaningful-documentation Native documentation identifies payload transport, precedence and the undefined outcome; descriptive paragraphs are separated from acknowledgment tags.
    * @evidence contracts/portability.md#os-neutral-implementation JSON argv crosses the native environment boundary without shell construction; output isolation uses native node:path while forwarded paths retain caller spelling.
-   * @evidence contracts/performance.md#efficient-algorithms Filtering and serialization scan argv once each, with storage proportional to total payload bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Delegated visible-option filtering includes occurrence/name/value/lookahead costs; leading/retained/isolation argv copies precede JSON serialization. Work/storage follow argument count and token/path/payload bytes; returned text does not bound native downstream work.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current mutable options are composed directly; sharing sidecar startup belongs to the watch session's complete execution identity.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The payload composer retains no environment, process or history after returning text.
@@ -262,7 +247,9 @@ export namespace TsgoArguments {
    * They null each separately located output (`outFile`, `declarationDir`,
    * `tsBuildInfoFile`) and pin `outDir`, so declarations and build information
    * land beside the JavaScript. Callers append them after the forwarded flags,
-   * which makes them win over a location the user forwarded too. A `--noEmit`
+   * which applies the final compiler destination assignments after user locations.
+   * This is compiler output policy, not an OS sandbox for plugin or cache writes.
+   * A `--noEmit`
    * pass needs them as much as an emitting one: the compiler still writes build
    * information for an `incremental` project.
    *
@@ -271,7 +258,7 @@ export namespace TsgoArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler-supported null option values clear separate destinations instead of intercepting filesystem writes or changing foreign compiler internals.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain affected outputs, final precedence and why no-emit builds still require isolation.
    * @evidence contracts/portability.md#os-neutral-implementation node:path resolves the private target using host-native rules and sends it as one argv value, preserving drive and separator semantics without shell parsing.
-   * @evidence contracts/performance.md#efficient-algorithms One target resolution constructs a fixed eight-token bundle; absent isolation exits without allocating output tokens.
+   * @evidence contracts/performance.md#efficient-algorithms Native target resolution includes path-text costs before constructing a fixed eight-token bundle; absent isolation exits without output-token allocation. Fixed token count does not bound target string bytes or native consumer costs.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This returns current isolation options and coordinates no reusable producer or cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Argument construction does not acquire the output directory or manage its lifetime; the private-build owner does.
@@ -301,7 +288,7 @@ export namespace TsgoArguments {
     const passthrough = options.passthrough;
     if (passthrough === undefined) return undefined;
     // A native host reports timing through its own channel, so the timing
-    // flags themselves never travel in its tsgo payload.
+    // recognized visible boolean timing assignments are removed from this frame.
     return PassthroughFlags.withoutBooleanFlags(passthrough, [
       "--diagnostics",
       "--extendedDiagnostics",

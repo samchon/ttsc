@@ -9,17 +9,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyMergesPublishDiagnostics verifies ttscserver's core diagnostics
-// promise.
+// TestLSPProxyMergesPublishDiagnostics Verifies that upstream diagnostics forward first, followed by exactly the upstream and plugin entries together.
 //
-// plugin diagnostics ride alongside tsgo's typecheck findings in the
-// same publishDiagnostics notification. Editors render them together
-// without knowing two pipelines produced them.
+// Initial bytes, merged messages, and count are checked, without comparing every diagnostic field.
 //
 // 1. Configure a PluginSource that contributes one diagnostic for /a.ts.
 // 2. Send upstream publishDiagnostics for /a.ts with one upstream entry.
 // 3. Assert upstream diagnostics are forwarded first.
 // 4. Assert the async plugin publish contains both entries.
+//
+// @evidence contracts/testing.md#behavioral-verification Upstream diagnostics forward first, followed by exactly the upstream and plugin entries together.
+// @evidence contracts/testing.md#independent-expectations Two authored messages identify the entries independently of merging.
+// @evidence contracts/testing.md#distinguishing-cases Initial bytes, merged messages, and count are checked, without comparing every diagnostic field.
+// @evidence contracts/testing.md#execution-ownership The Go stub and pipe proxy exercise publication merging without a compiler server. Go discovers TestLSPProxyMergesPublishDiagnostics under ./test/driver.
 func TestLSPProxyMergesPublishDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

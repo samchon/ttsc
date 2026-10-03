@@ -36,16 +36,21 @@ import (
 // emits the half-reflowed shape. Single-line verbatim is always safe:
 // a node confined to one source line has no interior column to freeze.
 
-// PrintContext bundles the per-file inputs every per-node printer
-// needs. The dispatcher constructs one per top-level reflow and threads
-// it into every recursive call.
+// PrintContext bundles the source and options consumed by per-node printers.
+// The caller constructs it for a top-level reflow and passes it through
+// recursive dispatch. Its public fields are writable; keep File, Source and
+// Opts consistent and unchanged during that reflow.
 //
 // @evidence contracts/common.md#principled-implementation The source file, its exact text and resolved layout options keep recursive printers in one byte-coordinate and formatting context.
 // @evidence contracts/common.md#clear-and-simple-design One context groups stable per-file inputs instead of resolving policy in every node printer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Printers receive actual source and options rather than expected-output fragments or modified foreign AST methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies per-file scope and members describe source ownership and layout options; member gaps and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PrintContext is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintContext is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintContext struct {
-  // File is the immutable compiler source file being reflowed.
+  // File is the borrowed compiler source file; do not mutate it during reflow.
   File   *shimast.SourceFile
 
   // Source is the same file's original text, using compiler byte positions.
@@ -65,6 +70,10 @@ type PrintContext struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor establishes the recursive print inputs and default selection once.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are the public formatting policy rather than fixture-specific widths or source substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the nonnil premise and whole-default behavior; separated tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewPrintContext performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NewPrintContext has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction establishes caller-owned reflow inputs, not a request-result coordinator. Source state and options determine valid rendering, and public fields remain mutable; retaining or sharing this context across reflows requires the caller to preserve that identity and consistency.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned context keeps the borrowed SourceFile and its original text storage reachable without copying source bytes. Its caller owns context lifetime and reflow consistency, while the compiler/host owns source state. No historical context cache, handle or running task is created.
 func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext {
   if opts.PrintWidth == 0 {
     opts = DefaultPrintOptions()
@@ -73,22 +82,26 @@ func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext 
 }
 
 // PrintNode is the dispatcher entry. It picks a per-node printer based
-// on `node.Kind` and falls back to the verbatim source slice when no
+// on `node.Kind` and falls back to the leading-trivia-trimmed source slice when no
 // printer is registered. Returns the printed Doc and a `covered`
 // boolean: `true` when the whole printed subtree is reflow-safe,
 // `false` when a multi-line verbatim node is buried inside it.
 //
 // The formatPrintWidth rule consults `covered` to decide whether to
-// emit an edit at all — see the coverage-signal note at the top of this
+// emit an edit at all; see the coverage-signal note at the top of this
 // file. A `false` reading is a hard abstain, not a soft hint.
 //
 // A nonnil node requires a nonnil context for that node's source file. A nil
 // node contributes an empty Doc and is covered.
 //
-// @evidence contracts/common.md#principled-implementation Supported node printers return a layout plus coverage; unsupported nodes preserve original bytes and mark multiline verbatim subtrees unsafe for surrounding reflow.
+// @evidence contracts/common.md#principled-implementation Supported node printers return a layout plus coverage; unsupported nodes retain their trivia-trimmed source slice and classify its multiline boundary. The selected printer owns recursive coverage propagation.
 // @evidence contracts/common.md#clear-and-simple-design One dispatcher owns grammar selection and one fallback retains unknown syntax without duplicating per-node policies.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Verbatim fallback is the supported partial-printer boundary, not an invented replacement for unknown grammar; the false coverage signal prevents applying an incomplete rewrite.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains partial grammar coverage, byte-preserving fallback and abstention; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintNode performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects a grammar branch but delegates the subtree algorithm, scans and Doc allocation to its printer. Fallback scans leading trivia twice and checks the remaining node slice for newlines; that cost grows with trivia and range bytes, so a loop-free wrapper does not certify fixed total work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Dispatch owns no cross-request cache or coordinator. Context source/options and mutable AST/backing-storage identity determine valid Doc/coverage reuse; the caller establishes equivalence rather than this wrapper memoizing by node pointer.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned Doc may own printer-created child slices and keep original source string backing storage reachable through verbatim substrings. The caller owns resulting tree lifetime and printing immutability; selected printers establish child storage sharing. Dispatch keeps no historical Doc cache, handle or running task.
 func PrintNode(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
     return Doc{}, true

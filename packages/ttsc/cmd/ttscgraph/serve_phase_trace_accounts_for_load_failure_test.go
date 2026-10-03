@@ -12,6 +12,11 @@ import (
 //  1. Request a missing tsconfig with phase tracing enabled.
 //  2. Require a normal addressed error response rather than process failure.
 //  3. Require all five payload-free phases under mode=error.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServePhaseTraceAccountsForLoadFailure proves addressed requests retain a complete timing record even when no resident compiler session can be built.
+// @evidence contracts/testing.md#independent-expectations The expected trace lines are literals taken from the phase-trace format (owner=producer request=23 mode=error phase=<name> durationMs=) for each of the five phase names, and the privacy expectation is that the root path, the tsconfig name and any JSON brace do not appear. A load failure that skipped the trace or leaked the request fails.
+// @evidence contracts/testing.md#distinguishing-cases Request a missing tsconfig with phase tracing enabled; Require a normal addressed error response rather than process failure; Require all five payload-free phases under mode=error.
+// @evidence contracts/testing.md#execution-ownership TestServePhaseTraceAccountsForLoadFailure is a Go source-unit entry. It calls serveSnapshots in-process with a missing tsconfig name so session creation fails before any projection or Git acquisition; stderr is captured, and nothing is installed, built or launched.
 func TestServePhaseTraceAccountsForLoadFailure(t *testing.T) {
   root := graphSessionFixture(t)
   request := "{\"id\":23,\"graphSnapshotVersion\":1}\n"

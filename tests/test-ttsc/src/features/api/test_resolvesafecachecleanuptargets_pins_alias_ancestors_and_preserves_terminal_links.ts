@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/lib/internal/resolveSafeCacheCleanupTargets.js";
+import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src/internal/resolveSafeCacheCleanupTargets";
 
 /**
  * Verifies cache cleanup pins alias ancestors without following terminal links.
@@ -18,9 +18,13 @@ import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/lib
  * 2. Retarget the same alias while resolving a terminal cache link.
  * 3. Assert both deletion paths stay under the original physical parent and
  *    terminal-link destinations survive.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveSafeCacheCleanupTargets pins ancestor identity while preserving terminal links, so bounded deletion removes the original cache/link and preserves unrelated targets.
+ * @evidence contracts/testing.md#independent-expectations The independent victim and target sentinels, physical original cache and lexical terminal-link path establish the supported cleanup contract.
+ * @evidence contracts/testing.md#distinguishing-cases Two cases: an ordinary nested cache directory behind an alias retargeted after the targets were resolved but before deletion, and a terminal symlink/junction cache whose alias ancestor is retargeted from inside the lstat hook during resolution; the resolved path must stay under the original physical parent, removing it must not touch the victim tree, and a terminal link is removed itself while its destination survives.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveSafeCacheCleanupTargets and fs.rmSync directly over junctions/symlinks in a private temp directory; no ttsc clean command, process or native build.
  */
-export const test_resolvesafecachecleanuptargets_pins_alias_ancestors_and_preserves_terminal_links =
-  (): void => {
+export function test_resolvesafecachecleanuptargets_pins_alias_ancestors_and_preserves_terminal_links() {
     const root = TestProject.tmpdir("ttsc-clean-target-alias-");
     const project = path.join(root, "project");
     const original = path.join(root, "original");
@@ -121,4 +125,4 @@ export const test_resolvesafecachecleanuptargets_pins_alias_ancestors_and_preser
       fs.readFileSync(path.join(victimTerminalTarget, "keep.txt"), "utf8"),
       "target",
     );
-  };
+}

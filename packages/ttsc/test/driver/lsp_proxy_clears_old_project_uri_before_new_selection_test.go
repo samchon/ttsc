@@ -8,16 +8,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsOldProjectURIBeforeNewSelection verifies changing selected
+// TestLSPProxyClearsOldProjectURIBeforeNewSelection Verifies changing selected
 // configs cannot leave an orphaned project problem in the editor.
 //
 // The proxy must clear the prior URI before publishing the replacement set at
-// the new logical config URI. Both publications are unversioned because config
-// files are not the requested source document.
+// the new logical config URI. (Whether the publications carry a version is
+// not examined here; TestLSPProxyClearsCleanProjectPublication checks it.)
 //
 //  1. Publish a project finding at the first config URI.
 //  2. Re-evaluate with a second config URI.
 //  3. Assert the old empty frame precedes the new diagnostic frame.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run clears the old config before publishing one new finding.
+// @evidence contracts/testing.md#independent-expectations The independently supplied old/new URIs establish the ordered replacement contract.
+// @evidence contracts/testing.md#distinguishing-cases URI change checks counts/order; message contents and versions are not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyClearsOldProjectURIBeforeNewSelection in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyClearsOldProjectURIBeforeNewSelection(t *testing.T) {
   const oldURI = "file:///logical/old/tsconfig.json"
   const newURI = "file:///logical/new/tsconfig.json"

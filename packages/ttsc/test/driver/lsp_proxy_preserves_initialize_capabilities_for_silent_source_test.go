@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestLSPProxyPreservesInitializeCapabilitiesForSilentSource verifies a source
+// TestLSPProxyPreservesInitializeCapabilitiesForSilentSource Verifies a source
 // with no LSP contributions does not mutate upstream capability metadata.
 //
 // In particular, a `codeActionProvider` option object without plugin
@@ -15,6 +15,11 @@ import (
 // 1. Initialize through a NullPluginSource proxy.
 // 2. Return an upstream codeActionProvider option object.
 // 3. Assert the response body is forwarded byte-for-byte.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run preserves initialize capability options byte-for-byte.
+// @evidence contracts/testing.md#independent-expectations An authored resolveProvider-only object must not gain an empty kind restriction.
+// @evidence contracts/testing.md#distinguishing-cases Null source contrasts with contributing-source augmentation cases.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyPreservesInitializeCapabilitiesForSilentSource in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyPreservesInitializeCapabilitiesForSilentSource(t *testing.T) {
   h := newProxyHarness(t, nil)
   h.sendEditor([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}`))

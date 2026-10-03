@@ -6,23 +6,26 @@ import type { IGoBuildCachePruneOptions } from "./IGoBuildCachePruneOptions";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
- * Opportunistically bound one ttsc-owned Go object cache.
+ * Attempt byte-policy eviction of selected ordinary Go cache files.
  *
  * A maintenance intent blocks new build leases. If any existing lease remains,
- * maintenance yields without touching the cache; the next invocation retries.
- * Only Go's two-hex object directories are scanned, so coordination metadata
- * and Go's own trim marker remain outside the size policy.
+ * maintenance yields without object eviction; coordination metadata can still
+ * change. A later invocation may retry after normal admission checks. Only
+ * ordinary files immediately inside Go's two-hex buckets enter accounting;
+ * nested executable-cache directories, other kinds, coordination metadata and
+ * Go's trim marker are outside this byte policy. Missing observations or failed
+ * removals can leave actual storage above its thresholds without a hard bound.
  *
  * @evidence contracts/common.md#principled-implementation A published maintenance intent precedes the live-lease check, so builders and deletion coordinate over the same owned physical root before object eviction.
- * @evidence contracts/common.md#clear-and-simple-design Admission, lease exclusion, eviction and marker publication occur in order, with unconditional intent completion in finally.
+ * @evidence contracts/common.md#clear-and-simple-design Admission, lease exclusion, eviction and marker publication occur in order; finally invokes intent finish, whose completion/removal remain best-effort.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Go bucket spelling follows its object-cache layout; missing heartbeat startup yields instead of assuming exclusion.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lease exclusion and which populations are outside the byte policy; inline prose explains delayed over-budget retry.
- * @evidence contracts/portability.md#os-neutral-implementation Physical ordinary-root validation, native Dirents and per-file removals avoid shell operations and OS-default identity assumptions.
- * @evidence contracts/performance.md#efficient-algorithms One object scan and sorting cost O(objects log objects) time and O(objects) temporary metadata; byte totals avoid reading object contents.
+ * @evidence contracts/portability.md#os-neutral-implementation Observed ordinary-root spelling, native Dirents and per-file removals avoid shell operations and OS-default identity assumptions; sequential metadata checks do not pin later pathnames.
+ * @evidence contracts/performance.md#efficient-algorithms Listing includes root/bucket entries and their names; selected-file native stats and two O(N log N) numeric sorts account for N observed files without reading payload bytes. Arrays/Sets retain path text and metadata. Root validation, marker bytes, lease-record scans and heartbeat startup add delegated native/JSON costs; inaccessible observations can undercount rather than certify total disk usage.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go establishes object equivalence; maintenance chooses eviction rather than reusable computation identity.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources The 8 GiB trigger targets 6 GiB with a bounded recent cohort; live leases and failed deletions defer it, and maintenance intent is always finished.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Default 8 GiB triggers removal toward 6 GiB of accounted files, with a target-sized metadata-recent reserve. Live/unknown leases, missing observations, excluded kinds and failed deletion prevent a hard disk bound. Finally calls intent finish, but refresher termination is unjoined and record cleanup can fail; marker pacing requires another invocation and does not schedule maintenance itself.
  */
 export function pruneGoBuildCacheRoot(
   root: string,
@@ -94,8 +97,9 @@ export function pruneGoBuildCacheRoot(
 
 // Go's own object-cache trim is age-based and has no size ceiling. The default
 // ttsc-owned cache therefore triggers collection above 8 GiB and trims toward
-// 6 GiB. The newest target-sized set used within an hour remains protected so
-// crossing the ceiling cannot immediately force another cold build.
+// 6 GiB of selected ordinary files. A target-sized newest cohort eligible by
+// observed mtime (including the declared one-hour access granularity allowance)
+// is reserved; this is not proof of actual recent use or a hard storage ceiling.
 const GO_BUILD_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const GO_BUILD_CACHE_MAX_BYTES = 8 * 1024 * 1024 * 1024;

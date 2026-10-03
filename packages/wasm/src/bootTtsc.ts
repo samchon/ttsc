@@ -16,12 +16,10 @@ import type { ITtscApi } from "./structures/ITtscApi";
 declare const importScripts: (...urls: string[]) => void;
 
 /**
- * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName alone
- * would let a second call with the same apiName but a different wasmUrl
- * silently return the cached IBootResult of the first wasm. The caller would
- * think they booted a fresh binary while the cached one stayed in place. The
- * composite key lets HMR / cache-busting query strings get a fresh boot while
- * still single-flighting genuine concurrent duplicate calls.
+ * One boot attempt shared by every caller that names the same API and binary.
+ * `controller` cancels the shared attempt, `host` is the filesystem its runtime
+ * binds, and `wasmExecUrl` is the runtime script it loaded; a joining caller
+ * must not name a different host or script.
  */
 interface BootInFlight {
   controller: AbortController;
@@ -35,6 +33,14 @@ interface BootCancellationReason {
   reason?: unknown;
 }
 
+/**
+ * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName alone
+ * would let a second call with the same apiName but a different wasmUrl
+ * silently return the cached IBootResult of the first wasm. The caller would
+ * think they booted a fresh binary while the cached one stayed in place. The
+ * composite key lets HMR / cache-busting query strings get a fresh boot while
+ * still single-flighting genuine concurrent duplicate calls.
+ */
 const bootsInFlight = new Map<string, BootInFlight>();
 
 /**

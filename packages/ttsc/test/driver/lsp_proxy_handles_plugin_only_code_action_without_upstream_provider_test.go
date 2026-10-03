@@ -8,15 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyHandlesPluginOnlyCodeActionWithoutUpstreamProvider verifies
-// plugin-only codeAction requests stay local without upstream support.
+// TestLSPProxyHandlesPluginOnlyCodeActionWithoutUpstreamProvider Verifies that plugin-only code actions remain local when upstream advertises no action provider.
 //
-// This keeps plugin actions usable without introducing a short timeout that can
-// race and drop slow upstream TypeScript actions.
+// Initialize false precedes the source.fixAll.ttsc request.
 //
 // 1. Initialize with `codeActionProvider: false`.
 // 2. Send a source.fixAll.ttsc codeAction request.
 // 3. Assert it is not forwarded upstream and the editor receives the plugin action.
+//
+// @evidence contracts/testing.md#behavioral-verification Plugin-only code actions remain local when upstream advertises no action provider.
+// @evidence contracts/testing.md#independent-expectations The explicit only kind belongs to the plugin; its fixed action title defines the result.
+// @evidence contracts/testing.md#distinguishing-cases Initialize false precedes the source.fixAll.ttsc request.
+// @evidence contracts/testing.md#execution-ownership The Go proxy harness observes the local action and 150 milliseconds of upstream silence. Go discovers TestLSPProxyHandlesPluginOnlyCodeActionWithoutUpstreamProvider under ./test/driver.
 func TestLSPProxyHandlesPluginOnlyCodeActionWithoutUpstreamProvider(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions:  []driver.LSPCodeAction{{Title: "Fix all", Kind: "source.fixAll.ttsc"}},

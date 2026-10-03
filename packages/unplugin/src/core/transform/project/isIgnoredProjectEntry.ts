@@ -16,6 +16,14 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
  * @evidence contracts/common.md#clear-and-simple-design One condition gates the shared fallback predicate, so walkers and event classifiers do not maintain competing ignore lists.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable configurations do not lose explicitly admitted hidden or package entries through an unconditional host-name blacklist.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the fallback premise, literal-entry behavior and the shared consumers that require consistent classification.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares an entry name with the ignored-name predicate; no path is parsed.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isIgnoredProjectEntry(
   name: string,

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import type { WatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBroker.mjs";
-import { drainWatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/drainWatchBroker.mjs";
-import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/routeWatchBrokerMessage.mjs";
-import { settleMutationTrackers } from "../../../../../packages/unplugin/lib/core/transform/tracker/settleMutationTrackers.mjs";
+import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import type { WatchBroker } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
+import { drainWatchBroker } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/drainWatchBroker";
+import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/routeWatchBrokerMessage";
+import { settleMutationTrackers } from "../../../../../packages/unplugin/src/core/transform/tracker/settleMutationTrackers";
 
 /**
  * Verifies a drain the watch broker never answered proves nothing, and leaves
@@ -22,6 +22,11 @@ import { settleMutationTrackers } from "../../../../../packages/unplugin/lib/cor
  *    drain gives up without holding once the wait runs out.
  * 3. Settle a tracker whose drain held and one whose drain did not, and assert
  *    only the second is unverified.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls drainWatchBroker, routeWatchBrokerMessage and settleMutationTrackers with scripted children; asserts answered drain true, send failure/timeout false, elapsed timeout, empty pending state and unverified only for unheld trackers.
+ * @evidence contracts/testing.md#independent-expectations A drain certifies delivery only when the child actually acknowledges. Literal booleans and tracker authority follow this protocol contract; the elapsed lower bound distinguishes waiting for a busy child from immediate abandonment.
+ * @evidence contracts/testing.md#distinguishing-cases Owns answered, unsent and silent requests, undefined tracker input, held/unheld tracker settlement and timeout cleanup. Child methods are local stand-ins, so native IPC ordering is outside this unit case.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real drainWatchBroker, routeWatchBrokerMessage and settleMutationTrackers against WatchBroker objects whose child is a stub with a scripted send (answers through a microtask, refuses, or stays silent) and trackers with a scripted drain. The silent case waits for a real 100 ms timeout. No child process or IPC channel is involved.
  */
 export async function test_watch_broker_unanswered_drain_proves_nothing(): Promise<void> {
   const openBroker = (send: (message: { id: number }) => boolean) => {

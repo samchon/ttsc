@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReloadEventShouldNotify.js";
+import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReloadEventShouldNotify";
 
 /**
  * Verifies a declared glob's root is data even inside a resolution directory.
@@ -27,12 +27,16 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  *
  * 1. Take a resolution directory holding both a glob root and a declared file.
  * 2. Assert the glob root stays warm and the declared file stays cold.
- * 3. Assert the directory itself and its other entries stay cold when named.
- * 4. Assert the directory's own digest delta alone does not select cold.
- * 5. Assert a data event cancels no other directory's digest evidence.
+ * 3. Assert the directory itself and its other entries stay cold when named, and
+ *    that its own digest delta alone does not select cold.
+ * 4. Assert a data event cancels no other directory's digest evidence.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual reload-event policy distinguishes warm data territory from cold selection surfaces, including named events versus directory fingerprint deltas.
+ * @evidence contracts/testing.md#independent-expectations Explicit path populations, literal true/false lane expectations and independent changedInputs tuples define the expected policy.
+ * @evidence contracts/testing.md#distinguishing-cases A glob root and a member below it stay warm while a declared file beside it, the resolution directory itself and an unrelated entry go cold; a directory digest delta with no event, with an event naming non-data, or with a deep data event goes cold while one explained by a data event on an immediate entry stays warm; globs rooted on or above the resolution directory exempt nothing; and one directory's data event never cancels another directory's (node_modules or ancestor) digest delta.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls only projectInputReloadEventShouldNotify with path strings under a TestProject.tmpdir (the directory exists, the entries are never created). The test does not construct a WatchTopology and opens no watcher.
  */
-export const test_watch_topology_separates_glob_territory_from_selection =
-  (): void => {
+export function test_watch_topology_separates_glob_territory_from_selection() {
     const root = TestProject.tmpdir("ttsc-project-input-territory-");
     const globRoot = path.join(root, "api");
     const declaredFile = path.join(root, "guard-state.txt");
@@ -199,4 +203,4 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       true,
       "a deep data event cannot account for the directory's own digest delta",
     );
-  };
+}

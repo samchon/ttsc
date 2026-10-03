@@ -16,13 +16,10 @@ const ANSI_REGEXP = /\x1b\[[0-9;]*m/g;
  * Parse the lint plugin's stderr (tsgo-style pretty diagnostics) into the
  * playground's normalized diagnostic shape.
  *
- * @evidence contracts/common.md#principled-implementation The parser recognizes the supported pretty-diagnostic grammar after removing actual ANSI SGR escapes and converts its one-based coordinates to UI records.
+ * @evidence contracts/common.md#principled-implementation The parser recognizes the supported pretty-diagnostic grammar after removing actual ANSI SGR escapes and carries its one-based line and column unchanged into UI records.
  * @evidence contracts/common.md#clear-and-simple-design Matching and record construction stay in one pass; token-span inference remains a local helper rather than a second diagnostic protocol.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown lines are omitted as non-diagnostics; the owning pipeline separately reports plugin failure instead of treating every empty parse as success.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies producer format and normalization responsibility; nearby comments explain ANSI matching reasons under the documentation skill.
- * @evidence contracts/performance.md#efficient-algorithms Stderr normalization and source-line indexing each occur once per parse; each matched finding inspects only its referenced source line, avoiding a complete source split for every diagnostic. Temporary arrays grow with stderr lines, source lines and findings.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation parses one completed output and does not coordinate sharing across lint requests; per-parse line indexing is part of its algorithm.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Line indexes are local temporaries and findings transfer to the caller; no retained cache or native handle is owned here.
  */
 export function parseLintDiagnostics(
   stderr: string,

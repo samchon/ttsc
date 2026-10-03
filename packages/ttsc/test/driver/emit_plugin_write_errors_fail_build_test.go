@@ -12,7 +12,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Verifies write failures remain failures on every plugin output lane.
+// TestEmitPluginWriteErrorsFailBuild Verifies write failures remain failures on every plugin output lane.
 //
 // The declaration emitter converts callback errors into diagnostics, whereas
 // JS and buffered flushes return Go errors directly. All must reject success.
@@ -20,6 +20,11 @@ import (
 // 1. Configure JavaScript, declarations and both source maps.
 // 2. Fail each artifact's callback with and without noEmitOnError buffering.
 // 3. Assert a non-nil error preserving the write failure message.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitWithPluginTransformers invokes each failing output callback and returns a non-nil error containing its message.
+// @evidence contracts/testing.md#independent-expectations The injected output device unavailable error must prevent a successful build, regardless of which artifact fails.
+// @evidence contracts/testing.md#distinguishing-cases JavaScript, JavaScript map, declaration and declaration map failures each run with immediate and noEmitOnError-buffered writes.
+// @evidence contracts/testing.md#execution-ownership Go discovers this direct driver emit unit in test/driver; temporary projects and injected callbacks require no compiled host.
 func TestEmitPluginWriteErrorsFailBuild(t *testing.T) {
   for _, buffered := range []bool{false, true} {
     for _, file := range []string{"index.js", "index.js.map", "index.d.ts", "index.d.ts.map"} {

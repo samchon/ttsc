@@ -15,9 +15,9 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported non-file dependencies are honestly represented by volatility rather than replaced by fixture hashes or a promise that file inputs prove them stable.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains non-file inputs and both replay consequences, along with per-envelope set reuse; separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Declaration and queried file share the envelope's native filesystem identity context, so relative/absolute aliases and filesystem case behavior are not hand-normalized.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The set retains only declared physical identities on weakly owned generation state and opens no watcher or file handle; its lifetime ends with that state.
  * @evidence contracts/performance.md#efficient-algorithms One linear declaration fold builds a set; subsequent module queries use keyed membership and memoized path identity instead of repeated whole-list scans.
  * @evidence contracts/performance.md#reuse-equivalent-work The memoized set is valid for the immutable declaration, project root and identity context of one envelope generation; unrelated result objects cannot share it.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The set retains only declared physical identities on weakly owned generation state and opens no watcher or file handle; its lifetime ends with that state.
  */
 export function isVolatileFile(
   state: TtscEnvelopeDerivation,

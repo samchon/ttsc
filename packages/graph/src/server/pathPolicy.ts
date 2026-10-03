@@ -10,6 +10,10 @@ type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
  * @evidence contracts/common.md#clear-and-simple-design One predicate owns external selection for projections.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection follows provenance and dependency coordinates rather than named repositories.
  * @evidence contracts/common.md#meaningful-documentation The native headline states dependency-boundary meaning; the predicate uses portable graph coordinates rather than native paths.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one flag read and two string tests on a single coordinate.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation classifies a slash-normalized coordinate string from the dump and never touches the filesystem.
  */
 export function isExternalNode(node: ITtscGraphNode): boolean {
   return (
@@ -28,6 +32,10 @@ export function isExternalNode(node: ITtscGraphNode): boolean {
  * @evidence contracts/common.md#clear-and-simple-design One suffix predicate is reused by body and support-file policies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambient status is not guessed from fixture names or missing written declare keywords.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains why ambient declarations are bodyless regardless of modifier spelling.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one suffix test on a single coordinate.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation tests the suffix of a coordinate string and never touches the filesystem.
  */
 export function isDeclarationFile(file: string): boolean {
   return /\.d\.[cm]?ts$/.test(file);
@@ -43,6 +51,10 @@ export function isDeclarationFile(file: string): boolean {
  * @evidence contracts/common.md#clear-and-simple-design One policy combines conventional support categories for rankers rather than duplicating regexes in each runner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The heuristic uses general path categories and does not hardcode benchmark repositories or expected symbols.
  * @evidence contracts/common.md#meaningful-documentation Native prose states heuristic status and its provenance limitation rather than certifying generated source from naming.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms a fixed handful of string and pattern tests on a single coordinate.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation classifies a slash-normalized coordinate string from the dump and never touches the filesystem.
  */
 export function isSupportPath(file: string): boolean {
   return (
@@ -69,6 +81,10 @@ export function isSupportPath(file: string): boolean {
  * @evidence contracts/common.md#clear-and-simple-design The test subset has one predicate separate from the broader support-file policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Returned test anchors follow general conventions rather than an expected benchmark answer list.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains conventional selection and its lack of behavioral verification.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms two pattern tests on a single coordinate.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation classifies a slash-normalized coordinate string from the dump and never touches the filesystem.
  */
 export function isTestPath(file: string): boolean {
   return (
@@ -87,6 +103,10 @@ export function isTestPath(file: string): boolean {
  * @evidence contracts/common.md#clear-and-simple-design The API projection adds its own two exclusions to the common support predicate.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Heuristic API visibility does not rewrite the producer's actual export table.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes likely authored API from supported importability.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms a fixed handful of pattern tests on a single coordinate.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation classifies a slash-normalized coordinate string from the dump and never touches the filesystem.
  */
 export function isPublicApiNoisePath(file: string): boolean {
   return (

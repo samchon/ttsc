@@ -1,10 +1,11 @@
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../E2eProcessTrace";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
 import { TestProject } from "../TestProject";
+import { getNativeLintProducer, linkNativeLintPackage } from "../NativeLintProducer";
 
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
@@ -99,13 +100,6 @@ export namespace TestLint {
     message: string;
   }
 
-  /** Expected diagnostic encoded in a fixture expectation comment. */
-  export interface ILintExpectation {
-    rule: string;
-    severity: LintSeverity;
-    line: number;
-  }
-
   /**
    * Inputs needed to synthesize and execute one lint fixture project.
    *
@@ -132,6 +126,8 @@ export namespace TestLint {
     sourcePath?: string;
     /** Optional nonexistent or empty disposable root under the OS temp dir. */
     projectRoot?: string;
+    /** Explicit immutable producer reuse; source/cache mutation cases use workspace. */
+    nativeProducer?: "workspace" | "snapshot";
     rules?: Record<string, LintRuleConfigEntry>;
     pluginConfig?: Record<string, unknown>;
     extraSources?: Record<string, string>;
@@ -223,7 +219,7 @@ export namespace TestLint {
           "utf8",
         );
       }
-      seedNodeModulesLink(tmpdir);
+      seedNodeModulesLink(tmpdir, options.nativeProducer);
       for (const linkedNodeModule of linkedNodeModules) {
         linkNodeModulePackage(tmpdir, linkedNodeModule);
       }
@@ -243,13 +239,14 @@ export namespace TestLint {
     args: string[] = [],
     env: NodeJS.ProcessEnv = {},
   ): IRunLintResult {
-    const result = spawnSync(
+    const result = E2eProcessTrace.spawnSync(
       process.execPath,
       [TTSC_BIN, "--cwd", tmpdir, ...args, "--noEmit"],
       {
         cwd: tmpdir,
         env: {
           ...process.env,
+          GOCACHE: TestProject.sharedGoBuildCache(),
           ...env,
           TTSC_CACHE_DIR: SHARED_CACHE_DIR,
           TTSC_TTSX_BINARY: TTSX_BIN,
@@ -575,16 +572,15 @@ export namespace TestLint {
   }
 
   /** Link the workspace @ttsc/lint package as if the fixture had installed it. */
-  function seedNodeModulesLink(tmpdir: string): void {
+  function seedNodeModulesLink(
+    tmpdir: string,
+    nativeProducer?: "workspace" | "snapshot",
+  ): void {
     const linkParent = path.join(tmpdir, "node_modules", "@ttsc");
     fs.mkdirSync(linkParent, { recursive: true });
     const link = path.join(linkParent, "lint");
-    try {
-      fs.symlinkSync(LINT_PACKAGE_DIR, link, "junction");
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== "EEXIST") throw err;
-    }
+    const source = nativeProducer === "snapshot" ? getNativeLintProducer().packageRoot : LINT_PACKAGE_DIR;
+    linkNativeLintPackage(source, link);
   }
 
   /** Link optional runtime dependencies used by ESLint-backed config tests. */
@@ -681,92 +677,6 @@ export namespace TestLint {
         rule,
         message: message.trim(),
       });
-    }
-    return out;
-  }
-
-  /**
-   * Read standalone line or JSX-block expectation comments and return the
-   * target line each one anchors to. Mirrors the ttsc plugin corpus expectation
-   * format.
-   *
-   * Blank lines and stacked expectation annotations between the marker and its
-   * target are skipped. A `@ts-expect-error` / `@ts-ignore` suppressor is also
-   * skipped unless the rule being tested is `ban-ts-comment` itself. Malformed
-   * markers and markers without a following target fail immediately.
-   */
-  export function parseExpectations(source: string): ILintExpectation[] {
-    const lines = source.split(/\r?\n/);
-    const expected: ILintExpectation[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const marker = parseExpectationMarker(lines[i] ?? "", i + 1);
-      if (marker === null) continue;
-      const { rule, severity } = marker;
-      // Skip blank lines and other expectation annotations stacked
-      // above the same target, but NOT regular comment lines — rules
-      // like typescript/ban-ts-comment / typescript/triple-slash-reference
-      // fire on a comment itself, and the convention is to put the
-      // annotation right above the line it pins.
-      let target = i + 1;
-      while (
-        target < lines.length &&
-        (/^\s*$/.test(lines[target] ?? "") ||
-          parseExpectationMarker(lines[target] ?? "", target + 1) !== null ||
-          (rule !== "typescript/ban-ts-comment" &&
-            /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(
-              lines[target] ?? "",
-            )))
-      ) {
-        target++;
-      }
-      if (target >= lines.length) {
-        throw new Error(
-          `lint expectation at line ${i + 1} has no following target`,
-        );
-      }
-      expected.push({ rule, severity, line: target + 1 });
-    }
-    return expected;
-  }
-
-  function parseExpectationMarker(
-    line: string,
-    lineNumber: number,
-  ): { rule: string; severity: LintSeverity } | null {
-    const isLineMarker = /^\s*\/\/\s*expect\b/.test(line);
-    const isJsxMarker = /^\s*\{\s*\/\*\s*expect\b/.test(line);
-    if (!isLineMarker && !isJsxMarker) return null;
-
-    const match = isLineMarker
-      ? line.match(/^\s*\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/)
-      : line.match(
-          /^\s*\{\s*\/\*\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*\*\/\s*\}\s*$/,
-        );
-    if (!match?.[1] || !match[2]) {
-      throw new Error(
-        `malformed lint expectation at line ${lineNumber}; expected ` +
-          "`// expect: <rule> <error|warn>` or " +
-          "`{ /* expect: <rule> <error|warn> */ }`",
-      );
-    }
-    return {
-      rule: match[1],
-      severity: match[2] as LintSeverity,
-    };
-  }
-
-  /**
-   * Build a `rules` map for tsconfig from the expectations parsed out of a
-   * fixture file. Every rule that appears in an expectation annotation is
-   * enabled at its annotated severity; everything else is implicitly off (the
-   * default for unconfigured rules).
-   */
-  export function rulesFromExpectations(
-    expected: ILintExpectation[],
-  ): Record<string, LintSeverity> {
-    const out: Record<string, LintSeverity> = {};
-    for (const exp of expected) {
-      out[exp.rule] = exp.severity;
     }
     return out;
   }

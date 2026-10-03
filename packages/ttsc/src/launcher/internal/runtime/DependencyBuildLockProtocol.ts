@@ -13,13 +13,16 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  * its owner. It is only ever freed by renaming it to its deterministic
  * tombstone `<lockDir>/retired/<generation>`, so a late or duplicate retire of
  * an old generation finds the tombstone occupied and fails instead of moving a
- * successor. This mirrors the source-plugin lock protocol.
+ * successor under a stable cooperative namespace, noncolliding generation
+ * identities and retained tombstones for outstanding fences. The protocol
+ * does not authenticate a supplied identifier or pin the namespace with a
+ * filesystem handle. This mirrors the source-plugin lock protocol.
  *
- * @evidence contracts/common.md#principled-implementation Deterministic per-generation tombstones make duplicate or stale retirement fail against an occupied destination instead of moving a successor, preserving the generation fence across holders.
+ * @evidence contracts/common.md#principled-implementation Deterministic per-generation tombstones reject duplicate or stale retirement under the cooperative namespace, noncollision and retained-history premises; the identifier is not independently authenticated.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns lock layout, timing constants and retirement, leaving acquisition and observation to their distinct operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retirement uses the supported atomic rename protocol rather than clearing current recursively or inferring authority from a timeout alone.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains current and retired roles and successor safety; constants describe their units and individual retirement/diagnostic functions document their effects.
- * @evidence contracts/portability.md#os-neutral-implementation Native path construction and shared retireLockDirectory isolate Windows peer-handle and POSIX rename semantics without reproducing platform error logic here.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains current and retired roles and conditional successor safety; constants describe policy units and individual retirement/diagnostic functions document their effects.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path/fs represent the native lock layout; shared retireLockDirectory classifies missing or occupied destinations and Windows refusals eligible for retry after a sibling probe. That sample does not prove a peer holds the source, and namespace stability remains a cooperative caller premise.
  *
  * @evidenceExclude contracts/performance.md#efficient-algorithms This namespace groups layout and operations; the retirement and duration functions explain their own costs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The namespace has no completed computation cache; build sharing belongs to the lock's caller.
@@ -42,28 +45,31 @@ export namespace DependencyBuildLockProtocol {
    */
   export const DEP_BUILD_LOCK_POLL_MS = 50;
 
-  /** Maximum wait for a live generation before a runtime operation fails safe. */
+  /** Elapsed-time policy threshold checked between runtime acquisition attempts; not a native IO or retirement deadline. */
   export const DEP_BUILD_LOCK_WAIT_MS = 600_000;
 
   /** File inside a generation directory recording the holder's pid and host. */
   export const DEP_BUILD_LOCK_OWNER_FILE = "owner.json";
 
   /**
-   * Retire `generation` if it is still the held one, by renaming `current` onto
-   * its tombstone. Returns `false` when the lock is already free or held by
-   * another generation; throws only on an unexpected filesystem error.
-   * Peer-held handles can delay retirement without an independent deadline.
+   * Retire a caller-acquired or observed `generation` by renaming `current`
+   * onto its tombstone. With stable cooperative layout, noncolliding ids and
+   * retained tombstones, an old fence cannot move a successor. The operation
+   * validates spelling but does not reread or authenticate current ownership.
+   * Invalid spelling, missing layout or an occupied destination returns false;
+   * unexpected filesystem errors propagate. Eligible Windows refusals retry
+   * after a sibling probe without an independent retirement deadline.
    *
-   * @evidence contracts/common.md#principled-implementation A valid generation selects its fixed tombstone, whose occupied destination rejects stale or duplicate rename; no observation can retire a newer generation through an older fence.
+   * @evidence contracts/common.md#principled-implementation A caller-acquired or observed generation selects its fixed tombstone; an occupied historical destination rejects stale rename under the stable namespace, noncollision and retained-history premises rather than authenticating a supplied string.
    * @evidence contracts/common.md#clear-and-simple-design The operation validates the identifier and prepares retired before delegating one native rename boundary; polling behavior is supplied explicitly to the shared owner.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing layout returns false and unexpected errors propagate; no unconditional deletion bypasses the deterministic destination fence.
-   * @evidence contracts/common.md#meaningful-documentation Native prose describes false, unexpected errors and peer-handle delay instead of promising universally bounded cleanup.
-   * @evidence contracts/portability.md#os-neutral-implementation The shared native retirement helper classifies platform rename and peer-handle contention; all protocol paths use Node path/fs semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Retirement touches fixed current and destination paths; peer-handle retries sleep 50 milliseconds instead of spinning, and do not scan retired history.
+   * @evidence contracts/common.md#meaningful-documentation Native prose describes input authority premises, actual false/error branches and sampled Windows retry eligibility instead of certifying current ownership or bounded cleanup.
+   * @evidence contracts/portability.md#os-neutral-implementation Node path/fs construct current and destination in the caller's native namespace. The shared helper isolates platform rename errors and sampled Windows retry eligibility; a successful sibling probe does not certify a peer actor or pin the source namespace.
+   * @evidence contracts/performance.md#efficient-algorithms Generation validation and path construction scale with supplied text; mkdir and delegated rename/existence/random sibling probe/removal perform native work. Each eligible retry allocates a four-byte wait view and yields 50 milliseconds, with no attempt cap or explicit retired-history scan; recursive probe removal remains delegated work.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes generation ownership and cannot reuse a past boolean as authority for a new effect.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Retired generations remain one tombstone each while stale fences can exist; their population grows with acquisitions until the container is removed, and peer-handle release waiting has no separate deadline.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Retired generations remain one tombstone each while stale fences can exist; population grows until the caller removes the container under its coordination policy. Eligible retries have no deadline and failed best-effort probe cleanup can leave sibling artifacts; false or a native exception is not a successful release.
    */
   export function retireDependencyBuildLock(
     lockDir: string,

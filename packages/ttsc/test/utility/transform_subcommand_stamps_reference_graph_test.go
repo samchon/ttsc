@@ -26,7 +26,7 @@ type utilityTransformResultWithGraph struct {
 // TestTransformSubcommandStampsReferenceGraph verifies the linked-plugin
 // generic host's transform envelope carries the host-owned reference graph.
 //
-// Implements samchon/ttsc#716: producing the `graph` section must not be
+// Producing the `graph` section must not be
 // per-plugin work — every plugin that routes its envelope through the driver
 // SDK host emits it automatically, so the stale-bundler-cache bug class is
 // closed by default. The section's keys must match the typescript map's keys
@@ -38,6 +38,11 @@ type utilityTransformResultWithGraph struct {
 //  3. Assert graph.edges carries the type-only edge, graph.globals the
 //     ambient file, and graph.configs the tsconfig, all keyed like the
 //     typescript map.
+//
+// @evidence contracts/testing.md#behavioral-verification The transform envelope's graph carries the type-only edge, the ambient global file and the tsconfig, keyed like the typescript map.
+// @evidence contracts/testing.md#independent-expectations The edges, globals and configs are the authored project's actual relationships written literally.
+// @evidence contracts/testing.md#distinguishing-cases A type-only import and an ambient declaration are inputs that bundlers would erase; their presence distinguishes a complete graph.
+// @evidence contracts/testing.md#execution-ownership TestTransformSubcommandStampsReferenceGraph is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformSubcommandStampsReferenceGraph(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

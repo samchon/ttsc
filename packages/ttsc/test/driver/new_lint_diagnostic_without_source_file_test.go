@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverNewLintDiagnosticWithoutSourceFile verifies detached lint findings
+// TestDriverNewLintDiagnosticWithoutSourceFile Verifies detached lint findings
 // keep stable severity and message data.
 //
 // Plugins can report configuration-level findings before a source file exists,
@@ -15,6 +15,11 @@ import (
 // 1. Create a warning lint diagnostic without a source file.
 // 2. Assert source location fields stay empty.
 // 3. Assert warning severity does not increment the build error count.
+//
+// @evidence contracts/testing.md#behavioral-verification NewLintDiagnostic preserves detached warning data and CountErrors returns zero.
+// @evidence contracts/testing.md#independent-expectations Authored warning severity, code 7001 and message establish literal expected fields.
+// @evidence contracts/testing.md#distinguishing-cases Nil source with negative offsets must have empty locations; error severity is separate.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverNewLintDiagnosticWithoutSourceFile is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverNewLintDiagnosticWithoutSourceFile(t *testing.T) {
   diag := driver.NewLintDiagnostic(nil, -1, -1, 7001, driver.SeverityWarning, "detached warning")
   if diag.File != "" || diag.Line != 0 || diag.Column != 0 || diag.Start != nil || diag.Length != nil {

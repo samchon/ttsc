@@ -16,12 +16,18 @@ import { envelopeDerivation } from "./envelopeDerivation";
  *
  * @evidence contracts/common.md#principled-implementation Exact project keys take precedence and a physical-identity index handles alternate producer spellings; returned dependencies resolve against the project root but deduplicate lexically so alias retargeting remains observable.
  * @evidence contracts/common.md#clear-and-simple-design Lookup and list normalization are local stages, while generation ownership, project key semantics and identity indexing stay with their shared helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternate-spelling lookup supports actual absolute/relative producer keys and first-match precedence; malformed lists are omitted rather than replaced with guessed dependencies or consumer-specific paths.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Only own producer entries can take exact-key precedence; inherited object members cannot suppress alternate-spelling fallback. Actual absolute/relative keys retain first-match precedence, and malformed lists yield no guessed dependencies.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains empty outcomes, exact/fallback key lookup and why lexical aliases survive; tags have a separate block under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve handles dependency spelling, while toProjectKey and the shared identity context handle physical key matching without assuming case sensitivity or path separators from the OS name.
- * @evidence contracts/performance.md#efficient-algorithms Exact key access avoids scanning the record; one lazy first-match index serves later misses, and one pass over the selected list uses a set for lexical deduplication.
- * @evidence contracts/performance.md#reuse-equivalent-work The dependency index shares the immutable envelope's producer map and root across deliveries; normalization still returns a fresh array because only keyed lookup, not the final list, is memoized here.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The index retains at most one producer list per physical key on weak generation state; returned arrays belong to callers, and temporary deduplication sets or filesystem handles are not retained by this selector.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Native project-key/path/identity work precedes the own record lookup. Cold
+ *   fallback materializes producer entries and resolves their identities;
+ *   later requests share that index. Each selected dependency occurrence still
+ *   resolves native lexical text and probes a Set before output, even when
+ *   duplicated. Query/list/producer path text, native context observations and
+ *   temporary entry pairs/normalized arrays drive costs, not only list count.
+ * @evidence contracts/performance.md#reuse-equivalent-work The dependency index shares the immutable envelope's producer map and root across deliveries; normalization still returns a fresh array because only keyed lookup, not the final list, is memoized here.
  */
 export function selectFileDependencies(props: {
   file: string;
@@ -41,7 +47,9 @@ export function selectFileDependencies(props: {
     props.file,
     state.identityContext,
   );
-  let entries = dependencies[key];
+  let entries = Object.prototype.hasOwnProperty.call(dependencies, key)
+    ? dependencies[key]
+    : undefined;
   if (entries === undefined) {
     const index = (state.dependencyIndex ??= createEnvelopeKeyIndex(
       state,

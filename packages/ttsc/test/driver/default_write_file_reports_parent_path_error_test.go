@@ -17,6 +17,10 @@ import (
 // 1. Create a regular file where the output directory should be.
 // 2. Ask DefaultWriteFile to write a child path under that file.
 // 3. Assert the parent creation error is returned to the caller.
+// @evidence contracts/testing.md#behavioral-verification Calls DefaultWriteFile with a child path beneath an existing regular file and requires a returned error.
+// @evidence contracts/testing.md#independent-expectations An authored regular-file parent cannot contain a child; the expected failure follows filesystem topology rather than implementation message text.
+// @evidence contracts/testing.md#distinguishing-cases A regular-file obstruction avoids platform-dependent permission assumptions and contrasts the sibling nested-parent success.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit invokes the direct writer on its private t.TempDir; no compiler host or producer runs.
 func TestDriverDefaultWriteFileReportsParentPathError(t *testing.T) {
   root := t.TempDir()
   blocked := filepath.Join(root, "blocked")

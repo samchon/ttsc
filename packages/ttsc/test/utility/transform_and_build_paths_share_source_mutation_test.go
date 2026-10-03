@@ -38,6 +38,11 @@ func (sharedMutationPlugin) SourcePreamble(driver.PluginContext) (string, error)
 //
 // Both runs use one shared plugin registration and one shared project tree, so
 // the only variable is the pipeline.
+//
+// @evidence contracts/testing.md#behavioral-verification One linked plugin mutation shows up both in the transform envelope's TypeScript text and in the JavaScript that build writes to disk for the same project.
+// @evidence contracts/testing.md#independent-expectations The injected runtime declaration is a literal string authored by the test plugin and looked up in both outputs.
+// @evidence contracts/testing.md#distinguishing-cases Transform and build are the two pipelines; a mutation visible in only one fails the other assertion.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformAndBuildPathsShareSourceMutation is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformAndBuildPathsShareSourceMutation(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(sharedMutationPlugin{})

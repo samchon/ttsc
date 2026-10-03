@@ -17,6 +17,11 @@ import "testing"
 //  2. Assert the scanner's scope and the `cursorInJSDoc` answer derived from it.
 //  3. Keep a real block adjacent to each impostor, so a scanner that simply
 //     refused everything could not pass.
+//
+// @evidence contracts/testing.md#behavioral-verification Strings, templates, regex classes and line comments that contain '/**' are classified as non-doc scope, and a real block next to each is classified as doc scope.
+// @evidence contracts/testing.md#independent-expectations Expected scopes are literals per case.
+// @evidence contracts/testing.md#distinguishing-cases Each impostor token kind is paired with a real block, so a scanner that refused everything could not pass.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionScopeIgnoresJSDocBytesInLiterals is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
   cases := []struct {
     name string

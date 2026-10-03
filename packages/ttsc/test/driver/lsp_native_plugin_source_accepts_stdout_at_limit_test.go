@@ -18,9 +18,15 @@ import (
 // 1. Build a sidecar whose diagnostics payload is padded to exactly 4 MiB.
 // 2. Ask NativePluginSource for diagnostics.
 // 3. Assert the payload decodes and no bridge error is logged.
+//
+// @evidence contracts/testing.md#behavioral-verification Diagnostics decodes one diagnostic from an exactly 4 MiB response and logs no error.
+// @evidence contracts/testing.md#independent-expectations The documented stdout bound is inclusive; the fixture independently pads its authored JSON to that exact byte size.
+// @evidence contracts/testing.md#distinguishing-cases Exact capacity is accepted; the separate oversized stdout case exceeds the cap. Message nonemptiness does not require exact padded contents.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceAcceptsStdoutAtLimit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceAcceptsStdoutAtLimit(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceStdoutAtLimitSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceStdoutAtLimitSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -37,6 +43,7 @@ func TestLSPNativePluginSourceAcceptsStdoutAtLimit(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   diagnostics := source.Diagnostics(driver.LSPDocumentVersion{URI: "file:///tmp/a.ts"})
   if len(diagnostics.Document) != 1 || diagnostics.Document[0].Message == "" {
     t.Fatalf("expected padded diagnostics payload to decode: %#v", diagnostics)

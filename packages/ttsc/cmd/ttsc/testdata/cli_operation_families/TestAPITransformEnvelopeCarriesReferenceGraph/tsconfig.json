@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "module": "commonjs", "target": "es2020" },
+  "files": ["main.ts", "mytype.ts", "ambient.d.ts"]
+}

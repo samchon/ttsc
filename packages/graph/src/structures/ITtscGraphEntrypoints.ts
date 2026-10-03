@@ -8,6 +8,10 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
  * @evidence contracts/common.md#clear-and-simple-design The three collections share compact node records instead of inlining source or another request shape.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The result exposes truncation rather than representing a capped shortlist as complete.
  * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish ranking, explicit mentions and capped context with separated member blocks.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphEntrypoints {
   /** Discriminator for first-pass question indexing. */
@@ -35,6 +39,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design Two bounds control different result populations; the query remains the sole search input.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounds are caller-visible result options, not hidden agent throttling.
    * @evidence contracts/common.md#meaningful-documentation Field comments explain the question input, limit defaults and when deeper tools should replace a wider list.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRequest {
     /** Discriminator for first-pass question indexing. */
@@ -71,6 +79,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design Shared node coordinates avoid duplicating the same shape across hits and neighborhoods.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional facts remain absent when unavailable rather than becoming fabricated declarations.
    * @evidence contracts/common.md#meaningful-documentation Native comments state stable handles, one-based lines and signature availability beside separated members.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INode {
     /** Stable node id for subsequent graph calls. */
@@ -102,6 +114,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design Inheritance adds only the fact unique to a ranked hit.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A score reports ranking, not proof that this declaration answers the question.
    * @evidence contracts/common.md#meaningful-documentation The score comment states its direction and relative meaning without implying confidence.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IHit extends INode {
     /** Relative relevance; higher is a better match. */
@@ -115,6 +131,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design One mention record keeps submitted text beside its resolution instead of mixing it into scored hits.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguous names carry candidates rather than a guessed winner.
    * @evidence contracts/common.md#meaningful-documentation The native comments explain the original spelling and unambiguous versus ambiguous outcomes.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IMention {
     /** The exact handle text found in the query. */
@@ -134,6 +154,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design Extending the compact node adds only its two context lists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The lists represent direct capped context rather than inventing transitive paths.
    * @evidence contracts/common.md#meaningful-documentation Each list documents its direction and the neighbor bound, with a blank line between members.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INeighborhood extends INode {
     /** Symbols this node directly uses, capped by `neighbors`. */
@@ -150,6 +174,10 @@ export namespace ITtscGraphEntrypoints {
    * @evidence contracts/common.md#clear-and-simple-design Coordinates and relation are kept together so callers need no second node lookup to display context.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Evidence reports the actual reference rather than substituting a matching name.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain stable handles, coordinate units and edge evidence without source bodies.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IReference {
     /** Stable id of the neighboring node. */

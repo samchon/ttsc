@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/checkNodeRuntimeSupport.js";
+import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/src/launcher/internal/runtime/checkNodeRuntimeSupport";
 
 /**
  * Verifies ttsx refuses Bun and Deno with an actionable message although both
@@ -18,6 +18,11 @@ import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/lib/launch
  * 1. Assert a Bun and a Deno `process.versions` are each refused with a message
  *    naming the runtime, `registerHooks`, and the way to run under Node.
  * 2. Assert Node's own `process.versions` at the same version is admitted.
+ *
+ * @evidence contracts/testing.md#behavioral-verification checkNodeRuntimeSupport rejects Bun and Deno identity markers despite a sufficient reported Node version and admits a genuine Node identity.
+ * @evidence contracts/testing.md#independent-expectations Literal runtime names and versions plus required registerHooks and npx ttsx diagnostic text specify actionable rejection independently of the guard.
+ * @evidence contracts/testing.md#distinguishing-cases Bun and Deno markers each reject the same sufficient version that the Node-only control admits, distinguishing runtime identity from version-floor checks.
+ * @evidence contracts/testing.md#execution-ownership The actual source guard consumes explicit version records in-process without replacing process.versions or claiming hook installation was exercised.
  */
 export const test_ttsx_refuses_runtimes_that_only_imitate_node = () => {
   for (const [key, name, version] of [

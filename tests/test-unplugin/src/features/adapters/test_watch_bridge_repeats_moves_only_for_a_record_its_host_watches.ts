@@ -1,12 +1,12 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/openHostWatchBridge.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
+import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 
 /**
  * Verifies a bridge moves a record on its growing schedule only while the
@@ -31,6 +31,14 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    owed.
  * 3. Report a compile that depends on both, and assert the second record moves at
  *    once and keeps moving on its schedule.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored bridge receives injected notifications for watched and unwatched records; the watched record repeats while the unwatched record moves once, remains owed and resumes repetition when a compile depends on it.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Only a compiler observing a record can act on repeated signal writes. An unobserved record must remain monitored and owed without driving other compilers indefinitely; later dependence must resume its schedule.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers quiet current registrations, one shared input becoming present, watched versus unwatched schedules and an unwatched record becoming a watched dependency.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_watch_bridge_repeats_moves_only_for_a_record_its_host_watches calls openHostWatchBridge.register/compiled/owes, injects a shared declaration event and owns watched/unwatched signal traces; it closes in finally without a compiler process.
  */
 export async function test_watch_bridge_repeats_moves_only_for_a_record_its_host_watches(): Promise<void> {
   const root = fs.realpathSync.native(

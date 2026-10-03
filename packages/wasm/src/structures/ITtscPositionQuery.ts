@@ -17,6 +17,9 @@ import type { ITtscFileQuery } from "./ITtscFileQuery";
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc gives the accepted interval and explains the caller's UTF-16
  *   conversion responsibility, following the documentation skill's units rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscPositionQuery is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscPositionQuery is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscPositionQuery is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscPositionQuery extends ITtscFileQuery {
   /**

@@ -23,6 +23,17 @@ import { selectReachableEdges } from "./selectReachableEdges";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Narrowing requires the caller's established completeness premise and does not silently discard configs or fabricate edges when a graph is absent.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why flat bundler inputs are derived at this boundary, the exact completeness effect and empty outcomes; acknowledgment spacing follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Graph paths are already native absolute spellings from the shared builder, and physical reachability identity belongs to its filesystem context; this selector introduces no additional separator or case policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Complete declarations copy only the config list. Otherwise the delegated
+ *   closure scans every reached adjacency entry and queries native identities,
+ *   then this function copies reached targets, globals and configs. Cost
+ *   includes key/path text and cold native observations, not just returned
+ *   members. The closure's temporary state and this output grow with their
+ *   respective visited and selected populations.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function selectGraphInputs(
   graph: TtscEnvelopeGraphIndexes,
@@ -39,9 +50,9 @@ export function selectGraphInputs(
   }
   const output: string[] = [];
   if (!props.complete) {
-    output.push(...selectReachableEdges(graph, state, props.file));
-    output.push(...graph.globals);
+    for (const entryToAppend of selectReachableEdges(graph, state, props.file)) output.push(entryToAppend);
+    for (const entryToAppend of graph.globals) output.push(entryToAppend);
   }
-  output.push(...graph.configs);
+  for (const entryToAppend of graph.configs) output.push(entryToAppend);
   return output;
 }

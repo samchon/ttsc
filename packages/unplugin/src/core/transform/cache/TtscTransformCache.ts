@@ -1,8 +1,10 @@
 import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
 
 /**
- * Keyed by a stable JSON string that encodes the tsconfig path, compiler
- * options overlay, plugin list, and alias paths. The value is a `Promise` so
+ * Keyed by the host-owned serialized configuration: native tsconfig identity
+ * and the JSON representations of compiler options, plugins and aliases.
+ * Ordered payloads are not recursively sorted by the key owner. The value is a
+ * `Promise` so
  * concurrent transforms for the same project share a single in-flight
  * compilation rather than spawning multiple `TtscCompiler` instances.
  *
@@ -10,6 +12,20 @@ import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
  * @evidence contracts/common.md#clear-and-simple-design The alias uses standard Map and Promise operations rather than an additional cache abstraction with independent state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A stored promise does not certify freshness; selection and validation owners must prove its generation before replay.
  * @evidence contracts/common.md#meaningful-documentation The prose names the key dimensions and explains why promise-valued entries are necessary for concurrent deliveries.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   This Map treats serialized configuration keys as opaque strings. Native
+ *   identity encoding belongs to createTransformCacheKey; filesystem views
+ *   and notification capabilities belong to the generation and its owners,
+ *   rather than a native address or backend field defined by this alias.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTransformCache only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTransformCache only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTransformCache only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscTransformCache = Map<
   string,

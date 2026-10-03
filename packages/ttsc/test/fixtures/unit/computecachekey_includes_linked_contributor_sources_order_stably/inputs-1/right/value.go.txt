@@ -1,0 +1,2 @@
+package right
+const Value = 2

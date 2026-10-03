@@ -10,6 +10,12 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  * were all killed before any could remove it can be told apart from one still
  * in use and reclaimed by another process.
  *
+ * Records and liveness probes are observations, not process-incarnation or host
+ * authentication. Shared-cache participants must use distinct labels under the
+ * hostname comparison and preserve the selected namespace while callers
+ * coordinate admission/removal. A realpath spelling alone holds no directory
+ * handle against replacement.
+ *
  * @evidence contracts/common.md#principled-implementation Per-host-pid records distinguish a directory with any live or uncertain owner from one whose every validated owner is provably gone; reclaiming requires evidence rather than merely old age.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns claim, admission, relinquishment and sweeping over the same record grammar, while native process liveness remains in its dedicated predicate.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown, unowned and remote-owner directories are preserved rather than deleted to satisfy a cleanup expectation; generation and runtime locks remain callers' synchronization responsibilities.
@@ -23,9 +29,11 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
 export namespace ProcessOwnedDirectory {
   /**
    * How an owned directory relates to its owners. Only abandoned permits
-   * reclamation; unknown and unowned preserve the entry.
+   * reclamation; unknown and unowned preserve the entry. `live` includes a
+   * recognized record whose process is not proven gone (including remote-host
+   * labels or unavailable native probes), rather than certifying execution.
    *
-   * @evidence contracts/common.md#principled-implementation Four states separate all-proven-dead owners from a live owner, unreadable evidence and absent records; absence cannot safely imply abandonment during admission.
+   * @evidence contracts/common.md#principled-implementation Four states separate all-proven-gone recognized records from a record not proven gone, unreadable evidence and absent records; live is conservative non-death classification, while absence cannot authorize reclamation during admission.
    * @evidence contracts/common.md#clear-and-simple-design A literal union carries the cleanup decision without optional diagnostic fields or a second boolean that could contradict it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or absent evidence remains distinct from deletion authority instead of being collapsed into a false live flag.
    * @evidence contracts/common.md#meaningful-documentation Native prose states which state allows reclamation and why unknown/unowned preserve an entry.
@@ -47,7 +55,7 @@ export namespace ProcessOwnedDirectory {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The current pid and actual hostname establish the claim; no assumed liveness based on a directory name substitutes for its record.
    * @evidence contracts/common.md#meaningful-documentation Native purpose and parameter identify the ownership transition; admission separately documents the persisted claim semantics.
    * @evidence contracts/portability.md#os-neutral-implementation Node's native mkdir and fs record write use the supplied directory spelling; callers pin cleanup authority and serialize shared roots through their runtime lock.
-   * @evidence contracts/performance.md#efficient-algorithms Creation follows missing parent depth and writes one small owner record, without scanning sibling runs.
+   * @evidence contracts/performance.md#efficient-algorithms Native creation follows path text/missing parent depth and admission constructs host/pid JSON plus its path; record count is one but text/native IO cost is not constant. No sibling runs are scanned.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A claim changes filesystem ownership; a prior claim result cannot replace recording the current process.
    *
@@ -73,11 +81,11 @@ export namespace ProcessOwnedDirectory {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual host and pid values record supported ownership transfer without special-casing a launcher or expected cleanup result.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains child ownership, repeated admission and malformed-record conservatism; parameters distinguish directory and admitted process.
    * @evidence contracts/portability.md#os-neutral-implementation os.hostname and Node fs establish native host-scoped process identity; record basenames use a numeric pid and path.join rather than platform-specific process-file conventions.
-   * @evidence contracts/performance.md#efficient-algorithms Admission constructs and writes one bounded owner record without listing existing owners.
+   * @evidence contracts/performance.md#efficient-algorithms Admission obtains the native hostname, constructs the pid pathname and serializes/writes one record. Processing/storage follow supplied directory and host/pid text rather than a fixed byte bound, without listing other owners.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Writing or refreshing ownership is an effect, not a previously computed result that another call can share.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The persisted record remains while its admitted process may use the directory; relinquish removes a claim, and a later sweep can reclaim all-dead directories after forced termination.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Records can remain after their process exits until relinquishment or an admitted sweep. Distinct pid/run populations have no historical quota; unowned/unknown/live classification and native deletion failures can retain directories indefinitely. Repeated admission overwrites one pid record, not an independent process-incarnation lease.
    */
   export function admit(directory: string, pid: number): void {
     fs.writeFileSync(
@@ -96,7 +104,7 @@ export namespace ProcessOwnedDirectory {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Release does not recursively clear a shared directory or infer that other owners died with the caller.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the required lock, selected-pid behavior and preservation of other owners.
    * @evidence contracts/portability.md#os-neutral-implementation Native fs removal targets the numeric pid record through path.join; force handles an already absent record without relying on shell deletion behavior.
-   * @evidence contracts/performance.md#efficient-algorithms One fixed record path is removed without an owner-directory scan.
+   * @evidence contracts/performance.md#efficient-algorithms One pid-record path is constructed/removed without an owner-directory scan; supplied directory/pid text and native filesystem work still contribute cost.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Relinquishment is an ownership effect that cannot share a previous result as a current release.
    *
@@ -107,11 +115,15 @@ export namespace ProcessOwnedDirectory {
   }
 
   /**
-   * Whether any owner `directory` records is alive, every one is provably gone,
+   * Whether any recognized owner is not proven gone, all are proven gone,
    * or none is recorded at all. An unreadable directory or owner record has
    * unknown ownership. An owner on another host, or a pid something else now
    * holds, counts as alive, since neither is provably gone
    * (`isLocalProcessGone`).
+   * A recognized non-gone record takes precedence over malformed evidence;
+   * otherwise malformed records yield unknown before an all-gone or unowned
+   * result. These are sequential record/probe observations under the namespace
+   * and coordination premises stated by the namespace.
    *
    * @param legacyProcessRoot Also read the former `owner.json` record in a
    *   manifest-less `process-<pid>-<nonce>` dependency cache directory.
@@ -121,7 +133,7 @@ export namespace ProcessOwnedDirectory {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Directory names alone do not establish ownership; the explicitly supported legacy owner record is checked against its pid-bearing directory grammar.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain unreadable, remote and recycled ownership, plus the optional legacy format rather than suggesting every nonlive-looking entry can be removed.
    * @evidence contracts/portability.md#os-neutral-implementation Native directory/record reads and local-host pid probing preserve Windows and POSIX behavior; denied reads remain unknown rather than being classified from error-message text.
-   * @evidence contracts/performance.md#efficient-algorithms One directory listing examines E names and at most R owner records, with early exit for a non-gone owner; temporary names occupy O(E) space.
+   * @evidence contracts/performance.md#efficient-algorithms One listing examines E names and at most R owner records with early non-gone exit. Listing/path text, record-byte read/JSON parsing and native hostname/pid probes contribute cost; names and the current parsed record occupy their actual bytes rather than fixed E/R-only storage.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Owner records and process existence can change; the caller's lock bounds a current decision, not a cached historical result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The observation opens no retained descriptor and does not acquire or release the directory; its state transfers the decision to cleanup.
@@ -161,6 +173,9 @@ export namespace ProcessOwnedDirectory {
    * without an owner record is left alone: its process may have created it and
    * not yet recorded itself. Removal takes a link inside an entry as a link,
    * never what it points at, and a failure leaves the entry to a later sweep.
+   * There is no retry scheduler or historical quota here. The physical parent
+   * spelling is observed before listing, without holding a directory handle;
+   * replacement of that physical namespace remains outside this protection.
    *
    * @param parent The directory holding owned entries.
    * @param accepts Which entry names are owned directories.
@@ -170,12 +185,12 @@ export namespace ProcessOwnedDirectory {
    * @evidence contracts/common.md#clear-and-simple-design The sweep separates one parent snapshot, caller-defined entry selection and shared ownership classification before best-effort removal.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed inspection or deletion does not trigger broader cleanup; the operation never treats a caller's accepted name as proof that its owner is dead.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain unowned preservation, link treatment and later retry, with parameters identifying selection and legacy support.
-   * @evidence contracts/portability.md#os-neutral-implementation realpathSync.native fixes parent identity before listings and joins; Node recursive rm removes link entries without traversing their targets, and native pid evidence remains conservative.
-   * @evidence contracts/performance.md#efficient-algorithms One sibling listing and one ownership scan per accepted entry cost their combined names and owner records; recursive deletion adds the reclaimed tree size without repeatedly scanning the parent.
+   * @evidence contracts/portability.md#os-neutral-implementation realpathSync.native selects the observed parent spelling before listing/joins, not a namespace-locking handle. Node recursive rm treats links as links, while caller coordination and namespace preservation remain necessary.
+   * @evidence contracts/performance.md#efficient-algorithms One sibling listing, each caller predicate and accepted entry's ownership scan pay name/path/record bytes, JSON/native probes and predicate work. Recursive deletion adds reclaimed entry populations and native IO; callback cost/effects and concurrent namespace changes are not bounded by the single listing.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Abandonment and removal are current filesystem effects; a prior sweep cannot stand in for changed records or a newly dead process.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The sweep reclaims abandoned persisted trees; unreadable, unowned or live entries remain, and removal failures are retried by a later sweep rather than hidden by deleting a broader parent.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The sweep attempts abandoned-tree reclamation without broadening the selected parent. Unreadable/unowned/non-gone entries and native removal failures can persist indefinitely; only a later caller invocation retries, with no historical quota or scheduled deadline. Predicate throws and parent inspection failures can leave later entries unprocessed.
    */
   export function sweep(
     parent: string,

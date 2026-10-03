@@ -1,68 +1,19 @@
-import { createRequire } from "node:module";
-import path from "node:path";
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { resolveGraphHandle } from "../../../../packages/graph/src/server/resolveHandle";
 
-export interface ResolverGraphNode {
-  id: string;
-  kind: "class" | "method" | "variable" | "property";
-  name: string;
-  qualifiedName?: string;
-  file: string;
-  external: boolean;
-  exported?: boolean;
-}
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
-interface ResolverGraphEdge {
-  from: string;
-  to: string;
-  kind: "calls" | "contains" | "exports";
-}
+export type ResolverGraphNode = ITtscGraphDump.INode;
+type ResolverGraphEdge = ITtscGraphDump.IEdge;
+export type GraphMemory = TtscGraphMemory;
 
-export interface GraphMemory {
-  node(id: string): ResolverGraphNode | undefined;
-  nodes: readonly ResolverGraphNode[];
-  outgoing(id: string): readonly ResolverGraphEdge[];
-  incoming(id: string): readonly ResolverGraphEdge[];
-  symbols(handle: string): readonly ResolverGraphNode[];
-}
-
-interface GraphMemoryConstructor {
-  from(dump: {
-    project: string;
-    nodes: ResolverGraphNode[];
-    edges: ResolverGraphEdge[];
-  }): GraphMemory;
-}
-
-interface ResolvedGraphHandle {
-  node?: ResolverGraphNode;
-  candidates?: ResolverGraphNode[];
-}
-
-interface ResolveHandleModule {
-  resolveGraphHandle(
-    graph: GraphMemory,
-    handle: string,
-    candidateLimit?: number,
-  ): ResolvedGraphHandle;
-}
-
-const require = createRequire(import.meta.url);
-const graphEntry = require.resolve("@ttsc/graph");
-const graphLib = path.dirname(graphEntry);
-const { TtscGraphMemory } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as { TtscGraphMemory: GraphMemoryConstructor };
-const { resolveGraphHandle } = require(
-  path.join(graphLib, "server", "resolveHandle.js"),
-) as ResolveHandleModule;
-
-/** Resolve a handle through the package's built memory indexes and resolver. */
+/** Resolve a handle through the authored memory indexes and resolver. */
 export function resolveSyntheticGraph(
   nodes: ResolverGraphNode[],
   handle: string,
   candidateLimit = 12,
   edges: ResolverGraphEdge[] = [],
-): ResolvedGraphHandle {
+): ReturnType<typeof resolveGraphHandle> {
   const graph = createSyntheticGraph(nodes, edges);
   return resolveGraphHandle(graph, handle, candidateLimit);
 }
@@ -74,6 +25,15 @@ export function createSyntheticGraph(
 ): GraphMemory {
   const graph = TtscGraphMemory.from({
     project: "C:/synthetic-graph",
+    tsconfig: "tsconfig.json",
+    provenance: {
+      schemaVersion: 8,
+      capabilities: [],
+      producer: { tool: "unit-fixture", version: "", typescript: "" },
+      universe: { configs: [], roots: [] },
+      sources: [],
+    },
+    diagnostics: [],
     nodes,
     edges,
   });

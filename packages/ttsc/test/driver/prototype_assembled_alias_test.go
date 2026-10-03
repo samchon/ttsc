@@ -45,12 +45,23 @@ func (h *assembledEmitHost) IsSourceFileFromExternalLibrary(file *shimast.Source
   return h.program.IsSourceFileFromExternalLibrary(file)
 }
 
-// TestPrototypeAssembledAlias proves the AST-integration core: ttsc assembles
+// TestPrototypeAssembledAlias Verifies the AST-integration core: this case assembles
 // the emit pipeline from shimmed tsgo parts, runs a plugin transformer FIRST in
 // the same EmitContext as the builtins (here a stand-in that replaces `foo`
 // with a synthetic identifier and SetOriginal-links it to the parse-tree node),
 // then the builtin module-transform aliases it to dep_1.foo on its own. No
 // text-splice, no hand-rolled commonJS naming.
+//
+// The authored named import needs both binding and member reference; either alone could mask import elision.
+//
+// 1. Load a named-import project and rebuild foo identifiers with SetOriginal.
+// 2. Apply builtin transforms using the original parse-tree reference target.
+// 3. Print the result and require both dep_1.foo and its require binding.
+//
+// @evidence contracts/testing.md#behavioral-verification A manually assembled shim transform chain emits dep_1.foo and its require binding.
+// @evidence contracts/testing.md#independent-expectations The authored named import needs both binding and member reference; either alone could mask import elision.
+// @evidence contracts/testing.md#distinguishing-cases Rebuilt identifier with SetOriginal is covered; maintained EmitWithPluginTransformers is not invoked by this prototype.
+// @evidence contracts/testing.md#execution-ownership Go unit TestPrototypeAssembledAlias is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestPrototypeAssembledAlias(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

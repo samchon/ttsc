@@ -1,130 +1,130 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-// Loaded through the CommonJS loader rather than an ESM import. The executor
-// `require()`s each test file, and on Node 22 a CommonJS module an ESM import
-// reaches while `module.registerHooks` hooks are installed gets a `require`
-// that cannot load an ES module graph (samchon/ttsc#1570), which is what every
-// test file is. The repository's TypeScript loader installs such hooks.
-const { DynamicExecutor } = createRequire(import.meta.url)(
-  "@nestia/e2e",
-) as typeof import("@nestia/e2e");
+import { E2eProcessTrace } from "./E2eProcessTrace";
 
-type IReport = import("@nestia/e2e").DynamicExecutor.IReport;
+const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
+  begin(): string | undefined;
+  record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+};
 
-/**
- * Shared feature-test runner used by the package-shaped test projects.
- *
- * Test packages expose each scenario as a `test_*` function; this wrapper keeps
- * discovery, include/exclude filtering, and console reporting identical across
- * compiler, runner, lint, and plugin suites.
- */
+/** Discovers and runs the named feature exports of the package-shaped suites. */
 export namespace TestExecutor {
-  /**
-   * One or more feature-module trees for DynamicExecutor to scan. A test
-   * package that splits its go-binary scenarios onto their own CI lanes passes
-   * an array (e.g. `["src/features", "src/native"]`) so a plain local run still
-   * exercises every tree while CI can point a lane at a single subtree.
-   */
+  /** Feature-module trees selected by the owning test package. */
   export interface IProps {
     location: string | string[];
   }
 
   /**
-   * Execute every discovered `test_*` export under the requested location(s).
+   * Execute every selected test export, retaining each failure's identity.
    *
-   * Command-line filters intentionally match by substring so a failing scenario
-   * can be rerun from any package with `--include=<case-name>` without adding
-   * package-specific runner switches.
+   * Files are selected before import. An import failure blocks only that file;
+   * remaining files and locations still execute. Nested causes are printed as
+   * each result arrives, so later discovery failures cannot hide them.
+   *
+   * @evidence contracts/common.md#principled-implementation A single walk selects the TypeScript file prefix and substring filters before the exported-function loop. Native ESM imports retain real file URL and module identity. Import and invocation failures remain errors while independent entries continue.
+   * @evidence contracts/common.md#clear-and-simple-design One walk and two loops own discovery and execution without another runner or per-file directory rescans; existing package entries still provide locations and named exports.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No failure is retried or replaced. Returned false is reported as skipped without coverage; an empty selection or unfinished process is an error. Opt-in actual file/export invocation and outcome markers do not certify assertions or count native children.
+   * @evidence contracts/common.md#meaningful-documentation Documents selection before import, the file-level failure boundary and immediate nested error output; callers supply feature locations.
+   * @evidence contracts/portability.md#os-neutral-implementation Native paths address directories and pathToFileURL supplies the module URL on Windows and POSIX. Directory links are not traversed, matching the former lstat-based discovery.
+   * @evidence contracts/performance.md#efficient-algorithms One traversal visits each directory entry and each selected file is imported once. Executions run sequentially; retained paths grow with selected files and errors with failed entries. Enabled observation adds two events proportional to actual file/name text; disabled tracing performs no sink IO.
+   * @evidence contracts/performance.md#reuse-equivalent-work Node module caching shares imported helpers across cases and discovery runs once per location; test results are never reused.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads leave no handle open; enabled marker files append/close through the bounded private runtime. Test children belong to their case owners. Paths and errors last through this run and the exit guard is removed on normal completion; nested error output is not separately capped and markers do not prove descendant closure.
    */
   export const main = async (props: IProps): Promise<void> => {
     const include = getArguments("include");
     const exclude = getArguments("exclude");
-    const locations =
-      typeof props.location === "string" ? [props.location] : props.location;
-    const filter = (name: string) =>
-      (include.length ? include.some((str) => name.includes(str)) : true) &&
-      (exclude.length ? exclude.every((str) => !name.includes(str)) : true);
+    const locations = typeof props.location === "string" ? [props.location] : props.location;
+    const selected = (name: string): boolean =>
+      name.startsWith("test_") && name.endsWith(".ts") &&
+      (!include.length || include.some((value) => name.includes(value))) &&
+      exclude.every((value) => !name.includes(value));
     const started = Date.now();
-    // A suite that stops early must not read as a passing one. Nothing here
-    // holds the event loop open by itself: a scenario awaiting a reply that
-    // never comes, over a channel nothing else references, lets the process
-    // exit with a success code and most of the suite unrun, which is exactly
-    // as green as a real pass in CI.
     let finished = false;
-    process.on("exit", (code) => {
+    const guard = (code: number): void => {
       if (!finished && code === 0) {
-        // Written synchronously: the process is already exiting, and an async
-        // write to a pipe (which is how CI captures this) can be dropped before
-        // it flushes, leaving a failed run with no reason attached.
-        fs.writeSync(
-          2,
-          "The runner exited before finishing. Every case after the last one printed above was never run.\n",
-        );
+        fs.writeSync(2, "The runner exited before finishing. Cases after the last printed result were not run.\n");
         process.exitCode = 1;
       }
-    });
-
-    const executions: IReport["executions"] = [];
+    };
+    process.on("exit", guard);
+    const failures: Error[] = [];
+    let executed = 0;
+    let skipped = 0;
+    const fail = (name: string, cause: unknown): void => {
+      const error = new Error(name, { cause });
+      failures.push(error);
+      console.dir(error, { depth: null });
+    };
     for (const location of locations) {
-      const report: IReport = await DynamicExecutor.validate({
-        prefix: "test_",
-        location,
-        extension: "ts",
-        parameters: () => [],
-        onComplete: (exec) => {
-          if (exec.value === false)
-            console.log(`  - \x1b[32m${exec.name}\x1b[0m: Pass`);
-          else if (exec.error === null) {
-            const elapsed = Math.max(
-              0,
-              new Date(exec.completed_at).getTime() -
-                new Date(exec.started_at).getTime(),
-            );
-            console.log(
-              `  - \x1b[32m${exec.name}\x1b[0m: \x1b[33m${elapsed.toLocaleString()} ms\x1b[0m`,
-            );
-          } else
-            console.log(
-              `  - \x1b[32m${exec.name}\x1b[0m: \x1b[31m${exec.error.name}\x1b[0m`,
-            );
-        },
-        filter,
-      });
-      executions.push(...report.executions);
+      const files: string[] = [];
+      const visit = (directory: string): void => {
+        let entries: fs.Dirent[];
+        try { entries = fs.readdirSync(directory, { withFileTypes: true }); }
+        catch (error) { fail(`Test discovery failed under ${directory}`, error); return; }
+        for (const entry of entries) {
+          const file = path.join(directory, entry.name);
+          if (entry.isDirectory()) visit(file);
+          else if (entry.isFile() && selected(entry.name)) files.push(file);
+        }
+      };
+      try {
+        if (fs.statSync(location).isFile()) {
+          if (selected(path.basename(location))) files.push(location);
+        } else visit(location);
+      } catch (error) { fail(`Test discovery failed under ${location}`, error); }
+      for (const file of files) {
+        let exports: Record<string, unknown>;
+        try { exports = await import(pathToFileURL(file).href); }
+        catch (error) { fail(`Test import failed: ${file}`, error); continue; }
+        for (const [name, run] of Object.entries(exports)) {
+          if (!name.startsWith("test_") || typeof run !== "function") continue;
+          const before = Date.now();
+          executed++;
+          const invocation = trace.begin();
+          trace.record("test-invocation", invocation, {
+            pid: process.pid,
+            data: { writerRuntime: process.version, file, name },
+          });
+          try {
+            const value = await run();
+            trace.record("test-result", invocation, {
+              pid: process.pid,
+              data: { writerRuntime: process.version, file, name,
+                outcome: value === false ? "skipped" : "returned", assertionCoverageCertified: false },
+            });
+            if (value === false) {
+              skipped++;
+              console.log(`  - ${name}: SKIPPED (returned false; no coverage claimed)`);
+            } else console.log(`  - \x1b[32m${name}\x1b[0m: \x1b[33m${(Date.now() - before).toLocaleString()} ms\x1b[0m`);
+          } catch (error) {
+            trace.record("test-result", invocation, {
+              pid: process.pid,
+              data: { writerRuntime: process.version, file, name,
+                outcome: "threw", assertionCoverageCertified: false },
+            });
+            fail(`Test failed: ${name} (${file})`, error);
+          }
+        }
+      }
     }
-
-    if (executions.length === 0) {
-      console.error(
-        include.length
-          ? `No tests matched --include=${include.join(",")}`
-          : `No tests were discovered under ${locations.join(", ")}`,
-      );
-      process.exit(1);
-    }
-
-    const exceptions: Error[] = executions
-      .filter((exec) => exec.error !== null)
-      .map((exec) => exec.error!);
-    for (const error of exceptions) console.error(error);
-    console.log(exceptions.length ? "Failed" : "Success");
-    console.log(
-      "Elapsed time",
-      Math.max(0, Date.now() - started).toLocaleString(),
-      "ms",
-    );
+    if (executed === 0)
+      fail(include.length ? `No tests matched --include=${include.join(",")}` : `No tests were discovered under ${locations.join(", ")}`, undefined);
+    console.log(failures.length ? "Failed" : "Success");
+    if (skipped) console.log(`${skipped} case(s) skipped; no coverage claimed.`);
+    console.log("Elapsed time", (Date.now() - started).toLocaleString(), "ms");
     finished = true;
-    if (exceptions.length) process.exit(1);
+    process.removeListener("exit", guard);
+    if (failures.length) process.exitCode = 1;
   };
 
-  /** Read comma-separated repeatable CLI filters such as `--include=a,b`. */
+  /** Read repeatable comma-separated filters from the current invocation. */
   function getArguments(key: string): string[] {
     const prefix = `--${key}=`;
-    return process.argv
-      .slice(2)
-      .filter((arg) => arg.startsWith(prefix))
-      .flatMap((arg) => arg.slice(prefix.length).split(","))
-      .map((arg) => arg.trim())
-      .filter(Boolean);
+    return process.argv.slice(2).filter((value) => value.startsWith(prefix))
+      .flatMap((value) => value.slice(prefix.length).split(","))
+      .map((value) => value.trim()).filter(Boolean);
   }
 }

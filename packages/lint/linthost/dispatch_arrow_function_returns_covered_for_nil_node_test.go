@@ -1,0 +1,38 @@
+package linthost
+
+import (
+  "testing"
+)
+
+// TestDispatchArrowFunctionReturnsCoveredForNilNode verifies that
+// printArrowFunction returns an empty Doc and covered==true when called
+// with a nil node.
+//
+// The nil guard exists so callers that receive a nil pointer from the AST
+// (e.g. a partially constructed node during error recovery) do not panic.
+// covered==true is the correct signal: an empty Doc produces no output, and
+// there is nothing multi-line to taint the enclosing coverage flag. A
+// direct caller must receive both results. This case does not run the
+// formatPrintWidth rule or establish abstention on an enclosing node; PrintNode
+// also handles absent nodes before dispatching to the arrow printer.
+//
+//  1. Build a PrintContext from any valid parsed file.
+//  2. Call printArrowFunction(ctx, nil) directly.
+//  3. Assert the returned Doc is empty and covered is true.
+//
+// @evidence contracts/testing.md#behavioral-verification printArrowFunction must return an empty rendering and covered true for nil.
+// @evidence contracts/testing.md#independent-expectations An absent subtree has no output or unsupported content, independently establishing both expectations.
+// @evidence contracts/testing.md#distinguishing-cases Nil node complements valid block-body reflow and a constructed arrow with no body.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionReturnsCoveredForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printArrowFunction directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
+func TestDispatchArrowFunctionReturnsCoveredForNilNode(t *testing.T) {
+  file := parseTS(t, "const x = 1;\n")
+  ctx := NewPrintContext(file, DefaultPrintOptions())
+  doc, covered := printArrowFunction(ctx, nil)
+  if !covered {
+    t.Fatalf("printArrowFunction(nil) should return covered=true, got false")
+  }
+  got := Print(doc, ctx.Opts)
+  if got != "" {
+    t.Fatalf("printArrowFunction(nil) should produce empty output, got %q", got)
+  }
+}

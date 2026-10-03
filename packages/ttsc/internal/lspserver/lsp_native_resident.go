@@ -12,6 +12,8 @@ import (
   "sync"
   "sync/atomic"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // The serve verbs below are routed to the resident daemon because they load a
@@ -57,6 +59,7 @@ type residentSidecar struct {
   everServed       atomic.Bool
   output           io.ReadCloser
   stopClosingPipes func() bool
+  observation      *e2etrace.Command
 
   // invalidate piggybacks a full "drop the warm Program" onto the next request,
   // set for a change the proxy cannot localize.
@@ -228,12 +231,16 @@ func (sc *residentSidecar) spawn(s *NativePluginSource, plugin NativeLSPPluginEn
     _ = stdin.Close()
     return err
   }
-  if err := cmd.Start(); err != nil {
+  observation := e2etrace.BeginCommand(cmd, "Start")
+  err = cmd.Start()
+  observation.Result(err)
+  if err != nil {
     _ = stdin.Close()
     _ = stdout.Close()
     return err
   }
   sc.cmd = cmd
+  sc.observation = observation
   sc.stdin = stdin
   sc.stdout = bufio.NewReader(stdout)
   sc.output = stdout
@@ -259,29 +266,31 @@ func (sc *residentSidecar) kill() {
   }
   if sc.cmd != nil && sc.cmd.Process != nil {
     _ = sc.cmd.Process.Kill()
-    _ = sc.cmd.Wait()
+    sc.observation.BeginWait()
+    waitErr := sc.cmd.Wait()
+    sc.observation.Result(waitErr)
   }
   sc.cmd = nil
+  sc.observation = nil
   sc.stdin = nil
   sc.stdout = nil
   sc.output = nil
 }
 
-// InvalidateResidentPrograms tells every live resident daemon that documents
-// changed on disk, so the next request refreshes the warm Program before
-// serving. Given the changed URIs, the daemon updates those files incrementally;
-// given none, it drops the whole Program (a change the proxy could not
-// localize). It mirrors how the proxy already invalidates the symbol provider on
-// the same editor signals.
+// InvalidateResidentPrograms queues supplied changed URIs for existing residents,
+// or queues full invalidation when no URI was supplied. The next serialized
+// request carries this state; daemon processing determines whether updates apply.
+// This method sends no immediate message and does not certify URI validity,
+// saved bytes, a successful reload or notifications for every changed input.
 //
-// @evidence contracts/common.md#principled-implementation Known disk changes queue incremental URI updates; absent localization queues a complete warm Program invalidation before the next serialized request.
+// @evidence contracts/common.md#principled-implementation Supplied URIs queue incremental notifications; no supplied URI queues the full-invalidation flag for the next serialized request. These transitions do not independently validate URI contents, saved bytes or successful daemon updates.
 // @evidence contracts/common.md#clear-and-simple-design A pending-state lock lets notifications queue invalidation independently of the serialized request stream.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts A topology change is not disguised as an incremental update to preserve stale compiler state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Absent localization explicitly selects full invalidation instead of inventing a changed-file list. Callers and daemon processing still determine whether supplied URIs describe topology changes requiring a reload.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain empty versus localized invalidation, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Protocol URIs pass to the native daemon unchanged; daemon processing owns native file updates and executable argv remains platform-neutral exec input.
-// @evidence contracts/performance.md#efficient-algorithms The resident table is copied once; first-seen URI sets deduplicate queue additions in expected constant time without waiting for rule execution.
-// @evidence contracts/performance.md#reuse-equivalent-work Invalidations piggyback on the next read request so valid unchanged Program work remains reusable.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Pending URI slices and sets are consumed by the next request or cleared by full invalidation. Unique URI population has no separate cap, but repeated events do not add entries. Close cancels children independently of their request lock.
+// @evidence contracts/performance.md#efficient-algorithms The resident table is copied once, then every resident examines the supplied URI list under its pending lock. Hashing depends on URI bytes even for repeated entries; absent dedup maps can also reindex existing queue contents. Full invalidation clears a fixed set of fields per resident and neither branch waits on the rule-execution lock.
+// @evidence contracts/performance.md#reuse-equivalent-work Pending notifications piggyback on a later read; exact URI-string deduplication is not physical alias merging or proof of fresh Program state. Caller notification coverage and daemon update semantics authorize any retained Program reuse.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Lists/sets are detached when a request is prepared, not after an acknowledged update, or cleared by full invalidation. Unique URI bytes/count have no independent cap; repeated entries are still processed without accumulating duplicate keys. Detached requests can retain their strings while waiting. Close requests cancellation and resident cleanup rather than certifying all work has terminated.
 func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
   if s == nil {
     return
@@ -316,7 +325,7 @@ func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing owner information is treated conservatively rather than guessed from a filename.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains external versus Program input meaning, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation The delegated operation keeps protocol URIs separate from daemon-native path resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Owner-aware invalidation owns processing strategy.
+// @evidence contracts/performance.md#efficient-algorithms The wrapper builds and hashes an external-URI-to-nil-owner map, then performs the owner-aware delegate's descriptor/URI/resident routing and queue work. Delegation does not remove string-byte, copied-list or lock costs.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated operation owns warm Program validity.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resident queues belong to the delegated operation.
 func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
@@ -335,18 +344,20 @@ func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
 }
 
 // InvalidateResidentProgramsForOwnedWatchedChanges sends data-only external
-// changes only to resident binaries that own the matching snapshot. A path that
-// can also belong to the Program reaches every resident, because each daemon
-// must decide whether its own Program contains that source.
+// changes to existing transports selected by the supplied owner map; missing or
+// nil owners select all, and an empty owner list selects none. Recognized source
+// and JSON extensions override narrower ownership and reach every resident.
+// Selection does not certify physical snapshot ownership or successful updates;
+// each daemon decides how the queued change affects its own Program.
 //
-// @evidence contracts/common.md#principled-implementation Data-only external edits reach matching owners; compiler-recognized input extensions reach all residents because each owns a potentially different Program population.
+// @evidence contracts/common.md#principled-implementation Supplied owner keys scope external data notifications; missing/nil keys select all and empty lists select none. Source/JSON extension heuristics broaden routing across all residents rather than certifying actual compiler membership or snapshot ownership.
 // @evidence contracts/common.md#clear-and-simple-design External URI and transport sets separate ownership filtering from each resident's serialized update queue.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative Program-input invalidation follows supported compiler extensions rather than known producer output.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative extension-based routing does not use expected producer answers. It is a notification policy, not an independently complete measurement of every compiler input kind.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why Program inputs override narrower external ownership, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation file URI parsing and native extension APIs classify inputs while the daemon resolves filesystem identity; no blind OS-based path folding is used.
-// @evidence contracts/performance.md#efficient-algorithms Sets avoid repeated owner searches; processing scales with descriptors, URI-owner pairs and resident-by-external routing checks.
-// @evidence contracts/performance.md#reuse-equivalent-work Scoped data changes preserve unrelated residents' Programs; selected changed/external lists are piggybacked before the next read.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Pending lists and deduplication sets are consumed with a request or cleared by full invalidation; unique queued URI population has no separate byte cap and resident children terminate on Close.
+// @evidence contracts/performance.md#efficient-algorithms Costs include descriptor/context-mode keys, URI/owner string hashing, URI parsing/extension scans, resident-map copies and per-resident ordinary-list copies plus external routing scans. queueChanges reprocesses selected URI bytes even when duplicate keys are already retained; the method uses pending locks rather than the native rule-execution lock.
+// @evidence contracts/performance.md#reuse-equivalent-work Unselected external notifications leave unrelated queues untouched; selected lists are transmitted with a later read. Native freshness still depends on complete caller notifications and daemon processing, not merely on owner-map membership or equal URI strings.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Local owner/routing maps and copied lists grow with descriptors, URI bytes, owner pairs and resident count. Pending unique URI bytes have no independent cap and are detached before an update is acknowledged; in-flight requests can retain them. Source.Close requests cancellation and resident cleanup without an overall join of all callers or descendants.
 func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
   changedURIs []string,
   externalURIs []string,
@@ -414,7 +425,8 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
 }
 
 // queueChanges records first-seen URI order without blocking on an executing
-// rule. A full invalidation already observes every disk change on reload.
+// rule. A queued full invalidation supersedes incremental notifications; actual
+// disk capture and reload success belong to the daemon handling that request.
 func (sc *residentSidecar) queueChanges(changed, external []string) {
   sc.pendingMu.Lock()
   defer sc.pendingMu.Unlock()
@@ -447,9 +459,9 @@ func (sc *residentSidecar) queueChanges(changed, external []string) {
   }
 }
 
-// shutdownResidents kills every resident child. Called on server teardown; the
-// children also exit on their own when the parent closes their stdin at process
-// exit, so this is the graceful path, not the only one.
+// shutdownResidents revokes starts and requests cancellation before attempting
+// each detached resident's cleanup. Closing protocol pipes does not certify
+// completion of one-shot work, refresh tasks or descendant processes.
 func (s *NativePluginSource) shutdownResidents() {
   if s == nil {
     return

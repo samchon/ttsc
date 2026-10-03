@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerFoldsUpstreamErrorAfterEditorExit pins that an editor-requested
+// TestLSPServerFoldsUpstreamErrorAfterEditorExit Verifies that an editor-requested
 // quit is not reported as a server failure.
 //
 // tsgo's `exit` handler returns io.EOF, which cancels its dispatch loop, and
@@ -29,6 +29,11 @@ import (
 //     (TestLSPServerReportsExitWithoutShutdown), so the quit here is the clean
 //     one.
 //  3. Assert RunLSPServer returns nil rather than the runner's error.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer folds the runner failure only after the runner receives exit.
+// @evidence contracts/testing.md#independent-expectations Shutdown/exit requires clean completion and a distinct missed-exit error prevents false EOF success.
+// @evidence contracts/testing.md#distinguishing-cases Exit-confirmed failure contrasts with no-exit error propagation.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPServerFoldsUpstreamErrorAfterEditorExit in test/driver invokes RunLSPServer with an injected in-process upstream runner. No native upstream artifact is built or started.
 func TestLSPServerFoldsUpstreamErrorAfterEditorExit(t *testing.T) {
   sentinel := errors.New("tsgo --lsp --stdio: exit status 1")
   // Returned when the runner's stream ends before any exit arrives. It must be

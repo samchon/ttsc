@@ -93,10 +93,11 @@ export interface ITtscLintTypeScriptRules {
   "typescript/ban-tslint-comment"?: TtscLintRuleSetting;
 
   /**
-   * Prefer a `static readonly` field over a `get` accessor whose body is a
+   * Prefer a `readonly` field over a `get` accessor whose body is a
    * single `return <literal>;`. The getter form re-runs the body on every read
    * and obscures that the value is fixed; a readonly field is shorter, narrows
    * to the literal type, and signals "this is a constant" at the call site.
+   * Retain the getter's instance or static ownership when choosing the field.
    * Skipped when the class also declares a `set` accessor for the same member
    * name — the setter's side effects cannot be reproduced by a field.
    *
@@ -943,14 +944,15 @@ export interface ITtscLintTypeScriptRules {
   /**
    * Reject private class fields that could carry `readonly`.
    *
-   * AST-only baseline: fires on a `PropertyDeclaration` inside a class body
-   * that is `private` (or uses the `#name` private-hash form), does not already
-   * carry `readonly`, and is initialized at the declaration site. A field
-   * initialized at declaration time is set before the constructor runs, so
-   * locking it as `readonly` rules out accidental reassignments without
-   * changing runtime behavior. The fully type-aware upstream rule also walks
-   * assignments inside the constructor and other methods; the AST baseline
-   * targets the narrow but safe shape.
+   * Requires the Checker. Reports initialized `private` or `#name` fields
+   * without resolved reassignment in their source file. Assignments, updates,
+   * destructuring and nested callbacks use member declaration identity, so
+   * aliases and equally named fields of other classes remain distinct.
+   * Mutating an object stored in a field does not replace that field.
+   *
+   * Dynamic indexed writes conservatively retain the receiver's resolved
+   * properties. Reflective and `any`-typed mutation are outside this analysis;
+   * the diagnostic states its source boundary and offers no automatic edit.
    *
    * @reference https://typescript-eslint.io/rules/prefer-readonly
    */
@@ -994,8 +996,10 @@ export interface ITtscLintTypeScriptRules {
    * narrower receiver type and method-chaining stays polymorphic.
    *
    * Type-aware via the Checker. Fires only when the method declares an explicit
-   * non-`this` return-type annotation AND every value-returning `return`
-   * statement in the body returns exactly `this`. Methods with no annotation,
+   * non-`this` return-type annotation and every normal completion returns
+   * exactly `this`. Bare returns and reachable fallthrough prevent a finding;
+   * throws do not introduce another return value. Nested functions have their
+   * own return boundary. Methods with no annotation,
    * methods with at least one non-`this` return, `async` methods, generators,
    * constructors, accessors, and static methods are skipped — each has
    * return-shape semantics the `this` rewrite does not preserve.

@@ -18,7 +18,8 @@ import { createIdentifier } from "../names/createIdentifier";
  * {@link ModuleBlock}, whose statements the printer indents one per line.
  *
  * The `flags` decide the keyword the printer emits: the `Namespace` flag prints
- * `namespace`, while the default prints `module`. This is the one input that
+ * `namespace`, while the default prints `module`. A string-literal name always
+ * prints `module`, whatever the flags say. The flags are the one input that
  * does not show up as text directly but changes the rendered keyword.
  *
  * Given an `export` modifier, the name `app`, a body holding `export type ID =
@@ -44,7 +45,7 @@ import { createIdentifier } from "../names/createIdentifier";
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish name conversion and flag-selected keywords,
- *   with an export-namespace example separated from acknowledgment tags.
+ *   with an export-namespace example separated from acknowledgment tags. The rule that a string-literal name always prints module is stated.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.

@@ -9,26 +9,29 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Opportunistically bound a part of the cache root whose entries are single
  * files: the descriptor evaluations under `descriptors/`, the capability
  * answers under `capabilities/`, and the lowered orphan sources under
- * `ttsx-orphan/` (samchon/ttsc#1562).
+ * `ttsx-orphan/`.
  *
  * The policy is the plugin cache's (`CachePrunePolicy`). An entry's last use is
  * its modification time: a write sets it, and every hit records a use by
- * setting it again (`recordCacheFileUse`), so the entries launches keep reading
- * stay. A writer publishes an entry by renaming a finished staging file over
+ * setting it again (`recordCacheFileUse`), improving its recent-use priority
+ * under the collection policy rather than pinning it indefinitely. A writer
+ * publishes an entry by renaming a finished staging file over
  * it, so removing an entry can only make a reader miss and compute the answer
  * again, never read a partial one; a staging file a crashed writer left behind
  * is an entry nobody uses, and ages out like one.
  *
- * Nothing is created: a part that does not exist, or that is not an ordinary
- * directory, is left alone. Failures are swallowed, since a collection must
- * never fail the launch that triggered it.
+ * A part absent or nonordinary at admission is left alone. A pass that gets
+ * beyond the interval gate attempts marker publication after eviction;
+ * physical path validation does not retain a directory handle against
+ * concurrent root replacement. Failures are swallowed, since a collection
+ * must never fail the launch that triggered it.
  *
- * @evidence contracts/common.md#principled-implementation Ordinary physical-root pinning confines the pass; age and oldest-first size eviction operate on atomically published answer files, whose deletion means a cache miss rather than a partial answer.
+ * @evidence contracts/common.md#principled-implementation Ordinary-root validation selects physical spelling for the pass, subject to that path retaining its identity during later lookups. Age and oldest-first size eviction operate on atomically published answer files, whose deletion means a cache miss rather than a partial answer; no directory handle freezes the root against concurrent replacement.
  * @evidence contracts/common.md#clear-and-simple-design Admission, age eviction, fresh accounting and size eviction are separate phases, followed by one retry marker publication.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Layout-independent file metadata drives reclamation; failures are tolerated because cache availability is optional, not hidden to fabricate a computed answer.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain payloads, hit-touch metadata, atomic publication and failure behavior under the documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation lstat rejects aliased root leaves and physical pinning fixes ancestor aliases; native per-file removal handles sharing restrictions without shell assumptions.
- * @evidence contracts/performance.md#efficient-algorithms Two metadata scans and optional sorting cost O(entries log entries), with O(entries) temporary metadata and no cached-answer byte reads.
+ * @evidence contracts/portability.md#os-neutral-implementation lstat rejects aliased root leaves at admission, and later paths use the observed physical root instead of the original ancestor alias. Native per-file removal handles sharing restrictions without shell assumptions; physical spelling is not an ongoing object-identity pin.
+ * @evidence contracts/performance.md#efficient-algorithms Two metadata scans and optional numeric timestamp sorting cost O(entries log entries), with temporary metadata and filename/path text scaling with admitted entries. Root validation and native metadata operations add path work, and interval-marker reading/encoding costs its text bytes; cached answer payload bytes are not read.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Answer equivalence is established by owning readers and producer keys, not eviction.
  *

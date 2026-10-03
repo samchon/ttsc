@@ -1,0 +1,47 @@
+package linthost
+
+import "testing"
+
+// TestUnicornIsolatedFunctionsParameterDefaultCapture verifies that an outer
+// binding referenced from a parameter default value is a scope escape, whether
+// the default is on a plain parameter or a destructuring binding element.
+//
+// Parameter defaults are evaluated in the function's own scope, so upstream's
+// scope.through carries the outer reference; the port walks the parameter list
+// as an analysis root and reports the captured initializer while the parameter
+// names themselves stay declared-in-scope.
+//
+//  1. Capture outer `outer` from a plain parameter default and from a
+//     destructuring element default under makeSynchronous.
+//  2. Assert each reference is reported once, and the parameter names are not.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify outer references in plain and destructured defaults report while local literal defaults remain clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations Independent exact target/line/reason records encode the upstream closure boundary; separately authored literal defaults contain no outer capture. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Plain x and destructured a retain local binding references while only outer initializer references report; literal-initializer twins are clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsParameterDefaultCapture is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
+func TestUnicornIsolatedFunctionsParameterDefaultCapture(t *testing.T) {
+  reason := `callee of function named "makeSynchronous"`
+  source := `declare function makeSynchronous<T>(fn: T): T;
+
+const outer = "hi";
+
+makeSynchronous((x = outer) => x);
+
+makeSynchronous(({ a = outer }: { a?: string }) => a);
+`
+  assertUnicornIsolatedFunctionsFindings(
+    t,
+    runUnicornIsolatedFunctions(t, source, ""),
+    unicornIsolatedFunctionsFinding{
+      line:    5,
+      target:  "outer",
+      message: unicornIsolatedFunctionsVariableMessage("outer", reason),
+    },
+    unicornIsolatedFunctionsFinding{
+      line:    7,
+      target:  "outer",
+      message: unicornIsolatedFunctionsVariableMessage("outer", reason),
+    },
+  )
+  assertUnicornIsolatedFunctionsFindings(t, runUnicornIsolatedFunctions(t, "declare function makeSynchronous<T>(fn: T): T; makeSynchronous((x = \"hi\") => x); makeSynchronous(({a = \"hi\"}: {a?: string}) => a);\n", ""))
+}

@@ -1,43 +1,23 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
-
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { TtscGraphMemory } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as { TtscGraphMemory: { from(dump: unknown): unknown } };
-const { runDetails } = require(
-  path.join(graphLib, "server", "runDetails.js"),
-) as {
-  runDetails(
-    graph: unknown,
-    props: { handles: string[] },
-  ): {
-    result: {
-      nodes: {
-        name: string;
-        signature?: string;
-        doc?: string;
-        sourceSpan?: { startLine?: number };
-        members?: unknown[];
-      }[];
-    };
-  };
-};
+import { TestProject } from "../../../utils/src/TestProject";
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { runDetails } from "../../../../packages/graph/src/server/runDetails";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 /** The heading text a section carries, and the prose it must never carry. */
 const HEADING = "Coupon stacking";
 const BODY = "Only one coupon per issuer may apply to a single order line.";
 
-const dump = () => ({
+const dump = (): ITtscGraphDump => ({
   project: "/fixture",
   tsconfig: "tsconfig.json",
   provenance: {
     schemaVersion: 8,
     capabilities: ["artifactNodes", "sourceDigests"],
-    producer: { tool: "fixture", typescript: "7.0.0-dev" },
-    artifactProducer: { tool: "fixture lint" },
+    producer: { tool: "fixture", version: "", typescript: "7.0.0-dev" },
+    artifactProducer: { tool: "fixture lint", version: "", typescript: "" },
     universe: { configs: [], roots: [] },
     // The document is deliberately absent from the manifest: a plugin read it,
     // this Program did not, so the reader has no digest to trust and must fail
@@ -72,28 +52,35 @@ const dump = () => ({
  * its content.
  *
  * The graph is an index with spans, and that rule is what keeps a large project
- * from turning one tool call into a prompt full of prose. A declaration is safe
- * by construction — the producer renders a signature and cuts it where the
- * compiler says the body opens — but an artifact has no such producer-side cut:
- * a Markdown section is prose from its heading to the next one, so "return the
- * span, not the text" is the only thing standing between an index and a
- * document dump.
+ * from turning one tool call into a prompt full of prose. A Markdown section is
+ * prose from its heading to the next one, so "return the span, not the text" is
+ * the only thing standing between an index and a document dump.
  *
  * It holds today because the source reader is fail-closed: a file the compiler
  * never loaded has no digest, so nothing can be sliced out of it. That is a
- * property of a different module, which is exactly why it is asserted here —
- * loosening that fallback would inline a document with nothing else objecting.
+ * property of a different module, which is why it is asserted here.
  *
- * 1. Build a memory over a dump carrying a section whose file the manifest does
- *    not describe.
+ * 1. Write a Markdown file containing the heading and a body sentence, and build a
+ *    memory over a dump whose section node points at it with no source digest.
  * 2. Ask `details` for the section by its address.
- * 3. Assert it answers with the heading and the line, and that no field carries
- *    the document's prose.
+ * 3. Assert it answers with the heading and the line, that no serialized field
+ *    contains the body sentence, and that no members are listed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runDetails over a TtscGraphMemory whose project is a temporary directory holding docs/discount.md must answer the handle "docs/discount.md#coupon-stacking" with name "Coupon stacking" and sourceSpan.startLine 12, with the JSON of the whole answer not containing the body sentence and with no members.
+ * @evidence contracts/testing.md#independent-expectations The heading text, the line 12 (eleven preamble lines precede the heading in the file the test writes) and the body sentence are literals authored by the test; the check searches the serialized answer, so a body leaking through any field would be found.
+ * @evidence contracts/testing.md#distinguishing-cases The document exists on disk and contains the body, but the dump's source manifest is empty so the reader has no digest to trust; the heading and span must be returned while the prose and any invented members must not. A dump that does list the document's digest is not exercised.
+ * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from and runDetails in the test process over a real temporary directory holding the Markdown file; no consumer is installed and no native producer or host is started.
  */
-export const test_ttscgraph_details_never_returns_an_artifact_body =
-  (): void => {
-    const graph = TtscGraphMemory.from(dump());
+export function test_ttscgraph_details_never_returns_an_artifact_body(): void {
+    const directory = TestProject.tmpdir("graph-artifact-prose-");
+    try {
+      fs.mkdirSync(path.join(directory, "docs"));
+      fs.writeFileSync(path.join(directory, "docs/discount.md"), Array(11).fill("preamble").join("\n") + "\n## " + HEADING + "\n" + BODY + "\n");
+      const snapshot = dump();
+      snapshot.project = directory;
+      const graph = TtscGraphMemory.from(snapshot);
     const detail = runDetails(graph, {
+      type: "details",
       handles: ["docs/discount.md#coupon-stacking"],
     }).result.nodes[0];
 
@@ -127,4 +114,7 @@ export const test_ttscgraph_details_never_returns_an_artifact_body =
       true,
       "an artifact has no members; a member list here would be invented",
     );
-  };
+      } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+}

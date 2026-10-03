@@ -12,9 +12,15 @@ import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtsc
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent capability is represented by an absent key, not an invented resident identity or patched plugin metadata.
  * @evidence contracts/common.md#meaningful-documentation Native member comments explain argv, duplicate positions and the undefined key; documented members are separated by blank lines.
  * @evidence contracts/portability.md#os-neutral-implementation The record preserves native executable selection separately from argv and environment-carried compiler flags; consumers own native spawning and filesystem identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type ResidentCheckEntryPlan = {
-  /** Full argv of the entry's check command (or of its `check-serve` host). */
+  /**
+   * Full argv of the entry's one-shot check command. The resident consumer
+   * substitutes `check-serve` for the first argument when it starts a sidecar.
+   */
   args: string[];
 
   /**

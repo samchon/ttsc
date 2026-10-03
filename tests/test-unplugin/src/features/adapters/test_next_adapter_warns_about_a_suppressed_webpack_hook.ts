@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import type { INextLikeConfig } from "../../internal/adapter-next/INextLikeConfig";
-import { loadNext } from "../../internal/adapter-next/loadNext";
+import type { INextLikeConfig } from "../internal/adapter-next/INextLikeConfig";
+import { loadNext } from "../internal/adapter-next/loadNext";
 
 /**
  * Verifies the wrapper warns when a caller's `webpack` hook stops running under
@@ -18,11 +18,19 @@ import { loadNext } from "../../internal/adapter-next/loadNext";
  *    stopped the build.
  * 3. Assert nothing is written for a config without a hook, or one that already
  *    configures Turbopack.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Captures stderr while calling authored next, asserting the ignored caller hook names Turbopack and the lost build refusal; restores stderr even on an assertion failure.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The caller-facing warning contract is independent: a supplied webpack hook without Turbopack configuration loses Next's build refusal. Literal message concepts detect a silently dropped customization.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   The warning case has a hook and no Turbopack block; three controls cover no hook, explicit Turbopack with a hook and explicit Turbopack without a hook. Empty stderr distinguishes undesired warnings.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_next_adapter_warns_about_a_suppressed_webpack_hook calls next from loadNext under its capture helper for all four configs and restores stderr in finally; it tests the wrapper warning without starting Next.
  */
 export async function test_next_adapter_warns_about_a_suppressed_webpack_hook(): Promise<void> {
   const next = await loadNext();
   const capture = (config: INextLikeConfig): string => {
-    const original = process.stderr.write.bind(process.stderr);
+    const original = process.stderr.write;
     let written = "";
     process.stderr.write = ((chunk: unknown) => {
       written += String(chunk);

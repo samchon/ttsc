@@ -1,13 +1,13 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectMembershipDigest } from "../../../../../packages/unplugin/lib/core/transform/project/projectMembershipDigest.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { projectMembershipDigest } from "../../../../../packages/unplugin/src/core/transform/project/projectMembershipDigest";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -30,6 +30,14 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    invalidates the importer, with no reload and no message.
  * 3. Re-register, create an empty subdirectory and assert nothing happens, then
  *    create a source inside it and assert the importer is invalidated again.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls watcher registration and injected rename/change events; asserts unchanged, emitted, excluded, edited and empty-directory inputs stay quiet, while new admitted files invalidate client and SSR.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Project membership changes when an admitted root file appears, not when an existing file changes bytes or an excluded/output file appears. Literal empty and two-environment results encode that contract.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Includes unchanged state, outDir output, notes.txt, ordinary source edits, a new declaration, empty directory and a new nested source; fresh membership evidence is registered between positive states.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_vite_compiler_watch_follows_project_membership calls createViteServeInputWatch.attach/replace, injects each membership event and owns both environment callback traces; it reads actual temporary membership fixtures and disposes without opening native watchers.
  */
 export async function test_vite_compiler_watch_follows_project_membership(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -142,6 +150,11 @@ export async function test_vite_compiler_watch_follows_project_membership(): Pro
       () => invalidated.length === 2,
       "a source in the new directory to invalidate the importer",
     );
+    assert.deepEqual(await settled(), {
+      invalidated: ["client", "ssr"],
+      messages: [],
+      reloaded: [],
+    });
   } finally {
     await watch.dispose();
   }

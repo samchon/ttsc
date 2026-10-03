@@ -12,18 +12,34 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Speculative inputs and explicit failure/conflict sets represent supported weaker evidence without inventing content hashes or hiding contradictions.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains identity versus spelling and the builder's validation responsibility; member comments define speculative inputs and proof states with blank member and tag separation under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Identity keys come from the envelope's filesystem context, while proof keys retain native absolute lexical spellings; this representation does not equate case folding with an operating-system name.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscEnvelopeGraphIndexes {
   /** Identity of each direct-edge source -> its resolved absolute targets. */
   readonly edges: Map<string, string[]>;
 
-  /** Identity of each direct-edge source -> its absolute spelling. */
+  /**
+   * Native identity -> selected absolute spelling for sources, targets and
+   * universal/candidate members. Later edge-source declarations replace that
+   * identity's spelling; other categories retain an existing choice.
+   */
   readonly spellings: Map<string, string>;
 
   /** Importer-owned resolver-input entries, sources pre-identified. */
   readonly candidates: { source: string; files: string[] }[];
 
-  /** Resolved absolute `graph.globals` members, inputs of every source file. */
+  /**
+   * Resolved absolute `graph.globals` members in the ordinary language bound;
+   * an admitted complete plugin declaration can replace this contribution.
+   */
   readonly globals: string[];
 
   /** Resolved absolute `graph.configs` members: the tsconfig `extends` chain. */

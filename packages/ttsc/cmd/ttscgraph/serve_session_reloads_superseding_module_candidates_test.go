@@ -20,6 +20,11 @@ import (
 //  2. Create only the absent target that precedes it in that resolver's search.
 //  3. Assert the resident snapshot reloads and the imported symbol resolves to
 //     the newly preferred file. Package internals remain external boundaries.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a resident session reloads when an unchanged specifier gains a missing candidate that outranks the file TypeScript-Go selected for the first snapshot.
+// @evidence contracts/testing.md#independent-expectations The expected outcomes follow from each resolver family's candidate priority, written as literal fixtures: relative extension (value.ts over value.js), ordered paths (first/* over fallback/*), rootDirs peer, a nearer node_modules directory, package exports array order, conditional package exports and imports (types over default), a file over a directory index, and a new @types package under types [*]. Each case requires mode reload and changed, and where a winner file is named the dump must hold the winner node at that file (or, for the package-exports array case, a diagnostic naming the new first.js).
+// @evidence contracts/testing.md#distinguishing-cases Nine registered cases (eight table subtests and the automatic_type_directory_membership subtest) each start with a lower-priority resolution and create only the absent higher-priority candidate, contrasting the resolver families named above; the unchanged-on-lower-priority side is owned by the keeps-unchanged tests. Each subtest keeps its own fixture, assertion and failure name.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsSupersedingModuleCandidates is a Go source-unit entry; its subtests are registered by the table and by one extra t.Run in the same function. Each runs a real in-process graphSession over a temporary project through snapshotGraphState with explicit empty ignore membership, so no consumer is installed and no native binary is built or launched.
 func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
   cases := []struct {
     name           string
@@ -204,12 +209,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
         t.Fatal(err)
       }
       defer session.Close()
-      if _, _, _, err := session.Snapshot(); err != nil {
+      if _, _, _, err := snapshotGraphState(session); err != nil {
         t.Fatal(err)
       }
 
       test.add(t, root)
-      dump, mode, changed, err := session.Snapshot()
+      dump, mode, changed, err := snapshotGraphState(session)
       if err != nil {
         t.Fatal(err)
       }
@@ -233,12 +238,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       t.Fatal(err)
     }
     defer session.Close()
-    if _, _, _, err := session.Snapshot(); err != nil {
+    if _, _, _, err := snapshotGraphState(session); err != nil {
       t.Fatal(err)
     }
 
     writeGraphFile(t, filepath.Join(root, "node_modules", "@types", "generated", "index.d.ts"), "declare const generatedAmbient: string;\n")
-    dump, mode, changed, err := session.Snapshot()
+    dump, mode, changed, err := snapshotGraphState(session)
     if err != nil {
       t.Fatal(err)
     }

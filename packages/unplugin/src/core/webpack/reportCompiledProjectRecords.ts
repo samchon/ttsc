@@ -5,27 +5,42 @@ import type { HostWatchBridge } from "../bridge/HostWatchBridge";
  * compile that just ended depends on (`HostWatchBridge.compiled`), read from
  * the compilation's own file dependencies.
  *
- * Those dependencies are what the compiler's watcher observes until its next
- * compile, and they name every file a module depends on whether the compile
- * built the module or restored it from the cache, so a project's record is
- * among them exactly while the compiler holds a module of the project. webpack
- * and Rspack run one compiler per target, Next's client, server and edge among
- * them, each with a bridge of its own that takes every record of the tool
- * directory at its first pass: the edge compiler holds no module of the page's
- * project, and its bridge would otherwise move that record on the growing
- * schedule for the rest of the session, each move running the client and server
- * compilers again. A compiler that builds a module on demand, as `next dev`
- * builds a page on its first request, depends on the record only from that
- * compile on, and its bridge observes the record meanwhile.
+ * The host's completed-compilation dependency collection determines which
+ * registered records its watcher is expected to hear. The bridge suspends
+ * repeated moves for records absent from that collection; input observation
+ * and owed signals remain. A reintroduced watched record with an owed signal
+ * can resume signaling. This report does not prove a generation's inputs or
+ * acknowledge that a signal has been answered.
+ *
+ * Membership uses the host collection's native record spelling exactly. Its
+ * inclusion of restored modules' dependencies is a host premise, not a
+ * filesystem/watch-delivery proof supplied by this adapter.
  *
  * @param bridge The session's bridge, when one is open.
  * @param dependencies The ended compilation's `fileDependencies`: a set of
  *   absolute paths, or any iterable of them.
  *
- * @evidence contracts/common.md#principled-implementation A completed compilation's dependency membership supplies the bridge's acknowledgment, including modules restored from the host cache.
+ * @evidence contracts/common.md#principled-implementation Actual dependency membership marks host-watched records for the bridge's repeated-signal policy; it does not certify generation proof or answer owed signals.
  * @evidence contracts/common.md#clear-and-simple-design The adapter passes one membership predicate to the existing bridge; it creates a Set only when the iterable lacks a lookup operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual dependency collection decides acknowledgment, without target-name exceptions or a synthetic success when the bridge is absent.
- * @evidence contracts/common.md#meaningful-documentation The comment explains cached modules, separate target compilers, and first-demand compilation, which determine why dependency membership owns acknowledgment.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes host dependency membership, suspended repeated moves, retained observation/owed signals and the host cache premise.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native absolute record spellings pass unchanged to the host has operation
+ *   or exact Set membership. No case/URL/slash rewrite or physical alias claim
+ *   substitutes for the dependency representation the host actually supplied.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A supplied has operation avoids copying N dependencies; otherwise one
+ *   Set materializes them. Delegated compiled checks R registered records,
+ *   with native spelling/host lookup costs and possible signal/timer work
+ *   when previously unwatched owed records rejoin. Missing bridge does no work.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   All record queries in this report share one supplied has operation or
+ *   materialized dependency Set. A later compilation supplies a new population;
+ *   no cross-compilation index is retained from this report.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The membership closure/optional Set are synchronous call-local state.
+ *   Bridge-owned unwatched/owed state and signaling timers stay with its owner;
+ *   this adapter acquires no retained handle/task.
  */
 export function reportCompiledProjectRecords(
   bridge: HostWatchBridge | undefined,

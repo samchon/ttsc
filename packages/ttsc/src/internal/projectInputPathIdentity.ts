@@ -11,7 +11,7 @@
  * It also carries the compiler's own answer to which spelling of a selected
  * project is the one its Program and its plugins see, `resolveProjectIdentity`,
  * so an adapter that writes a config or a path for the compiler anchors it
- * exactly where the compiler would (samchon/ttsc#1456).
+ * exactly where the compiler would.
  */
 export * from "./pathIdentity/FilesystemPathIdentity";
 export * from "./pathIdentity/FilesystemPathIdentityOperations";

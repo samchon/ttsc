@@ -12,17 +12,21 @@ import (
 // selection hears a new source file that differs from a recorded one only by
 // case, where the directory keeps the two apart.
 //
-// The host decided whether a listed source file was recorded by folding case
-// on every Windows and macOS directory. A Windows directory opted into case
-// sensitivity holds Foo.go and foo.go as two files, so a new foo.go was taken
-// for the recorded Foo.go and the session kept its old plugin binary
-// (samchon/ttsc#1532). The directory's own case semantics now decide.
+// Folding case on every Windows and macOS directory would be wrong: a Windows
+// directory opted into case sensitivity holds Foo.go and foo.go as two files, so
+// a new foo.go would be taken for the recorded Foo.go and the session would keep
+// its old plugin binary. The directory's own case semantics decide.
 //
 //  1. Record Foo.go as the only source of a case-sensitive directory, and assert
 //     the selection is current.
 //  2. Create foo.go beside it, and assert the selection is no longer current.
 //  3. On an ordinary directory, assert a recorded name spelled in another case
 //     still stands for the file on disk.
+//
+// @evidence contracts/testing.md#behavioral-verification A new source file differing from a recorded one only by case makes the selection stale in a case-sensitive directory, while on an ordinary directory a differently cased recorded name still stands for the file.
+// @evidence contracts/testing.md#independent-expectations The expected currentness booleans are literals from the directory's case semantics.
+// @evidence contracts/testing.md#distinguishing-cases Foo.go and foo.go are two files in a case-sensitive directory and one in an ordinary directory.
+// @evidence contracts/testing.md#execution-ownership TestPluginSelectionInputsFollowDirectoryCaseSemantics is a Go unit test built only on Windows in the lspserver package: it calls the unexported operation in-process against real temporary directories and starts no product host.
 func TestPluginSelectionInputsFollowDirectoryCaseSemantics(t *testing.T) {
   sensitive := t.TempDir()
   enableProjectInputCaseSensitivity(t, sensitive)

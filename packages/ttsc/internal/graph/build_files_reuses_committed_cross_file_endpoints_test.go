@@ -23,6 +23,11 @@ import (
 //     against its node index.
 //  3. Require the implementation/member facts and cross-file edge while
 //     rejecting re-emission of the base and unrelated nodes.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies partial extraction resolves selected-file facts against, but does not re-emit, the preceding generation's unchanged declaration index.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: with only impl.ts selected and the complete generation's nodes as the base index, the partial graph must contain the Impl.run method node, no node from base.ts or unrelated.ts, and a member-relation edge from Impl.run to Base.run whose origin is implements.
+// @evidence contracts/testing.md#distinguishing-cases Compile a base interface, one implementation and an unrelated source; Build the complete generation, then rebuild only the implementation file against its node index; Require the implementation/member facts and cross-file edge while rejecting re-emission of the base and unrelated nodes.
+// @evidence contracts/testing.md#execution-ownership TestBuildFilesReusesCommittedCrossFileEndpoints is a Go source-unit entry. BuildFiles, Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestBuildFilesReusesCommittedCrossFileEndpoints(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

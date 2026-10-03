@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createAliasPaths } from "../../../../../packages/unplugin/lib/core/transform/alias/createAliasPaths.mjs";
+import { createAliasPaths } from "../../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
 
 /**
  * Verifies each Vite alias is forwarded to `paths` only in the meaning Vite
@@ -21,6 +21,11 @@ import { createAliasPaths } from "../../../../../packages/unplugin/lib/core/tran
  *    Vite root as itself.
  * 2. Translate relative and bare replacements, and assert each is withheld and
  *    reported once.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls createAliasPaths; asserts root-relative ordering, wildcard targets, native/absolute paths, rootless absolute meaning and withholding of relative/bare replacements with one explanatory warning per alias.
+ * @evidence contracts/testing.md#independent-expectations Vite root-relative aliases try the project root before the filesystem; relative and package replacements cannot be represented as one project-wide paths mapping. Native path literals follow that documented resolution contract independently of translation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns rooted/rootless, inside/outside, slash/native and unsupported relative/bare forms, including repeated warning deduplication. stderr.write is restored in finally; no Vite resolver or native compiler runs.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real createAliasPaths with alias lists carrying a Vite root (and one rootless object form) and replaces process.stderr.write temporarily to capture the one-time notices, restoring it in finally. No Vite resolver, filesystem lookup beyond a temporary root path, or compiler is involved.
  */
 export async function test_vite_aliases_translate_with_vite_semantics(): Promise<void> {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-vite-alias-"));
@@ -60,7 +65,7 @@ export async function test_vite_aliases_translate_with_vite_semantics(): Promise
     "without a Vite root, a POSIX absolute replacement means itself",
   );
 
-  const original = process.stderr.write.bind(process.stderr);
+  const original = process.stderr.write;
   let captured = "";
   process.stderr.write = ((chunk: unknown) => {
     captured += String(chunk);

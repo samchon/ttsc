@@ -7,12 +7,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestFunctionLocalsDoNotCollide verifies that a function-local declaration is
-// not minted as a graph node. Build records top-level declarations, namespace
-// members, and class/interface members only; a body-scoped local resolved as an
-// edge target has an unqualified, position-free id, so two same-named locals in
-// different scopes would key the same node and merge — fabricating a false edge
-// from each unrelated caller to one phantom callable.
+// TestFunctionLocalsDoNotCollide verifies distinct local callables do not share an unqualified graph identity.
+//
+// Two outer scopes each declare inner. An unqualified, position-free inner
+// identity would merge unrelated call targets; these assertions permit separately
+// scope-qualified callable facts.
+//
+// 1. Load outerA and outerB, each with its own inner declaration.
+// 2. Build declarations and their relations from the real compiler.
+// 3. Reject the unqualified inner node and edges to that shared identity.
+//
+// @evidence contracts/testing.md#behavioral-verification Build must not merge the two local inner callables into one unqualified node identity or target an edge at that phantom shared identity.
+// @evidence contracts/testing.md#independent-expectations The two literal outer functions define distinct lexical inner declarations. The unqualified nodeID(path, inner, NodeFunction) and an edge target named only inner would erase that scope distinction; scope-qualified callable nodes are not prohibited by these assertions.
+// @evidence contracts/testing.md#distinguishing-cases Two same-named locals in separate outer scopes contrast permitted scoped declarations with a colliding unqualified node or edge target.
+// @evidence contracts/testing.md#execution-ownership The source-unit entry loads the authored source through driver.LoadProgram and calls Build and nodeID in the Go test process, closing its Program before temporary fixture cleanup.
 func TestFunctionLocalsDoNotCollide(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

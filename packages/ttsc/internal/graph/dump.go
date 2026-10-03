@@ -9,7 +9,7 @@ import (
 )
 
 // dump.go projects a built graph onto the JSON wire contract `ttscgraph dump`
-// prints: the IGraphDump shape the @ttsc/graph engine loads (and the 3D viewer
+// prints: the ITtscGraphDump shape the @ttsc/graph engine loads (and the 3D viewer
 // reduces). The internal Node/Edge model stays narrow (so the resident MCP path
 // is untouched); the richer schema is produced here:
 //
@@ -24,23 +24,24 @@ import (
 //
 // Structural derivations the schema also defines (file nodes, contains/exports
 // edges) are left to the TypeScript loader, which has the node set in hand and
-// is where the redesign keeps that logic.
+// is where that logic lives.
 
 // DumpEvidence is a 1-based source span grounding a node declaration or an edge
-// expression. It is display/expansion only, never identity.
+// expression. Columns count UTF-8 bytes from the ECMA line start, not UTF-16
+// code units or display cells. It is display/expansion only, never identity.
 //
 // File is omitted when the reader reconstructs it exactly: a node's span is in
 // the node's file, and an ordinary edge's span is in the file its `from` id
 // names. Cross-file assigned implementations keep the actual evidence file. The
-// path is long, it rode the wire once per node and once per edge, and on VS Code
-// those two copies are 55 MB of a 323 MB document that then has to be encoded,
-// piped, parsed and validated. An `implementation` span keeps its file — that one
+// path is long and would otherwise ride the wire once per node and once per
+// edge, on a document that then has to be encoded, piped, parsed and validated.
+// An `implementation` span keeps its file — that one
 // can genuinely live in another file from the declaration that owns it.
 //
 // @evidence contracts/common.md#principled-implementation One-based line/column spans ground displayed facts while optional File preserves the owner-reconstructible versus cross-file distinction.
 // @evidence contracts/common.md#clear-and-simple-design The wire record carries location evidence independently from node identity.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Optional file omission is a reconstructible schema rule rather than a project-specific payload shortcut.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain coordinate units, file reconstruction and implementation spans, following documentation-skill tag separation.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state one-based ECMA lines, UTF-8 byte columns, optional file reconstruction and implementation spans under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation File is a portable dump coordinate, never an OS-wide case-folded identity inferred by this record.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This span container selects no coordinate algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The dump context owns reusable line indices.
@@ -121,13 +122,14 @@ type DumpEnumMember struct {
 }
 
 // DumpObjectMember is one direct object-literal member carried on its variable
-// node. Line and Signature are rendered from the same Program-owned source text
-// as the node evidence, so the outline cannot race a later disk write.
+// node. Line and Signature use the caller-supplied text map shared with node
+// evidence, without reopening disk. The caller must bind that map to the AST
+// generation and keep both stable; this record does not authenticate that bind.
 //
 // @evidence contracts/common.md#principled-implementation Static member identity is separate from snapshot-rendered line/signature data that may be unavailable without source text.
 // @evidence contracts/common.md#clear-and-simple-design A direct-member outline remains nested on its owning variable rather than duplicating declaration nodes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No dynamic spread member or source-derived expected name is manufactured.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains direct membership and same-Program rendering, with tags separated under the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains direct membership, shared supplied text and caller-owned generation binding under the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This source-syntax outline has no native filesystem identity.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Rendering and traversal belong to the dump context.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The container coordinates no computation.
@@ -156,12 +158,11 @@ type DumpNode struct {
   Name          string `json:"name"`
   QualifiedName string `json:"qualifiedName,omitempty"`
 
-  // Signature is the declaration head, cut where the compiler says the body
-  // opens. A consumer that reconstructed it by scanning physical lines both
-  // leaked implementation text when a declaration shared its line with its body
-  // and stopped early when the head itself contained a brace — a type-literal
-  // parameter, an object return type, a destructured parameter. Neither is a
-  // guess the consumer can win, so the producer renders it here.
+  // Signature is an optional outline rendered from the supplied text using a
+  // bounded AST-selected cut. The helper finds the earliest modeled arrow,
+  // block, object/array literal or class-expression boundary; it does not prove
+  // that every cut is the declaration's own body opening or its complete head.
+  // Missing text or an unusable boundary leaves this field empty.
   Signature string `json:"signature,omitempty"`
 
   File          string             `json:"file"`
@@ -193,7 +194,7 @@ type DumpNode struct {
 // @evidence contracts/common.md#clear-and-simple-design One relationship record carries only facts needed by the receiving graph loader.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No synthetic ranking relationship or expected path is encoded.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the wire shape and JSON-key contract, with documentation-skill tag separation.
-// @evidence contracts/portability.md#os-neutral-implementation Endpoint IDs contain mapper-normalized path components and unchanged symbol names; this container performs no native case guessing.
+// @evidence contracts/portability.md#os-neutral-implementation Parsed symbol IDs use shared path projection, including path-valued module names; opaque or unparsed IDs remain reported strings. This container neither resolves native aliases nor authenticates physical endpoints.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Projection owns ordering and mapping algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The graph generation owns relationship reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The enclosing dump owns retained storage.
@@ -204,15 +205,15 @@ type DumpEdge struct {
   Evidence *DumpEvidence `json:"evidence,omitempty"`
 }
 
-// Dump is the IGraphDump envelope: the project it was built for, the evidence
+// Dump is the ITtscGraphDump envelope: the project it was built for, the evidence
 // about the program that produced it, and the full node and edge sets with none
 // of the MCP response caps.
 //
-// @evidence contracts/common.md#principled-implementation Facts, producer provenance and complete diagnostic collection describe one Program generation; empty arrays remain distinct from uncollected capabilities.
+// @evidence contracts/common.md#principled-implementation Supplied facts, provenance and diagnostics carry the producer's generation claims; the container does not authenticate their common acquisition or completeness. Capabilities distinguish claimed collection from absent evidence.
 // @evidence contracts/common.md#clear-and-simple-design The envelope groups snapshot proof and uncapped facts without mixing serve-protocol controls into the body schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Complete facts are not replaced by sample nodes or MCP response limits.
 // @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain generation provenance and empty diagnostic semantics, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Project owns the physical base and every identity-bearing native path uses its portable coordinate vocabulary.
+// @evidence contracts/portability.md#os-neutral-implementation Project reports the shared projection base and native paths use its protocol coordinates, subject to best-effort alias and supplied case-policy limits; opaque artifact addresses retain separate identity.
 // @evidenceExclude contracts/performance.md#efficient-algorithms NewDump owns projection cost rather than this envelope type.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Session owners establish whether this snapshot may be reused.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the completed payload's lifetime.
@@ -220,15 +221,14 @@ type Dump struct {
   Project  string `json:"project"`
   Tsconfig string `json:"tsconfig"`
 
-  // Provenance proves the rest of this dump came from one Program. It rides the
-  // body rather than the serve envelope so a dump written to a file by the
-  // one-shot command keeps its evidence, and so a consumer holding only the
-  // parsed dump never has to ask where it came from.
+  // Provenance carries the producer's capture claims in the body so file output
+  // retains them. Consumers must validate those claims; this field does not by
+  // itself prove a common Program or artifact acquisition.
   Provenance Provenance `json:"provenance"`
 
-  // Diagnostics are the compiler's findings for the same program generation
-  // that produced Nodes and Edges. Empty means the program had none, not that
-  // they were not collected; the producer states that in its capabilities.
+  // Diagnostics contains reported driver findings, including fileless failures.
+  // Empty is meaningful as collected-empty only under a valid producer capture
+  // and declared diagnostic capability, not merely because this slice is empty.
   Diagnostics []Diagnostic `json:"diagnostics"`
 
   Nodes []DumpNode `json:"nodes"`
@@ -241,7 +241,7 @@ type Dump struct {
 //
 // @evidence contracts/common.md#principled-implementation One shard's nodes and outgoing edges are separated from project-wide provenance and diagnostics that require a generation owner.
 // @evidence contracts/common.md#clear-and-simple-design The smaller payload supports actual partial graph replacement without rebuilding a full envelope.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Shard scope comes from BuildFiles rather than arbitrary response caps or a fixture-specific subset.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The intended shard producer uses BuildFiles selection rather than response caps; this payload does not enforce how its supplied graph population was obtained.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains intentionally omitted project-wide fields and incremental responsibility, with documentation-skill tag spacing.
 // @evidence contracts/portability.md#os-neutral-implementation Shard facts share the complete dump's portable path and evidence representation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The projection operation chooses the algorithm, not this container.
@@ -253,25 +253,26 @@ type DumpFacts struct {
 }
 
 // DumpOrigin is the snapshot evidence a caller attaches to a dump: who built it
-// and what the same program generation had to say about the code. It is a
-// separate struct because only the commands that own a compiler session can
-// produce it, while the graph projection below is pure.
+// and reported driver findings. Compiler-session owners must bind these inputs
+// to one acquisition, but arbitrary callers can construct this record too.
+// Projection does not reacquire compiler findings; its native path mapping is
+// separate from that acquisition and does not authenticate the origin.
 //
-// @evidence contracts/common.md#principled-implementation Caller-captured producer evidence and diagnostics remain associated with the same compiler generation before pure dump projection.
-// @evidence contracts/common.md#clear-and-simple-design The session boundary supplies origin facts explicitly instead of allowing the pure mapper to reread live compiler state.
+// @evidence contracts/common.md#principled-implementation Caller-supplied provenance and diagnostics require a common capture established by the producer; this input record and subsequent projection do not independently certify it.
+// @evidence contracts/common.md#clear-and-simple-design Origin facts are explicit inputs; projection does not query live compiler state, although its shared path mapper can perform native resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts NewDump stamps the schema version; this input does not authorize guessed capabilities or reconstructed disk provenance.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes session acquisition from pure projection and explains nil diagnostics under the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes caller-owned acquisition from projection/native path resolution and explains supplied diagnostics under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Captured physical paths are deliberately retained until the shared dump mapper projects them together.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This input record chooses no snapshot acquisition algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The session owner establishes reuse validity.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The input container owns no independent retention or handle lifecycle.
 type DumpOrigin struct {
-  // Provenance identifies the producing program. NewDump always stamps the
-  // schema version itself, so a caller cannot publish a wrong one.
+  // Provenance reports the producing program. NewDump stamps its schema version
+  // regardless of this input, but does not authenticate the other fields.
   Provenance Provenance
 
-  // Diagnostics are the compiler findings for the producing generation, or nil
-  // when the caller did not collect them.
+  // Diagnostics are supplied driver findings. Nil carries no findings and does
+  // not itself prove whether collection occurred.
   Diagnostics []Diagnostic
 }
 
@@ -279,18 +280,20 @@ type DumpOrigin struct {
 // root of the portable path coordinate; ignored is the git-ignored source set
 // (nil for a non-git project); sources maps a source file's physical path to its
 // text so byte spans become line/col evidence (nil omits evidence); origin is
-// the snapshot evidence that proves where the facts came from. It returns an
-// error before serialization when a path is on another filesystem root or two
-// physical sources would collide at one wire identity.
+// caller-supplied provenance and diagnostics, not independently authenticated by
+// this projector. A non-nil graph and stable supplied data are required. It
+// returns an error before serialization for detected cross-root or identity
+// collisions under the mapper's case policy and best-effort native path answers;
+// successful projection is not a physical snapshot or filesystem freeze.
 //
-// @evidence contracts/common.md#principled-implementation Facts, provenance and diagnostics pass through one mapper so the snapshot has injective portable identities and source spans from the supplied generation.
+// @evidence contracts/common.md#principled-implementation Facts and supplied provenance/diagnostics pass through one mapper's collision checks; source spans use supplied text, while this projector neither authenticates origin nor freezes native identity or graph payloads.
 // @evidence contracts/common.md#clear-and-simple-design Shared newDumpFacts performs projection; this envelope adapter stamps producer schema and normalizes mandatory arrays before publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Collision and cross-root failures stop publication instead of emitting guessed coordinates or quietly dropping inconvenient nodes.
-// @evidence contracts/common.md#meaningful-documentation Native prose states source ownership, project base, optional ignored set and pre-serialization failures, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Compiler virtual paths and native aliases use one mapper under the producing Program's preserved case policy; standalone graphs preserve exact spelling without OS syntax guesses.
-// @evidence contracts/performance.md#efficient-algorithms Node/edge sorting is O(N log N + E log E); grouping facts and source line indexing are linear, with logarithmic indexed coordinate lookup per span.
+// @evidence contracts/common.md#meaningful-documentation Native prose states supplied-data ownership, project base, optional inputs and the mapper's pre-serialization checks and identity limits, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Virtual and native paths share the mapper's compiler-reported case policy, with exact spelling for standalone graphs. Native alias resolution is best-effort, may inspect ancestors and may retain lexical spelling; the mapper does not certify per-directory case behavior or observation-time identity.
+// @evidence contracts/performance.md#efficient-algorithms Projection includes node/edge and provenance/diagnostic text-key sorts, all member/tag/decorator payloads, source-line construction, repeated trivia/signature scans and span lookups. Cached path mapping still includes path bytes and native ancestor resolution on misses; population-only sorting and coordinate lookup bounds are not the full cost.
 // @evidence contracts/performance.md#reuse-equivalent-work One dump context shares raw path mapping, physical aliases and per-source line indices across facts, diagnostics and provenance for this immutable snapshot.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Mapping and line-index caches are call-local; only the completed output survives, and failed projections return no partial published payload.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Mapping, line indices, grouping and output arrays scale without a payload cap. Local caches become unreachable after the call, but returned fields may borrow original literal/member payloads; the caller owns their shared lifetimes and immutability. Projection failure returns no partial Dump, without reclaiming caller inputs or publishing bytes.
 func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) (Dump, error) {
   facts, ctx, err := newDumpFacts(g, project, ignored, sources)
   if err != nil {
@@ -341,15 +344,18 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 // dump path/evidence codec. The caller may pass a partial graph produced by
 // BuildFiles; no project-wide provenance, diagnostic walk or full Dump is
 // constructed.
+// The graph must be non-nil and supplied facts/text remain stable during the
+// call. Returned literal payloads may share the graph's original values; this
+// projection does not freeze native identity or deep-copy every fact.
 //
 // @evidence contracts/common.md#principled-implementation A partial graph uses the same identity and evidence codec as a full graph without pretending it carries project-wide origin facts.
 // @evidence contracts/common.md#clear-and-simple-design One shared projection function supplies the actual shard payload rather than constructing and trimming a full Dump.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No response cap or guessed diagnostic omission changes shard fact identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes partial-build input and absent project-wide work, with documentation-skill tag spacing.
-// @evidence contracts/portability.md#os-neutral-implementation Complete and partial graph builds retain their Program's case policy for shard coordinates, while the shared mapper rejects cross-root and identity-collision failures.
-// @evidence contracts/performance.md#efficient-algorithms Processing follows this shard's node/edge/fact counts, sorting its output and indexing only source files needed by its spans.
+// @evidence contracts/portability.md#os-neutral-implementation Shard coordinates retain the graph's reported case policy; shared best-effort native alias mapping may retain lexical spelling and rejects detected cross-root or identity-collision failures without certifying observation-time physical identity.
+// @evidence contracts/performance.md#efficient-algorithms Shared projection includes node/edge text-key sorting, member/tag/decorator payloads, path-byte hashing and native ancestor resolution on cache misses, source line construction and repeated trivia/signature scans for emitted spans; it omits project-wide provenance and diagnostic work.
 // @evidence contracts/performance.md#reuse-equivalent-work The shard-local context shares path and line-index results among all emitted facts; unchanged shard reuse belongs to its resident caller.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Projection scratch dies after return; the caller owns the completed replacement payload and its retention.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Uncapped mapping, grouping, line-index and output arrays scale with the supplied graph. Local caches become unreachable after return; the caller owns returned arrays and shared original literal payload lifetimes and keeps those borrowed values stable.
 func NewDumpFacts(g *Graph, project string, ignored map[string]bool, sources map[string]string) (DumpFacts, error) {
   facts, _, err := newDumpFacts(g, project, ignored, sources)
   return facts, err
@@ -505,15 +511,18 @@ func objectMemberWireKind(kind NodeKind) string {
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
 // See NewDump for the parameters.
+// Native JSON marshaling buffers the full value and copies the returned bytes;
+// pretty marshaling additionally builds indented bytes. This byte-returning
+// adapter appends no protocol newline and acquires no output writer.
 //
-// @evidence contracts/common.md#principled-implementation NewDump validates snapshot projection before standard JSON encoding, and formatting changes no graph facts.
+// @evidence contracts/common.md#principled-implementation NewDump's identity projection checks precede JSON encoding; formatting preserves the supplied facts without authenticating snapshot origin or adding a protocol newline.
 // @evidence contracts/common.md#clear-and-simple-design One byte-returning adapter delegates graph semantics to NewDump and encoding to encoding/json.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Encoding failures propagate rather than substituting expected JSON or suppressing invalid paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies byte serialization and indentation; the referenced input contract remains documented by NewDump under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation This adapter preserves NewDump's portable coordinate rules and propagates its native-boundary errors.
-// @evidence contracts/performance.md#efficient-algorithms Projection has NewDump's sorting cost; JSON encoding is linear in output bytes and the requested byte slice necessarily holds that complete output.
+// @evidence contracts/performance.md#efficient-algorithms Projection includes NewDump's native/text/payload costs. JSON encoding includes map-key text sorting, full-value buffering and returned-byte copying; pretty output additionally scans and allocates indented bytes.
 // @evidence contracts/performance.md#reuse-equivalent-work Graph projection shares its per-snapshot indices; this adapter does not retain encoded results across changed generations.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned byte slice transfers to the caller and the function acquires no native resource or retained cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Projection and encoded/copy/optional indentation buffers scale without a payload cap; the standard encoder pool may retain capacity. Returned bytes belong to the caller, and this adapter retains no own result cache or native handle.
 func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) ([]byte, error) {
   d, err := NewDump(g, project, tsconfig, ignored, sources, origin)
   if err != nil {
@@ -525,23 +534,24 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
   return json.Marshal(d)
 }
 
-// EncodeDump writes the export JSON straight to w, one buffered pass, ending it
+// EncodeDump projects and JSON-encodes the graph to w, ending the encoded value
 // with the newline the one-shot protocol expects.
 //
-// The alternative is what the dump command used to do: marshal the whole
-// document into a byte slice, convert that slice into a string, and print the
-// string. On VS Code the document is 323 MB, so the conversion was a second full
-// copy of it held live beside the first — half a gigabyte of peak heap that
-// bought nothing, because the bytes were already exactly what stdout wanted.
+// The standard JSON encoder builds the complete encoded value in memory before
+// writing it; pretty output also uses an indentation buffer. The 1 MiB bufio
+// writer batches I/O rather than bounding payload memory, and may reuse an
+// already larger supplied bufio.Writer. This avoids an additional caller-created
+// string conversion but is not incremental JSON serialization. Write failures
+// may leave partial output; the caller owns the writer and its close lifecycle.
 //
-// @evidence contracts/common.md#principled-implementation Validated projection is encoded directly to the supplied writer with the protocol's trailing newline and all writer failures preserved.
-// @evidence contracts/common.md#clear-and-simple-design The streaming adapter keeps projection in NewDump and uses standard buffered JSON encoding rather than a second string-output pipeline.
+// @evidence contracts/common.md#principled-implementation NewDump's checked identity projection is encoded to the supplied writer with a trailing newline; encoding, write and final-flush errors propagate without certifying complete publication after failure.
+// @evidence contracts/common.md#clear-and-simple-design Projection stays in NewDump and standard buffered JSON encoding avoids an additional caller string-output pipeline without promising incremental serialization.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Buffer size is an I/O batching constant, not a fact cap; no expected payload or foreign writer behavior is patched.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain direct output and avoided complete byte/string copies, with documentation-skill tag separation.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain full-value/indentation buffering, the I/O buffer's distinct role and writer ownership, with documentation-skill tag separation.
 // @evidence contracts/portability.md#os-neutral-implementation The caller supplies the writer; portable graph identities and native mapping errors are preserved from NewDump without shell output quoting.
-// @evidence contracts/performance.md#efficient-algorithms JSON work is linear in output bytes, with fixed buffering instead of complete encoded byte and string intermediates alongside the projected graph.
+// @evidence contracts/performance.md#efficient-algorithms NewDump owns projection, mapping and sorting costs. JSON encoding includes map-key text sorting and the full value's bytes; pretty output additionally scans and buffers indented bytes before native writer/flush work.
 // @evidence contracts/performance.md#reuse-equivalent-work The projection context shares equivalent path and source-index work; streamed bytes are effectful output and are not replayed from a cross-request cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The function owns only its fixed local buffer and flushes on successful encoding; the supplied writer's close lifecycle belongs to its caller.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Projection, full encoded value and optional indentation bytes coexist without a payload cap. The standard encoder returns its state to a pool that may retain buffer capacity; bufio may reuse caller storage. Successful encoding is flushed, while writer close, partial-output handling and retained caller buffers remain caller-owned.
 func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) error {
   dump, err := NewDump(g, project, tsconfig, ignored, sources, origin)
   if err != nil {
@@ -719,8 +729,8 @@ func (c *dumpContext) declarationSignature(n *Node) string {
   return strings.TrimSpace(text[pos:end])
 }
 
-// objectMemberSignature reproduces the compact outline details has historically
-// returned, but slices it from Program-owned text while the dump is built
+// objectMemberSignature reproduces the compact outline `details` returns, but
+// slices it from Program-owned text while the dump is built
 // instead of reopening the live file later.
 func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) string {
   pos, end := member.Pos, member.SignatureEnd

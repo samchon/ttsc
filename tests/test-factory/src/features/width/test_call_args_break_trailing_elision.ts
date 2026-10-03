@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Node, TsPrinter } from "@ttsc/factory";
+import factory, { type Node, TsPrinter } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 import { id, str } from "../../internal/helpers";
@@ -23,6 +23,11 @@ const tiny = new TsPrinter({ printWidth: 20 });
  * 2. Assert every layout parses, compiles in V8, and keeps one argument — the same
  *    count the legacy printer's text yields.
  * 3. Assert an argument list ending in a spread still gains its break comma.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Call/new lists ending in an omitted argument compile with one argument at wide and broken widths.
+ * @evidence contracts/testing.md#independent-expectations Independent ts-legacy printer/parser structure and V8 compilation establish valid syntax and arity without printer-self comparisons.
+ * @evidence contracts/testing.md#distinguishing-cases Call versus new, flat versus broken and final spread negative retain meaningful comma policy; doubled commas and leftover indentation are forbidden.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_call_args_break_trailing_elision. Calls both printers, printLegacy, argumentCount, structure and syntaxErrorOf for each owned title/layout row.
  */
 export const test_call_args_break_trailing_elision = (): void => {
   const argumentCount = (text: string): number => {

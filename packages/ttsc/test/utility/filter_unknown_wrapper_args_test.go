@@ -17,6 +17,11 @@ import (
 // 1. Create a minimal project that check mode can load.
 // 2. Run utility check with mixed wrapper-only and utility-owned flags.
 // 3. Assert the command succeeds, proving the unknown flags were filtered out.
+//
+// @evidence contracts/testing.md#behavioral-verification RunCheck over a plain project succeeds when mixed wrapper-only and utility flags are passed, proving the unknown flags never reach Go's flag parser.
+// @evidence contracts/testing.md#independent-expectations Success status on a project with no diagnostics is the contract; any leaked unknown flag would make the flag set fail with status 2.
+// @evidence contracts/testing.md#distinguishing-cases Inline unknown flags, unknown flags with a separate value, known inline flags and post-'--' arguments are each present in one invocation.
+// @evidence contracts/testing.md#execution-ownership TestUtilityFilterUnknownWrapperArgs is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityFilterUnknownWrapperArgs(t *testing.T) {
   root := t.TempDir()
 

@@ -28,11 +28,13 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  *   OS-neutral code uses the supplied filesystem's bigint physical identity
  *   without platform-wide case folding or assumptions about alias spellings.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Each call performs one expected-constant map lookup and at most one metadata
- *   read; bigint formatting avoids precision loss without directory traversal.
+ *   Each call performs expected entry-count map work and at most one supplied
+ *   metadata read. Directory-key hashing, native path resolution and bigint
+ *   decimal formatting retain their string/component/digit costs.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   A verification map shares both successful and absent identities for the
- *   same directory; has distinguishes a cached absence from no observation.
+ *   same directory within one verification; has distinguishes a cached absence
+ *   from no observation. A later delivery receives a fresh verification map.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   The caller owns the memo's verification lifetime; this helper acquires no
  *   persistent resource or independent cache.

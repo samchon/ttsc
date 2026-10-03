@@ -9,18 +9,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyReportsNotHandledOwnedCommandError verifies advertised commands
-// stay local even when the source fails to route them.
+// TestLSPProxyReportsNotHandledOwnedCommandError Verifies that an advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback.
 //
-// The proxy must keep editor traffic flowing while a sidecar command runs, so
-// it cannot wait for a late ErrCommandNotHandled result and then replay the
-// original request upstream in its original stream position. Advertising the
-// command id means ttsc owns it; a missed route is surfaced as a command error.
+// Owned failed routing contrasts with unowned forwarding and owned no-op success.
 //
 // 1. Configure a source that advertises a command.
 // 2. Return ErrCommandNotHandled from ExecuteCommand.
 // 3. Assert the editor sees an error response.
 // 4. Assert upstream sees no fallback frame.
+//
+// @evidence contracts/testing.md#behavioral-verification An advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback.
+// @evidence contracts/testing.md#independent-expectations Advertising a command commits local ownership; the authored stub failure must not replay upstream.
+// @evidence contracts/testing.md#distinguishing-cases Owned failed routing contrasts with unowned forwarding and owned no-op success.
+// @evidence contracts/testing.md#execution-ownership The Go callback and pipe proxy execute locally, with upstream silence observed for 150 milliseconds. Go discovers TestLSPProxyReportsNotHandledOwnedCommandError under ./test/driver.
 func TestLSPProxyReportsNotHandledOwnedCommandError(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.lint.fix"},

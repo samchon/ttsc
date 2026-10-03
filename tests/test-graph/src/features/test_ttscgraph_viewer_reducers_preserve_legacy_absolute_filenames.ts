@@ -44,6 +44,12 @@ const assertProjection = (
     `${label}: distinct source nodes retain distinct projected ids`,
   );
   assert.equal(result.links?.length, files.length, `${label}: links survive`);
+  const ids = expectedFiles.map((file, index) => `${file}#symbol${index}:function`);
+  assert.deepEqual(
+    result.links?.map(({ source, target }) => [source, target]),
+    ids.map((id, index) => [id, ids[(index + 1) % ids.length]]),
+    `${label}: rewritten edge endpoints retain their authored cycle`,
+  );
 };
 
 /**
@@ -51,16 +57,20 @@ const assertProjection = (
  *
  * Locks the legacy reroot boundary shared by the package, website, and fixture
  * reducers. The root must be a source directory rather than a complete file;
- * Windows paths compare case-insensitively, POSIX paths remain case-sensitive,
+ * Windows volume roots compare case-insensitively, directory spelling and POSIX paths remain case-sensitive,
  * and current project-relative dumps must bypass rerooting entirely.
  *
  * 1. Load all three production reducer copies through Node's TypeScript loader.
  * 2. Exercise single-file, repeated-file, nested, POSIX, drive, and UNC paths.
- * 3. Assert IDs and files retain their spellings, and that both copies apply the
- *    same git-ignored drop policy.
+ * 3. Assert all three reducers retain IDs, files and links, then check the
+ *    reducers' git-ignored drop counts.
+ *
+ * @evidence contracts/testing.md#behavioral-verification All three authored reducers preserve literal file/id projections, distinct identities and links. Each reducer additionally drops the git-ignored generated node, reporting a drop count of one and keeping the authored node with its self edge.
+ * @evidence contracts/testing.md#independent-expectations Legacy rerooting retains filenames and current relative spelling; literal fixture projections independently specify POSIX, drive and UNC expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Single, repeated and nested files, disjoint/case-distinct roots, drive/UNC paths, relative paths and generated nodes distinguish projection and filter policies.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/features entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
  */
-export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
-  async (): Promise<void> => {
+export async function test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames(): Promise<void> {
     const reducers = await loadViewerReducers();
 
     const cases = [
@@ -179,17 +189,13 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
       ],
     };
 
-    // Both copies drop git-ignored generated code, and report how much they
+    // All three copies drop git-ignored generated code, and report how much they
     // dropped. This assertion used to record the package copy keeping it "by
     // design", which was the divergence #835 named: the package copy's own doc
     // comment, the shipped guide, and the two sibling copies all said the
     // authored graph is what a view shows, and only the code disagreed.
-    const packageResult = reducers[0]!.reduce(policyDump);
-    const websiteResult = reducers[1]!.reduce(policyDump);
-    for (const [name, result] of [
-      ["package", packageResult],
-      ["website", websiteResult],
-    ] as const)
+    for (const reducer of reducers) {
+      const result = reducer.reduce(policyDump);
       assert.deepEqual(
         [
           result.counts.nodes,
@@ -197,6 +203,17 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
           result.counts.droppedIgnored,
         ],
         [1, 1, 1],
-        `${name} reducer drops ignored nodes and reports the drop`,
+        `${reducer.name} reducer drops ignored nodes and reports the drop`,
       );
-  };
+      assert.deepEqual(
+        result.nodes.map(({ id, file }) => ({ id, file })),
+        [{ id: "authored.ts#authored:function", file: "authored.ts" }],
+        `${reducer.name} retains the authored node rather than the generated one`,
+      );
+      assert.deepEqual(
+        result.links?.map(({ source, target }) => [source, target]),
+        [["authored.ts#authored:function", "authored.ts#authored:function"]],
+        `${reducer.name} retains the authored self-edge`,
+      );
+    }
+}

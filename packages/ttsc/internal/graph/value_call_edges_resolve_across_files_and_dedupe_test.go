@@ -17,6 +17,11 @@ import (
 //     twice.
 //  2. Build the graph.
 //  3. Assert exactly one caller -> helper value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a runtime call is recorded as a single value-call edge to the callee's real declaration, even when the caller invokes it from several sites. Cross-file resolution proves the edge rides the checker; the dedup keeps the call graph one-edge-per-pair so an impact query is not skewed by how many times a function is called.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish exactly one caller -> helper value-call edge.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where caller() calls helper() (declared in another file) twice; Build the graph; Assert exactly one caller -> helper value-call edge.
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesResolveAcrossFilesAndDedupe is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesResolveAcrossFilesAndDedupe(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

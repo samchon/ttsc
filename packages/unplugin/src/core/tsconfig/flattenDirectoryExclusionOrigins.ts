@@ -21,6 +21,16 @@ import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
  * @evidence contracts/common.md#meaningful-documentation
  *   The comment states the replacement rule and its always-retained half,
  *   providing meaning beyond the array-building expression.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Concatenates already resolved absolute directory strings; it reads no filesystem.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A fixed two-option scan precedes copying N explicit exclusions into the
+ *   result, with O(N) time/returned references. It preserves source order and
+ *   duplicates; directory strings are not reread, normalized or copied.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This one supplied-provenance projection coordinates no cross-call work;
+ *   config and overlay owners determine when a policy can be reused.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function flattenDirectoryExclusionOrigins(
   origins: NonNullable<

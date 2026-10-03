@@ -10,17 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
 )
 
-// TestRunLSPGraphSymbolsPreserveHashBearingPaths verifies graph LSP references:
-// ids whose source path contains '#' still map back to the real source file.
+// TestRunLSPGraphSymbolsPreserveHashBearingPaths Verifies that graph references from hash-bearing paths return two locations with the exact file URI.
 //
-// The graph producer escapes a hash inside the id's path component. The LSP
-// provider must decode that component before comparing an edge to the editor's
-// URI; otherwise every reference from the file is discarded as a different
-// source path.
+// Root, directory, and filename contain hashes; distinct declaration and usage ranges are not asserted.
 //
-//  1. Build a project whose root, directory, and source filename contain '#'.
-//  2. Warm the graph-backed provider and request references for `greet`.
-//  3. Assert the declaration and usage from that exact file are returned.
+// 1. Write a project with hashes in its root, directory, and source name.
+// 2. Warm the provider and request greet references through the local proxy route.
+// 3. Assert two locations both carry the exact authored file URI.
+//
+// @evidence contracts/testing.md#behavioral-verification Graph references from hash-bearing paths return two locations with the exact file URI.
+// @evidence contracts/testing.md#independent-expectations The authored declaration and usage define count and URI independently of graph ID parsing.
+// @evidence contracts/testing.md#distinguishing-cases Root, directory, and filename contain hashes; distinct declaration and usage ranges are not asserted.
+// @evidence contracts/testing.md#execution-ownership The Go provider is warmed directly and queried through the in-process proxy, without a native producer. Go discovers TestRunLSPGraphSymbolsPreserveHashBearingPaths under ./test/driver.
 func TestRunLSPGraphSymbolsPreserveHashBearingPaths(t *testing.T) {
   root := filepath.Join(t.TempDir(), "project#root")
   relative := "src#generated/main#file.ts"

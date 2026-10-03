@@ -2,108 +2,39 @@ name: website
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/website.yml"
-      - "config/**"
-      - "packages/ttsc/**"
-      - "packages/lint/**"
-      - "packages/wasm/**"
-      - "packages/playground/**"
-      - "scripts/go-build-cache.cjs"
-      # The evidence benchmark page is drawn from this tracked aggregate, and
-      # its charts are republished from it at build time. A new cohort changes
-      # what the site shows without touching a file under `website/`.
-      - "benchmarks/evidence/aggregate/**"
-      - "website/**"
-      - "README.md"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+    branches: [master]
   pull_request:
-    paths:
-      - ".github/workflows/website.yml"
-      - "config/**"
-      - "packages/ttsc/**"
-      - "packages/lint/**"
-      - "packages/wasm/**"
-      - "packages/playground/**"
-      - "scripts/go-build-cache.cjs"
-      # The evidence benchmark page is drawn from this tracked aggregate, and
-      # its charts are republished from it at build time. A new cohort changes
-      # what the site shows without touching a file under `website/`.
-      - "benchmarks/evidence/aggregate/**"
-      - "website/**"
-      - "README.md"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-  workflow_dispatch:
 
 concurrency:
-  group: website-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
-  deploy:
+  website:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/wasm/go.sum
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      # The website's `build:compiler` step links against
-      # `packages/wasm/dist/wasm_exec.js` and consumes `@ttsc/wasm`'s host
-      # helper, so the wasm package must be built before `next build`.
-      # @ttsc/playground is the website worker's `@ttsc/playground` import;
-      # rspack resolves the package via its `main` field (`lib/src/index.js`),
-      # which only exists after `tsc -p .` runs.
-      - name: Build @ttsc/wasm
-        run: pnpm --filter @ttsc/wasm build
-
-      - name: Build @ttsc/playground
-        run: pnpm --filter @ttsc/playground build
-
-      # The evidence benchmark charts are drawn from the tracked aggregate
-      # rather than committed beside it, so one measurement has one source. The
-      # renderer runs under `ttsx`, which needs the launcher and the native
-      # compiler; `website-charts` builds those two and nothing else.
-      - name: Build ttsc For The Chart Renderer
-        run: node scripts/build-current.cjs
-        env:
-          TTSC_BUILD_SCOPE: website-charts
-
-      - name: Draw Evidence Benchmark Charts
-        run: pnpm --filter @ttsc/benchmark-evidence charts
-
-      - name: Build Website
-        working-directory: website
-        run: pnpm run build
-
-      - name: Deploy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm --filter @ttsc/benchmark-evidence charts
+      - run: pnpm --filter @ttsc/website build
+      - if: github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: ./website/out
-          # keep gh-pages at one commit; full-history snapshots bloat the repository
+          folder: website/out
           single-commit: true

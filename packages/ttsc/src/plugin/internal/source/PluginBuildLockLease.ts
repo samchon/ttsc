@@ -15,6 +15,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Release uses the recorded generation rather than deleting whichever holder currently occupies a shared pathname.
  * @evidence contracts/common.md#meaningful-documentation Native prose names producer, consumer, protocol and namespace lifetime; properties have separate useful comments without checklist tags.
  * @evidence contracts/portability.md#os-neutral-implementation The generation is protocol spelling independent of native separators; the v3 discriminant isolates the filesystem namespace from old v2 reclaimers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type PluginBuildLockLease = {
   /** Always "v3": acquisition never grants an older protocol's ownership. */

@@ -12,10 +12,10 @@ import (
 // TestServeErrorResponseStillNamesItsMode verifies a failed snapshot answers
 // with a mode and a protocol version rather than dropping them.
 //
-// This is the negative twin of the successful snapshot. Mode used to be
-// omitempty, so it vanished on exactly the path where a consumer most needs to
-// say what happened: the error path serves no dump and set no mode, leaving
-// "what did the compiler do" unanswerable and the field unrelied-upon. A field
+// This is the negative twin of the successful snapshot. An omitempty mode would
+// vanish on exactly the path where a consumer most needs to say what happened:
+// the error path serves no dump, leaving "what did the compiler do"
+// unanswerable and the field unrelied-upon. A field
 // that is present only when things go well is not a field a consumer can branch
 // on.
 //
@@ -23,6 +23,11 @@ import (
 //  2. Assert the response carries the error, and mode is the error mode.
 //  3. Assert the protocol version still rides it, so the client can read it at
 //     all.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a failed snapshot answers with a mode and a protocol version rather than dropping them.
+// @evidence contracts/testing.md#independent-expectations The expected id (7), mode error, protocol version and the three wire keys (mode, protocolVersion, capabilities) come from the serve envelope contract and are asserted both on the typed value and on the raw JSON keys, so an omitempty regression on mode fails even though the Go field is set. The invalid tsconfig text is a literal fixture.
+// @evidence contracts/testing.md#distinguishing-cases Serve a project whose tsconfig is invalid, so the session cannot be built; Assert the response carries the error, and mode is the error mode; Assert the protocol version still rides it, so the client can read it at all.
+// @evidence contracts/testing.md#execution-ownership TestServeErrorResponseStillNamesItsMode is a Go source-unit entry. It calls serveSnapshots in-process over a fixture whose tsconfig.json is invalid, so session creation fails before projection or Git acquisition; nothing is installed, built or launched.
 func TestServeErrorResponseStillNamesItsMode(t *testing.T) {
   root := graphSessionFixture(t)
   if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte("{ invalid"), 0o644); err != nil {
@@ -60,7 +65,7 @@ func TestServeErrorResponseStillNamesItsMode(t *testing.T) {
   }
 
   // The wire keys, not the Go fields: mode must survive serialization, which is
-  // the whole regression — omitempty dropped it there and nowhere else.
+  // where an omitempty tag would drop it and nowhere else.
   var raw map[string]any
   if err := json.Unmarshal(line, &raw); err != nil {
     t.Fatal(err)

@@ -22,6 +22,9 @@ import type { IFileStats } from "./IFileStats";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc names bridge scope, callback conventions and capability limits,
  *   following the documentation skill's context and failure guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IWasmExecFS only groups the virtual-filesystem members and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IWasmExecFS only groups the virtual-filesystem members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IWasmExecFS only groups the virtual-filesystem members and coordinates no computation.
  */
 export interface IWasmExecFS {
   /** Virtual open-flag values consumed by the Go bridge. */
@@ -34,6 +37,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The synchronous whole-buffer write is distinct from callback byte-slice writes because wasm_exec uses both call shapes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown descriptors throw rather than diverting writes to a diagnostic stream.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states descriptor and stream roles under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources writeSync is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms writeSync is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work writeSync is a signature only; sharing of repeated work belongs to createMemFS.
    */
   writeSync(fd: number, buf: Uint8Array): number;
 
@@ -44,6 +50,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Byte slice, descriptor position and completion stay explicit instead of overloading one offset parameter.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Access mode and stream identity own dispatch, without guessing a destination from payload bytes.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states position and append meaning under the documentation skill's units guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources write is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms write is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work write is a signature only; sharing of repeated work belongs to createMemFS.
    */
   write(
     fd: number,
@@ -61,6 +70,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design One open boundary captures access flags and descriptor identity; recursive seeding remains outside this low-level operation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Parent creation stays in writeFile/mkdirp instead of silently changing low-level open semantics.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains parent and descriptor ownership under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources open is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms open is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work open is a signature only; sharing of repeated work belongs to createMemFS.
    */
   open(
     path: string,
@@ -76,6 +88,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Descriptor release is one operation; file nodes and the two pipe endpoint roles keep their separate lifetimes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown descriptors remain errors rather than guessed already-closed successes.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains release and EOF effects under the documentation skill's ownership guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources close is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms close is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work close is a signature only; sharing of repeated work belongs to createMemFS.
    */
   close(
     fd: number,
@@ -89,6 +104,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Explicit slice and seek parameters preserve the bridge contract without exposing internal cursor or queue objects.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor access mode owns reads; EOF does not rewind a cursor past the current file length.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states byte units and cursor movement under the documentation skill's units guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources read is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms read is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work read is a signature only; sharing of repeated work belongs to createMemFS.
    */
   read(
     fd: number,
@@ -106,6 +124,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Listing returns immediate names only, leaving metadata and recursion to their existing separate operations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Entries come from the owned tree rather than expected source-file names.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states depth and order under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readdir is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms readdir is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work readdir is a signature only; sharing of repeated work belongs to createMemFS.
    */
   readdir(
     path: string,
@@ -119,6 +140,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design One-directory creation keeps bridge semantics visible rather than silently creating missing ancestor chains.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing nodes and missing parents remain errors instead of being rewritten to fit a requested path.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains creation depth and permission capability under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources mkdir is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms mkdir is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work mkdir is a signature only; sharing of repeated work belongs to createMemFS.
    */
   mkdir(
     path: string,
@@ -134,6 +158,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Path lookup projects one stats snapshot through the bridge's err-first callback, without another metadata cache contract.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing paths produce errors rather than synthetic existing-file metadata.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states virtual provenance and error absence under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources stat is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms stat is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work stat is a signature only; sharing of repeated work belongs to createMemFS.
    */
   stat(
     path: string,
@@ -147,6 +174,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required bridge alias delegates to stat because no supported node can be a symlink.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The no-symlink capability is explicit rather than pretending to resolve arbitrary link targets.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains equivalence and its reason under the documentation skill's rationale guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lstat is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lstat is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lstat is a signature only; sharing of repeated work belongs to createMemFS.
    */
   lstat(
     path: string,
@@ -161,6 +191,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Descriptor stats resolve retained identity directly rather than adding a path-to-descriptor translation layer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor metadata does not silently re-resolve a path to a different inode.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states retained-node and pipe roles under the documentation skill's ownership guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fstat is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms fstat is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work fstat is a signature only; sharing of repeated work belongs to createMemFS.
    */
   fstat(
     fd: number,
@@ -174,6 +207,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required flush callback is explicit while persistence remains outside this memory-only filesystem's capabilities.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Success does not claim disk durability or mutate foreign storage APIs.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states the durability limit under the documentation skill's capability guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fsync is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms fsync is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work fsync is a signature only; sharing of repeated work belongs to createMemFS.
    */
   fsync(
     fd: number,
@@ -187,6 +223,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design File unlink owns path removal; directory removal and descriptor close retain their separate named responsibilities.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Directories are rejected rather than orphaning descendants through file removal.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains path versus descriptor lifetime under the documentation skill's ownership guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources unlink is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms unlink is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work unlink is a signature only; sharing of repeated work belongs to createMemFS.
    */
   unlink(
     path: string,
@@ -200,6 +239,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design A single subtree move owns validation and rebasing instead of composing public delete and recreate operations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A rejected destination does not trigger partial moves or type coercion to force success.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states subtree scope and validation ownership under the documentation skill's failure guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources rename is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms rename is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work rename is a signature only; sharing of repeated work belongs to createMemFS.
    */
   rename(
     from: string,
@@ -214,6 +256,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Empty-directory removal has a focused boundary and leaves recursive deletion outside the bridge contract.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Nonempty directories are not recursively erased to satisfy a single rmdir request.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains empty-only and root boundaries under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources rmdir is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms rmdir is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work rmdir is a signature only; sharing of repeated work belongs to createMemFS.
    */
   rmdir(
     path: string,
@@ -227,6 +272,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required path-permission verb documents its no-op capability without creating unused permission state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The no-op is explicit rather than claimed as native permission enforcement.
    * @evidence contracts/common.md#meaningful-documentation JSDoc identifies the absent capability under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources chmod is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms chmod is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work chmod is a signature only; sharing of repeated work belongs to createMemFS.
    */
   chmod(
     path: string,
@@ -241,6 +289,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required descriptor variant preserves bridge call shape without a separate mutable permission model.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor acceptance does not claim an actual permission change.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states the same capability limit under the documentation skill's clarity guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fchmod is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms fchmod is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work fchmod is a signature only; sharing of repeated work belongs to createMemFS.
    */
   fchmod(
     fd: number,
@@ -255,6 +306,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required path-ownership verb is explicit, with no user/group database this virtual store does not support.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Synthetic ownership is documented rather than inferred from the browser host.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains ownership capability under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources chown is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms chown is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work chown is a signature only; sharing of repeated work belongs to createMemFS.
    */
   chown(
     path: string,
@@ -270,6 +324,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The descriptor ownership variant shares the same absent capability instead of introducing descriptor-specific ownership state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Success does not claim user/group mutation on an open virtual file.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names the descriptor scope and limit under the documentation skill's clarity guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fchown is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms fchown is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work fchown is a signature only; sharing of repeated work belongs to createMemFS.
    */
   fchown(
     fd: number,
@@ -285,6 +342,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design The required link-ownership alias makes its limits explicit without adding unsupported symlink machinery.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The no-link limit is explicit rather than simulating a link-specific ownership model.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states both capability boundaries under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lchown is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lchown is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lchown is a signature only; sharing of repeated work belongs to createMemFS.
    */
   lchown(
     path: string,
@@ -300,6 +360,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Caller timestamp setting remains an explicit no-op; byte/tree mutations retain ownership of projected timestamps.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller timestamps are not falsely reported as installed metadata.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains the timestamp owner under the documentation skill's rationale guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources utimes is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms utimes is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work utimes is a signature only; sharing of repeated work belongs to createMemFS.
    */
   utimes(
     path: string,
@@ -315,6 +378,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design One rejection boundary keeps unsupported inode aliasing out of the node tree and descriptor model.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A copied file is not presented as a shared-inode hard link.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names the absent capability and error under the documentation skill's failure guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources link is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms link is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work link is a signature only; sharing of repeated work belongs to createMemFS.
    */
   link(
     path: string,
@@ -329,6 +395,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design An explicit unsupported operation avoids a second path-resolution model with no supported symlink nodes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Link creation is not approximated by storing target text as an ordinary file.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names the rejection under the documentation skill's failure guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources symlink is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms symlink is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work symlink is a signature only; sharing of repeated work belongs to createMemFS.
    */
   symlink(
     path: string,
@@ -343,6 +412,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Link-target lookup remains a focused rejection instead of overloading ordinary file text as link state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed path is returned as a fabricated link target.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states the reason and error under the documentation skill's rationale guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readlink is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms readlink is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work readlink is a signature only; sharing of repeated work belongs to createMemFS.
    */
   readlink(
     path: string,
@@ -351,11 +423,15 @@ export interface IWasmExecFS {
 
   /**
    * Resize a file to a nonnegative integer byte length, zero-filling extensions.
+   * A length the engine cannot allocate reports `EFBIG` and changes nothing.
    *
    * @evidence contracts/common.md#principled-implementation Path-based resize operates on the stored node and preserves open-descriptor identity.
    * @evidence contracts/common.md#clear-and-simple-design The path variant resolves a node then uses shared resize semantics rather than composing reads and writes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid lengths and directories remain errors rather than coerced file mutations.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains units, validation and extension under the documentation skill's context guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources truncate is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms truncate is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work truncate is a signature only; sharing of repeated work belongs to createMemFS.
    */
   truncate(
     path: string,
@@ -364,12 +440,16 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Resize a writable open file without changing its descriptor cursor.
+   * Resize a writable open file without changing its descriptor cursor. A
+   * length the engine cannot allocate reports `EFBIG` and changes nothing.
    *
    * @evidence contracts/common.md#principled-implementation Descriptor resize uses retained inode identity and its access grant.
    * @evidence contracts/common.md#clear-and-simple-design Descriptor validation is separate from the shared byte resize; cursor ownership remains with read/write operations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Pipe ends and captured streams are not coerced into truncatable files.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states permission and cursor behavior under the documentation skill's ownership guidance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ftruncate is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ftruncate is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ftruncate is a signature only; sharing of repeated work belongs to createMemFS.
    */
   ftruncate(
     fd: number,
@@ -397,6 +477,9 @@ export interface IWasmExecFS {
    * @evidence contracts/common.md#clear-and-simple-design Two endpoint identities share one queue state; the JavaScript-only capability is kept distinct from native Go pipes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The unreachable Go os.Pipe capability is explicit rather than hidden behind a monkey-patched syscall claim.
    * @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain endpoint shape, Go limits and actual output capture under the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources pipe2 is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms pipe2 is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work pipe2 is a signature only; sharing of repeated work belongs to createMemFS.
    */
   pipe2(
     flags: number,

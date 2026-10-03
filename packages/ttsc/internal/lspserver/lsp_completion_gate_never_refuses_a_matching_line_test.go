@@ -15,6 +15,11 @@ import "testing"
 //  2. For each candidate line, run the gate and the full match together.
 //  3. Assert the gate is open wherever the match produced items, and closed on
 //     lines holding no trigger at all.
+//
+// @evidence contracts/testing.md#behavioral-verification For each candidate line the cheap trigger gate is open wherever the full hint match produces items and closed on lines holding no trigger.
+// @evidence contracts/testing.md#independent-expectations The oracle is the full matcher run on the same line, so the gate is checked against an independent, stricter implementation.
+// @evidence contracts/testing.md#distinguishing-cases A layered corpus of broad and narrow triggers and lines with and without any trigger separate a too-strict gate from a correct one.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionGateNeverRefusesAMatchingLine is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionGateNeverRefusesAMatchingLine(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "param"}}},

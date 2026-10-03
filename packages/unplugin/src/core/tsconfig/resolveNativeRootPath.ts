@@ -3,13 +3,15 @@ import fs from "node:fs";
 import { resolveRealPath } from "./resolveRealPath";
 
 /**
- * Resolve the physical root spelling native watchers report.
+ * Obtain a native realpath spelling for the project-root aliases.
  *
  * Native realpath expands Windows short names; an unavailable native result
- * delegates to the regular best-effort resolver.
+ * delegates to the regular best-effort resolver. If both observations fail,
+ * the input spelling survives; no returned string certifies how a watcher
+ * will name later events or their child paths.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Node's native realpath gives watcher-compatible physical spelling; the
+ *   Node's native realpath supplies an observed root alias; the
  *   regular resolver supplies an explicit best-effort fallback.
  *
  * @evidence contracts/common.md#clear-and-simple-design
@@ -27,6 +29,15 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate paragraphs state the watcher purpose, short-name distinction and
  *   fallback rather than equating every returned spelling with native proof.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One native realpath attempt precedes a regular attempt only on failure.
+ *   Both retain native component/link traversal and path-text cost; the wrapper
+ *   adds no tree scan or collection, and total failure returns the input.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This one-location observation coordinates no cross-request work. Policy
+ *   and selection readers own their observation transaction and invalidation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function resolveNativeRootPath(location: string): string {
   try {

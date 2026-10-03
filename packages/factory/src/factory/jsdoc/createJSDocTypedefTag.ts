@@ -16,8 +16,11 @@ import { createIdentifier } from "../names/createIdentifier";
  * or a {@link JSDocTypeLiteral}. The `fullName` is the alias name, printed after
  * the type, and `comment` is the trailing description.
  *
- * Omitted type payloads leave the optional name and description. Child nodes
- * are retained by reference; no alias is bound in a compiler symbol table.
+ * A {@link JSDocTypeLiteral} is written as `{Object}`, or `{Object[]}` when it
+ * is an array shape, and its property tags follow the typedef on their own
+ * lines. Omitted type payloads leave the optional name and description. Child
+ * nodes are retained by reference; no alias is bound in a compiler symbol
+ * table.
  *
  * With the default tag name, a `{number}` type expression, and a `Count` name,
  * the printer emits:

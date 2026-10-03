@@ -20,6 +20,19 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member comments explain wildcard min.js and JSON exceptions plus literal
  *   whole-path matching; separate comments preserve each field's meaning.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Components carry compiled compiler grammar and comparison policy, not
+ *   native file identity. The compiler and root-spelling owner select the
+ *   filesystem view before producing or consuming this representation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This representation chooses no traversal or expression execution strategy;
+ *   compile and matches own those algorithms.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The root matcher owns sharing compiled patterns by policy and view;
+ *   this value does not establish cache identity or validation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Pattern storage belongs to the root matcher's weak policy cache and
+ *   transient consumers; this carrier does not acquire or release resources.
  */
 export interface IRootPattern {
   /** Whether segments compare case-sensitively, the compiler's policy. */
@@ -32,6 +45,7 @@ export interface IRootPattern {
   components: readonly (
     | string
     | {
+        /** Whole-component matcher under the compiler's comparison policy. */
         expression: RegExp;
 
         /**
@@ -39,6 +53,8 @@ export interface IRootPattern {
          * admit a `.min.js` file TypeScript-Go otherwise leaves out.
          */
         mentionsMin: boolean;
+
+        /** Whether `*` or `?` activates include-only package and file rules. */
         wildcard: boolean;
       }
   )[];

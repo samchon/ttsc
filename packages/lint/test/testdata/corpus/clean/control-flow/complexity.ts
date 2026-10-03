@@ -1,0 +1,2 @@
+// @ttsc-corpus-clean: complexity
+function atLimit(value: number) {if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();if (value) work();}

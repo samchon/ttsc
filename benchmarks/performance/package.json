@@ -10,10 +10,10 @@
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "start": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index.ts",
-    "format": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index.ts --format-only",
-    "lint": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index.ts --lint-only",
-    "merge": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/merge.ts",
-    "ttsc-build": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index.ts --ttsc-build-only"
+    "start": "node --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/executable/index.ts",
+    "format": "node --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/executable/index.ts --format-only",
+    "lint": "node --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/executable/index.ts --lint-only",
+    "merge": "node --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/executable/merge.ts",
+    "ttsc-build": "node --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/executable/index.ts --ttsc-build-only"
   }
 }

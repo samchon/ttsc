@@ -14,6 +14,15 @@ import (
 // prefix. A regression in either would silently drop every declaration in a
 // dotted (or deeply nested) namespace — the idiom of .d.ts-heavy and
 // proto-generated codebases.
+//
+// 1. Load dotted namespace A.B.C with deep and a caller.
+// 2. Build qualified namespace declarations and calls.
+// 3. Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: for namespace A.B.C with a function deep and a top-level caller calling A.B.C.deep(), the graph must hold a function node whose qualified name is A.B.C.deep and a value-call edge from caller to it.
+// @evidence contracts/testing.md#distinguishing-cases Load dotted namespace A.B.C with deep and a caller. Build qualified namespace declarations and calls. Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+// @evidence contracts/testing.md#execution-ownership TestNamespaceDottedFormQualifiesDeeply is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNamespaceDottedFormQualifiesDeeply(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

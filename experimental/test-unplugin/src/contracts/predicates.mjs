@@ -141,6 +141,13 @@ export async function predicateContract(name, start) {
     );
   try {
     await eventually(runs, (count) => count === 1, `${name} first compile`);
+    // ApplyProgram records the compile before transform delivery finishes.
+    // A quiet counter of zero is not an initial completed host build.
+    await eventually(
+      () => builds,
+      (count) => count > 0,
+      `${name} first host build completes`,
+    );
     await settle(`${name} initial builds settle`);
     const quiet = builds;
 

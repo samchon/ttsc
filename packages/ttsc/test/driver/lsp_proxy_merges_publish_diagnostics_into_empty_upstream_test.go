@@ -9,13 +9,13 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyMergesPublishDiagnosticsIntoEmptyUpstream verifies plugin
+// TestLSPProxyMergesPublishDiagnosticsIntoEmptyUpstream Verifies plugin
 // diagnostics still surface when tsgo found nothing. That is the most
 // editor-realistic shape for lint-only feedback on a type-clean file
 // and the core product promise of ttscserver: lint findings reach the
 // editor even when the type checker is silent.
 //
-// Locks the merge branch in lsp_proxy.go::mergePublishDiagnostics for
+// Exercises the asynchronous merged publication path for
 // the "upstream silent / plugin contributes" combination. A future
 // short-circuit that returned early on `len(upstream)==0` would
 // silently drop every plugin-only finding without this test turning
@@ -25,6 +25,11 @@ import (
 // 2. Send upstream publishDiagnostics for /a.ts with diagnostics:[].
 // 3. Assert the empty upstream publish is forwarded first.
 // 4. Assert the async plugin publish contains a single plugin diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run first forwards the empty upstream publication unchanged and then publishes one plugin diagnostic containing lint-only.
+// @evidence contracts/testing.md#independent-expectations An empty TypeScript diagnostic set must not suppress the independently configured plugin finding.
+// @evidence contracts/testing.md#distinguishing-cases An empty upstream array plus one plugin diagnostic distinguishes this branch from unowned URIs and stale-clear transitions.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness runs the actual proxy with authored diagnostic frames and stub findings, without a sidecar.
 func TestLSPProxyMergesPublishDiagnosticsIntoEmptyUpstream(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

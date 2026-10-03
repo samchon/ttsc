@@ -14,6 +14,9 @@ import { graphInputObservationFailures } from "./graphInputObservationFailures";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Acceptance is derived from actual replay failures, not a quiet watcher or a cached boolean independent of current observations.
  * @evidence contracts/common.md#meaningful-documentation Native prose states absent-predicate and complete-replay semantics, using separated tags following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral replay receives the same filesystem operations and identity context as the observation owner; the adapter adds no native spelling assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms It returns whether graphInputObservationFailures found nothing, which replays only the recorded predicates.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A replay answers for the filesystem now; callers decide whether an earlier replay may be shared.
  */
 export function matchesGraphInputObservation(
   file: string,

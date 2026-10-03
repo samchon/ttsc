@@ -16,8 +16,15 @@ import (
 // and its physical path, so that replacing it with a real config invalidates the
 // generation. Reporting the directory as absent instead leaves every consumer
 // comparing nil against a digest its own filesystem keeps producing, and the
-// generation is refused on every delivery for the rest of its life — the same
-// permanently-unreusable shape samchon/ttsc#1245 was filed for.
+// generation is refused on every delivery for the rest of its life.
+//
+// 1. Create an actual config beside a directory named as another config candidate.
+// 2. Discover the config and compare the selected path and rejected directory kind with the authored paths.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls DiscoverConfigFile on an actual config and a directory wearing an alternate config name; exact matches and rejected path/kind are asserted.
+// @evidence contracts/testing.md#independent-expectations The authored regular JSON file and directory named demo.config.ts independently establish one match and one directory rejection.
+// @evidence contracts/testing.md#distinguishing-cases Existing directory versus regular config distinguishes directory observation from absence; the sibling case owns absent upward candidates.
+// @evidence contracts/testing.md#execution-ownership This direct driver Go unit searches its private t.TempDir filesystem in process without a compiler or CLI child.
 func TestDiscoverConfigFileClassifiesADirectoryShapedCandidate(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "demo.config.json", "{}\n")

@@ -16,6 +16,11 @@ import (
 // `typescript` would leave a consumer unable to join the sections at all, and on
 // Windows the two spellings differ by separator alone, which is exactly the kind
 // of mismatch that passes on POSIX CI and fails on a developer's machine.
+//
+// @evidence contracts/testing.md#behavioral-verification Plugin-reported paths, absolute forward-slash spellings and cwd-relative spellings, reach the aggregated dependencies under the same key convention as the envelope.
+// @evidence contracts/testing.md#independent-expectations The expected keys are literal project-relative slash paths built from a real temporary directory.
+// @evidence contracts/testing.md#distinguishing-cases Absolute and relative spellings of the same file must collapse to one key, which differs only by separator on Windows.
+// @evidence contracts/testing.md#execution-ownership TestTransformDependenciesKeysAReportedPathLikeTheEnvelope is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestTransformDependenciesKeysAReportedPathLikeTheEnvelope(t *testing.T) {
   // A real directory, so the absolute spellings below are absolute under the
   // running platform's own rule rather than under POSIX's alone.

@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentPluginOnlyCodeAction verifies source
+// TestLSPProxySuppressesDirtyDocumentPluginOnlyCodeAction Verifies source
 // actions are not computed from saved disk text for dirty documents.
 //
 // Plugin-only source actions have no useful upstream fallback. Returning the
@@ -18,6 +18,11 @@ import (
 // 1. Mark a document dirty with didChange.
 // 2. Request a ttsc-only source action for that URI.
 // 3. Assert the request is local, empty, and not forwarded upstream.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns an empty action result and sends no upstream frame within 150ms for a dirty fix-all URI.
+// @evidence contracts/testing.md#independent-expectations A plugin-only saved-file action must not be supplied for unsaved text, and this action kind has no upstream fallback.
+// @evidence contracts/testing.md#distinguishing-cases An already dirty document with context.only source.fixAll.ttsc owns this empty local response branch.
+// @evidence contracts/testing.md#execution-ownership Go test/driver runs the pipe proxy with configured stub actions; the test asserts the returned empty set, not a direct callback count.
 func TestLSPProxySuppressesDirtyDocumentPluginOnlyCodeAction(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions:  []driver.LSPCodeAction{{Title: "Fix all", Kind: "source.fixAll.ttsc"}},

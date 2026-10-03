@@ -100,12 +100,23 @@ export function createWorkerCompilerService(
 
   // tsconfig variants. ESM for the "Compiled JS" preview lane, CommonJS for
   // the bundle/Execute lane (whose `new Function` driver expects CJS).
-  const tsconfigPlugins = typiaPlugin
-    ? [{ transform: typiaTransformModule }]
+  //
+  // The typia entry is appended after the site's own `plugins` entries, as the
+  // option documents, so enabling typia never discards a site-provided plugin.
+  const siteCompilerOptions = options.extraCompilerOptions ?? {};
+  const sitePlugins: unknown = siteCompilerOptions.plugins;
+  const extraPlugins: unknown[] = Array.isArray(sitePlugins)
+    ? sitePlugins.filter(
+        (entry) =>
+          (entry as { transform?: unknown } | null)?.transform !==
+          typiaTransformModule,
+      )
     : [];
   const extraCompilerOptions = {
-    ...(options.extraCompilerOptions ?? {}),
-    ...(tsconfigPlugins.length > 0 ? { plugins: tsconfigPlugins } : {}),
+    ...siteCompilerOptions,
+    ...(typiaPlugin
+      ? { plugins: [...extraPlugins, { transform: typiaTransformModule }] }
+      : {}),
   };
   const tsconfigESM = buildTsconfigJSON({
     module: "ESNext",

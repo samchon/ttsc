@@ -8,8 +8,7 @@ import { PLUGIN_INPUT_OBSERVATION_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH"
  * check characters no consumer ever sees — and a dropped backslash turns an
  * escape into the character it was escaping: a raw line terminator inside a
  * string literal, which stops the shim parsing and takes every descriptor load
- * with it. Its `@ttsc/lint` twin has carried that guard since the same defect
- * shipped there.
+ * with it.
  */
 export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `// @ts-nocheck`,
@@ -22,7 +21,7 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // both — "Cannot find module ./missing" is as actionable as anything the
   // factory could have said.
   `try {`,
-  `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url)(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
+  `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url).cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}].exports;`,
   // Runtime hooks are installed before this shim loads. Arm their internal
   // side channel only for the descriptor import itself, after this shim's own
   // imports have resolved, so ttsc implementation files never become project
@@ -33,6 +32,11 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `  const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
   `  const descriptor =`,
   `    typeof candidate === "function" ? candidate(context) : candidate;`,
+  // Membership must be checked before JSON drops functions, undefined values,
+  // and inherited properties. The parent cannot recover those descriptor keys.
+  `  if (descriptor && typeof descriptor === "object" && ("transformSource" in descriptor || "transformOutput" in descriptor)) {`,
+  `    throw new Error("ttsc: plugin descriptor declares unsupported JS transform functions; declare a native backend instead");`,
+  `  }`,
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
   `  const payload = { observation: PluginDescriptorInputObservation.snapshot() };`,
   `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,

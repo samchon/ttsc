@@ -8,7 +8,8 @@ import type { JSDocTypeLiteral } from "./JSDocTypeLiteral";
  *
  * Built by {@link factory.createJSDocTypedefTag}.
  *
- * The aliased payload may be a braced type or a collection of property tags.
+ * The aliased payload may be a braced type or a collection of property tags,
+ * which print as `{Object}` or `{Object[]}` followed by one line per property.
  * Omitting it leaves the optional alias name and description. This annotation
  * does not bind an alias in a compiler symbol table.
  *

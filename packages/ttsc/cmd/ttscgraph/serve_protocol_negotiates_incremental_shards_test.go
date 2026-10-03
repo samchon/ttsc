@@ -11,11 +11,20 @@ import (
 // existing full-dump clients and the native shard protocol. A negotiated first
 // response carries one complete manifest and transaction, while the following
 // no-op carries neither a dump nor a shard payload.
+//
+// 1. Submit protocol version one requests over a real resident source fixture.
+// 2. Read the initial shard envelope and then the unchanged response from the NDJSON operation.
+// 3. Require initial sequence one, base zero, a complete nonempty manifest and matching upserts with no deletes or legacy dump; require no unchanged payload.
+//
+// @evidence contracts/testing.md#behavioral-verification With graphSnapshotVersion 1 the real NDJSON serve loop answers the first request with a complete shard transaction (sequence 1, base 0, non-empty manifest, one upsert per manifest entry, no deletes, no legacy dump) and answers the second with an unchanged response carrying neither dump nor snapshot.
+// @evidence contracts/testing.md#independent-expectations The expected coordinates (sequence 1, base sequence 0, empty base generation, no deletes, manifest size equal to upsert count) are literals from the shard transaction contract rather than values read back from the builder; the second request over an unedited fixture must be unchanged with no payload. Returning a legacy dump, a partial transaction or a payload on the no-op fails.
+// @evidence contracts/testing.md#distinguishing-cases Submit protocol version one requests over a real resident source fixture. Read the initial shard envelope and then the unchanged response from the NDJSON operation. Require initial sequence one, base zero, a complete nonempty manifest and matching upserts with no deletes or legacy dump; require no unchanged payload.
+// @evidence contracts/testing.md#execution-ownership TestServeProtocolNegotiatesIncrementalShards is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeProtocolNegotiatesIncrementalShards(t *testing.T) {
   root := graphSessionFixture(t)
   input := strings.NewReader("{\"id\":1,\"graphSnapshotVersion\":1}\n{\"id\":2,\"graphSnapshotVersion\":1}\n")
   var output bytes.Buffer
-  if code := serveSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
     t.Fatalf("serveSnapshots exited %d", code)
   }
 

@@ -12,6 +12,11 @@ import (
 // TestLinknameRe pins the two //go:linkname target shapes the reachability scan
 // must recognize — a package-level symbol and a (pointer-)receiver method — plus
 // slashed (nested) package suffixes, and rejects non-typescript-go targets.
+//
+// @evidence contracts/testing.md#behavioral-verification The linkname regular expression recognizes package-level and pointer-receiver method targets, including nested package suffixes, and rejects non-typescript-go targets.
+// @evidence contracts/testing.md#independent-expectations The expected package, name and hit values are literal strings written beside each input line.
+// @evidence contracts/testing.md#distinguishing-cases Receiver and plain forms, slashed package suffixes and a foreign target are the decision differences.
+// @evidence contracts/testing.md#execution-ownership TestLinknameRe is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestLinknameRe(t *testing.T) {
   cases := []struct {
     line     string
@@ -47,6 +52,11 @@ func TestLinknameRe(t *testing.T) {
 
 // TestDedupe locks the determinism guarantee: one entry per kind|pkg|symbol,
 // keeping the lexicographically smallest detail, ordered by pkg, kind, symbol.
+//
+// @evidence contracts/testing.md#behavioral-verification dedupe keeps one finding per kind, package and symbol with the lexicographically smallest detail, ordered by package, kind and symbol.
+// @evidence contracts/testing.md#independent-expectations The expected slice is written literally.
+// @evidence contracts/testing.md#distinguishing-cases A duplicate key with a larger detail and distinct kinds and packages show the ordering and tie-break.
+// @evidence contracts/testing.md#execution-ownership TestDedupe is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestDedupe(t *testing.T) {
   in := []finding{
     {"FUNC", "checker", "B", "detail-z"},
@@ -66,6 +76,11 @@ func TestDedupe(t *testing.T) {
 }
 
 // TestTierOf pins the kind→tier mapping the gate and report depend on.
+//
+// @evidence contracts/testing.md#behavioral-verification tierOf maps each finding kind to its confidence tier.
+// @evidence contracts/testing.md#independent-expectations The expected tier numbers are literals from the audit's stated tier policy.
+// @evidence contracts/testing.md#distinguishing-cases Every kind has a different expected tier or shares one deliberately, so a swapped mapping fails.
+// @evidence contracts/testing.md#execution-ownership TestTierOf is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestTierOf(t *testing.T) {
   cases := map[string]int{"ENUM": 1, "FUNC": 2, "PRODUCER": 2, "ESCAPE": 3, "ENUM?": 4, "UNEXPORTED": 4}
   for kind, want := range cases {
@@ -77,6 +92,11 @@ func TestTierOf(t *testing.T) {
 
 // TestIndexInternalPackages proves dependency-only internal type packages stay
 // available to the named producer-contract scanner and load failures stay fatal.
+//
+// @evidence contracts/testing.md#behavioral-verification indexInternalPackages keeps dependency-only internal type packages available and reports a package whose types are missing as a closed failure.
+// @evidence contracts/testing.md#independent-expectations The expected index entries and error map follow from the synthetic packages the test builds.
+// @evidence contracts/testing.md#distinguishing-cases A loaded dependency and the same dependency with nil Types contrast success and failure.
+// @evidence contracts/testing.md#execution-ownership TestIndexInternalPackages is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestIndexInternalPackages(t *testing.T) {
   dependencyTypes := types.NewPackage(internalPrefix+"lsp/lsproto", "lsproto")
   dependency := &packages.Package{
@@ -101,6 +121,11 @@ func TestIndexInternalPackages(t *testing.T) {
 }
 
 // TestCommonPrefix covers the helper feeding the abbreviation fallback.
+//
+// @evidence contracts/testing.md#behavioral-verification commonPrefix returns the longest shared prefix of the supplied names, the single name itself, and the empty string for no overlap or no input.
+// @evidence contracts/testing.md#independent-expectations Each expected prefix is a literal beside its input.
+// @evidence contracts/testing.md#distinguishing-cases Shared, single, disjoint and empty inputs are the boundary cases.
+// @evidence contracts/testing.md#execution-ownership TestCommonPrefix is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestCommonPrefix(t *testing.T) {
   cases := []struct {
     in   []string
@@ -123,6 +148,11 @@ func TestCommonPrefix(t *testing.T) {
 // (longest wins) and the abbreviation fallback that closes the untyped+
 // unprefixed blind spot (OuterExpressionKinds' OEKExcludeJSDocTypeAssertion),
 // plus the negative twins that must NOT over-attach.
+//
+// @evidence contracts/testing.md#behavioral-verification Untyped constants attach to their enum type by longest type-name prefix and, failing that, by a shared abbreviation prefix, while unrelated constants stay unattached.
+// @evidence contracts/testing.md#independent-expectations The expected attachments are literal maps written from the enum naming convention, for example OEK constants joining OuterExpressionKinds.
+// @evidence contracts/testing.md#distinguishing-cases Negative cases that must not over-attach sit beside the attaching ones.
+// @evidence contracts/testing.md#execution-ownership TestAttachUntypedConsts is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestAttachUntypedConsts(t *testing.T) {
   t.Run("abbreviation fallback (OEK blind spot)", func(t *testing.T) {
     enums := []string{"OuterExpressionKinds", "Kind"}
@@ -183,6 +213,11 @@ func TestAttachUntypedConsts(t *testing.T) {
 
 // TestIsReachable covers the structural recursion plus the decisive case: an
 // internal named type is reachable only when the shim exposes it.
+//
+// @evidence contracts/testing.md#behavioral-verification isReachable treats basic types and composites of them as reachable and an internal named type as reachable only after the shim exposes it.
+// @evidence contracts/testing.md#independent-expectations The expected booleans follow from the reachability rule the audit documents, using synthetic types.
+// @evidence contracts/testing.md#distinguishing-cases The same internal named type is checked unexposed and exposed.
+// @evidence contracts/testing.md#execution-ownership TestIsReachable is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestIsReachable(t *testing.T) {
   fresh := func() map[types.Type]bool { return map[types.Type]bool{} }
   r := reachable{}

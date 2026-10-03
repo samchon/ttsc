@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "rootDir": "..",
+    "outDir": "../bin"
+  },
+  "files": [
+    "../index.ts"
+  ]
+}

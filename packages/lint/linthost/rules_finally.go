@@ -49,22 +49,53 @@ func walkToFinally(node *shimast.Node) *shimast.Node {
         }
       }
     }
-    // `break` / `continue` inside an inner loop within finally
-    // targets that loop and is therefore safe.
-    switch cur.Kind {
-    case shimast.KindForStatement,
-      shimast.KindForInStatement,
-      shimast.KindForOfStatement,
-      shimast.KindWhileStatement,
-      shimast.KindDoStatement,
-      shimast.KindSwitchStatement:
-      if node.Kind == shimast.KindBreakStatement || node.Kind == shimast.KindContinueStatement {
-        return nil
-      }
+    // A jump whose target lies inside the finally block does not escape it.
+    // An unlabeled `break` targets the nearest loop or switch, an unlabeled
+    // `continue` the nearest loop only (a switch is not a continue target),
+    // and a labeled jump the labeled statement carrying its label.
+    if finallyJumpTargetsAncestor(node, cur) {
+      return nil
     }
     cur = cur.Parent
   }
   return nil
+}
+
+// finallyJumpTargetsAncestor reports whether the `break` or `continue` at
+// `node` is resolved by `ancestor`, so the jump stays inside the construct that
+// `ancestor` heads. Other statements never resolve a jump.
+func finallyJumpTargetsAncestor(node, ancestor *shimast.Node) bool {
+  var label *shimast.Node
+  switch node.Kind {
+  case shimast.KindBreakStatement:
+    if statement := node.AsBreakStatement(); statement != nil {
+      label = statement.Label
+    }
+  case shimast.KindContinueStatement:
+    if statement := node.AsContinueStatement(); statement != nil {
+      label = statement.Label
+    }
+  default:
+    return false
+  }
+  if label != nil {
+    if ancestor.Kind != shimast.KindLabeledStatement {
+      return false
+    }
+    labeled := ancestor.AsLabeledStatement()
+    return labeled != nil && identifierText(labeled.Label) == identifierText(label)
+  }
+  switch ancestor.Kind {
+  case shimast.KindForStatement,
+    shimast.KindForInStatement,
+    shimast.KindForOfStatement,
+    shimast.KindWhileStatement,
+    shimast.KindDoStatement:
+    return true
+  case shimast.KindSwitchStatement:
+    return node.Kind == shimast.KindBreakStatement
+  }
+  return false
 }
 
 // keywordOfControl returns the control-flow keyword string for the given
@@ -83,7 +114,9 @@ func keywordOfControl(node *shimast.Node) string {
   return "control flow"
 }
 
-// noUselessCatch: `catch (err) { throw err; }` adds no behavior.
+// noUselessCatch: `catch (err) { throw err; }` adds no behavior. Without a
+// `finally` the whole try statement is a wrapper; with one, only the catch
+// clause is redundant, because the finally block runs on the rethrow either way.
 // https://eslint.org/docs/latest/rules/no-useless-catch
 type noUselessCatch struct{}
 
@@ -117,11 +150,12 @@ func (noUselessCatch) Check(ctx *Context, node *shimast.Node) {
   if identifierText(throw.Expression) != bindingName {
     return
   }
-  // Ignore when the surrounding try-catch has a `finally` block — the
-  // catch may exist solely to keep the finally semantics intact.
+  // With a `finally` block the try statement still does work, so only the
+  // catch clause is redundant.
   if try := node.Parent; try != nil && try.Kind == shimast.KindTryStatement {
     tryStmt := try.AsTryStatement()
     if tryStmt != nil && tryStmt.FinallyBlock != nil {
+      ctx.Report(node, "Unnecessary catch clause.")
       return
     }
   }

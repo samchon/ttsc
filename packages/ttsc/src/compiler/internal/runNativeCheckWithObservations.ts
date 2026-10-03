@@ -18,8 +18,10 @@ import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult"
  * error, not an empty proof.
  *
  * The callback receives only additional transport arguments. This operation
- * owns their canonical private directory and removes the file and empty
- * directory without recursive deletion. Cleanup failures retain the original
+ * owns their accepted canonical private directory and attempts file and empty
+ * directory removal without recursive deletion. Setup observes ownership before
+ * entering the cleanup boundary, so a setup observation failure can leave the
+ * allocation unclaimed. Cleanup failures retain the original
  * thrown failure or completed result as their cause. Before reading and
  * removing the artifact, the parent must still have its captured native
  * identity; a replaced directory is left untouched and reported as failure.
@@ -30,11 +32,11 @@ import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult"
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither a later project-input query nor a separate transform can reconstruct check observations; unknown hosts receive no guessed flag and malformed metadata cannot become a complete empty observation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish failed-check metadata, unavailable transport, protocol errors and cleanup ownership, with body and tags separated according to the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node native absolute paths locate the canonical private artifact, and an additional argv element conveys it without shell quoting or platform-specific filename guesses.
- * @evidence contracts/performance.md#efficient-algorithms One original check runs and its sidecar is decoded and validated in linear wire bytes with indexed input membership; no second compiler generation or source-content read is added.
+ * @evidence contracts/performance.md#efficient-algorithms One original check callback runs; this adapter adds canonical temp acquisition/native ownership observations, complete sidecar read/JSON decoding and indexed input membership/witness validation. Work and temporary storage follow wire/path bytes and declared inputs plus delegated check runtime; it does not add a second compiler generation or source-content rehash, and supplies no callback timeout or metadata-byte ceiling.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This adapter supplies the generation's proof to its cache owner rather than retaining or sharing a completed check itself.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Invocation-local input records transfer to the caller; ownership-checked cleanup removes the private artifact and empty directory on success and failure. A replaced parent stays untouched, and ownership or removal failures preserve the primary outcome.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources An accepted post-setup directory/artifact reaches ownership-checked cleanup attempts on success and failure; setup ownership observation occurs before this try/finally and can leave the allocation unclaimed. A replaced parent stays untouched, and ownership/removal failures preserve the primary outcome without certifying release. Wire text and parsed/witness records grow without a metadata-byte ceiling; accepted records transfer to the caller.
  */
 export function runNativeCheckWithObservations(
   plugin: Pick<ITtscLoadedNativePlugin, "capabilities">,

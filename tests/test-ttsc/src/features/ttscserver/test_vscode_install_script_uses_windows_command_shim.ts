@@ -1,9 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import { createRequire } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 /**
@@ -17,7 +14,14 @@ import path from "node:path";
  * 1. Require the packaged install helper without running its CLI entrypoint.
  * 2. Build POSIX and Windows command shapes, including metacharacters.
  * 3. Assert Windows carries quoted argv fragments through its environment.
- * 4. On Windows, spawn a recording `code.cmd` and compare its exact argv.
+ * 4. With no installed `code.cmd` the command falls back to the bare `code.cmd`;
+ *    with an installed `code.cmd` under LOCALAPPDATA it is chosen even though
+ *    `where.exe` reports a different (nonexistent) path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Requires the real packages/vscode/bin/install.js and calls createCodeCommand for linux and for win32 (with injected existsSync/spawnSync), and findWindowsCodeCommand, asserting the full returned command objects including the TTSC_VSCODE_COMMAND_SHIM_ARG_n environment slots and windowsVerbatimArguments.
+ * @evidence contracts/testing.md#independent-expectations The expected objects are literal: the argument `C:\tmp & 100%\ttsc.vsix` contains a space, an ampersand and a percent sign and must appear quoted inside its own environment slot, while the cmd payload only holds %slot% placeholders. cmd.exe itself never interprets these strings in this test, so the quoting is checked as data, not as shell behavior.
+ * @evidence contracts/testing.md#distinguishing-cases The linux platform returns a direct `code` command with unmodified args; win32 returns the cmd shim. For lookup, an absent installation yields the default `code.cmd` and a present LOCALAPPDATA installation is chosen while the differing path `where.exe` reports does not exist. The ProgramFiles candidates and a where.exe result that does exist are not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it loads install.js without running its CLI main and calls the two exported functions with injected filesystem and process doubles, so no VS Code, cmd.exe or child process runs.
  */
 export const test_vscode_install_script_uses_windows_command_shim = () => {
   const repo = TestProject.WORKSPACE_ROOT;
@@ -107,76 +111,4 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
     },
   });
 
-  if (process.platform !== "win32") {
-    console.log(
-      "Skipped Windows code.cmd child-argv assertions: cmd.exe is unavailable.",
-    );
-    return;
-  }
-
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-vscode-code-"));
-  const sentinel = "TTSC_VSCODE_PERCENT_SENTINEL";
-  const dir = path.join(base, "Code & SDK 100% %" + sentinel + "% ^");
-  const code = path.join(dir, "code.cmd");
-  const record = path.join(base, "record-argv.json");
-  const recorder = path.join(base, "record-argv.cjs");
-  const actualArgs = [
-    "--install-extension",
-    path.join(dir, "%" + sentinel + "%.vsix"),
-    "--force",
-    "%",
-    "ends%",
-    "%" + sentinel + "%",
-    "%%",
-    "a&b",
-    "caret^",
-    "",
-    "trailing\\",
-    'embedded " quote',
-    'backslash-before-\\"quote',
-  ];
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      recorder,
-      [
-        'const fs = require("node:fs");',
-        "fs.writeFileSync(process.env.TTSC_VSCODE_TEST_RECORD, JSON.stringify(process.argv.slice(2)));",
-        "",
-      ].join("\n"),
-    );
-    fs.writeFileSync(
-      code,
-      [
-        "@echo off",
-        '"%TTSC_VSCODE_TEST_NODE%" "%TTSC_VSCODE_TEST_RECORDER%" %*',
-        "",
-      ].join("\r\n"),
-    );
-    const command = mod.createCodeCommand(
-      actualArgs,
-      "win32",
-      {
-        ...process.env,
-        ComSpec: process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe",
-        [sentinel]: "EXPANDED",
-        TTSC_VSCODE_TEST_NODE: process.execPath,
-        TTSC_VSCODE_TEST_RECORDER: recorder,
-        TTSC_VSCODE_TEST_RECORD: record,
-      },
-      {
-        existsSync: (candidate: string) => candidate === code,
-        spawnSync: () => ({ stdout: code + "\r\n" }),
-      },
-    );
-    const result = spawnSync(command.command, command.args, {
-      ...command.options,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(fs.readFileSync(record, "utf8")), actualArgs);
-  } finally {
-    fs.rmSync(base, { recursive: true, force: true });
-  }
 };

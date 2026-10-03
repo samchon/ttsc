@@ -6,8 +6,8 @@ import { selectModulesByFile } from "./selectModulesByFile";
 import { sendFullReload } from "./sendFullReload";
 
 /**
- * Update every loaded module of the given importers through Vite's own
- * propagation, exactly as an edit to those modules would (samchon/ttsc#1393).
+ * Request propagation of selected importer nodes through Vite's reload API
+ * (samchon/ttsc#1393); Vite owns acceptance and client effects.
  *
  * A compiler-only input, such as an interface a typia validator is generated
  * from, used to reload the whole page, so every client lost its state even
@@ -31,6 +31,24 @@ import { sendFullReload } from "./sendFullReload";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain importer propagation, preserved client state and
  *   fallback conditions, with separate tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Importer filesystem spellings enter selectModulesByFile's normalized exact
+ *   lookup and native identity fallback; environment nodes remain opaque and
+ *   are delivered to their owning host, without replacing their file spelling.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   E environment targets and I importers yield E-times-I lookups; a missed
+ *   exact lookup scans G keys with native identity queries. N selected node
+ *   occurrences allocate N promises; aliases may select the same node again.
+ *   Failure adds the delegated invalidation scan and channel fanout.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This operation schedules effectful owning-host reloads, not a reusable
+ *   computed result; equal importer spellings across graphs do not establish
+ *   equivalent host effects. It keeps no cross-request proof or result cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The selected targets and N queued reload tasks have no concurrency/count
+ *   cap or cancellation here. Pending promise reactions retain host/node or
+ *   fallback references until settlement; early rejection cannot cancel the
+ *   other host reloads. No native watch handle is acquired by this routing step.
  */
 export function reloadImporters(
   server: ViteDevServerLike,

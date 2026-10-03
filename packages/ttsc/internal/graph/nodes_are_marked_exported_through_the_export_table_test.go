@@ -22,6 +22,11 @@ import (
 //     only Service through a trailing `export { Service }` statement.
 //  2. Build the graph.
 //  3. Assert the Service node is Exported and the Internal node is not.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that markExports flags a node as Exported from the checker's module export table, not from a syntactic `export` modifier — so a declaration exported by a separate `export { Service }` statement counts, while an unexported sibling does not.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over classes Service and Internal with only export { Service } at the end: the Service node must have Exported true and the Internal node Exported false, which a scan for an inline export modifier would get wrong for Service.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture declaring `class Service` and `class Internal`, exporting only Service through a trailing `export { Service }` statement; Build the graph; Assert the Service node is Exported and the Internal node is not.
+// @evidence contracts/testing.md#execution-ownership TestNodesAreMarkedExportedThroughTheExportTable is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNodesAreMarkedExportedThroughTheExportTable(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

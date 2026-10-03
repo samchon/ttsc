@@ -16,12 +16,15 @@ export interface ITtscLintPluginConfig {
   /**
    * Path to the lint config file, overriding auto-discovery.
    *
-   * Relative paths are resolved from the tsconfig directory; absolute paths are
-   * used as-is. Accepts the usual `lint.config.*` / `ttsc-lint.config.*`
+   * Relative paths are resolved from the caller-declared plugin config
+   * directory when supplied, otherwise the tsconfig directory. Absolute paths
+   * are used as-is. Accepts the usual `lint.config.*` / `ttsc-lint.config.*`
    * extensions (`.ts`, `.cts`, `.mts`, `.js`, `.cjs`, `.mjs`, `.json`).
    *
-   * When omitted, `@ttsc/lint` discovers a `lint.config.*` /
-   * `ttsc-lint.config.*` file by walking upward from the tsconfig directory.
+   * When omitted, `@ttsc/lint` walks upward from that caller-declared directory
+   * when supplied. Otherwise it walks from the tsconfig directory and, when
+   * that finds none, from the working directory, looking for `lint.config.*`
+   * or `ttsc-lint.config.*`.
    *
    * ```jsonc
    * {

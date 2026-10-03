@@ -13,33 +13,50 @@ import (
   "strings"
 )
 
-// LSPProjectInputSnapshot is the normalized external filesystem topology
-// published by project-rule contributors.
+// LSPProjectInputSnapshot carries contributor-declared dependencies and host
+// selection inputs. Incoming wire values require host normalization before
+// storage; the representation alone does not authenticate a filesystem capture.
 //
 // Files and Globs describe dependencies; reload paths and digests describe the
 // executable-selection baseline whose change requires a launcher restart.
 //
 // @evidence contracts/common.md#principled-implementation Dependency populations remain distinct from reload fingerprints; host-only watcher directories cannot enter through contributor JSON.
-// @evidence contracts/common.md#clear-and-simple-design One normalized snapshot carries root, dependencies and selection baseline without a watcher backend.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Reload state comes from actual contributors and launcher selection rather than known project filenames.
+// @evidence contracts/common.md#clear-and-simple-design One snapshot shape separates root, dependencies and selection baseline from the watcher backend; accepting and normalizing it are host operations.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Contributor reload declarations and launcher selection inputs supply the baseline rather than a fixed list of known project filenames; accepting their shape is not producer authenticity proof.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains dependency versus restart meaning and host-only fields, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native paths and digest keys are normalized by host identity helpers rather than interpreted as URI spelling or blindly folded by OS name.
+// @evidence contracts/portability.md#os-neutral-implementation Fields carry absolute native paths and native-keyed digests, not protocol URI spelling. Host normalization validates path syntax and attempts physical identity/case queries, with lexical or unknown-case fallbacks when observation fails. Supplied fingerprints and sequential native comparisons do not authenticate one atomic capture.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Normalization and matching choose processing algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This value carries baseline inputs without coordinating reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Source stores and watcher registration own lifetimes, not this wire value.
 type LSPProjectInputSnapshot struct {
-  Root                   string            `json:"root"`
-  Files                  []string          `json:"files"`
-  Globs                  []string          `json:"globs"`
-  ReloadFiles            []string          `json:"reloadFiles,omitempty"`
-  ReloadDirectories      []string          `json:"reloadDirectories,omitempty"`
-  ReloadFileDigests      map[string]string `json:"reloadFileDigests,omitempty"`
+  // Root is an absolute local project root, checked against the selected root
+  // when the normalization caller supplies that expectation.
+  Root string `json:"root"`
+
+  // Files declares exact dependency paths for input membership routing.
+  Files []string `json:"files"`
+
+  // Globs declares absolute dependency patterns interpreted by host matching.
+  Globs []string `json:"globs"`
+
+  // ReloadFiles declares file inputs whose baseline affects session selection.
+  ReloadFiles []string `json:"reloadFiles,omitempty"`
+
+  // ReloadDirectories declares entry topology used by restart selection.
+  ReloadDirectories []string `json:"reloadDirectories,omitempty"`
+
+  // ReloadFileDigests maps selected file paths to their supplied baseline hash;
+  // an omitted map lets normalization acquire that baseline on the host.
+  ReloadFileDigests map[string]string `json:"reloadFileDigests,omitempty"`
+
+  // ReloadDirectoryDigests maps selected directories to topology baselines;
+  // an omitted map lets normalization acquire them on the host.
   ReloadDirectoryDigests map[string]string `json:"reloadDirectoryDigests,omitempty"`
 
   // WatchDirectories are directories whose entries the client must report
   // without their listing being a reload input of its own: the directories of
-  // the plugin selection inputs, which judge their own changes
-  // (samchon/ttsc#1507). Never read from a contributor.
+  // the plugin selection inputs, which judge their own changes.
+  // Never read from a contributor.
   WatchDirectories []string `json:"-"`
 }
 
@@ -49,15 +66,16 @@ type projectInputRecord struct {
 }
 
 // ProjectInputs returns a stable copy of the current merged dependency
-// snapshot.
+// snapshot. The copy isolates mutable collections, not source acquisition time:
+// retained producer records can come from different refresh generations.
 //
 // @evidence contracts/common.md#principled-implementation Locked copies of every path slice and digest map isolate consumer mutations from the merged snapshot.
 // @evidence contracts/common.md#clear-and-simple-design A shared copy helper exposes the ready aggregate without rebuilding producer order.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted producer records supply the snapshot instead of guessed filesystem populations.
 // @evidence contracts/common.md#meaningful-documentation Native prose states stable-copy behavior, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor copies normalized values without interpreting native capabilities.
-// @evidence contracts/performance.md#efficient-algorithms Copy cost and returned storage are linear in path and digest entry counts.
-// @evidence contracts/performance.md#reuse-equivalent-work Callers share the flattened producer snapshot, replaced by successful generation stores.
+// @evidence contracts/performance.md#efficient-algorithms Slice copying transfers string headers and digest-map copying additionally hashes key bytes; immutable string contents are shared rather than deep-copied. The read lock can wait for native-key aggregation/equality work held by a writer, so entry counts do not bound elapsed time by themselves.
+// @evidence contracts/performance.md#reuse-equivalent-work Callers share the ready aggregate of per-producer retained records. Successful stores can publish individually and failed producers keep prior records; sharing does not certify one capture, complete current declarations or latest native topology.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices and maps belong to the caller; source stores own retained aggregates.
 func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
   if s == nil {
@@ -69,18 +87,19 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
 }
 
 // ProjectInputReloadFingerprintsAreCurrent reports whether the retained
-// selection-time baseline still matches the filesystem. The proxy checks this
-// after the client confirms dynamic watcher registration, closing the interval
-// between construction-time validation and active event delivery.
+// selected baseline digests still compare equal under the native probe policy.
+// The proxy checks after watcher-registration acceptance, but probes are
+// sequential rather than one atomic filesystem capture. Equal failure markers
+// can compare equal, and nil/empty selection is not proof of global freshness.
 //
-// @evidence contracts/common.md#principled-implementation Selected file digests and immediate directory topology are compared to current native state after copying the retained baseline under lock.
+// @evidence contracts/common.md#principled-implementation Selected file/topology digests and launcher-selection records are compared after copying the baseline under lock. Missing/unreadable probe markers, sequential acquisition and a vacuously empty population limit what equality certifies; it is not an atomic complete-project freshness proof.
 // @evidence contracts/common.md#clear-and-simple-design Contributor reload and launcher selection checks share watcher-registration acceptance.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Bytes and topology are observed rather than accepting a quiet watcher as proof of freshness.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the startup-to-registration interval, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native stat/readlink and physical identity distinguish links, missing inputs and actual directory case policy.
-// @evidence contracts/performance.md#efficient-algorithms Full byte hashing establishes content identity; directory checks inspect immediate entries rather than recursive unrelated descendants.
+// @evidence contracts/portability.md#os-neutral-implementation Native stat/readlink/content reads and owning-directory case queries supply selected evidence. Identity can fall back to lexical spelling and unreadable inputs use markers; neither an unknown flag nor marker equality authenticates current physical contents.
+// @evidence contracts/performance.md#efficient-algorithms Costs include copying all snapshot slices/digest maps, path-key byte/native queries, selected file-byte hashing, and sorted immediate directory listings/stat/readlink checks. Launcher selection also checks recorded files and can search recorded names per listed entry. No recursive content walk is required, but selected file bytes, listing populations and native IO latency have no independent bound here.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Current native state must be observed without a filesystem generation token that could validate an earlier observation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary copies and synchronous native probes acquire no long-lived handle.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Snapshot/map/listing copies and hashing state are invocation-local without a separate population budget. File reads and Windows identity probes acquire deferred-closed handles with close errors ignored; the method adds no read deadline or cancellation. It retains no query history and does not advance the source baseline on equality.
 func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   if s == nil {
     return true
@@ -92,17 +111,20 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
-// ProjectInputMatchesURI reports whether a watched-file URI belongs to a
-// declared exact dependency or glob population.
+// ProjectInputMatchesURI tests a watched URI against retained dependency/glob
+// declarations for invalidation routing. Native resolution can fall back to
+// lexical spelling; unknown Windows glob case capability admits both spellings.
+// A match is not proof of physical dependency ownership or current declaration
+// completeness, and the operation does not query the producer again.
 //
-// @evidence contracts/common.md#principled-implementation File URIs match declared exact dependencies or wildcard populations; unrelated and malformed URIs do not match.
+// @evidence contracts/common.md#principled-implementation Parsed file URIs are tested against retained exact/glob declarations; URI decode failures return false. Conservative native-fallback and unknown-case routing can admit a candidate without certifying actual physical dependency membership.
 // @evidence contracts/common.md#clear-and-simple-design Shared URI decoding precedes the snapshot owner's path and glob matching.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Membership follows declared populations rather than assumed contributor extensions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states declared dependency membership, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Physical identity and actual Windows directory sensitivity establish comparisons separately from URI spelling.
-// @evidence contracts/performance.md#efficient-algorithms Exact entries precede globs; component recursion memoizes index pairs and segment DP uses O(N) row space for O(MN) wildcard time.
+// @evidence contracts/portability.md#os-neutral-implementation Exact keys use native realpath/ancestor fallback and preserve unobserved Windows case distinctions. Glob routing uses owning-directory flags when known and broadens unknown sensitivity; that policy is separate from permission to merge physical identities. Non-Windows globs use case-sensitive normalized spelling without certifying mount-specific case behavior.
+// @evidence contracts/performance.md#efficient-algorithms Exact entries precede globs, but native candidate/file/pattern identity and path-byte work are repeated while holding the snapshot read lock. Component recursion memoizes up to pattern-by-candidate index pairs and consumes recursive depth; each segment allocates rune arrays plus an O(N) DP row for O(MN) rune comparisons. There is no independent input/DP budget, and native IO can block beyond those processing counts.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Native identity may change across calls without an immutable filesystem epoch.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Matching retains temporary path and DP state only.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Query path/rune/DP/memo state grows with declaration and path dimensions without an independent cap, then becomes reclaimable. Windows identity helpers acquire read-attribute handles and defer CloseHandle with errors ignored. The method keeps no queried-URI history, owns no producer process and adds no native-query deadline.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -125,10 +147,10 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
 // @evidence contracts/common.md#clear-and-simple-design This compatibility matcher shares native path and immediate-containment helpers with change-aware matching.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative legacy membership is an explicit API difference; event consumers use the digest-aware method.
 // @evidence contracts/common.md#meaningful-documentation Native prose directs event callers to the change-aware operation and explains false restarts, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Both candidate and declared paths resolve native physical/entry identities, including link ancestors and short Windows components.
+// @evidence contracts/portability.md#os-neutral-implementation Candidate and declaration comparisons attempt native physical/leaf-entry resolution, including link ancestors and Windows short names. Failed observation falls back to lexical spelling or unknown-case distinctions; a match is routing policy rather than proof of complete physical identity.
 // @evidence contracts/performance.md#efficient-algorithms Reload entry scanning is linear in declared population plus native identity resolution cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Physical identities are freshly observed and cannot be cached without native invalidation proof.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query stores no history or long-lived handles.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary path/key state grows with declared entries and path lengths, with no independent query budget. Windows read-attribute handles are deferred-closed with errors ignored; no query history is stored and no native-query deadline is added.
 func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -169,15 +191,18 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
 // directory itself always qualifies. An immediate entry qualifies only when
 // the current name/type/symlink-target digest differs from the snapshot and
 // the entry is not data territory under a declared glob's literal root.
+// changeType is accepted for compatibility but is not inspected; the recorded
+// selection, URI and current probe results determine the decision. Probe failures
+// can yield markers rather than an independently reported observation error.
 //
 // @evidence contracts/common.md#principled-implementation Exact reload identities and changed immediate topology trigger restart; declared data territory can explain a directory transition without advancing the executable baseline.
 // @evidence contracts/common.md#clear-and-simple-design Contributor inputs and immutable launcher selection are checked at one restart boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Data exemptions follow actual declared glob roots and recorded digests rather than expected file answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains exact content inputs and topology transitions, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Link-leaf entry identity and target physical identity remain distinct; native metadata and owning-directory capability govern alias comparison.
-// @evidence contracts/performance.md#efficient-algorithms The query scans reload entries and probes relevant immediate topology without recursively hashing descendant content.
+// @evidence contracts/portability.md#os-neutral-implementation Link-leaf and target identity comparisons remain separate, using native metadata/case queries when available and lexical or unknown-case fallback otherwise. Digest markers for failed reads are not physical-content authentication.
+// @evidence contracts/performance.md#efficient-algorithms The method copies all snapshot slices/maps, resolves candidate/reload identities, and checks relevant launcher-selection file bytes/listings before reload directory topology. Glob-root exemptions add declared-pattern/path scans and key queries. Immediate listings are sorted and their metadata/link targets hashed; no recursive descendant-content walk is performed, but file-byte, text/population and native IO costs remain.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work An earlier URI match does not establish continued validity of current native topology.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native probes and baseline copies are temporary; source ownership retains selection state.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Baseline copies, directory listings and path/key state are invocation-local with no independent budget. Selection content reads and Windows probes acquire deferred-closed handles with close errors ignored; no read deadline or cancellation is supplied. Retained baseline ownership remains with the source and is not updated by this query.
 func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   uri string,
   changeType *int,
@@ -197,8 +222,7 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   snapshot := copyProjectInputSnapshot(s.projectInputs)
   selection := s.selection
   s.projectInputsMu.RUnlock()
-  // What the plugin selection was loaded from is a reload input too
-  // (samchon/ttsc#1507).
+  // What the plugin selection was loaded from is a reload input too.
   if selection.matchesChange(location) {
     return true
   }
@@ -250,7 +274,8 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
 }
 
 // ProjectInputOwnersForURI returns the stable plugin keys whose latest
-// successful snapshots match uri. Ownership is retained past the flattened
+// successful retained snapshots match uri under the routing policy. These keys
+// do not certify fresh or complete physical ownership. Ownership is retained past the flattened
 // client registration so an external edit refreshes only the contributors that
 // declared it.
 //
@@ -258,10 +283,10 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
 // @evidence contracts/common.md#clear-and-simple-design Owner discovery reuses snapshot matching rather than maintaining another membership model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Owners follow actual contributor declarations, not filename-to-plugin guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why ownership survives flattened client registration, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native identity helpers preserve actual owning-directory case policy.
-// @evidence contracts/performance.md#efficient-algorithms Deduplicated transport traversal queries actual producers; per-producer work depends on declared paths and glob dimensions.
+// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native helpers observe realpath/owning-directory flags when possible. Lexical fallback and unknown-case glob broadening are conservative notification policies, not authenticated physical snapshot ownership.
+// @evidence contracts/performance.md#efficient-algorithms Transport traversal hashes binary/context-mode key bytes and tests retained records without rerunning producers. Each record repeats candidate/declaration native identity work and glob memo/rune/DP processing under the read lock, with costs depending on path text, component counts and segment lengths rather than producer count alone.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Native membership has no immutable epoch permitting cross-call memoization.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned list belongs to the caller; no queried-URI history is retained.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Local transport/routing/path/DP state and returned key storage grow with descriptors and declaration dimensions without a separate cap. Windows read-attribute handles are deferred-closed with errors ignored; no query deadline or producer process is owned here. Returned strings transfer to callers and no queried-URI history is retained by this method.
 func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   if s == nil {
     return nil
@@ -316,14 +341,14 @@ func projectInputSnapshotMatchesCandidate(
 // RefreshProjectInputs schedules a coalesced dependency rediscovery after a
 // configuration input changes.
 //
-// @evidence contracts/common.md#principled-implementation Successful normalized producer generations replace their own snapshot while unchanged selected reload entries retain the original baseline.
+// @evidence contracts/common.md#principled-implementation Successful decoded/normalized records replace their producer generation, preserving prior digests for still-selected reload keys. Publication is per producer and failed queries keep prior records; accepted path/fingerprint syntax is not authentication of the producer's claimed input capture.
 // @evidence contracts/common.md#clear-and-simple-design A dedicated scheduler separates dependency refresh from completion publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh does not advance executable baselines to conceal selection changes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states asynchronous discovery, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Normalization validates native roots and link-aware identities without treating OS labels as filesystem case policy.
-// @evidence contracts/performance.md#efficient-algorithms Distinct capable producers are queried once; deduplicated normalized populations are sorted for aggregate publication.
+// @evidence contracts/portability.md#os-neutral-implementation Normalization checks absolute native path syntax and selected-root key equality, using link/ancestor resolution and owning-directory flags when observable. Lexical fallback, unknown case and accepted digest markers remain observation limits rather than proof of physical capture.
+// @evidence contracts/performance.md#efficient-algorithms Each selected transport issues a direct project-inputs query, followed by JSON decoding, path-key/ancestor/case normalization, digest-map fallback searches and potentially selected file-byte/topology hashing. A changed store compares/preserves prior keys and rebuilds/deduplicates/sorts the full aggregate under its write lock, potentially once per producer; observer/log/trace IO add their own costs.
 // @evidence contracts/performance.md#reuse-equivalent-work Notifications share one active cycle and one rerun; flattened accepted snapshots serve matching and watcher consumers.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one queued rerun bound scheduling; Close cancels children and rejects later schedules. Aggregate input entries have no separate count cap.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One active worker and one queued rerun bound simultaneous scheduling, not total cycles or native runtime. Per-command response caps do not independently bound normalized/retained aggregate entries, path bytes or last-good age. File/Windows normalization probes are deferred-closed with errors ignored; Close requests process cancellation and rejects schedules without joining the running refresh/observer or clearing retained snapshots, and no computation deadline is imposed here.
 func (s *NativePluginSource) RefreshProjectInputs() {
   if s == nil {
     return
@@ -332,8 +357,9 @@ func (s *NativePluginSource) RefreshProjectInputs() {
 }
 
 // SetProjectInputsObserver registers the proxy callback that replaces the
-// client's dynamic watched-file registration after a successful topology
-// change.
+// client's dynamic watched-file registration when accepted stores change the
+// merged declaration view. A notification does not certify all producers succeeded
+// or that the view came from one input capture.
 // A nil observer removes future notifications; a callback already copied by a
 // refresh may still finish.
 //
@@ -344,7 +370,7 @@ func (s *NativePluginSource) RefreshProjectInputs() {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Callback registration performs no native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Assigning a callback chooses no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The source scheduler owns shared refresh work.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One callback reference is replaced or cleared under projectInputsMu; existing callback execution is not joined here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One callback reference is replaced or cleared under projectInputsMu, but its reachable captures have no imposed byte budget. Previously copied callbacks can still begin or finish after replacement; the setter does not join execution, cancel effects or release source-owned retained snapshots.
 func (s *NativePluginSource) SetProjectInputsObserver(observer func()) {
   if s == nil {
     return

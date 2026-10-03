@@ -19,6 +19,11 @@ func (rejectedServeWriter) Write([]byte) (int, error) {
 //  1. Reject protocol negotiation before a graph session is constructed.
 //  2. Fail the response writer and require a nonzero server result.
 //  3. Require the stderr cause while forbidding successful phase rows.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServeEarlyErrorEncodeFailureIsObservable proves a rejected early error response fails the stream without claiming that an unencoded response ran.
+// @evidence contracts/testing.md#independent-expectations The expected outcome follows from the serve contract that an unencodable response must fail the stream: the writer always errors, so the test requires a nonzero exit, the stderr text 'write serve response: synthetic response write failure', and no ttscgraph-phase rows even though tracing is enabled. A server that swallowed the write error or logged timings for an unsent response fails.
+// @evidence contracts/testing.md#distinguishing-cases Reject protocol negotiation before a graph session is constructed; Fail the response writer and require a nonzero server result; Require the stderr cause while forbidding successful phase rows.
+// @evidence contracts/testing.md#execution-ownership TestServeEarlyErrorEncodeFailureIsObservable is a Go source-unit entry. It calls serveSnapshots in-process with an unsupported graphSnapshotVersion, so the protocol rejection is encoded before any compiler session or Git acquisition happens; the writer is a failing stub, so nothing is installed, built or launched.
 func TestServeEarlyErrorEncodeFailureIsObservable(t *testing.T) {
   root := graphSessionFixture(t)
   oldStderr := stderr

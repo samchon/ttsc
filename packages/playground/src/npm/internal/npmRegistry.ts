@@ -218,7 +218,9 @@ export function selectVersion(
       semverRanges.every((range) => satisfies(version, range)) &&
       (taggedVersions.size === 0 || taggedVersions.has(version)),
   );
-  const selected = maxSatisfying(candidates, "*");
+  // Candidates already satisfy every requested constraint, including the
+  // explicit prerelease admission of a range or exact registry tag.
+  const selected = maxSatisfying(candidates, "*", { includePrerelease: true });
   if (selected) return selected;
   throw new Error(
     `No version of ${metadata.name} satisfies ${requested
@@ -290,7 +292,10 @@ export async function verifyTarball(
   throwIfAborted(signal);
   if (dist.integrity !== undefined) {
     const candidates = parseIntegrity(dist.integrity);
-    const strength = Math.max(...candidates.map(({ rank }) => rank));
+    const strength = candidates.reduce(
+      (maximum, { rank }) => Math.max(maximum, rank),
+      0,
+    );
     const strongest = candidates.filter(
       (candidate) => candidate.rank === strength,
     );

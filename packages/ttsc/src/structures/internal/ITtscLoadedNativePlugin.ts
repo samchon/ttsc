@@ -4,25 +4,31 @@ import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 import type { TtscPluginStage } from "../TtscPluginStage";
 
 /**
- * Native plugin source selected and built from one plugin descriptor.
+ * Loaded native plugin entry and the executable selected for its dispatch.
+ * A linked transform entry can share a compiler host's executable rather than
+ * own a separately built process binary.
  *
  * @evidence contracts/common.md#principled-implementation Loaded state pairs the built executable with source, original configuration and stage; executable versus linked distinguishes process dispatch from composition into another host.
  * @evidence contracts/common.md#clear-and-simple-design This host-owned record carries resolved descriptor facts needed by later execution without exposing descriptor evaluation or cache machinery to consumers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability and reportsTypeScriptDiagnostics declarations govern forwarding and guard behavior; names remain labels rather than special-case routing keys.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Effective host capabilities and reportsTypeScriptDiagnostics govern forwarding and guard behavior; a linked source does not independently certify its selected host, and names remain labels rather than special-case routing keys.
  * @evidence contracts/common.md#meaningful-documentation Native member comments describe binary provenance, original config, linked ownership and capability meaning; blank member lines and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Binary and source are resolved native paths supplied by the loader/build owner; this representation neither hardcodes platform suffixes nor serializes process execution as shell text.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscLoadedNativePlugin {
-  /** Executable produced by the lazy Go source build cache. */
+  /** Built executable or the compiler host selected for a linked transform. */
   binary: string;
 
   /**
-   * Capability flags declared by the descriptor (see
-   * `ITtscPluginCapabilities`).
+   * Effective dispatch capabilities (see `ITtscPluginCapabilities`). Source
+   * composition can inherit the aggregate host's declaration; the builtin
+   * linked utility host additionally supplies its owned emit-provenance flag.
    */
   capabilities?: ITtscPluginCapabilities;
 
-  /** Original tsconfig plugin entry passed unchanged to the native plugin. */
+  /** Selected plugin entry; native transport serializes its JSON payload. */
   config: ITtscProjectPluginConfig;
 
   /** Contributor Go sources statically linked into the binary, if any. */

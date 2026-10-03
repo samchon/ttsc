@@ -7,8 +7,9 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
 import { membershipRecordDigest } from "./membershipRecordDigest";
 
 /**
- * What moved a project's state away from what its record holds, or nothing when
- * the disk still holds the recorded state: the proof a build start makes of a
+ * The first recorded input or membership state that current replay cannot
+ * establish as unchanged, or nothing when all recorded checks hold. This is
+ * the proof a build start makes of a
  * record (`refreshProjectRecordFiles`), separable from the move it follows
  * with, so a harness or a maintainer can ask the same question of a record
  * without moving it.
@@ -40,8 +41,18 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
  *   Native paragraphs explain detached proof and clock-reference necessity;
  *   return meanings and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Existence, codec replay and project walking share the supplied filesystem and its path grammar; process-clock ownership remains host-native and provides the boundary needed before metadata reuse.
- * @evidence contracts/performance.md#efficient-algorithms Each input is replayed until the first mismatch, and membership walks only when present and earlier evidence still holds; work grows with the examined input bytes and selected directory population.
- * @evidence contracts/performance.md#reuse-equivalent-work The detached proof reuses recorded producer facts only after current replay and a fresh clock reference establish validity; build-start callers share the verdict per project rather than trusting stale watcher silence.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Clock admission pays native state/path/probe work. Object.entries first
+ *   materializes all I recorded pairs, then codec replay stops at the first
+ *   mismatch with its native identity/metadata/content/listing costs. Membership
+ *   walks only after earlier checks hold, then the digest selects/sorts relevant
+ *   directory pairs and serializes policy state. Temporary pairs, walk entries
+ *   and digest text follow their actual populations, not fixed call counts.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Recorded producer facts stand only after current replay; unavailable clock
+ *   authority forces content comparison. This function has no verdict cache and
+ *   replays each call. Build-start record owners decide request frequency rather
+ *   than treating prior successful replay or watcher silence as present validity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The proof owns no independent cache or watcher; its returned mismatch is caller-owned and the process-clock service owns the native reference lifecycle.
  */
 export function projectRecordMoved(

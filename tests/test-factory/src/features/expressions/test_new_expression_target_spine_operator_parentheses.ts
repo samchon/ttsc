@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, SyntaxKind } from "@ttsc/factory";
+import factory, { type Expression, SyntaxKind } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 import { id, print, reparse } from "../../internal/helpers";
@@ -28,20 +28,26 @@ const construct = (target: Expression): Expression =>
  * the optional chain — a different tree. The tag-over-identifier twin guards
  * against wrapping every tagged template used as a target.
  *
- * Every expectation here is the string `ts-legacy`'s own factory and
- * `ts.createPrinter()` produce for the same tree, not this printer's output.
+ * The expected strings are authored literals (not captured from this printer);
+ * the legacy parser then re-parses each output to check the `new` binding and
+ * the optional-chain boundary.
  *
  * 1. Print `new` expressions targeting a non-null assertion, a call-tagged
  *    template, an optional call at the chain head (leftmost node is a
  *    `CallChain`), and an optional property access over a call (a runtime
  *    `TypeError` shape, but the printed text must still parse back to the same
  *    AST).
- * 2. Assert each target's parentheses land where the oracle puts them, and the
- *    identifier-tagged twin stays bare.
+ * 2. Assert each target's parentheses land where the literal expectation puts
+ *    them, and the identifier-tagged twin stays bare.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression`.
  * 4. Assert the chain-head target re-parses with `.bar` outside the optional
  *    chain, which is what the parentheses are there to preserve.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Nonnull, tagged and optional chains over calls retain the outer new and terminate optional membership correctly.
+ * @evidence contracts/testing.md#independent-expectations Exact sources plus independent parsed NewExpression and optional-chain boundary checks specify the required constructor target.
+ * @evidence contracts/testing.md#distinguishing-cases Call under nonnull/tag, optional call/access and a bare identifier-tag negative expose traversal and chain termination distinctions.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_spine_operator_parentheses. Calls new-target wrapper constructors then print and the independent parsed-node checks in this export.
  */
 export const test_new_expression_target_spine_operator_parentheses =
   (): void => {

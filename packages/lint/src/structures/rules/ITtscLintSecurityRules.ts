@@ -37,8 +37,10 @@ export interface ITtscLintSecurityRules {
   "security/detect-buffer-noassert"?: TtscLintRuleSetting;
 
   /**
-   * Detect any import of `child_process` and any `exec`/`execSync` call whose
-   * command argument is not a string literal.
+   * Detect `require("child_process")` / `require("node:child_process")` and
+   * recognized `exec`/`execSync` calls whose command cannot be resolved as a
+   * static expression. A bare ES import without a dynamic command is not
+   * reported.
    *
    * Non-literal commands are the canonical shell-injection sink in Node
    * services.
@@ -48,11 +50,12 @@ export interface ITtscLintSecurityRules {
   "security/detect-child-process"?: TtscLintRuleSetting;
 
   /**
-   * Detect assignments setting `escapeMarkup = false` (or the equivalent option
-   * on Handlebars/Mustache-style engines), which turns off HTML entity escaping
-   * in template output.
+   * Detect direct property assignments setting `.escapeMarkup = false`.
+   * Object-literal options and other escaping API names are not inspected, and
+   * the rule does not resolve the receiver to a particular template engine.
    *
-   * Result: an unguarded XSS sink for caller-controlled strings.
+   * When the property controls HTML escaping, disabling it can expose an XSS
+   * sink for caller-controlled strings.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-disable-mustache-escape.md
    */
@@ -144,11 +147,11 @@ export interface ITtscLintSecurityRules {
   "security/detect-possible-timing-attacks"?: TtscLintRuleSetting;
 
   /**
-   * Detect `crypto.pseudoRandomBytes`, which produces values that are not
-   * cryptographically secure.
+   * Detect `crypto.pseudoRandomBytes`, Node's deprecated alias of
+   * `crypto.randomBytes`.
    *
-   * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
-   * Crypto's `getRandomValues`) instead.
+   * Use the supported `crypto.randomBytes` name. The alias uses the same
+   * cryptographically secure generator; this rule reports the deprecated name.
    *
    * Type-aware via the Checker, which resolves the object at the use site so an
    * automatic rewrite is never applied to a shadowed binding. Enabling this

@@ -3,6 +3,7 @@ package driver_test
 import (
   "bytes"
   "encoding/json"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -10,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked verifies command
+// TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked Verifies command
 // execution does not stop the editor pump.
 //
 // Native LSP sidecars can take seconds to compute a WorkspaceEdit. The proxy
@@ -21,6 +22,11 @@ import (
 // 2. Send didChange for the same URI while the callback is blocked.
 // 3. Assert the didChange reached upstream before releasing the callback.
 // 4. Release the callback and assert the command response is null.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards didChange byte-for-byte while ExecuteCommand is blocked, then returns null instead of the disk-backed edit.
+// @evidence contracts/testing.md#independent-expectations A change received during command work must remain live and invalidate the saved-file edit; literal change bytes and null response provide the oracle.
+// @evidence contracts/testing.md#distinguishing-cases The command starts clean, the same URI becomes dirty before callback release, and the result is suppressed; initially dirty requests have separate coverage.
+// @evidence contracts/testing.md#execution-ownership Go test/driver runs the proxy with pipe transport and channel-gated stub command, without a product command process.
 func TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
@@ -46,6 +52,9 @@ func TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked(t *testing.T) {
     },
   }
   h := newProxyHarness(t, source)
+  var releaseOnce sync.Once
+  releaseCallback := func() { releaseOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
 
   h.sendEditor([]byte(`{"jsonrpc":"2.0","id":20,"method":"workspace/executeCommand","params":{"command":"ttsc.lint.fixAll","arguments":["file:///a.ts"]}}`))
   select {
@@ -59,7 +68,7 @@ func TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked(t *testing.T) {
   if got := h.recvUpstream(); !bytes.Equal(got, change) {
     t.Fatalf("didChange did not reach upstream before command completed:\n%s", got)
   }
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {

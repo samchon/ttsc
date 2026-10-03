@@ -1,13 +1,21 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "@ttsc/factory";
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
 import { id, num, print } from "../../internal/helpers";
 
 /**
- * Print meta-properties, comma lists, computed names, regex, and `super`.
+ * Verifies printing of meta-properties, comma lists, computed names, regex, and `super`.
  *
  * `import.meta`, `new.target`, a comma-list expression, a computed object key,
  * a regular-expression literal, and a `super(...)` call.
+ *
+ * 1. Meta properties, comma lists, computed property names, regex literals and super calls retain their distinct syntax.
+ * 2. Explicit import.meta/new.target, comma, computed key, regex and super literals specify the supplied source independently.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Meta properties, comma lists, computed property names, regex literals and super calls retain their distinct syntax.
+ * @evidence contracts/testing.md#independent-expectations Explicit import.meta/new.target, comma, computed key, regex and super literals specify the supplied source independently.
+ * @evidence contracts/testing.md#distinguishing-cases The heterogeneous constructors cover dedicated syntax not reducible to identifiers; regex body/flags and comma order must survive.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_meta_comma_computed. Calls createMetaProperty/createCommaListExpression/createComputedPropertyName/createRegularExpressionLiteral and super call construction before print.
  */
 export const test_meta_comma_computed = (): void => {
   TestValidator.equals(

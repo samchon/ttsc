@@ -21,14 +21,15 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * comparing those with the filesystem, so hashing the inputs again here would
  * pair an answer computed from one state with another state, and an input that
  * moved while the descriptors evaluated would bless the stale answer for as
- * long as it held still afterwards (samchon/ttsc#1504). An answer with an input
+ * long as it held still afterwards. An answer with an input
  * the load could not prove is not recorded at all: nothing could prove it later
  * either, and the next resolution walks again.
  *
  * A write failure is not reported. The cache is an optimization over a walk
  * that still works, and a read-only or full disk is a reason to be slower, not
- * a reason for `resolveCapabilityPlugins` to start throwing at a caller whose
- * contract is that it never does.
+ * a reason to replace a successfully discovered answer. The owning resolver
+ * catches failures in its load/publication block; this does not establish a
+ * never-throws contract for its earlier authority/tool lookup stages.
  *
  * Returns the published entry, or null when no complete entry was written.
  * Publication is not a freshness assertion: the reader must still prove its
@@ -36,17 +37,19 @@ import { pluginSourceState } from "./source/pluginSourceState";
  *
  * Default workspace storage is marked before even the clock probe is written,
  * so a first answer cannot make a later root search choose a different
- * installation. The probe and answer use the marker's pinned physical root; an
- * explicit `TTSC_CACHE_DIR` remains caller-owned.
+ * installation under the root ownership policy. The probe and answer use the
+ * marker's returned physical spelling, not a retained directory handle;
+ * publication assumes that path remains stable. An explicit `TTSC_CACHE_DIR`
+ * remains caller-owned.
  *
  * @evidence contracts/common.md#principled-implementation Retained inputs carry load-time hash/realpath and expected authority; default root provenance is marked before clock-probe or answer publication, while source digest acceleration must reconstruct the recorded build state.
  * @evidence contracts/common.md#clear-and-simple-design The writer persists a narrow copied answer and proof entry; descriptor discovery and binary building remain outside persistence.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Host proofs are not rehashed now to bless an answer computed earlier; unavailable proof prevents a write, and write failure does not invent a capability answer.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain evaluation-time proof, best-effort persistence and first-write default-root selection, with member/tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/join, the shared physical-root marker and same-directory rename preserve OS-neutral identities; source witnesses use actual device metadata.
- * @evidence contracts/performance.md#efficient-algorithms Set-based path deduplication precedes one stable sort; each source digest is bracketed once, and the copied plugin answer stays proportional to the configured population.
+ * @evidence contracts/performance.md#efficient-algorithms Normalized path Set deduplication and text-sensitive sorting precede own-key proof copies. Source digest acceleration can enumerate/query signatures twice, read full source bytes and observe build environment; authority/root/probe/publication operations also cost native work. Plugin capability maps, full manifest/context/proof/source text and complete JSON serialization contribute storage and processing beyond plugin count.
  * @evidence contracts/performance.md#reuse-equivalent-work Persistence stores one complete project answer under the shared format key; later reuse must reprove these exact evaluation/build states rather than treating writing as validation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Same-directory staging is call-owned and removed after failed writes; committed single-file entries belong to default source-cache pruning, while caller-selected roots remain caller-owned. Probe cleanup is delegated to the clock witness owner.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Same-directory staging cleanup is attempted in finally and can fail; serialized/copied entry data scales with the full answer and transfers to the caller/storage owner. Default entry pruning has interval/protection/failure limits and caller-selected roots remain caller-owned; transient probe removal is likewise an owning helper's attempt, with no guaranteed deletion or independent byte ceiling here.
  */
 export function writeCapabilityResolution(
   options: {
@@ -67,14 +70,14 @@ export function writeCapabilityResolution(
   },
   answer: {
     /**
-     * The evaluation-time content hash of each input, `null` for one proven
-     * absent, as the load reported it. An input without one was not proven.
+     * The evaluation-time content hash or unavailable null state reported by
+     * the load. A missing own key is not a recorded observation.
      */
     hostInputHashes: Readonly<Record<string, string | null>>;
 
     /**
-     * The evaluation-time physical path of each input, `null` for one proven
-     * absent, as the load reported it. An input without one was not proven.
+     * The evaluation-time physical path or unavailable null state reported by
+     * the load. A missing own key is not a recorded observation.
      */
     hostInputRealpaths: Readonly<Record<string, string | null>>;
 
@@ -85,8 +88,8 @@ export function writeCapabilityResolution(
     manifest: string;
 
     /**
-     * The state of every directory the binaries were keyed on, as the load
-     * reported it (`pluginSources`).
+     * Keyed states of the directories included in the load's pluginSources
+     * report; the load owns installed-package exclusions.
      */
     pluginSources: Readonly<Record<string, string>>;
 

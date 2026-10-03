@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
-import type { ResolutionCandidate } from "./serverResolution";
+import type { ResolutionCandidate } from "./ResolutionCandidate";
 
 /**
  * Retain the deepest physical project candidates in their original priority.
@@ -13,7 +13,9 @@ import type { ResolutionCandidate } from "./serverResolution";
  * @evidence contracts/common.md#principled-implementation
  *   Depth ordering selects physical descendants before ancestors. Containment
  *   rejects a candidate when a selected descendant already owns its files;
- *   filtering the original sequence preserves resolution priority.
+ *   consuming each survivor once while filtering the original sequence
+ *   preserves resolution priority, including repeated references to the same
+ *   candidate object.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Ordering and containment selection form one pure planning operation.
@@ -68,15 +70,17 @@ export function filterCandidatesByPhysicalRoots(
     selected.push(candidate);
   }
   const survivors = new Set(selected);
-  return candidates.filter((candidate) => survivors.has(candidate));
+  return candidates.filter((candidate) => survivors.delete(candidate));
 }
 
 /**
  * Plan unique nonoverlapping physical roots, retaining the first alias spelling.
  *
- * A supplied preferred root takes precedence over depth. Otherwise descendants
- * win; physical-key ordering breaks ties. The caller owns the observation
- * context and performs startup or teardown after receiving the plan.
+ * A supplied preferred root takes precedence over depth when it is one of the
+ * roots; a preferred root absent from the list is not added. Otherwise
+ * descendants win; physical-key ordering breaks ties. The caller owns the
+ * observation context and performs startup or teardown after receiving the
+ * plan.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Identity keys collapse equivalent roots. Selecting the preferred root
@@ -136,18 +140,19 @@ export function planRootsByPhysicalIdentity(
     ordered.push(unique.get(preferredKey)!);
     unique.delete(preferredKey);
   }
-  ordered.push(
-    ...[...unique.entries()]
-      .map(([key, root]) => ({
-        depth: pathDepth(identities.resolve(root).path, platform),
-        key,
-        root,
-      }))
-      .sort((left, right) =>
+  const byDepth = [...unique.entries()]
+    .map(([key, root]) => ({
+      depth: pathDepth(identities.resolve(root).path, platform),
+      key,
+      root,
+    }))
+    .sort(
+      (left, right) =>
         right.depth - left.depth || left.key.localeCompare(right.key),
-      )
-      .map(({ root }) => root),
-  );
+    );
+  for (const { root } of byDepth) {
+    ordered.push(root);
+  }
   const selected: string[] = [];
   for (const root of ordered) {
     if (

@@ -15,6 +15,9 @@ import type { IMemFSHost } from "./IMemFSHost";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains defaults, cancellation sharing and host identity. Separate
  *   ownership paragraphs follow the documentation skill's context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IBootTtscOptions is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IBootTtscOptions is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IBootTtscOptions is a data interface and coordinates no shared or repeated computation.
  */
 export interface IBootTtscOptions {
   /** URL of the .wasm to fetch. */

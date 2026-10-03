@@ -15,6 +15,17 @@ import type { ViteModuleGraphLike } from "./ViteModuleGraphLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states graph precedence and version context with descriptive
  *   prose separated from tags per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Enumerating E environments takes O(E) visits and temporary references;
+ *   the output retains each present graph occurrence, without identity dedup.
+ *   The mixed graph is appended only when that output is empty.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Selecting current host graph references coordinates no reusable
+ *   computation or in-flight work across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function selectModuleGraphs(
   server: ViteDevServerLike,

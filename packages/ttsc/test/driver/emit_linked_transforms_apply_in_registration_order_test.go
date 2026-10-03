@@ -36,14 +36,20 @@ func (p *numericRewritePlugin) EmitTransform(_ driver.PluginContext) (driver.Plu
   }, nil
 }
 
-// TestEmitLinkedTransformsApplyInRegistrationOrder is an emit-contract guard for
-// EmitLinkedTransforms: when several EmitTransformPlugins are registered, their
-// PluginTransforms must be chained in registration order, each one fed the
-// previous one's output. Two stages are registered: A (0->100) then B (100->200).
-// Only the A-then-B order produces `exports.a = 200`; the reversed order would
-// stall at 100 (B never sees a 100, then A makes one too late). The registration
-// order is paired to the manifest entry order, exactly like the linked-host
-// contract the other linked-plugin tests lock.
+// TestEmitLinkedTransformsApplyInRegistrationOrder Verifies registered linked transforms feed
+// each result to the next transform in registration order.
+//
+// Stage A replaces 0 with 100 and stage B replaces 100 with 200. Only A followed by B
+// reaches the authored final value; the reversed registration companion distinguishes
+// chaining order from the presence of both hooks.
+//
+// 1. Register the 0-to-100 transform before the 100-to-200 transform.
+// 2. Emit through the linked transforms and require 200 while rejecting the intermediate 100 assignment.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual registered emit transforms through EmitLinkedTransforms and requires exports.a = 200 while rejecting the stalled 100 output.
+// @evidence contracts/testing.md#independent-expectations Authored stages replace 0 with 100 and 100 with 200, so sequential A then B independently owes 200; no expected output is obtained from a reference emitter.
+// @evidence contracts/testing.md#distinguishing-cases The two-stage dependency makes registration order observable; the adjacent reversed-registration entry must stall at 100.
+// @evidence contracts/testing.md#execution-ownership This direct driver Go unit executes registered in-process transforms on a private Program and write map, closes its Program and scopes its manifest environment; it installs or builds no plugin executable.
 func TestEmitLinkedTransformsApplyInRegistrationOrder(t *testing.T) {
   resetLinkedPluginRegistry()
   // Two manifest entries paired by registration order to the two plugins below.
@@ -87,9 +93,20 @@ func TestEmitLinkedTransformsApplyInRegistrationOrder(t *testing.T) {
   }
 }
 
-// TestEmitLinkedTransformsReversedRegistrationStalls is the negative companion:
-// registering stage B before stage A must NOT reach 200, proving the assertion
-// above is sensitive to order rather than to the mere presence of both plugins.
+// TestEmitLinkedTransformsReversedRegistrationStalls Verifies reversing the linked numeric
+// transforms produces 100 instead of 200.
+//
+// Stage B sees the original zero before stage A creates 100, so B cannot produce 200. This
+// reversed input is the control for the registration-order result and exposes an
+// implementation that silently reorders the hooks.
+//
+// 1. Register the 100-to-200 transform before the 0-to-100 transform.
+// 2. Emit through that reversed order and require 100 while rejecting 200.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs B then A through the actual registered-transform emitter and requires exports.a = 100 while rejecting 200.
+// @evidence contracts/testing.md#independent-expectations B cannot replace the authored initial zero, then A replaces zero with 100; literal 100 and absent 200 independently define this reversed order.
+// @evidence contracts/testing.md#distinguishing-cases Reversed registration contrasts the adjacent A-then-B positive, detecting order-insensitive chaining or sorting by plugin name.
+// @evidence contracts/testing.md#execution-ownership This owning Go unit loads and closes one in-process Program and captures real emitted writes with a fresh registry and test-scoped manifest; no compiler host or installed plugin runs.
 func TestEmitLinkedTransformsReversedRegistrationStalls(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"stageB","stage":"transform","config":{}},{"name":"stageA","stage":"transform","config":{}}]`)

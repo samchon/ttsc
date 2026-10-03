@@ -1,4 +1,4 @@
-import type { TtscEvidenceGraphPrismaSymbol } from "../typings/TtscEvidenceGraphPrismaSymbol";
+import type { TtscEvidenceGraphPrismaSymbol } from "./TtscEvidenceGraphPrismaSymbol";
 import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase";
 
 /**
@@ -44,7 +44,7 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  * @evidence contracts/common.md#clear-and-simple-design Prisma specializes only schema-file interpretation and host kinds while the common base carries root and outgoing coverage policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Eligibility is based on actual schema documentation syntax; ignored double-slash annotations do not silently become evidence and no consumer model is singled out.
  * @evidence contracts/common.md#meaningful-documentation The declaration documents comment attachment, file-level exclusions and native Prisma examples; field comments explain schema composition and selector defaults.
- * @evidence contracts/portability.md#os-neutral-implementation Schema files resolve through the inherited stable native root while prisma model identities remain path-free; linked aliases join one schema without using OS names to infer file case or capability.
+* @evidence contracts/portability.md#os-neutral-implementation Schema files resolve through the inherited stable native root while prisma model identities remain path-free; linked aliases join one schema without using OS names to infer file case or capability.
  */
 export interface ITtscEvidenceGraphPrismaClaim extends ITtscEvidenceGraphClaimBase<"prisma"> {
   /**

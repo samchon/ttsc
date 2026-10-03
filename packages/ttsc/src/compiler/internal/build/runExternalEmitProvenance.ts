@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { COMPILER_OPTION_KINDS } from "../../../flags/COMPILER_OPTION_KINDS";
-import { normalizeFlagToken } from "../../../flags/normalizeFlagToken";
+import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
+import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { ensureExecutable } from "../ensureExecutable";
@@ -19,18 +18,24 @@ import { PassthroughFlags } from "./PassthroughFlags";
  *
  * Admission requires stable effective options, identical source selection and
  * stable physical paths, file identities and bytes before and after emission,
- * including the selected executable itself. The executable's change time is
- * excluded from cross-command equality because that metadata changed in real
- * executions without changing the executable object or bytes; source change
- * times remain proof premises and each read brackets its full metadata. This is
- * an external observation, not an atomic compiler-generation ledger; a
- * concurrent change restored between observations can remain invisible.
- * Unsupported layouts and ambiguous outputs carry an empty ownership list.
+ * including response files and the selected executable itself. Response
+ * inspection preserves native argument-frame boundaries and operand positions;
+ * the producer and its probes receive the original argv. The executable's
+ * change time is excluded from cross-command equality because that metadata
+ * changed in real executions without changing the executable object or bytes;
+ * source change times remain proof premises and each read brackets its full
+ * metadata. This is an external observation, not an atomic compiler-generation
+ * ledger; a concurrent change restored between observations can remain
+ * invisible. Unsupported layouts and ambiguous outputs carry an empty ownership
+ * list.
  *
  * A nonzero compiler status can still carry proved writes for an unchecked
  * consumer. Ownership metadata never changes that status or its diagnostics.
  * Profiling and tracing options suppress probes so their artifacts remain owned
  * by the emitting run.
+ * TSFILE rows are the selected producer's write reports, not output-file byte
+ * observations. Admission assumes that producer uses the supported upstream
+ * naming subset; this adapter does not certify arbitrary compiler behavior.
  *
  * Normally reported ownerless outputs carry their actual failed proof boundary
  * in emittedSourceProofFailures. These explanations preserve compiler streams
@@ -41,9 +46,9 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching; processing is linear in observed bytes and paths, plus compiler probes and physical filesystem operations.
+ * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set. Repeated response/source/executable observations read and hash complete files; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Probe processes complete synchronously through spawnNative's capture owner; hashes and indexes live only for this call and scale with selected paths, while transient read buffers scale with the largest observed file, including the executable.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Response/config/source tokens and predicted owner sets live for this invocation; returned provenance/refusal records transfer to the caller. Retained bytes grow with complete reports, expanded arguments, paths and observations, while individual file reads allocate full file buffers. Probe capture cleanup is delegated and may be best effort; no timeout, output ceiling or descendant-release certification is provided here.
  */
 export function runExternalEmitProvenance(options: {
   /** Complete original compiler argv, including project selection. */
@@ -120,8 +125,15 @@ export function runExternalEmitProvenance(options: {
   let failure = sameSelection
     ? undefined
     : `Emitting source selection differs from its inspection (${probe.files.length} inspected, ${listed.length} reported); first differing inspected path ${JSON.stringify(probe.files[firstDifference])}, reported path ${JSON.stringify(listed[firstDifference === -1 ? probe.files.length : firstDifference])}.`;
-  let stage = "effective configuration reinspection";
+  let stage = "response-file reinspection";
   try {
+    for (const [file, before] of probe.responseObservations) {
+      if (!stable) break;
+      stable = CompilerArgumentsInspection.observeInputFile(file) === before;
+      if (!stable)
+        failure = `Compiler response file changed across emission: ${JSON.stringify(file)}.`;
+    }
+    stage = "effective configuration reinspection";
     if (stable && readConfig(options)?.text !== probe.text) {
       stable = false;
       failure =
@@ -129,7 +141,10 @@ export function runExternalEmitProvenance(options: {
     }
     stage = `executable observation of ${JSON.stringify(probe.binaryPath)}`;
     if (stable) {
-      const after = observeFile(probe.binaryPath, "executable");
+      const after = CompilerArgumentsInspection.observeInputFile(
+        probe.binaryPath,
+        "executable",
+      );
       if (after !== probe.binaryObservation) {
         stable = false;
         failure = `Selected executable changed across emission: ${JSON.stringify(probe.binaryPath)} (${observationDifference(probe.binaryObservation, after)}).`;
@@ -138,10 +153,16 @@ export function runExternalEmitProvenance(options: {
     for (const [source, before] of probe.observations) {
       if (!stable) break;
       stage = `source observation of ${JSON.stringify(source)}`;
-      const after = observeFile(source);
+      const after = CompilerArgumentsInspection.observeInputFile(source);
       stable = after === before;
       if (!stable)
         failure = `Selected source changed across emission: ${JSON.stringify(source)} (${observationDifference(before, after)}).`;
+    }
+    for (const [file, before] of probe.responseObservations) {
+      if (!stable) break;
+      stable = CompilerArgumentsInspection.observeInputFile(file) === before;
+      if (!stable)
+        failure = `Compiler response file changed during post-emission inspection: ${JSON.stringify(file)}.`;
     }
     if (stable && written.length !== 0) {
       stage = "output prediction";
@@ -202,49 +223,46 @@ function prepareProbe(
     return undefined;
   };
   try {
-    const last = options.args.at(-1);
-    // A native string option consumes even a following dash token as its value.
-    // Appending --showConfig to a missing value can therefore cause emission
-    // instead of inspection. Wrapper schema and the compiler-owned arity table
-    // together identify booleans; unknown and value-taking options stay unsafe.
-    if (last?.startsWith("-")) {
-      const kind =
-        resolveFlagSpec(last)?.kind ??
-        COMPILER_OPTION_KINDS.get(normalizeFlagToken(last.split("=", 1)[0]!));
-      if (kind !== "boolean")
-        return unavailable(
-          `Appending inspection could supply a missing value to the trailing option ${JSON.stringify(last)}.`,
-        );
-    }
+    const inspected = CompilerArgumentsInspection.inspect(
+      options.args,
+      options.cwd,
+    );
     if (
-      PassthroughFlags.forwardsTerminalTsgoFlag({ passthrough: options.args })
+      PassthroughFlags.forwardsTerminalTsgoFlag({ passthrough: inspected.args })
     )
       return unavailable(
         "Original argv selects an effective terminal compiler command; provenance inspection would change its command behavior.",
       );
-    const unsupportedArg = options.args.find((arg) => {
+    let unsupportedArg: string | undefined;
+    for (let index = 0; index < inspected.args.length; ) {
+      const arg = inspected.args[index]!;
+      const occurrence = readCompilerOptionOccurrence(inspected.args, index);
       const flag = resolveFlagSpec(arg);
-      const name = arg.startsWith("-")
-        ? normalizeFlagToken(arg.split("=", 1)[0]!)
-        : undefined;
-      return (
+      const name = occurrence.option?.name;
+      if (
         flag?.name === "--build" ||
-        arg.startsWith("@") ||
-        name === "pprofdir" ||
-        name === "generatecpuprofile" ||
-        name === "generatetrace"
-      );
-    });
+        name === "pprofDir" ||
+        name === "generateCpuProfile" ||
+        name === "generateTrace"
+      ) {
+        unsupportedArg = arg;
+        break;
+      }
+      index += occurrence.width;
+    }
     if (unsupportedArg !== undefined)
       return unavailable(
-        `Original argv contains ${JSON.stringify(unsupportedArg)}, selecting a build command, response file, or profiling/tracing artifact option unsupported by read-only provenance inspection.`,
+        `Original argv contains ${JSON.stringify(unsupportedArg)}, selecting a build command or profiling/tracing artifact option unsupported by read-only provenance inspection.`,
       );
     const binaryPath = path.resolve(options.cwd, options.binary);
     stage = `initial executable preparation and observation of ${JSON.stringify(binaryPath)}`;
     // Match spawnNative's native/script boundary before observing ctime: its
     // first POSIX permission preparation must not invalidate our own producer.
     if (!/\.(?:[cm]?js|ts)$/i.test(binaryPath)) ensureExecutable(binaryPath);
-    const binaryObservation = observeFile(binaryPath, "executable");
+    const binaryObservation = CompilerArgumentsInspection.observeInputFile(
+      binaryPath,
+      "executable",
+    );
     stage = "effective configuration inspection";
     const parsed = readConfig(options);
     if (parsed === undefined)
@@ -266,15 +284,20 @@ function prepareProbe(
       (compilerOptions.rootDir !== undefined &&
         typeof compilerOptions.rootDir !== "string") ||
       (compilerOptions.jsx !== undefined &&
-        !["preserve", "react", "react-jsx", "react-jsxdev"].includes(
-          String(compilerOptions.jsx),
-        ))
+        (typeof compilerOptions.jsx !== "string" ||
+          ![
+            "preserve",
+            "react",
+            "react-native",
+            "react-jsx",
+            "react-jsxdev",
+          ].includes(compilerOptions.jsx)))
     )
       return unavailable(
         `Effective configuration selects unsupported provenance layout or reporting: ${JSON.stringify({ references: config.references?.length, outFile: compilerOptions.outFile, rootDir: compilerOptions.rootDir, outDir: compilerOptions.outDir, jsx: compilerOptions.jsx, explainFiles: compilerOptions.explainFiles, generateTrace: compilerOptions.generateTrace, generateCpuProfile: compilerOptions.generateCpuProfile, pprofDir: compilerOptions.pprofDir })}.`,
       );
     stage = "selected configuration anchor";
-    const base = projectBase(options.args, options.cwd);
+    const base = projectBase(inspected.args, options.cwd);
     if (base === undefined)
       return unavailable(
         "Original argv does not establish a supported selected configuration directory.",
@@ -313,8 +336,16 @@ function prepareProbe(
     const observations = new Map<string, string>();
     for (const source of files) {
       stage = `initial source observation of ${JSON.stringify(source)}`;
-      observations.set(source, observeFile(source));
+      observations.set(
+        source,
+        CompilerArgumentsInspection.observeInputFile(source),
+      );
     }
+    for (const [file, before] of inspected.observations)
+      if (CompilerArgumentsInspection.observeInputFile(file) !== before)
+        return unavailable(
+          `Compiler response file changed during inspection: ${JSON.stringify(file)}.`,
+        );
     return {
       ...parsed,
       base,
@@ -322,6 +353,7 @@ function prepareProbe(
       binaryPath,
       files,
       observations,
+      responseObservations: inspected.observations,
     };
   } catch (error) {
     return unavailable(
@@ -380,42 +412,25 @@ function readConfig(options: Parameters<typeof runExternalEmitProvenance>[0]):
 /** ShowConfig path options are relative to the selected config's directory. */
 function projectBase(args: readonly string[], cwd: string): string | undefined {
   let selected: string | undefined;
-  for (let index = 0; index < args.length; index++) {
-    if (resolveFlagSpec(args[index]!)?.name !== "--tsconfig") continue;
+  for (let index = 0; index < args.length; ) {
+    const occurrence = readCompilerOptionOccurrence(args, index);
+    if (resolveFlagSpec(args[index]!)?.name !== "--tsconfig") {
+      index += occurrence.width;
+      continue;
+    }
     if (args[index]!.includes("=")) return undefined;
-    selected = args[++index];
-    if (selected === undefined || selected.startsWith("-")) return undefined;
+    selected = args[index + 1];
+    if (
+      typeof selected !== "string" ||
+      occurrence.width !== 2 ||
+      selected === "null"
+    )
+      return undefined;
+    index += occurrence.width;
   }
   if (selected === undefined) return undefined;
   const project = path.resolve(cwd, selected);
   return fs.statSync(project).isDirectory() ? project : path.dirname(project);
-}
-
-/** Bracket full metadata around reads; compare executable bytes and object. */
-function observeFile(
-  source: string,
-  kind: "source" | "executable" = "source",
-): string {
-  const physical = fs.realpathSync.native(source);
-  const before = fs.statSync(source, { bigint: true });
-  if (!before.isFile())
-    throw new Error("Observed compiler input is not a regular file.");
-  const hash = createHash("sha256")
-    .update(fs.readFileSync(source))
-    .digest("hex");
-  const after = fs.statSync(source, { bigint: true });
-  const fullSignature = (stat: fs.BigIntStats) =>
-    [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
-  if (
-    fullSignature(before) !== fullSignature(after) ||
-    fs.realpathSync.native(source) !== physical
-  )
-    throw new Error("Compiler input changed during observation.");
-  const signature =
-    kind === "source"
-      ? fullSignature(after)
-      : [after.dev, after.ino, after.size, after.mtimeNs].join(":");
-  return JSON.stringify([physical, signature, hash]);
 }
 
 /** Name only the changed identity premise; retain the original observation gate. */

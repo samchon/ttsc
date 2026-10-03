@@ -1,7 +1,8 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { TestProject } from "@ttsc/testing";
 
 import { createBareProject, prepareSnapshot } from "./metro-cache";
 import { TestMetroRuntime } from "./metro-runtime";
@@ -14,17 +15,6 @@ function fakeUpstreamOptions(
 ): Record<string, unknown> {
   return {
     upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-    ...extra,
-  };
-}
-
-/** A fully-resolved options object for `shouldTransform` unit tests. */
-function resolvedOptions(extra: Record<string, unknown> = {}): any {
-  return {
-    ttsc: {},
-    include: [],
-    exclude: [],
-    upstreamTransformer: undefined,
     ...extra,
   };
 }
@@ -131,155 +121,6 @@ export async function assertMissingUpstreamThrows(): Promise<void> {
 }
 
 /**
- * End-to-end: asserts the ttsc plugin pass actually runs on a TypeScript source
- * and the transformed source is what reaches the upstream transformer.
- *
- * Uses the shared fixture project (a Go plugin that uppercases the `goUpper`
- * call) and the echoing fake upstream, then asserts the source handed
- * downstream was plugin-transformed. Exercises the real native compiler, so it
- * runs in CI (Go toolchain present), not in a Go-less local checkout.
- */
-export async function assertRunsTtscPluginPassOnTypeScript(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
-  // Mirror real Metro: a project-relative `filename` plus `projectRoot` in
-  // options. This exercises the relative→absolute resolution; resolving against
-  // cwd instead of projectRoot would make the file look outside the project and
-  // silently skip the plugin pass.
-  const result = await TestMetroRuntime.runTransform({
-    options: fakeUpstreamOptions(),
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root, platform: "ios" },
-      plugins: ["babel-plugin-foo"],
-    },
-  });
-  assert.equal(result.ast.__fakeUpstream, true);
-  TestUnpluginProject.assertTransformedToPlugin(result.ast.src as string);
-  // The transform-path spread must preserve sibling params (options/plugins),
-  // not just `src`, a regression dropping them would break Metro's Babel stage.
-  assert.equal((result.ast.options as Record<string, unknown>).platform, "ios");
-  assert.deepEqual(result.ast.plugins, ["babel-plugin-foo"]);
-}
-
-/**
- * Asserts Metro's project-relative `filename` is resolved against
- * `options.projectRoot` (not `process.cwd()`). The core of the silent-no-op
- * bug: in monorepos cwd ≠ projectRoot, so resolving against cwd points the ttsc
- * pass at the wrong path and every file looks "outside the project".
- */
-export async function assertResolvesRelativeFilenameAgainstProjectRoot(): Promise<void> {
-  const mod = await TestMetroRuntime.loadFreshTransformer();
-  assert.equal(
-    mod.resolveAbsoluteFilename("src/app.ts", {
-      projectRoot: "/workspace/app",
-    }),
-    path.resolve("/workspace/app", "src/app.ts"),
-  );
-  // No projectRoot → falls back to cwd.
-  assert.equal(
-    mod.resolveAbsoluteFilename("src/app.ts", {}),
-    path.resolve(process.cwd(), "src/app.ts"),
-  );
-  // No options object at all → also falls back to cwd.
-  assert.equal(
-    mod.resolveAbsoluteFilename("src/app.ts"),
-    path.resolve(process.cwd(), "src/app.ts"),
-  );
-}
-
-/**
- * Asserts an already-absolute `filename` is returned unchanged, ignoring
- * `projectRoot` (the `path.isAbsolute` short-circuit).
- */
-export async function assertKeepsAbsoluteFilenameUnchanged(): Promise<void> {
-  const mod = await TestMetroRuntime.loadFreshTransformer();
-  const absolute = path.resolve("/workspace/app/src/app.ts");
-  assert.equal(
-    mod.resolveAbsoluteFilename(absolute, { projectRoot: "/somewhere/else" }),
-    absolute,
-  );
-}
-
-/**
- * Asserts `shouldTransform` accepts every TypeScript source extension
- * (`.ts`/`.tsx`/`.cts`/`.mts`).
- */
-export async function assertAcceptsAllTypeScriptExtensions(): Promise<void> {
-  const mod = await TestMetroRuntime.loadFreshTransformer();
-  for (const file of ["/p/a.ts", "/p/a.tsx", "/p/a.cts", "/p/a.mts"]) {
-    assert.equal(mod.shouldTransform(file, resolvedOptions()), true, file);
-  }
-}
-
-/**
- * Asserts `shouldTransform` rejects every neighboring non-source spelling,
- * declaration form, virtual id, and dependency path through the shared gate.
- */
-export async function assertRejectsNonTypeScriptExtensions(): Promise<void> {
-  const mod = await TestMetroRuntime.loadFreshTransformer();
-  for (const file of [
-    "/p/a.d.ts",
-    "/p/a.d.mts",
-    "/p/a.d.cts",
-    "/p/a.d.css.ts",
-    "/p/a.js",
-    "/p/a.jsx",
-    "/p/a.mjs",
-    "/p/a.cjs",
-    "/p/a.mtsx",
-    "/p/a.ctsx",
-    "/p/a.json",
-    "/p/a.css",
-    "/p/node_modules/pkg/a.ts",
-    "\0virtual.ts",
-  ]) {
-    assert.equal(mod.shouldTransform(file, resolvedOptions()), false, file);
-  }
-}
-
-/**
- * Asserts the include/exclude gating: empty include = all TypeScript; a
- * matching include selects, a non-matching include rejects; exclude rejects and
- * wins over a matching include.
- */
-export async function assertGatesByIncludeAndExclude(): Promise<void> {
-  const mod = await TestMetroRuntime.loadFreshTransformer();
-  const ts = "/p/src/keep/a.ts";
-  assert.equal(
-    mod.shouldTransform(ts, resolvedOptions()),
-    true,
-    "empty include",
-  );
-  assert.equal(
-    mod.shouldTransform(ts, resolvedOptions({ include: ["keep"] })),
-    true,
-    "include match",
-  );
-  assert.equal(
-    mod.shouldTransform(
-      "/p/src/other/a.ts",
-      resolvedOptions({ include: ["keep"] }),
-    ),
-    false,
-    "include non-match",
-  );
-  assert.equal(
-    mod.shouldTransform(ts, resolvedOptions({ exclude: ["keep"] })),
-    false,
-    "exclude match",
-  );
-  assert.equal(
-    mod.shouldTransform(
-      ts,
-      resolvedOptions({ include: ["keep"], exclude: ["keep"] }),
-    ),
-    false,
-    "exclude wins over include",
-  );
-}
-
-/**
  * Asserts `getCacheKey` is a stable 64-char hex digest, equal across calls for
  * the same options and different when the options differ. The project carries a
  * prepared snapshot: key stability is only guaranteed on the `withTtsc` setup
@@ -303,6 +144,7 @@ export async function assertCacheKeyIsDeterministicAndOptionSensitive(): Promise
   );
   assert.equal(typeof first, "string");
   assert.equal(first.length, 64);
+  assert.match(first, /^[0-9a-f]{64}$/);
   assert.equal(first, repeat);
   assert.notEqual(first, other);
 }
@@ -337,6 +179,11 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
   );
   assert.equal(typeof keyC, "string");
   assert.equal(keyC.length, 64);
+  const keyCRepeat = await TestMetroRuntime.withTransformerEnv(
+    { upstreamTransformer: noKey },
+    (mod) => mod.getCacheKey({ projectRoot: root, enableBabelRCLookup: true }),
+  );
+  assert.equal(keyC, keyCRepeat, "an absent optional callback retains reuse");
 }
 
 /**
@@ -344,12 +191,19 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
  * resolved: cache-key computation must degrade, not crash the whole build.
  */
 export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
-  const key = await TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: "@@ttsc-metro-nonexistent-upstream@@" },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
-  );
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const keyForRun = () =>
+    TestMetroRuntime.withTransformerEnv(
+      { upstreamTransformer: "@@ttsc-metro-nonexistent-upstream@@" },
+      (mod) => mod.getCacheKey({ projectRoot: root }),
+    );
+  const key = await keyForRun();
   assert.equal(typeof key, "string");
-  assert.equal(key.length, 64);
+  assert.match(key, /^[0-9a-f]{64}$/);
+  const repeat = await keyForRun();
+  assert.match(repeat, /^[0-9a-f]{64}$/);
+  assert.notEqual(key, repeat, "missing upstream withdraws reuse");
 }
 
 /**
@@ -357,129 +211,117 @@ export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
  * throws: the inner guard must swallow it and still produce a valid key.
  */
 export async function assertCacheKeySurvivesThrowingUpstreamCacheKey(): Promise<void> {
-  const throwing = TestMetroRuntime.fakeUpstreamThrowingCacheKeyOnDisk();
-  const key = await TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: throwing },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
-  );
-  assert.equal(typeof key, "string");
-  assert.equal(key.length, 64);
-}
-
-/**
- * End-to-end: asserts a file outside the tsconfig program passes through
- * untransformed rather than failing the build (the `isFileOutsideProject` =>
- * swallow path). Requires the native compiler → CI-only.
- */
-export async function assertOutsideProjectFilePassesThrough(): Promise<void> {
   const root = createBareProject();
-  const externalProject = TestUnpluginProject.createProject();
-  const src = "export const value: number = 1;\n";
-  const stray = path.join(externalProject, "scripts", "stray.ts");
-  fs.mkdirSync(path.dirname(stray), { recursive: true });
-  fs.writeFileSync(stray, src, "utf8");
-  const options = fakeUpstreamOptions();
-  const runId = await prepareSnapshot(root);
-  const before = await TestMetroRuntime.withTransformerEnv(
-    options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
-    runId,
-  );
-  const result = await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src,
-      filename: stray,
-      options: { projectRoot: root },
-    },
-    snapshotRunId: runId,
-  });
-  assert.equal(result.ast.__fakeUpstream, true);
-  assert.equal(result.ast.src, src);
-
-  const snapshotDirectory = path.join(
-    root,
-    "node_modules",
-    ".cache",
-    "ttsc-metro",
-  );
-  const worker = JSON.parse(
-    fs.readFileSync(
-      fs
-        .readdirSync(snapshotDirectory)
-        .map((name) => path.join(snapshotDirectory, name))
-        .find((file) =>
-          path.basename(file).startsWith("graph-inputs.worker-"),
-        )!,
-      "utf8",
-    ),
-  ) as { files: string[]; tainted: boolean };
-  assert.equal(
-    worker.tainted,
-    true,
-    "a pass-through outside the static project map must rotate the snapshot epoch",
-  );
-  assert.ok(
-    worker.files.includes(path.join(externalProject, "tsconfig.json")) &&
-      worker.files.includes(
-        path.join(externalProject, "scripts", "tsconfig.json"),
-      ),
-    "the pass-through must retain its external config and every project-selection candidate",
-  );
-
   await prepareSnapshot(root);
-  const guardedRunId = await prepareSnapshot(root);
-  const guardedBeforeEdit = await TestMetroRuntime.withTransformerEnv(
-    options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
-    guardedRunId,
-  );
-  assert.notEqual(
-    before,
-    guardedBeforeEdit,
-    "the tainted pass-through run must be isolated under a fresh epoch",
-  );
-  const configPath = path.join(externalProject, "tsconfig.json");
-  const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
-    include?: string[];
-  };
-  config.include = ["src", "scripts"];
-  fs.writeFileSync(configPath, JSON.stringify(config), "utf8");
-  const nextRunId = await prepareSnapshot(root);
-  const after = await TestMetroRuntime.withTransformerEnv(
-    options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
-    nextRunId,
-  );
-  assert.notEqual(
-    guardedBeforeEdit,
-    after,
-    "including a formerly passed-through external module must invalidate its cached upstream result",
-  );
+  const throwing = TestMetroRuntime.fakeUpstreamThrowingCacheKeyOnDisk();
+  const keyForRun = () =>
+    TestMetroRuntime.withTransformerEnv(
+      { upstreamTransformer: throwing },
+      (mod) => mod.getCacheKey({ projectRoot: root }),
+    );
+  const key = await keyForRun();
+  assert.equal(typeof key, "string");
+  assert.match(key, /^[0-9a-f]{64}$/);
+  const repeat = await keyForRun();
+  assert.match(repeat, /^[0-9a-f]{64}$/);
+  assert.notEqual(key, repeat, "a failed upstream key withdraws reuse");
+}
+
+/** One file the gate must reject, with the options that reject it. */
+interface GatedOutCase {
+  name: string;
+  options: Record<string, unknown>;
+  params: { src: string; filename: string; options: Record<string, unknown> };
 }
 
 /**
- * End-to-end: asserts a genuine compile/plugin failure propagates (the
- * `isFileOutsideProject` FALSE branch, rethrow), and is NOT swallowed as an
- * out-of-project case. Requires the native compiler → CI-only.
+ * Asserts every gated-out file reaches the upstream as Metro's own params
+ * object.
+ *
+ * The ttsc pass hands the upstream a fresh `{ ...params, src }`, while a file
+ * that bypasses it is forwarded as the object Metro supplied. A recording
+ * upstream keeps what it was handed, so identity with the object given to
+ * `transform` shows the pass did not run, which equal source text alone cannot.
+ * The gate reads the project-relative filename, so a relative file whose
+ * absolute path contains an include word is still outside that include.
  */
-export async function assertGenuineCompileErrorPropagates(): Promise<void> {
-  const broken = "export const broken: number = 1;\n";
-  const root = TestUnpluginProject.createProject({ source: broken });
-  await assert.rejects(
-    TestMetroRuntime.runTransform({
-      options: fakeUpstreamOptions(),
-      params: {
-        src: broken,
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      },
-    }),
-    // Load-bearing: must reject with the actual plugin error (mentions
-    // goUpper) rather than a vacuous environment failure. A module the program
-    // does not contain no longer reaches this path at all: the shared core
-    // returns `undefined` for it, so there is no swallow string left to
-    // distinguish from a real failure (samchon/ttsc#1308).
-    (error: Error) => /goUpper/.test(error.message),
+export async function assertGatedOutFilesReachTheUpstreamAsTheOriginalParams(): Promise<void> {
+  const KEY = "__ttscMetroRecordedUpstreamParams";
+  const dir = TestProject.tmpdir("ttsc-metro-upstream-recording-");
+  const upstream = path.join(dir, "upstream.cjs");
+  fs.writeFileSync(
+    upstream,
+    [
+      "exports.transform = async function (params) {",
+      `  globalThis[${JSON.stringify(KEY)}] = params;`,
+      "  return { ast: { __recording: true } };",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
   );
+  const cases: GatedOutCase[] = [
+    {
+      name: "javascript",
+      options: {},
+      params: {
+        src: "export const a = 1;\n",
+        filename: path.join(ROOT, "src", "app.js"),
+        options: {},
+      },
+    },
+    {
+      name: "declaration",
+      options: {},
+      params: {
+        src: "declare const a: number;\n",
+        filename: path.join(ROOT, "src", "types.d.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "excluded",
+      options: { exclude: ["generated"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join(ROOT, "src", "generated", "api.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "not included",
+      options: { include: ["src/included"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join(ROOT, "src", "other", "file.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "relative file below a root named like the include",
+      options: { include: ["generated"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join("src", "app.ts"),
+        options: { projectRoot: path.join(ROOT, "generated") },
+      },
+    },
+  ];
+  const holder = globalThis as unknown as Record<string, unknown>;
+  try {
+    for (const { name, options, params } of cases) {
+      delete holder[KEY];
+      await TestMetroRuntime.withTransformerEnv(
+        { upstreamTransformer: upstream, ...options },
+        (mod) => mod.transform(params),
+      );
+      assert.equal(
+        holder[KEY],
+        params,
+        `${name}: the upstream must receive the original params object`,
+      );
+    }
+  } finally {
+    delete holder[KEY];
+  }
 }

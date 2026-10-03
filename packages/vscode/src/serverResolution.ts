@@ -8,95 +8,16 @@ import {
   createFilesystemPathIdentityContext,
 } from "ttsc/path-identity";
 
+import type { ResolutionCandidate } from "./ResolutionCandidate";
+import type { ResolutionCandidateInput } from "./ResolutionCandidateInput";
+import type { ServerProcessOptions } from "./ServerProcessOptions";
+import type { ServerLaunchCommand } from "./ServerLaunchCommand";
+import type { ServerExecutable } from "./ServerExecutable";
+import type { RelativePatternConstructor } from "./RelativePatternConstructor";
 import {
   filterCandidatesByPhysicalRoots,
   planRootsByPhysicalIdentity,
 } from "./clientRootPlanning.ts";
-
-/**
- * A module-resolution base, server working directory and optional selected
- * project config.
- *
- * Resolution and server cwd may differ when an active file lives below its
- * project root.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Keeping resolveFrom distinct from cwd lets a nested source resolve its
- *   package while its server uses the owning config directory. Optional
- *   tsconfig distinguishes explicit selection from launcher discovery.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   These three fields express resolution and launch inputs together without
- *   retaining editor state or performing resolution inside the value.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   All three fields carry native filesystem paths. Node and the shared
- *   identity resolver interpret their separators and aliases; protocol URIs
- *   are converted before this boundary rather than stored as paths.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc distinguishes native module-resolution base, server cwd and
- *   optional config; the type comment explains why base and cwd can differ.
- *   Purpose, conditions and reasons use separate native paragraphs under the
- *   documentation skill; member comments remain beside their fields.
- */
-export type ResolutionCandidate = {
-  /** Working directory for project-owned server execution. */
-  cwd: string;
-
-  /** Directory from which Node resolves the project's ttsc package. */
-  resolveFrom: string;
-
-  /** Selected config candidate; absence leaves launcher discovery enabled. */
-  tsconfig?: string;
-};
-
-/**
- * Optional active file, owning workspace root and workspace roots used to
- * order resolution candidates.
- *
- * An absent active file leaves workspace-only discovery; an absent active
- * workspace root permits the normal ancestor search.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Optional activeFile and activeWorkspaceRoot allow workspace-only
- *   discovery without inventing an active document. Ordered workspaceRoots
- *   retain the caller's fallback priority.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   This input separates editor selection from native discovery and carries
- *   only paths and ordering needed to construct resolution candidates.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Members are native paths, not URI strings. findProjectConfig uses shared
- *   physical identity to honor workspace aliases and Node path operations to
- *   walk directories under their actual host semantics.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc explains optional active-file and workspace-boundary inputs
- *   and ordered workspace fallbacks; the type comment states absent-input
- *   meaning. Purpose, conditions and reasons use separate native paragraphs
- *   under the documentation skill; member comments remain beside their
- *   fields.
- */
-export type ResolutionCandidateInput = {
-  /** Active file path; absence uses only the supplied workspace roots. */
-  activeFile?: string;
-
-  /** Owning workspace boundary passed to active-file project discovery. */
-  activeWorkspaceRoot?: string;
-
-  /** Workspace directories considered after the active file. */
-  workspaceRoots?: readonly string[];
-};
 
 /**
  * Create the shared filesystem identity context used for language-client
@@ -133,6 +54,17 @@ export type ResolutionCandidateInput = {
  *   identity operations, including why globals are not replaced. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It only constructs the context; resolution cost belongs to the
+  *   path-identity API.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Memoization lives in the context it returns; this wrapper adds no cache.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The caller owns the returned context and its lifetime; this wrapper
+  *   retains nothing.
  */
 export function createServerRootPathIdentityContext(
   platform: NodeJS.Platform = process.platform,
@@ -145,219 +77,9 @@ export function createServerRootPathIdentityContext(
   });
 }
 
-/**
- * Node spawn options with a working directory, environment and optional
- * verbatim Windows arguments.
- *
- * Only prequoted command-shim payloads require verbatim arguments; ordinary
- * executable arguments retain Node escaping.
- *
- * @evidence contracts/common.md#principled-implementation
- *   cwd and env match Node spawn options. An optional verbatim flag preserves
- *   the distinction between prequoted Windows shim payloads and ordinary
- *   argument vectors, whose escaping remains Node's responsibility.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   Process options are one record separate from command construction; the
- *   single optional flag exposes the only additional spawn mode required.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   These fields describe a native process boundary: Node argument vectors on
- *   ordinary launchers and explicit Windows cmd payload/environment for
- *   command shims. The type does not invoke the process itself.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc explains cwd, environment and optional Windows verbatim
- *   arguments; the type comment limits that flag to prequoted shim payloads.
- *   Purpose, conditions and reasons use separate native paragraphs under the
- *   documentation skill; member comments remain beside their fields.
- */
-export type ServerProcessOptions = {
-  /** Project working directory passed to Node spawn. */
-  cwd: string;
-
-  /** Inherited environment with an optional project toolchain override. */
-  env: NodeJS.ProcessEnv;
-
-  /**
-   * Node spawn option for an already quoted Windows command payload.
-   *
-   * The language client forwards it despite omitting it from ExecutableOptions;
-   * absence retains Node's ordinary argument escaping.
-   */
-  windowsVerbatimArguments?: boolean;
-};
-
-/**
- * An executable name and argument vector, with optional Windows command-shim
- * environment and verbatim flag.
- *
- * JavaScript, native executable and Windows command-shim launchers require
- * distinct supported process boundaries.
- *
- * @evidence contracts/common.md#principled-implementation
- *   The executable and argument vector represent an unspawned command.
- *   Optional environment and verbatim state carry the cmd-specific payload
- *   that createServerExecutable must forward together.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   Command preparation returns its extra spawn requirements in the same
- *   record, leaving project environment resolution to the executable adapter.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   These fields describe a native process boundary: Node argument vectors on
- *   ordinary launchers and explicit Windows cmd payload/environment for
- *   command shims. The type does not invoke the process itself.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc describes executable, vector, shim environment and verbatim
- *   state; the type comment separates JS, native and command-shim boundaries.
- *   Purpose, conditions and reasons use separate native paragraphs under the
- *   documentation skill; member comments remain beside their fields.
- */
-export type ServerLaunchCommand = {
-  /** Ordinary argument vector, or explicit cmd switches and quoted payload. */
-  args: string[];
-
-  /** Node executable, native launcher, or Windows command processor. */
-  command: string;
-
-  /** Private quoted-argument environment for the Windows command boundary. */
-  commandShimEnvironment?: NodeJS.ProcessEnv;
-
-  /** True only for prequoted Windows command payloads; otherwise omitted. */
-  windowsVerbatimArguments?: boolean;
-};
-
-/**
- * The launch command, argument vector and optional process options passed to
- * the language client.
- *
- * Undefined options retain the client defaults; prepared options preserve
- * project cwd and toolchain environment.
- *
- * @evidence contracts/common.md#principled-implementation
- *   The command, args and options match vscode-languageclient's executable
- *   input. Undefined options retain client defaults rather than manufacturing
- *   a working directory or environment.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   This final transport record composes prepared command and process state
- *   without adding another launch policy or storing a live child process.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   These fields describe a native process boundary: Node argument vectors on
- *   ordinary launchers and explicit Windows cmd payload/environment for
- *   command shims. The type does not invoke the process itself.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc describes the language-client command, vector and optional
- *   prepared options; the type comment explains client defaults and project
- *   environment ownership. Purpose, conditions and reasons use separate
- *   native paragraphs under the documentation skill; member comments remain
- *   beside their fields.
- */
-export type ServerExecutable = {
-  /** Arguments forwarded to the selected launcher. */
-  args: string[];
-
-  /** Executable or command processor selected by the launch preparation. */
-  command: string;
-
-  /** Prepared spawn state, or undefined to retain client defaults. */
-  options: ServerProcessOptions | undefined;
-};
-
-/**
- * A file and the selected client root as filesystem paths.
- *
- * The selection describes routing input, not an editor URI or permission to
- * write the file.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Distinct file and root fields express a containment-routing decision
- *   without conflating the selected root with the document to route.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   The pair records only routing input; it does not retain clients or expose
- *   document-write operations.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   The file and root are native filesystem paths, not editor URIs.
- *   selectDeepestRootForPath and the shared ttsc/path-identity context
- *   interpret containment, physical aliases and host filesystem case rules.
- *   This type stores that boundary without normalizing paths itself.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc identifies native file/root paths; the type comment
- *   distinguishes routing input from editor URI identity and write
- *   permission. Purpose, conditions and reasons use separate native
- *   paragraphs under the documentation skill; member comments remain beside
- *   their fields.
- */
-export type ClientRootSelection = {
-  /** Native file path routed to a client. */
-  file: string;
-
-  /** Selected native client root. */
-  root: string;
-};
-
-/**
- * The VS Code RelativePattern constructor accepting a literal base and a
- * glob beneath it.
- *
- * The base must stay literal even when a workspace directory contains glob
- * metacharacters.
- *
- * @evidence contracts/common.md#principled-implementation
- *   The constructor signature preserves separate literal-base and glob
- *   arguments and its generic result, matching VS Code RelativePattern without
- *   making the resolver import the editor runtime.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   Constructor injection is the narrow boundary needed by pattern creation;
- *   a separate factory framework or editor dependency is unnecessary.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   The base is a literal native workspace path;
- *   createDocumentSelectorPattern passes the recursive glob separately so
- *   root metacharacters are not interpreted as glob syntax. VS Code owns
- *   platform-specific RelativePattern matching. This signature neither joins
- *   separators manually nor equates a native path with a protocol URI.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc identifies the literal native base and separate glob, explaining
- *   why workspace metacharacters must remain literal. Purpose, conditions and
- *   reasons use separate native paragraphs under the documentation skill;
- *   member comments remain beside their fields.
- */
-export type RelativePatternConstructor<T> = new (
-  base: string,
-  pattern: string,
-) => T;
-
 const PROJECT_CONFIG_PATTERN = /^(?:tsconfig|jsconfig)(?:\..*)?\.json$/;
+// The extension registers these two command ids itself, so the server must not
+// advertise them again; every other server command id gets the root prefix.
 const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
 
 /**
@@ -391,8 +113,18 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
  *   legacy-path conditions and undefined resolution/read failure. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It does a fixed number of module resolutions and file reads.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   This adapter coordinates no cross-request cache. Each call rereads the
+  *   resolved manifest and checks the launcher; Node owns package-resolution
+  *   policy and any resolution caching.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Its synchronous reads release their handles before returning.
  */
-
 export function resolveTtscServerLauncher(
   resolveFrom: string,
 ): string | undefined {
@@ -445,8 +177,16 @@ export function resolveTtscServerLauncher(
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It projects one findProjectConfig result and owns no computation.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It delegates all sharing decisions to findProjectConfig.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
-
 export function findProjectRoot(
   start: string,
   stopAt?: string,
@@ -490,6 +230,19 @@ export function findProjectRoot(
  *   and starts outside the physical boundary. Purpose, conditions and
  *   reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   The walk visits at most D ancestor directories; each costs one readdir of
+  *   E entries, filtered and sorted in O(E log E), plus stat calls only for
+  *   matching names.
+  *
+  * @evidence contracts/performance.md#reuse-equivalent-work
+  *   One identity context serves the whole walk, so boundary and directory
+  *   identities are resolved once; nothing is cached across calls, so later
+  *   disk changes are seen.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after the synchronous walk.
  */
 export function findProjectConfig(
   start: string,
@@ -553,6 +306,20 @@ export function findProjectConfig(
  *   ordered deduplication and identifies the discovery policy it inherits.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   W workspace entries plus the optional active file require O(W) local
+  *   iteration and candidate/Set storage, with one delegated config walk per
+  *   entry. Set membership preserves first-seen base/cwd order without
+  *   rescanning the accumulated candidates.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   This function keeps no result across calls. The extension owns
+  *   reconciliation-local directory memoization; config discovery here
+  *   remains scoped to constructing one candidate list.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains only the returned candidate array.
  */
 export function createResolutionCandidates(
   input: ResolutionCandidateInput,
@@ -592,10 +359,13 @@ export function createResolutionCandidates(
  * Prepare the server stdio argument vector for a JavaScript, native or
  * Windows command-shim launcher.
  *
- * JavaScript uses the current Node executable; Windows .cmd/.bat uses an
- * explicitly quoted cmd payload and private argument environment. Other
- * executables retain ordinary argument vectors. The operation prepares data
- * without spawning.
+ * JavaScript uses process.execPath. Inside the VS Code extension host that is
+ * the editor binary, which runs a script as Node only while the environment it
+ * inherits carries ELECTRON_RUN_AS_NODE; serverProcessOptions copies the
+ * extension host environment unchanged and this module never sets the
+ * variable. Windows .cmd/.bat uses an explicitly quoted cmd payload and private
+ * argument environment. Other executables retain ordinary argument vectors.
+ * The operation prepares data without spawning.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node executable arguments and the documented server CLI carry cwd,
@@ -618,10 +388,25 @@ export function createResolutionCandidates(
  *   values.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc explains JS/native/Windows-shim command preparation, stdio
- *   arguments, quoting ownership and that preparation does not spawn.
+ *   JSDoc explains JS/native/Windows-shim command preparation, the
+ *   process.execPath assumption, stdio arguments, quoting ownership and that
+ *   preparation does not spawn.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   The argument count is fixed, but launcher and project path lengths drive
+  *   output size and Windows quoting work. Command-shim preparation processes
+  *   each argument and creates one private environment entry per argument;
+  *   root identity and hashing belong to executeCommandIDPrefix.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   This preparation coordinates no cross-request producer. The extension
+  *   builds launch options when starting a client and shares that client,
+  *   rather than caching a command independently of its launch inputs.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned command.
  */
 export function createServerLaunchCommand(
   launcher: string,
@@ -680,8 +465,21 @@ export function createServerLaunchCommand(
  *   escaping to the Windows command boundary. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   Ordinary launches reuse the prepared options record. Windows shims copy
+  *   P inherited environment properties plus the fixed argument placeholders,
+  *   using O(P) local time and storage; command preparation and toolchain
+  *   resolution retain their owning helpers' costs.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It coordinates no cross-request result cache. The extension calls it
+  *   when starting a client; the environment resolver and Node module
+  *   resolution own their observations, not this composition adapter.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned executable.
  */
-
 export function createServerExecutable(
   launcher: string,
   candidate: ResolutionCandidate,
@@ -732,6 +530,15 @@ export function createServerExecutable(
  *   why string concatenation would misinterpret root metacharacters. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It makes one constructor call.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It computes a cheap value and caches nothing.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the pattern.
  */
 export function createDocumentSelectorPattern<T>(
   ctor: RelativePatternConstructor<T>,
@@ -748,8 +555,10 @@ export function createDocumentSelectorPattern<T>(
  * does not apply another client's command replies.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Node sha256 hashes the shared rootKey identity and the fixed ttsc.vscode
- *   protocol prefix.
+ *   Node sha256 hashes the shared rootKey identity, so observed aliases of one
+ *   root share a namespace. The 64-bit truncated digest can collide between
+ *   distinct roots; it is a routing convention, not proof of unique identity.
+ *   Fixed prefix text and the trailing dot are not hashed.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   A single function defines the namespace used by launch arguments and
@@ -770,6 +579,17 @@ export function createDocumentSelectorPattern<T>(
  *   agreement between server arguments and middleware. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One SHA-256 update processes B bytes of the resolved identity key in
+  *   O(B) hashing work and produces a fixed-size digest. Native root identity
+  *   observation remains with rootKey; the adapter keeps no lookup table.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is recomputed where used and keeps no cache.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function executeCommandIDPrefix(root: string): string {
   const key = createHash("sha256")
@@ -777,42 +597,6 @@ export function executeCommandIDPrefix(root: string): string {
     .digest("hex")
     .slice(0, 16);
   return `ttsc.vscode.${key}.`;
-}
-
-/**
- * Return a slash-separated absolute glob beneath the supplied root.
- *
- * This string helper is distinct from the production RelativePattern
- * constructor, which keeps the base literal. The caller supplies an absolute
- * root and owns any glob metacharacters in this string form.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Node path.posix.join constructs the protocol-style glob after separator
- *   conversion.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   It performs no filesystem access or writes and introduces no
- *   caller-specific or test-mode branch.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   This compatibility helper only renders the caller-owned glob spelling;
- *   production document selection remains with the literal RelativePattern
- *   constructor boundary.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Backslashes are converted to forward slashes for the glob syntax. This is
- *   glob representation, not physical filesystem identity or a shell command.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc states its absolute-root input and slash-separated string result,
- *   distinguishing caller-owned glob metacharacters from production
- *   RelativePattern selection. Purpose, conditions and reasons use separate
- *   native paragraphs under the documentation skill; member comments remain
- *   beside their fields.
- */
-
-export function documentPattern(root: string): string {
-  return path.posix.join(root.replace(/\\/g, "/"), "**/*");
 }
 
 /**
@@ -848,6 +632,16 @@ export function documentPattern(root: string): string {
  *   survivor resolution order. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   The cost belongs to filterCandidatesByPhysicalRoots.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It creates one identity context per call and passes it down; nothing is
+  *   shared across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The context it creates is released when the call returns.
  */
 export function filterNonOverlappingCandidates(
   candidates: readonly ResolutionCandidate[],
@@ -893,6 +687,17 @@ export function filterNonOverlappingCandidates(
  *   ordering, alias collapse and the absence of client lifecycle effects.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   The cost belongs to planRootsByPhysicalIdentity.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Observation reuse belongs to the supplied identity context, not an
+  *   independent plan cache. The caller controls the validity and lifetime of
+  *   an explicitly shared context; the default creates a fresh one.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the plan.
  */
 export function planNonOverlappingClientRoots(
   roots: readonly string[],
@@ -936,6 +741,18 @@ export function planNonOverlappingClientRoots(
  *   explaining why sibling string prefixes are insufficient. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One scan over n roots does one containment check and at most one
+  *   key-length comparison each, O(n) checks.
+  *
+  * @evidence contracts/performance.md#reuse-equivalent-work
+  *   The default identity context is created once per call and shared by every
+  *   containment check and key comparison in the scan; no result is cached
+  *   across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after returning one root.
  */
 export function selectDeepestRootForPath(
   file: string,
@@ -993,6 +810,15 @@ export function selectDeepestRootForPath(
  *   aliases, explaining the consistent context boundary. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs one delegated containment check.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function isPathInsideRoot(
   file: string,
@@ -1035,6 +861,15 @@ export function isPathInsideRoot(
  *   similarly spelled sibling prefixes. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs at most two delegated containment checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function rootsOverlap(
   left: string,
@@ -1081,6 +916,16 @@ export function rootsOverlap(
  *   before target startup; this helper computes the set only. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One filter pass over n client roots does one overlap check each, O(n)
+  *   checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsToStopForTarget(
   roots: readonly string[],
@@ -1126,6 +971,16 @@ export function rootsToStopForTarget(
  *   retention of equivalent planned aliases. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   It builds a Set of the p planned keys and does one key lookup per existing
+  *   root, O(n + p) keys.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The Set is local and released on return.
  */
 export function rootsToStopForPlan(
   roots: readonly string[],
@@ -1173,6 +1028,16 @@ export function rootsToStopForPlan(
  *   of sibling workspace clients. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One filter pass over n client roots does one containment check each, O(n)
+  *   checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsInsideRemovedWorkspace(
   roots: readonly string[],
@@ -1218,6 +1083,15 @@ export function rootsInsideRemovedWorkspace(
  *   namespaces and deduplication instead of platform-wide lowercasing.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It delegates one identity resolution to the path-identity API.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function rootKey(
   root: string,
@@ -1296,9 +1170,10 @@ function quoteWindowsArg(arg: string): string {
  * Resolve the project TypeScript installation's platform package and return
  * its existing native tsc binary, or undefined.
  *
- * The language server needs the project-owned TypeScript-Go build rather
- * than whichever binary appears on PATH. Missing packages and unreadable
- * resolution return no override.
+ * The language server needs the project-owned TypeScript-Go build, and the
+ * server has no PATH fallback: it refuses to start without an absolute binary.
+ * Missing packages and unreadable resolution return no override, which leaves
+ * the ttsc launcher to resolve the binary itself and report a missing package.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node createRequire resolves the exported TypeScript package anchor and its
@@ -1324,8 +1199,18 @@ function quoteWindowsArg(arg: string): string {
  *   selection. Purpose, conditions and reasons use separate native paragraphs
  *   under the documentation skill; member comments remain beside their
  *   fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It does a fixed number of module resolutions and one existence check.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   This adapter retains no override result across requests. Node owns
+  *   package-resolution policy and caching; the adapter checks existence of
+  *   the binary returned through that resolution on each call.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Its synchronous reads release their handles before returning.
  */
-
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
     const requireFromBase = createRequire(
@@ -1355,9 +1240,12 @@ export function resolveTsgoBinary(base: string): string | undefined {
  * Prepare project cwd and inherited environment, adding TTSC_TSGO_BINARY
  * when project binary resolution succeeds.
  *
- * An absent or empty cwd returns undefined. No resolved binary leaves
- * inherited environment unchanged so the launcher owns its normal fallback;
- * the global environment is never assigned here.
+ * An absent or empty cwd returns undefined. A resolved binary replaces any
+ * TTSC_TSGO_BINARY inherited from the editor environment, because one inherited
+ * value would pin every project of a multi-root workspace to a single
+ * compiler. No resolved binary leaves inherited environment unchanged so the
+ * launcher owns its normal fallback; the global environment is never assigned
+ * here.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The owning resolveTsgoBinary operation supplies a toolchain override and
@@ -1380,12 +1268,25 @@ export function resolveTsgoBinary(base: string): string | undefined {
  *   environment value is interpolated into a shell command here.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc states absent-cwd meaning, inherited-environment copying,
- *   conditional toolchain override and preservation of launcher fallback.
+ *   JSDoc states absent-cwd meaning, inherited-environment copying, the
+ *   per-project override of an inherited value and preservation of launcher
+ *   fallback.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One delegated binary resolution precedes an O(P) copy of P environment
+  *   properties when an override exists. Without an override, the existing
+  *   process environment record is passed through without a copy.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It retains no cross-request options result. Binary resolution belongs
+  *   to resolveTsgoBinary and Node's resolver; the extension owns sharing the
+  *   client started with these options.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned options.
  */
-
 export function serverProcessOptions(
   cwd?: string,
 ): ServerProcessOptions | undefined {

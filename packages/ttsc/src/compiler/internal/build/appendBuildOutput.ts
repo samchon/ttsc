@@ -14,6 +14,9 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  *   witnesses survive. A lost witness cannot be restored by a later phase.
  *   Explicit observation incompleteness is sticky.
  *
+ * The shared normalizer moves combined stdout to stderr when the merged result
+ * failed and stderr is blank, preserving visibility for stderr-only consumers.
+ *
  * @evidence contracts/common.md#principled-implementation Ordered concatenation preserves both phases' reports and failures; only the right phase's emitted-source proof and completion fact survive. Check declarations and explicit incompleteness accumulate, while each content/physical witness must agree across every declaring phase and a lost witness cannot be restored later.
  * @evidence contracts/common.md#clear-and-simple-design Field selection is explicit in one result literal; one private witness merger applies the same independent compatibility rule to content and physical identity, and the shared normalizer owns output visibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Status and emitted-file selection follow phase-result semantics without special cases for particular plugins or errors.
@@ -22,6 +25,7 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Combining two supplied results does not coordinate shared production or cross-request work.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned result transfers combined data to the caller and no history or handle is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Input spellings and witness values are compared literally as producer-reported data; their native path and identity interpretation belongs to producers and proof consumers. Supplied diagnostics bypass the normalizer's native path parser.
  */
 export function appendBuildOutput(
   left: TtscBuildResult,

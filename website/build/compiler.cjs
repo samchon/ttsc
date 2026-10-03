@@ -10,7 +10,7 @@ const cp = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const { createGoBuildCache } = require("../../scripts/go-build-cache.cjs");
+const { createGoBuildCache } = require("../../packages/wasm/build/go-build-cache.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(ROOT, "..");

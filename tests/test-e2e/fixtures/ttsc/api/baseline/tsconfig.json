@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"outDir":"dist","declaration":true,"declarationMap":true,"rootDir":"src","sourceMap":true},"include":["src"]}

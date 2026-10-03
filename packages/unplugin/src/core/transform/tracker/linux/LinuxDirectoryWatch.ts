@@ -4,7 +4,7 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * One shared non-recursive directory watch and its subscribed observers.
  *
  * Readiness belongs to the helper subscription; each observer owns its own
- * event and termination callback until it detaches.
+ * event and termination callback until it detaches or the shared watch fails.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Separate observer Sets and one readiness promise distinguish shared native
@@ -21,23 +21,43 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral consumers receive backend-independent events; this type confines
  *   Linux helper subscription state to the native boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   LinuxDirectoryWatch only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   LinuxDirectoryWatch only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   LinuxDirectoryWatch only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface LinuxDirectoryWatch {
   /**
-   * Release the helper's subscription once no subscriber is left.
+   * Retire the shared helper subscription after the last subscriber leaves or
+   * the native watch fails. Failure is then reported to all attached observers.
    *
    * @evidence contracts/common.md#principled-implementation
    *   This operation retires the shared native subscription, not one observer.
    * @evidence contracts/common.md#clear-and-simple-design
    *   A parameterless closer hides helper identifiers from subscribers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   Shared ownership ends only after subscribers detach; no consumer-specific
-   *   handle is closed while another owner still relies on it.
+   *   One subscriber cannot retire a healthy watch another still owns; native
+   *   failure retires shared authority and notifies every remaining observer.
    * @evidence contracts/common.md#meaningful-documentation
-   *   Native JSDoc states the last-subscriber condition under the documentation skill.
+   *   Native JSDoc distinguishes last-subscriber release from shared failure
+   *   retirement under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation
    *   OS-neutral callers release through the closer without platform signals or
    *   assumptions about native descriptor layout.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
    */
   close(): void;
 

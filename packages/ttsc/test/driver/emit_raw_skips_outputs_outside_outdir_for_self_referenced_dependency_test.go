@@ -10,13 +10,13 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency verifies
+// TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency Verifies
 // forced emit confines EmitAllRaw output to the project's outDir.
 //
-// Locks the outputEscapesOutDir guard in the EmitAllRaw WriteFile funnel
-// (issue #293). A project nested inside a dependency's directory resolves the
-// dependency's name by package self-reference — no node_modules hop — so the
-// dependency's `.ts` sources are not classified as external-library files and
+// Locks the outputEscapesOutDir guard in the EmitAllRaw WriteFile funnel.
+// A project nested inside a dependency's directory resolves the
+// dependency's name by package self-reference, no node_modules hop, so the
+// dependency TypeScript sources are not classified as external-library files and
 // stay in the forced-emit set. tsgo then computes their output paths relative
 // to the common source directory, which lands the compiled `.js` next to the
 // dependency's own sources, outside the project entirely. The guard must skip
@@ -27,6 +27,11 @@ import (
 //  2. Load the project with ForceEmit and run EmitAllRaw.
 //  3. Assert the project's main.js is written under outDir and no write
 //     targets the dependency's source tree.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram with ForceEmit and EmitAllRaw must emit main.js under the project dist directory and send no callback write outside it.
+// @evidence contracts/testing.md#independent-expectations The authored nested self-reference project fixes the allowed output root; the assertion compares recorded paths against that root, not the emit path calculator.
+// @evidence contracts/testing.md#distinguishing-cases The project output is the positive control and dependency sources reached by package self-reference are the escape case.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly loads and emits the fixture project in process; no dependency installation or native executable is used.
 func TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency(t *testing.T) {
   root := t.TempDir()
   project := writeSelfReferencedDependencyProject(t, root)
@@ -52,7 +57,7 @@ func TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency(t *testing.
   assertOutputsConfinedToOutDir(t, project, written)
 }
 
-// writeSelfReferencedDependencyProject materializes the #293 layout: a
+// writeSelfReferencedDependencyProject materializes the self-referenced layout: a
 // dependency package exporting raw TypeScript, with the consuming project
 // nested inside the package directory so the import resolves by package
 // self-reference. Returns the project directory.

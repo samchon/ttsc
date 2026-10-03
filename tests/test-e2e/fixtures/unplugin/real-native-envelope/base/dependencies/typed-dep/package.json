@@ -1,0 +1,7 @@
+{
+  "main": "dist/index.js",
+  "name": "typed-dep",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "version": "0.0.0"
+}

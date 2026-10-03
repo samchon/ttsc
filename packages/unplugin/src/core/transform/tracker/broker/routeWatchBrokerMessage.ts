@@ -8,7 +8,9 @@ import type { WatchBroker } from "./WatchBroker";
  * over one ordered IPC channel, so each message carries the request id it
  * answers, and the decision is a table over what else it carries:
  *
- * - A malformed message, or one without an id, is ignored.
+ * - A nonobject message or one without a numeric id is ignored. Remaining
+ *   discriminants receive the checks below; this is not a complete schema
+ *   validator for arbitrary foreign objects.
  * - A `drained` reply releases the drain waiting on that id. The channel is
  *   ordered, so every event the child sent before it has already been applied.
  *   Every draining registration the request covered is told which of its
@@ -26,10 +28,13 @@ import type { WatchBroker } from "./WatchBroker";
  *   canonical spelling and translated back to the registration's own before its
  *   sink hears it.
  *
- * What each call means is the sink's to decide (`WatchBrokerSink`).
+ * What each call means is the sink's to decide (`WatchBrokerSink`). Sink
+ * exceptions propagate and can interrupt remaining dispatch/release work;
+ * drain timeout and child lifetime belong to the request/broker owners.
  *
  * @param broker The drains and registrations of the broker the child serves.
  * @param message The message as the IPC channel delivered it.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   Message discriminants route exact request and registration ids; each drain
  *   snapshot determines which sinks may receive its partial-coverage verdict.
@@ -37,14 +42,19 @@ import type { WatchBroker } from "./WatchBroker";
  *   One IPC decoder translates canonical spellings and dispatches callbacks;
  *   sinks own mutation interpretation and request owners own release state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Malformed or retired registration events are ignored without inventing
- *   filenames; unknown event names remain null and failure stays explicit.
+ *   Nonobject/nonnumeric-id and retired registration messages are ignored;
+ *   nonstring filenames remain null and failure stays explicit. Producer
+ *   eventType semantics are trusted when nonnull, rather than claiming a full
+ *   arbitrary-message schema validation.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs, message list and parameter comments explain precedence,
  *   ordered delivery and owner spelling under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral consumers receive each registration's translated native spelling;
  *   canonical child paths are not compared by universal lowercase or alias prefix.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Completed drain dispatch deletes its waiter and calls the owning release closure, which clears timeout/scope state and adjusts child references. Sink exceptions can interrupt this path; request timeout/failure handling remains separate. Temporary translated sets grow with unproven entries/spelling bytes, while this router retains no historical message or registration population.
+ * @evidence contracts/performance.md#efficient-algorithms Ordinary messages use numeric-id lookup plus reached native-spelling text lookup/callback effects. Drain replies scan U unproven entries into translated sets and all R live registrations for covered draining sinks, not just covered scope size. Cost includes string hashing/comparison and delegated sink/release work; no native watched-directory enumeration occurs here.
+ * @evidence contracts/performance.md#reuse-equivalent-work A supplied drain completion is distributed only to the request's covered draining registrations; deleting its waiter prevents duplicate replies from replaying that proof. Ordinary status/event invocations have no message deduplication. Child/probe computation sharing belongs to broker/drain owners, and this router does not independently validate the child's verdict.
  */
 export function routeWatchBrokerMessage(
   broker: Pick<WatchBroker, "drainScopes" | "drains" | "registrations">,

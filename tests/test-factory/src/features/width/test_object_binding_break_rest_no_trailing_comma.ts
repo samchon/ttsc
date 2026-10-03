@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, SyntaxKind, TsPrinter } from "@ttsc/factory";
+import factory, { NodeFlags, SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
 import { id } from "../../internal/helpers";
 
@@ -18,6 +18,11 @@ import { id } from "../../internal/helpers";
  * 2. Assert the broken layout carries no comma after the rest element.
  * 3. Print the same pattern with a plain last element; assert its trailing comma
  *    is kept.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Broken object bindings omit a comma after rest while the corresponding plain property retains it.
+ * @evidence contracts/testing.md#independent-expectations Explicit multiline const object patterns independently encode rest syntax and preserved ordinary comma policy.
+ * @evidence contracts/testing.md#distinguishing-cases Rest/plain final property variants at width20 catch omission and over-suppression symmetrically.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_object_binding_break_rest_no_trailing_comma. Calls the local declare constructor and narrow TsPrinter.print for both owned variants.
  */
 export const test_object_binding_break_rest_no_trailing_comma = (): void => {
   const tiny = new TsPrinter({ printWidth: 20 });

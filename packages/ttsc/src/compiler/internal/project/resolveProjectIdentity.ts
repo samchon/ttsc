@@ -6,19 +6,32 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
 
 /**
  * Resolve the selected config while retaining its lexical spelling separately
- * from the physical paths used by the TypeScript Program.
+ * from the best-effort physical paths supplied to the TypeScript Program.
+ * A successful realpath resolves aliases; any realpath failure retains the
+ * selected spelling, so the returned physical fields do not prove that a
+ * native lookup succeeded or that the filesystem remains unchanged.
  *
  * The optional observer receives lexical selection candidates before their
  * existence checks, including missing nearer configs. This lets a reuse owner
  * detect later creation or symlink retargeting instead of watching only the
  * selected physical file.
  *
+ * @param opts Explicit config/root selection or a file and invocation directory
+ *   from which to search ancestors.
+ * @param onInput Observer called before each selection candidate's existence
+ *   check; errors thrown by this callback propagate.
+ *
+ * @returns Selected lexical paths and best-effort physical config/root paths.
+ *
+ * @throws When no config is selected or an observer fails. Directory probes
+ *   suppress stat failures, and physical lookup suppresses realpath failures.
+ *
  * @evidence contracts/common.md#principled-implementation Explicit file/directory selection and nearest ancestor search preserve the actual lexical config path separately from physical Program identity; observations precede candidate checks so absence remains a selection premise.
  * @evidence contracts/common.md#clear-and-simple-design One selection operation returns both identities and forwards observations through a single callback without introducing its own caching or project policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Config names and precedence express the supported CLI contract; no consumer-specific paths or guessed physical-root equivalence replace actual filesystem selection.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains lexical/physical distinction and the observer's absent-candidate purpose, with paragraph and tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolve/dirname/join and realpath implement OS-neutral ancestor traversal and symlink identity; reaching a root is detected by parent equality rather than drive or slash parsing.
- * @evidence contracts/performance.md#efficient-algorithms Nearest-config discovery checks two candidates per visited ancestor and stops at the first match; explicit paths avoid ancestor traversal and physical identity uses only required realpath calls.
+ * @evidence contracts/performance.md#efficient-algorithms Nearest-config discovery checks at most two names per ancestor and stops at the first existing candidate; an explicit config avoids that walk but still performs existence/directory checks. Native path construction scans text, filesystem probes and two realpath attempts have delegated costs, and the observer can perform additional work for each candidate. No directory contents are enumerated here.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation reads current selection and owns no reusable cross-call result; its observer supplies premises to the actual cache owner.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains only call-local path strings and acquires no open handle, task or historical state.
@@ -40,12 +53,11 @@ export function resolveProjectIdentity(
       throw new Error(`ttsc: tsconfig not found: ${resolved}`);
     }
     // `-p <directory>` is the documented tsgo shorthand for the
-    // directory that contains a `tsconfig.json`. Mirror that — without
+    // directory that contains a `tsconfig.json`. Mirror that: without
     // this branch a forwarded `--tsconfig=sub` would feed the directory
     // path into `readResolvedCompilerOptions`, which calls
-    // `fs.readFileSync` and throws `EISDIR` (the RCA's predicted
-    // RC-3 §5 #2 bug, pinned by
-    // `test_ttsc_dash_p_directory_path_is_accepted`).
+    // `fs.readFileSync` and throws `EISDIR`
+    // (`test_ttsc_dash_p_directory_path_is_accepted` pins it).
     if (isDirectory(resolved)) {
       const tsconfigInDir = path.join(resolved, "tsconfig.json");
       onInput?.(tsconfigInDir);

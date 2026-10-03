@@ -15,12 +15,17 @@ import (
 //
 // `lsp-serve` and its accepted request verbs can ship at different times. Once
 // a resident answers another verb, rejecting `lsp-project-diagnostics` is not a
-// transport failure and used to suppress the working one-shot command.
+// transport failure and must not suppress the working one-shot command.
 //
 //  1. Build a sidecar whose daemon rejects only project diagnostics.
 //  2. Advertise the direct project-diagnostic capability.
 //  3. Request a publication and assert the one-shot command answers it.
 //  4. Assert both resident rejection and direct fallback occurred once.
+//
+// @evidence contracts/testing.md#behavioral-verification When the resident daemon rejects only the project-diagnostics verb the one-shot command answers the request, with exactly one resident rejection and one direct call.
+// @evidence contracts/testing.md#independent-expectations The expected publication and counts are literals from the sidecar fixture.
+// @evidence contracts/testing.md#distinguishing-cases A daemon that serves other verbs but rejects this one is not a transport failure, and the fallback must still run.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsResidentUnsupportedFallsBack is a Go unit test in the lspserver package: it builds a small authored Go sidecar with the toolchain once for the test and runs the source against it in-process, installing no consumer.
 func TestLSPProjectDiagnosticsResidentUnsupportedFallsBack(t *testing.T) {
   dir := t.TempDir()
   sidecarSource := filepath.Join(dir, "sidecar.go")

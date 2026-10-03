@@ -6,9 +6,11 @@ import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPa
  * Parse and validate the JSON a native host printed for `project-inputs`.
  *
  * Every path in the snapshot (root, files, globs, reload files and directories)
- * must be an absolute local path; a relative, empty, or device path is rejected
- * with the plugin's name, because a watcher cannot observe it and silently
- * dropping it would leave a declared input unwatched. Optional reload lists
+ * must satisfy host-native absolute namespace admission; relative/empty paths
+ * and Windows device namespaces are rejected
+ * with the plugin's name. This is native namespace admission, not an existence,
+ * access or watcher-capability check; silently dropping rejected declarations
+ * would hide an unsupported dependency. Optional reload lists
  * default to empty.
  *
  * These checks cover host-published input lists; the later merge reconstructs
@@ -19,7 +21,7 @@ import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPa
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid published inputs throw instead of being silently dropped or replaced by guessed project paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes invalid input effects, optional reload defaults and the later reconstruction of alias metadata.
  * @evidence contracts/portability.md#os-neutral-implementation The host-platform path classifier admits native drive/UNC or POSIX absolute input syntax and rejects device namespaces without case folding or shell interpretation.
- * @evidence contracts/performance.md#efficient-algorithms JSON parsing and validation scale with the payload and path count; temporary field/path pairs are linear in declared inputs and validation stops at the first invalid path.
+ * @evidence contracts/performance.md#efficient-algorithms JSON parsing/property copying follows payload/field bytes; field-array checks and pair construction visit all declared paths before the first-invalid search. Native path classification adds each path's scan/normalization costs and temporary text; pair storage grows with path count, and this parser supplies no payload-byte ceiling.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Host output must be validated on this invocation; this parser does not coordinate repeated host production or retain an earlier snapshot.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed values and validation arrays are local or returned, without persistent retention or acquired resources.

@@ -1,10 +1,9 @@
-import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";
+import factory, { SyntaxKind, TsPrinter } from "../../../../packages/factory/src/index";
 import type {
-  Expression,
   Node,
   ParameterDeclaration,
   TypeNode,
-} from "@ttsc/factory";
+} from "../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 /** Shared default printer (80 columns, two-space indent). */
@@ -75,15 +74,4 @@ export const param = (name: string, type: TypeNode): ParameterDeclaration =>
     undefined,
     type,
     undefined,
-  );
-
-/** Wrap statements (or any nodes) as the body of an arrow for layout tests. */
-export const arrowBody = (body: Expression): Node =>
-  factory.createArrowFunction(
-    undefined,
-    undefined,
-    [],
-    undefined,
-    undefined,
-    body,
   );

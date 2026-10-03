@@ -14,13 +14,17 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  * Unreadable generation identity is active uncertainty. A readable owner is
  * abandoned only when the local pid is provably gone; an ownerless generation
  * becomes recoverable after the protocol's stale interval.
+ * Failed owner read/parse/validation also uses that owner-missing policy; it is
+ * not proof that the file or a running process is absent. Reads and age probes
+ * are sequential observations, not an atomic snapshot or incarnation lease.
+ * `now` is the caller's millisecond timestamp; age follows observed mtime.
  *
  * @evidence contracts/common.md#principled-implementation Generation identity fences every holder observation; a valid owner requires conservative local liveness evidence, while missing owner data uses the explicit stale-generation policy without stealing an unreadable identity.
  * @evidence contracts/common.md#clear-and-simple-design Separate generation, owner, age and label helpers supply one state classifier; the discriminated result makes recovery authority explicit to callers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No fixture age or broad pid-probe failure marks a valid owner dead; ownerless recovery is the protocol's supported corruption policy rather than a fabricated lease.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe uncertainty and recovery grounds, and the acquisition-order comment explains why an unreadable generation cannot be stolen safely.
- * @evidence contracts/portability.md#os-neutral-implementation Node fs, native path joins and isLocalProcessGone supply directory age and host-scoped pid identity; absence errno differs from denied access without OS-name assumptions.
- * @evidence contracts/performance.md#efficient-algorithms Classification reads two fixed-size records and at most one stat, independent of retired-generation count; no directory-wide scan occurs per poll.
+ * @evidence contracts/portability.md#os-neutral-implementation Native fs/path and conservative host/pid probes supply observations. Missing-directory age is released, other stat errors yield zero age; owner read errors instead yield no valid owner and can enter the stale-age policy. Neither path spelling nor hostname convention authenticates stable namespace or machine identity.
+ * @evidence contracts/performance.md#efficient-algorithms At most two record reads and one stat avoid history scans, but actual path/record bytes, trimming/grammar, JSON parsing, diagnostic host/time text and native liveness/IO contribute cost. Record contents are read before validation without a fixed byte cap.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Lock state changes between observations, so an earlier classification cannot replace a fresh recovery decision.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous record reads retain no handle or history; the returned fence transfers an observation to its caller without owning the lock.

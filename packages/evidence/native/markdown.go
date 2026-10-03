@@ -9,8 +9,11 @@ import (
   "unicode"
 )
 
-var markdownCommentPattern = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-]*)\}\s*$`)
+
+// preElementPattern matches an opening `<pre` tag on a lowered line, whose name
+// ends at whitespace, `>`, or the end of the line.
+var preElementPattern = regexp.MustCompile(`<pre(?:[\s>]|$)`)
 
 // loadMarkdownInventories reads every configured Markdown population, once per
 // distinct base.
@@ -180,13 +183,24 @@ func scanMarkdownInventory(
     })
   }
 
+  // A byte order mark is encoding, not content. A document that opens with one
+  // renders its first heading, but the mark would sit in front of the `#` and
+  // hide that heading from the scan, so its unit and every obligation it owes
+  // would vanish without a word.
+  content = strings.TrimPrefix(content, "\xef\xbb\xbf")
   lines := strings.Split(content, "\n")
   hostAtLine := make([]string, len(lines))
   hostIDAtLine := make([]string, len(lines))
   fencedAtLine := make([]bool, len(lines))
-  // commentAtLine marks the lines a citation or a review can live on, so the
-  // content digest can leave them out. A fenced block is not marked: an
-  // `<!-- -->` inside one hosts no tag, and its text is content of the section.
+  // commentAtLine marks the lines that open or sit inside a line-leading HTML
+  // comment, which only the unreadable-tag report reads. The content digest
+  // does not: it cuts the exact spans the declaration scan matches, because a
+  // comment may open after prose or close before it. A fenced block is not
+  // marked: an `<!-- -->` inside one hosts no tag. Neither is an inline code span,
+  // where a comment marker is read as the example it is. A fence is recognized
+  // only at the start of a line, so one inside a list item or a quote is not
+  // seen. An indented code block is not seen either, so a line of one that opens
+  // with `<!--` is read as a comment.
   commentAtLine := make([]bool, len(lines))
   // The nearest heading *unit* enclosing each line, which is not the same as its
   // host: a heading may open a region without materializing a unit. Kept apart
@@ -198,11 +212,28 @@ func scanMarkdownInventory(
   currentHostID := fileUnitID
   fenceMarker := rune(0)
   fenceLength := 0
-  inHTMLComment := false
+  commentStart := -1
+  commentSpans := [][2]int{}
+  lineOffset := 0
   headingUnitIDs := [5]string{}
   for index, rawLine := range lines {
+    offset := lineOffset
+    lineOffset += len(rawLine) + 1
     line := strings.TrimSuffix(rawLine, "\r")
     trimmed := strings.TrimLeft(line, " \t")
+    // Comment syntax takes precedence over fences inside the comment, while
+    // real fenced content never opens a comment. Keep the same closed spans
+    // for declaration extraction and digest removal so those views agree. A
+    // comment that opens after prose is found further down, by the same scan
+    // that masks the visible text for heading recognition.
+    if fenceMarker == 0 && (commentStart >= 0 || strings.HasPrefix(trimmed, "<!--")) {
+      markdownCommentContent(line, offset, &commentStart, &commentSpans)
+      hostAtLine[index] = currentHost
+      hostIDAtLine[index] = currentHostID
+      digestHostIDAtLine[index] = currentDigestHostID
+      commentAtLine[index] = true
+      continue
+    }
     if marker, length, remainder, ok := markdownFence(line); ok {
       fencedAtLine[index] = true
       hostIDAtLine[index] = currentHostID
@@ -230,28 +261,8 @@ func scanMarkdownInventory(
       digestHostIDAtLine[index] = currentDigestHostID
       continue
     }
-    if inHTMLComment {
-      if strings.Contains(trimmed, "-->") {
-        inHTMLComment = false
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    if strings.HasPrefix(trimmed, "<!--") {
-      remainder := strings.TrimPrefix(trimmed, "<!--")
-      if !strings.Contains(remainder, "-->") {
-        inHTMLComment = true
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    level, title, ok := markdownHeading(line)
+    visible := markdownCommentContent(line, offset, &commentStart, &commentSpans)
+    level, title, ok := markdownHeading(visible)
     if ok {
       currentHost = "h" + decimal(level)
       currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
@@ -336,16 +347,19 @@ func scanMarkdownInventory(
   reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
 
   sequence := 0
-  for _, match := range markdownCommentPattern.FindAllStringSubmatchIndex(content, -1) {
-    if len(match) < 4 {
-      continue
-    }
+  for _, match := range commentSpans {
     commentStart := match[0]
     line := lineAt(content, commentStart)
     if line <= 0 || line > len(lines) || fencedAtLine[line-1] {
       continue
     }
-    comment := content[match[2]:match[3]]
+    // `<!-->` and `<!--->` are complete comments with no body, so their closing
+    // marker overlaps their opening one and there is nothing to parse.
+    bodyStart, bodyEnd := match[0]+4, match[1]-3
+    if bodyEnd < bodyStart {
+      continue
+    }
+    comment := content[bodyStart:bodyEnd]
     for _, parsed := range parseDeclarations(comment) {
       sequence++
       inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
@@ -375,8 +389,113 @@ func scanMarkdownInventory(
       })
     }
   }
-  assignMarkdownDigests(inventory, lines, digestHostIDAtLine, commentAtLine)
+  assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, commentSpans)
   return inventory, problems
+}
+
+// markdownCommentContent records closed metadata spans and masks their text for
+// heading recognition. An unclosed comment suppresses syntax but stays content
+// in the digest, because no declaration can be extracted from it.
+//
+// A comment that opens on this line looks for its closing marker after its own
+// opening one, so the dashes of `<!--` are never counted twice. The two forms
+// HTML allows to close at once, `<!-->` and `<!--->`, are complete comments with
+// no body.
+func markdownCommentContent(line string, offset int, start *int, spans *[][2]int) string {
+  visible := []byte(line)
+  cursor := 0
+  for cursor < len(line) {
+    searchFrom := cursor
+    immediate := 0
+    if *start < 0 {
+      opening := markdownCommentOpening(line, cursor)
+      if opening < 0 {
+        break
+      }
+      cursor = opening
+      *start = offset + cursor
+      searchFrom = cursor + len("<!--")
+      if strings.HasPrefix(line[searchFrom:], ">") {
+        immediate = 1
+      } else if strings.HasPrefix(line[searchFrom:], "->") {
+        immediate = 2
+      }
+    }
+    end := len(line)
+    closed := true
+    if immediate != 0 {
+      end = searchFrom + immediate
+    } else if closing := strings.Index(line[searchFrom:], "-->"); closing >= 0 {
+      end = searchFrom + closing + 3
+    } else {
+      closed = false
+    }
+    for index := cursor; index < end; index++ {
+      visible[index] = ' '
+    }
+    cursor = end
+    if !closed {
+      break
+    }
+    *spans = append(*spans, [2]int{*start, offset + end})
+    *start = -1
+  }
+  return string(visible)
+}
+
+// markdownCommentOpening finds the first `<!--` at or after `from` that is not
+// inside an inline code span, or returns -1.
+//
+// A code span is a run of backticks closed by the next run of the same length,
+// and it shows its text literally, so a comment marker inside one is an example
+// of a comment rather than a comment. A run with no closing partner is literal
+// text and a backslash-escaped backtick opens nothing. The search stays on one
+// line, so a span that wraps across lines is read as prose.
+func markdownCommentOpening(line string, from int) int {
+  for cursor := from; cursor < len(line); {
+    switch line[cursor] {
+    case '\\':
+      if cursor+1 < len(line) && line[cursor+1] == '`' {
+        cursor += 2
+      } else {
+        cursor++
+      }
+    case '`':
+      width := 0
+      for cursor+width < len(line) && line[cursor+width] == '`' {
+        width++
+      }
+      closing := -1
+      for probe := cursor + width; probe < len(line); {
+        if line[probe] != '`' {
+          probe++
+          continue
+        }
+        run := 0
+        for probe+run < len(line) && line[probe+run] == '`' {
+          run++
+        }
+        if run == width {
+          closing = probe
+          break
+        }
+        probe += run
+      }
+      if closing < 0 {
+        cursor += width
+      } else {
+        cursor = closing + width
+      }
+    case '<':
+      if strings.HasPrefix(line[cursor:], "<!--") {
+        return cursor
+      }
+      cursor++
+    default:
+      cursor++
+    }
+  }
+  return -1
 }
 
 // assignMarkdownDigests gives every unit the text it alone owns.
@@ -395,34 +514,72 @@ func scanMarkdownInventory(
 // `evidenceUnit.Digest` records the consequence; do not carry the Markdown
 // intuition across.
 //
-// HTML comment lines are dropped because that is where a Markdown citation and
-// its review live. Leaving them in would make writing the review change the
-// digest the review's own fingerprint is checked against.
+// The text cut out of every digest is exactly what the declaration scan reads
+// as a tag position: each `<!-- ... -->` span that opens outside a fence and
+// outside an inline code span. That scan records exact spans while walking
+// outside fences, so a span may open after prose, close before prose, or run
+// across lines, and it may not be a whole line. Cutting spans rather than lines
+// keeps the prose beside a comment in the digest, so a content change there
+// still expires a review, while writing the review changes nothing it is
+// checked against. A `<!--` that never closes matches no span, is read as no
+// tag, and so stays content.
+//
+// A line left holding nothing but comment spans is dropped, and so is the one
+// blank line after it when a blank line stood before it. A comment written as a
+// paragraph of its own is set off by blank lines on both sides, and keeping
+// both would let adding or removing the comment add or remove a blank line of
+// the unit it sits in, which is the tag position changing the digest after all.
 func assignMarkdownDigests(
   inventory *artifactInventory,
+  content string,
   lines []string,
   digestHostIDAtLine []string,
-  commentAtLine []bool,
+  spans [][2]int,
 ) {
   owned := map[string][]string{}
-  for index := range lines {
+  next := 0
+  lineStart := 0
+  // Whether the last line kept was blank, and whether the blank line that
+  // follows a dropped comment paragraph is the second of its pair.
+  keptBlank := false
+  dropBlank := false
+  for index, rawLine := range lines {
+    lineEnd := lineStart + len(rawLine)
     id := digestHostIDAtLine[index]
-    if index < len(commentAtLine) && commentAtLine[index] {
-      continue
+    for next < len(spans) && spans[next][1] <= lineStart {
+      next++
     }
+    remainder := strings.Builder{}
+    cursor := lineStart
+    cut := false
+    for k := next; k < len(spans) && spans[k][0] < lineEnd; k++ {
+      cut = true
+      if spans[k][0] > cursor {
+        remainder.WriteString(content[cursor:spans[k][0]])
+      }
+      cursor = max(cursor, min(spans[k][1], lineEnd))
+    }
+    if cursor < lineEnd {
+      remainder.WriteString(content[cursor:lineEnd])
+    }
+    lineStart = lineEnd + 1
+    text := strings.TrimSuffix(remainder.String(), "\r")
     if id == "" {
       continue
     }
-    // A comment opening after prose on the same line is still a tag position:
-    // the declaration scan runs over the whole document, so it finds a citation
-    // or a review there. Only the comment span comes out, never the line, or the
-    // prose beside it would vanish from the digest and a real content change
-    // would stop expiring anything.
-    content := markdownCommentPattern.ReplaceAllString(
-      strings.TrimSuffix(lines[index], "\r"),
-      "",
-    )
-    owned[id] = append(owned[id], content)
+    blank := strings.TrimSpace(text) == ""
+    // A line holding nothing but comment spans is a tag position, not content.
+    if cut && blank {
+      dropBlank = keptBlank
+      continue
+    }
+    if blank && dropBlank {
+      dropBlank = false
+      continue
+    }
+    dropBlank = false
+    keptBlank = blank
+    owned[id] = append(owned[id], text)
   }
   for _, unit := range inventory.Units {
     unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))
@@ -612,8 +769,9 @@ func markdownSlug(title string) string {
 // A fenced block is an example rather than a citation and stays silent, which
 // is not a concession: this product's own documentation shows tags inside
 // fences, and reporting them would fail its build. An indented code block is
-// the same case in another spelling, so four leading spaces are read as code
-// rather than as prose.
+// the same case in another spelling, so four leading spaces or a leading tab are
+// read as code rather than as prose. A line indented by less is prose, which is
+// what a nested list item is.
 //
 // The tag has to open its line, which is the discrimination every reader in
 // this package performs, so a sentence mentioning one describes it rather than
@@ -644,7 +802,7 @@ func reportUnreadableMarkdownTags(
     if index < len(commentAtLine) && commentAtLine[index] {
       continue
     }
-    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "  ") {
+    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
       continue
     }
     trimmed := markdownLineContent(line)
@@ -719,11 +877,14 @@ func markdownListMarker(content string) int {
 // render as code, so both are examples in the sense a fence is, and the repair
 // this diagnostic names would delete the example from the rendered page rather
 // than fix anything. Only the two edges are recognized, because a page that
-// opens one and never closes it is a page whose own build fails first.
+// opens one and never closes it is a page whose own build fails first. The
+// element name has to end at the tag, so `<preview>` or `<prefix>` is some other
+// element and opens nothing; reading it as `<pre>` would leave every tag after
+// it unreported.
 func renderedCodeEdges(line string) (bool, bool) {
   lowered := strings.ToLower(line)
   switch {
-  case strings.Contains(lowered, "<pre"):
+  case preElementPattern.MatchString(lowered):
     return !strings.Contains(lowered, "</pre>"), strings.Contains(lowered, "</pre>")
   case strings.Contains(lowered, "</pre>"):
     return false, true

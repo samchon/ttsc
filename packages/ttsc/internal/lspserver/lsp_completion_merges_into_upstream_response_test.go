@@ -17,6 +17,11 @@ import (
 //  1. Merge into each of the three shapes.
 //  2. Assert upstream's items survive alongside the plugin's in every one.
 //  3. Assert isIncomplete stays upstream's answer, not ours.
+//
+// @evidence contracts/testing.md#behavioral-verification mergeCompletionResponse keeps upstream's items beside the plugin's in a bare array, a CompletionList and a null result, and keeps isIncomplete as upstream answered it.
+// @evidence contracts/testing.md#independent-expectations The expected label lists and incompleteness are literals per response shape.
+// @evidence contracts/testing.md#distinguishing-cases Each of the three upstream shapes takes a different decode path, so a merge that handled only one drops items in the others.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionMergesIntoUpstreamResponse is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
   items := []LSPCompletionItem{{Insert: "pricing", Detail: "Pricing"}}
 
@@ -91,6 +96,11 @@ func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
 // An upstream error is upstream's to report. Appending completions to it would
 // turn a failure into a half-answer that looks like it worked, which is worse
 // than the error the user was supposed to see.
+//
+// @evidence contracts/testing.md#behavioral-verification An upstream error response is returned byte for byte, and merging no items leaves the body unchanged.
+// @evidence contracts/testing.md#independent-expectations The expected output is the input body itself.
+// @evidence contracts/testing.md#distinguishing-cases An error body and an empty contribution are the two cases that must not be rewritten.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionLeavesUpstreamErrorsAlone is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
   body := `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}`
   if got := string(mergeCompletionResponse([]byte(body), []LSPCompletionItem{{Insert: "x"}})); got != body {
@@ -115,6 +125,11 @@ func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
 //  1. Convert an ASCII position.
 //  2. Convert past CJK text, which is one UTF-16 unit but three bytes.
 //  3. Convert past an emoji, which is a surrogate pair — two units, four bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification offsetForPosition counts an LSP character in UTF-16 units: ASCII, CJK text (one unit, three bytes) and an emoji (two units, four bytes) all yield the right text prefix.
+// @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings derived from the UTF-16 definition in the LSP specification.
+// @evidence contracts/testing.md#distinguishing-cases ASCII, BMP and astral inputs each cost a different number of bytes per unit.
+// @evidence contracts/testing.md#execution-ownership TestOffsetForPositionCountsUTF16 is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestOffsetForPositionCountsUTF16(t *testing.T) {
   cases := []struct {
     text      string

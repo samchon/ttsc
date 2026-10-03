@@ -3,6 +3,7 @@ package driver_test
 import (
   "bytes"
   "encoding/json"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -10,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyExecuteCommandDropsEditAfterDocumentClose verifies command edits
+// TestLSPProxyExecuteCommandDropsEditAfterDocumentClose Verifies command edits
 // remain tied to the document generation they started from.
 //
 // A disk-backed command can start without URI arguments, then the editor can
@@ -22,9 +23,18 @@ import (
 // 2. Send didClose for the same URI.
 // 3. Release the callback.
 // 4. Assert the command response is null.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns null for a returned edit targeting a document closed during work.
+// @evidence contracts/testing.md#independent-expectations The returned target is stale even though input arguments contain no URI.
+// @evidence contracts/testing.md#distinguishing-cases Opaque arguments and a close-before-release transition are covered.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyExecuteCommandDropsEditAfterDocumentClose in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyExecuteCommandDropsEditAfterDocumentClose(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     commands: []string{"ttsc.lint.fixAll"},
@@ -59,7 +69,7 @@ func TestLSPProxyExecuteCommandDropsEditAfterDocumentClose(t *testing.T) {
   if got := h.recvUpstream(); !bytes.Equal(got, closeMessage) {
     t.Fatalf("didClose did not reach upstream before command completed:\n%s", got)
   }
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {

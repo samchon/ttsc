@@ -1,13 +1,10 @@
-// unicorn/no-unnecessary-slice-end: `arr.slice(start, arr.length)` and
-// `arr.slice(start, Infinity)` both clamp the end to the array's tail,
-// which is exactly what `slice(start)` already does. Removing the
-// redundant end argument shortens the call without changing behavior.
+// unicorn/no-unnecessary-slice-end reports a two-argument slice whose end
+// repeats the receiver's length or uses Infinity. Under ordinary slice semantics
+// those bounds select the tail. Another receiver's length is a real bound.
 //
-// AST-only: each visited `CallExpression` checks a `slice` callee with
-// exactly two arguments and inspects the second. A `.length` property
-// access (on any receiver) or a bare `Infinity` identifier both fire.
-// Three or more arguments is out of shape for `Array#slice` and is
-// ignored.
+// Receiver comparison uses the shared structural reference helper, which excludes
+// repeated calls. This AST baseline does not prove custom getter/method semantics
+// or the binding of Infinity; the diagnostic supplies no automatic edit.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-slice-end.md
 package linthost
 
@@ -37,7 +34,7 @@ func (unicornNoUnnecessarySliceEnd) Check(ctx *Context, node *shimast.Node) {
     return
   }
   second := stripParens(call.Arguments.Nodes[1])
-  if !unicornUnnecessaryCountArgument(second) {
+  if !unicornUnnecessaryCountArgument(second, access.Expression) {
     return
   }
   ctx.Report(call.Arguments.Nodes[1], "Use `slice(start)` without the end — `.length` / `Infinity` is the default.")

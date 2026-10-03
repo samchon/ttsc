@@ -11,8 +11,7 @@ import (
 // TestEmitPluginTransformersSkipOutputsOutsideOutDir verifies the
 // AST-integration emit lane confines its output to the project's outDir.
 //
-// Locks the outputEscapesOutDir guard in EmitWithPluginTransformers (issue
-// #293). This lane assembles tsgo's emit pipeline by hand, so it does not
+// Locks the outputEscapesOutDir guard in EmitWithPluginTransformers. This lane assembles tsgo's emit pipeline by hand, so it does not
 // inherit any skip the raw Program.Emit path performs — the containment check
 // must run on the per-file output paths it resolves itself. Without it, a
 // plugin host's forced emit (e.g. typia's runBuild --emit) writes the
@@ -25,6 +24,10 @@ import (
 //     EmitWithPluginTransformers (no transforms).
 //  3. Assert the project's main.js is written under outDir and no write
 //     targets the dependency's source tree.
+// @evidence contracts/testing.md#behavioral-verification Calls actual EmitWithPluginTransformers for a self-referenced dependency layout, requiring main.js and every captured write inside project dist.
+// @evidence contracts/testing.md#independent-expectations The authored outDir and project source independently define permitted paths, checked by a test-local prefix predicate.
+// @evidence contracts/testing.md#distinguishing-cases Project output is required while dependency-source writes are forbidden; raw and rewrite-lane siblings own their separate emit funnels.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs compiler/emitter APIs directly on a private project with a local write list and deferred Program close rather than invoking a native host.
 func TestEmitPluginTransformersSkipOutputsOutsideOutDir(t *testing.T) {
   root := t.TempDir()
   project := writeSelfReferencedDependencyProject(t, root)

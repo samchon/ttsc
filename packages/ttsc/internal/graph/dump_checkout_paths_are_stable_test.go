@@ -28,6 +28,11 @@ const portableDumpTSConfig = `{
 //  3. Assert nodes, module names, endpoints, implementation evidence,
 //     diagnostics, manifests, and universe inputs all use one `../shared`
 //     coordinate, with the .ts internal and the .d.ts an external leaf.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the whole dump-identity consequence surface, not only the path helper.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: the same project built under two different checkout roots must marshal to identical JSON once only the producer-local Project field is cleared, no checkout path may appear in the JSON, and the dump must use the literal coordinate ../shared/value.ts (internal function, module node and a provenance source), ../shared/types.d.ts (external leaf) and tsconfig.json/src/main.ts roots, a TS2322 diagnostic on ../shared/value.ts, and an implementation span in ../shared/value.ts. The implementation file on the main node is injected by the test to exercise that optional path.
+// @evidence contracts/testing.md#distinguishing-cases Build the same project plus sibling .ts/.d.ts under two checkout roots; Remove only the producer-local Project locator and require byte identity; Assert nodes, module names, endpoints, implementation evidence, diagnostics, manifests, and universe inputs all use one `../shared` coordinate, with the .ts internal and the .d.ts an external leaf.
+// @evidence contracts/testing.md#execution-ownership TestDumpCheckoutPathsAreStable is a Go source-unit entry. Build, NewDump, SourceTexts, NewDiagnostics execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpCheckoutPathsAreStable(t *testing.T) {
   firstCheckout := filepath.Join(t.TempDir(), "checkout-one")
   secondCheckout := filepath.Join(t.TempDir(), "checkout-two")

@@ -17,20 +17,31 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * `declarationDir`, `outFile`, `rootDir`, `tsBuildInfoFile`) are resolved
  * relative to the config that declares them. `${configDir}` paths are resolved
  * against the final consuming config after the extends chain is merged. The
- * `outDir` is resolved to an absolute path. Plugins are inherited from the
- * nearest ancestor that declares them.
+ * `outDir` is resolved to an absolute path when it is a string; a null reset
+ * becomes undefined in the returned shape. A declared plugins array replaces
+ * inheritance, including an empty array. Array presets merge left to right,
+ * with the last branch carrying a declaration supplying plugin entries and
+ * their declaring directories. Non-object plugin entries are filtered here;
+ * descriptor validation remains with the plugin loader.
  *
  * Config observations include selected lexical paths and missing candidates
  * that could change selection. Package/import-map `extends` uses Node's
  * resolver, whose complete search authority is not exposed here; such a chain
  * marks `configInputsComplete` false and cannot authorize persistent reuse.
  *
+ * @param opts Config selection, invocation directory and optional project root.
+ *
+ * @returns Resolved options, plugin origins, selected identity and config inputs.
+ *
+ * @throws When selection, parsing or inheritance fails, including circular
+ *   extends chains. Native read failures propagate from the shared reader.
+ *
  * @evidence contracts/common.md#principled-implementation Recursive left-to-right option merging retains each declaring directory and final configDir substitution; selected and missing config candidates are recorded, while module inheritance explicitly lacks complete freshness proof.
  * @evidence contracts/common.md#clear-and-simple-design Identity selection, extends resolution and JSONC parsing stay with their shared owners; one recursive merge returns options, plugin origins and config observations together.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates are real selection premises, and incomplete Node module topology is marked unproved instead of imitated by a guessed package resolver or cache bypass.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc separates option inheritance, path anchors and observation limitations; native member comments and separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolution and realpath preserve distinct lexical and physical config identities; option separators and configDir substitution use the shared host-neutral config rule rather than POSIX concatenation.
- * @evidence contracts/performance.md#efficient-algorithms Each visited inheritance occurrence reads and merges its declared options, with an active-chain Set detecting cycles; a shared observation Set deduplicates candidate paths before one final sort.
+ * @evidence contracts/performance.md#efficient-algorithms Each inheritance occurrence performs native selection/realpath/read, parses config bytes and copies accumulated option records and config path lists; shared ancestors may be revisited across branches. Active-chain membership detects cycles but is not a result cache. Repeated uniquePaths rebuilding can copy quadratic accumulated path volume along a long chain; candidate observations are deduplicated separately before a final string sort. Path normalization and comparisons cost their text lengths, and native resolution/Node module search costs are delegated rather than constant-time.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader performs a current filesystem lookup and owns no cross-call cache; safe reuse belongs to the loader proof consuming its observations and completeness flag.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Sets and merged records are invocation-owned data with no retained history or live handle; the active chain is removed in finally.
@@ -136,8 +147,8 @@ function resolveRealPath(location: string): string {
  * An absolute `target` is normalized too, not returned as given. Every path
  * option is resolved once in the config that declares it and again in each
  * config that inherits it, after its separators were folded to `/` for the
- * `${configDir}` check, so returning an absolute value verbatim handed an
- * inherited `rootDir` back as `C:/…/src` on Windows while a declared one came
+ * `${configDir}` check, so returning an absolute value verbatim would hand an
+ * inherited `rootDir` back as `C:/…/src` on Windows while a declared one comes
  * back as `C:\…\src`.
  */
 function resolveAbsolutePath(cwd: string, target: string): string {

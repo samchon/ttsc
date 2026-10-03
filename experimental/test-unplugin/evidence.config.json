@@ -1,0 +1,20 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "JavaScript process and packed host experiments",
+      "type": "javascript",
+      "files": [
+        "src/contracts/**/test_*.mjs"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md", "contracts/e2e.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
+    }
+  ]
+}

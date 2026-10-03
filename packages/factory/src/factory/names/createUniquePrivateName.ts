@@ -8,7 +8,7 @@ import { createPrivateIdentifier } from "./createPrivateIdentifier";
  * returned private identifier is unique within its scope. This package is
  * stateless, so this is a simplified placeholder: it does not guarantee
  * uniqueness, it assembles a name from the optional `prefix`, the `text` (or
- * the fallback `_unique` when omitted), and the optional `suffix`, then
+ * the fallback `_unique` when omitted or empty), and the optional `suffix`, then
  * delegates to {@link createPrivateIdentifier}. Any leading `#` on `text` is
  * stripped first so the delegate adds exactly one.
  *

@@ -2,20 +2,20 @@ import type { ViteDevServerLike } from "./ViteDevServerLike";
 import type { ViteHotChannelLike } from "./ViteHotChannelLike";
 
 /**
- * Deliver a full reload so every environment refetches the invalidated
- * importers.
+ * Attempt a full-reload protocol request on the selected host channels.
  *
  * Under the environment API (Vite 6+) each environment owns its hot channel,
  * and a custom environment may carry a transport of its own, so each distinct
- * environment channel receives the payload, as Vite itself sends one to every
- * environment when an update needs a full reload. The server-level `ws` and
- * `hot` are then aliases of the client environment's channel and are not sent
- * to again. A Vite 5 server has one mixed graph and one client channel, spelled
- * `ws` or `hot` by major; the first of those that accepts the payload wins.
+ * present environment channel is attempted once by object identity, even if
+ * that attempt throws. A nonempty environment population suppresses server
+ * `ws`/`hot` fallback even if no environment channel exists. Without environment
+ * entries, the server channels are tried until one send returns without throwing.
+ * That return does not prove client receipt or refetch.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Environment channels are deduplicated by actual object identity; mixed-graph
- *   servers try ws/hot aliases until one accepts the full-reload protocol payload.
+ *   Environment attempts are deduplicated by object identity; servers without
+ *   environment entries try ws/hot until send returns without throwing. The
+ *   operation does not certify transport delivery or client reload completion.
  * @evidence contracts/common.md#clear-and-simple-design
  *   Recipient selection stays in the public operation while send isolates one
  *   transport attempt and its failure handling.
@@ -25,6 +25,17 @@ import type { ViteHotChannelLike } from "./ViteHotChannelLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain environment ownership and alias deduplication;
  *   helper failure prose and tag spacing follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   E environment entries take O(E) enumeration and identity-set work, with
+ *   O(C) distinct channel references and at most C host send calls. Host transport
+ *   cost is delegated; the no-environment branch makes at most two attempts.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The local set shares one attempted effect across aliases of the same
+ *   environment channel, including a failed attempt, not proof of one delivery.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The delivered set is local to the call.
  */
 export function sendFullReload(server: ViteDevServerLike): void {
   const environments = Object.values(server.environments ?? {});

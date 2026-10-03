@@ -1,0 +1,7 @@
+{
+  "tsconfig.base.json": "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"commonjs\",\"strict\":true}}\n",
+  "shared/main.ts": "export const alpha: number = 1;\nexport const beta: number = 2;\nexport function gamma(x: number): number {\n  return x + alpha + beta;\n}\n",
+  "inline-map/tsconfig.json": "{\"extends\":\"../tsconfig.base.json\",\"compilerOptions\":{\"inlineSourceMap\":true,\"outDir\":\"dist\",\"rootDir\":\"../shared\"},\"include\":[\"../shared/main.ts\"]}\n",
+  "remove-comments/tsconfig.json": "{\"extends\":\"../tsconfig.base.json\",\"compilerOptions\":{\"removeComments\":true,\"declaration\":true,\"declarationMap\":true,\"sourceMap\":true,\"outDir\":\"dist\",\"rootDir\":\"../shared\"},\"include\":[\"../shared/main.ts\"]}\n",
+  "shared/banner.config.json": "{\"text\": \"Copyright\\nMIT License\\nthird line\\nfourth line\"}"
+}

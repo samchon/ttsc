@@ -1,42 +1,43 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+  settleWatchEvents,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies watchers register physical paths while reporting declared ones.
+ * Verifies physical subscription arguments and declared positional callbacks.
  *
- * The two spellings must not be mixed. A watcher backend stores the string it
- * was given and matches delivered events against it after canonicalizing them,
- * so registering an aliased spelling breaks event delivery — on Windows libuv
- * expands each event to its long path and aborts the process when the stored
- * string is no longer its prefix, which any short (8.3) component produces.
- * Classification runs in the opposite domain: every compiler, config, and
- * plugin decision is expressed in the caller's own paths, so a notification
- * that arrived through the physical spelling would stop matching them.
+ * 1. Author a real directory alias and a source declared through that alias.
+ * 2. Assert recorded backend arguments use the physical source directory.
+ * 3. Deliver its changed bytes and require the original declared source path.
  *
- * 1. Point a directory alias at a real project root.
- * 2. Watch the project through the alias and edit a tracked source file.
- * 3. Assert the change is reported under the alias, not the physical root.
+ * @evidence contracts/testing.md#behavioral-verification Actual source WatchTopology and directory adapter register physical paths and reconstruct a lexical source callback from a supplied observer event.
+ * @evidence contracts/testing.md#independent-expectations Authored physical and alias roots establish the independently expected registration and report paths; a throwing compiler reader pins the positional branch.
+ * @evidence contracts/testing.md#distinguishing-cases Physical subscription spelling and lexical report spelling differ under an independently checked native directory alias. Alias preparation must succeed; its failure is not product behavior or successful coverage. This unit does not observe OS delivery.
+ * @evidence contracts/testing.md#execution-ownership This source unit executes actual path planning and callback classification through recorded subscriptions, with no compiler process or native observer.
  */
 export const test_watch_topology_registers_physical_watch_paths =
   async (): Promise<void> => {
     const physicalRoot = TestProject.tmpdir("ttsc-watch-physical-");
     const aliasParent = TestProject.tmpdir("ttsc-watch-alias-");
     const root = path.join(aliasParent, "project");
-    try {
-      fs.symlinkSync(physicalRoot, root, "junction");
-    } catch {
-      // The filesystem cannot express a directory alias; the invariant this
-      // case pins is unobservable here, so leave it to the platforms that can.
-      return;
-    }
+    fs.symlinkSync(
+      physicalRoot,
+      root,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(fs.lstatSync(root).isSymbolicLink(), true);
     const physical = fs.realpathSync.native?.(root) ?? fs.realpathSync(root);
-    if (physical === path.resolve(root)) return;
+    assert.equal(physical, fs.realpathSync.native(physicalRoot));
+    assert.notEqual(physical, path.resolve(root));
 
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -51,6 +52,9 @@ export const test_watch_topology_registers_physical_watch_paths =
       "utf8",
     );
 
+    const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(
+      watchDirectoryThroughFsWatch,
+    );
     const changes: WatchInputChange[] = [];
     const topology = new WatchTopology(
       {
@@ -66,6 +70,12 @@ export const test_watch_topology_registers_physical_watch_paths =
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      openDirectoryWatch,
+      openFileWatch,
+      fs.readdirSync,
+      () => {
+        assert.fail("positional inputs must not query compiler membership");
+      },
     );
     try {
       topology.refresh(false);
@@ -78,23 +88,32 @@ export const test_watch_topology_registers_physical_watch_paths =
           .map((change) => change.path)
           .filter((location): location is string => location !== undefined)
           .filter((location) => path.basename(location) === "main.ts");
-      const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-      while (sourceChanges().length === 0) {
-        if (Date.now() >= deadline) {
-          assert.fail(
-            `an aliased project root must still deliver events: ${JSON.stringify(changes)}`,
-          );
-        }
-        fs.writeFileSync(source, "export const value = 2;\n", "utf8");
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
+      const physicalSource = path.join(physical, "src", "main.ts");
+      const physicalDirectory = path.dirname(physicalSource);
+      assert.ok(
+        watchers.some((watcher) => watcher.location === physicalDirectory),
+        "the source directory must register under its physical spelling",
+      );
+      assert.equal(
+        watchers.some((watcher) =>
+          watcher.location.startsWith(`${root}${path.sep}`),
+        ),
+        false,
+        "an aliased spelling must not reach the observer backend",
+      );
+      fs.writeFileSync(source, "export const value = 2;\n", "utf8");
+      deliverWatchEvent(watchers, physicalSource, "change");
+      await settleWatchEvents();
+      assert.notEqual(sourceChanges().length, 0);
       const reported = sourceChanges();
       assert.equal(
         reported.every((location) => location === source),
         true,
         `declared spelling expected, got ${JSON.stringify(reported)}`,
       );
+      assert.deepEqual(changes, [{ kind: "compiler", path: source }]);
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };

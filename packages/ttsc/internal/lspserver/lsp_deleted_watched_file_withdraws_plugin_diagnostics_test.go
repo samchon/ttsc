@@ -21,6 +21,11 @@ import (
 //  2. Send a watched-file deletion for that document.
 //  3. Assert the republished set keeps the upstream diagnostic and drops the
 //     plugin one, and that a plain change publishes nothing by itself.
+//
+// @evidence contracts/testing.md#behavioral-verification Deleting a watched file on disk withdraws the findings ttsc last published for it while leaving the compiler's own diagnostics for the same document.
+// @evidence contracts/testing.md#independent-expectations The expected published diagnostic sets are literals for the deleted document.
+// @evidence contracts/testing.md#distinguishing-cases Plugin findings and compiler diagnostics for one URI are separate sets, and only the plugin set is cleared.
+// @evidence contracts/testing.md#execution-ownership TestLSPDeletedWatchedFileWithdrawsPluginDiagnostics is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPDeletedWatchedFileWithdrawsPluginDiagnostics(t *testing.T) {
   const uri = "file:///project/src/gone.ts"
   var editor bytes.Buffer

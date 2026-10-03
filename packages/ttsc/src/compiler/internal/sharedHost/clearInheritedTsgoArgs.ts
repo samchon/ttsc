@@ -17,7 +17,7 @@ import { SidecarEnvironment } from "./SidecarEnvironment";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup removes unrelated inherited authority rather than rewriting compiler behavior or substituting an expected diagnostic.
  * @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain nested-sidecar contamination and explicit preservation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native name lookup and replacement use the shared boundary, including Windows aliases and POSIX exact-name identity.
- * @evidence contracts/performance.md#efficient-algorithms Cleanup uses at most one scan of caller and child environment names on Windows, and constant key operations on POSIX; it never parses or copies the forwarded payload.
+ * @evidence contracts/performance.md#efficient-algorithms Cleanup delegates at most one caller-name scan and one child-name scan on Windows, including their Object.keys arrays and uppercase/comparison/deletion text costs. POSIX uses direct supplied-object key operations; neither branch parses or constructs a copy of forwarded payload text.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The mutable child channel belongs to the current spawn and has no reusable cross-invocation cleanup result.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This mutation retains no payload history, table, descriptor or running task.

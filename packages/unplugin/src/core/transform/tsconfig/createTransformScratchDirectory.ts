@@ -11,17 +11,18 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  *
  * Candidate parents are checked lexically and physically before creation. The
  * created child's postflight physical address is checked again and returned,
- * so later compiler writes and disposal do not follow a retargeted parent link.
+ * avoiding reuse of the candidate's known lexical parent alias. These path
+ * observations do not pin directory handles or rule out later native replacement.
  * Failed candidates are skipped only after their owned empty child is removed.
  *
- * @evidence contracts/common.md#principled-implementation Preflight and postflight containment reject scratch directories inside the physical project; the returned physical child address preserves the checked removal and compiler-write target.
+ * @evidence contracts/common.md#principled-implementation Preflight and postflight containment reject observed scratch addresses inside the project; returning the checked child spelling avoids knowingly reusing an unresolved parent alias, without certifying later topology cannot change.
  * @evidence contracts/common.md#clear-and-simple-design One bounded candidate loop owns creation and immediate rejection cleanup, while the capturing generation owns the lifetime of an accepted directory.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed outside-project check never falls back to project scratch, and rejected child cleanup failures propagate instead of being hidden as another candidate miss.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain both identity checks, the returned physical spelling and the ownership condition on skipping a failed candidate; inline comments justify postflight removal.
  * @evidence contracts/portability.md#os-neutral-implementation Node os and path provide native temporary/home candidates and containment; physical checks use the injected view, while actual random-child creation and removal use native fs without shell commands or blanket case folding.
- * @evidence contracts/performance.md#efficient-algorithms A fixed candidate population is deduplicated before realpath and creation, with one successful random-child allocation; rejected candidates do not trigger a project-tree scan.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Rejected random empty children receive synchronous removal attempts; failure propagates and can leave an artifact rather than silently skipping it. Accepted directory ownership transfers to capture's finally cleanup or its separately retained clock owner. No native directory handle pins these path identities against later replacement.
+ * @evidence contracts/performance.md#efficient-algorithms At most four candidate spellings are deduplicated, with native realpath/containment/path text and up to four random-child allocation/postflight/removal attempts. More than one candidate can allocate successfully before rejection; no project-tree scan or file-byte capture occurs here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Scratch allocation is an ownership-bearing effect for one capture and must not be shared merely because two generations select the same candidate parent.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Rejected random empty children are removed synchronously and removal failure propagates; an accepted physical directory transfers to the generation owner for cleanup after compile/adoption lifetime ends.
  */
 export function createTransformScratchDirectory(
   projectRoot: string,
@@ -79,7 +80,8 @@ export function createTransformScratchDirectory(
     // Use the postflight canonical spelling from this point onward. Returning
     // the candidate-relative spelling would let another process retarget its
     // parent symlink/junction after validation, redirecting compiler writes or
-    // the final recursive removal into the project.
+    // the final recursive removal into the project through that known alias.
+    // The returned path still is not an atomic handle against later replacement.
     if (!pathIsWithin(canonicalDirectory, canonicalRoot)) {
       return canonicalDirectory;
     }

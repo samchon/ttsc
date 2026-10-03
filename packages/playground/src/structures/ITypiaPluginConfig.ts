@@ -19,9 +19,11 @@ export interface ITypiaPluginConfig {
   transformModule?: string;
 
   /**
-   * Optional hook to mount typia source files into the MemFS during boot. The
-   * site fetches its pre-built typia pack and writes it under
-   * `<workDir>/node_modules/`. `workDir` is forwarded from
+   * Optional hook to mount typia source files into the MemFS once the wasm
+   * runtime is ready, before the first request runs. The site fetches its
+   * pre-built typia pack and writes it under
+   * `<workDir>/node_modules/`. A rejected mount is retried by the next request
+   * without starting another runtime. `workDir` is forwarded from
    * `createWorkerCompiler` so the mount can honor a non-default project root
    * without the site rewiring the URL.
    */

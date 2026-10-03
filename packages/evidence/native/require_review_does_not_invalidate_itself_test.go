@@ -26,6 +26,11 @@ import (
  *  2. Add a second documentation block on a property of `ISale`, changing nothing
  *     executable.
  *  3. Assert the graph stays clean, so the fingerprint did not move.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts a fingerprinted IView citation to ISale, then adds a review documentation block inside ISale.price and requires the graph to remain clean.
+ * @evidence contracts/testing.md#independent-expectations Documentation inside a cited type must not enter its executable-content fingerprint, or recording a review would continually invalidate it.
+ * @evidence contracts/testing.md#distinguishing-cases The nested property block challenges an exclusion limited to the type's outer comment; the seed is read from diagnostics rather than independently hashing ISale.
+ * @evidence contracts/testing.md#execution-ownership TestRequireReviewDoesNotInvalidateItself is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestRequireReviewDoesNotInvalidateItself(t *testing.T) {
   config := `{"claims":[{

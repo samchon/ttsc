@@ -18,6 +18,11 @@ import (
 //  1. Seed two producers so a torn snapshot is distinguishable from a whole one.
 //  2. Rewrite both producers' corpora repeatedly while readers ask for them.
 //  3. Assert every snapshot a reader saw was a whole corpus of known hints.
+//
+// @evidence contracts/testing.md#behavioral-verification Readers asking for the corpus while a refresh rewrites it concurrently always see a whole corpus of known hints and no data race under -race.
+// @evidence contracts/testing.md#independent-expectations Each snapshot is compared against the known complete corpora the test publishes.
+// @evidence contracts/testing.md#distinguishing-cases Two producers with distinguishable corpora make a torn snapshot detectable.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshServesCompletionWhileRunning is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshServesCompletionWhileRunning(t *testing.T) {
   first := NativeLSPPluginEntry{Binary: "ttsc-lint", Name: "@ttsc/lint"}
   second := NativeLSPPluginEntry{Binary: "ttsc-evidence", Name: "@samchon/evidence"}

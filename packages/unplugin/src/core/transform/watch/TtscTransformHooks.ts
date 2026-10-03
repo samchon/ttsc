@@ -19,6 +19,15 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Hosts supply actual lifecycle and cache-withdrawal capabilities rather than guessed watch modes, no-op permission callbacks, bundler mutation or fabricated dependencies for an unknown input closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project hosts, recovery batches, unwritable records and volatility; spaced member comments and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Absolute native watch spellings and host-owned tool directories cross this explicit boundary; no OS name or fixed directory determines their capabilities.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTransformHooks only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTransformHooks only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTransformHooks only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface TtscTransformHooks {
   /**
@@ -26,11 +35,13 @@ export interface TtscTransformHooks {
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
    * from `F`, the `graph.globals` files, the `graph.configs` chain, importer
-   * `graph.candidates`, and universal `graph.resolutionInputs`. For a file the
-   * envelope declared `dependenciesComplete`, only `dependencies[F]`,
-   * `graph.candidates`, `graph.resolutionInputs`, and the universal
-   * `graph.configs` chain remain. See `selectWatchInputs` for the exact
-   * derivation.
+   * `graph.candidates`, and universal `graph.resolutionInputs`, together with
+   * the universal host inputs and plugin source directories. For a file the
+   * envelope declared `dependenciesComplete` without also declaring it volatile,
+   * the reachability closure and `graph.globals` are dropped; `dependencies[F]`, importer
+   * `graph.candidates`, `graph.resolutionInputs`, the universal host inputs,
+   * the plugin source directories and the universal `graph.configs` chain
+   * remain. See `selectWatchInputs` for the exact derivation.
    */
   addWatchFile?: TtscAddWatchFile;
 
@@ -47,11 +58,23 @@ export interface TtscTransformHooks {
    * Whether the batch of {@link addWatchFile} or {@link addWatchFiles} also
    * carries the project's root-file membership: one input for the project root,
    * of kind `membership` (samchon/ttsc#1419), which a dev server's watcher
-   * observes by walking the project again. A host that already re-keys on the
-   * whole project walk, as `@ttsc/metro` does, leaves it out. A build host's
-   * record ({@link project}) always carries it.
+   * observes by walking the project again when a membership snapshot is
+   * available. A host that already re-keys on the whole project walk, as
+   * `@ttsc/metro` does, leaves it out. A build host's record ({@link project})
+   * carries captured membership or an explicit null when it is unavailable.
    */
   membership?: boolean;
+
+  /**
+   * Whether the delivered id is already a bare filesystem path, as esbuild,
+   * Bun and a webpack-style loader context hand it (`args.path`,
+   * `resourcePath`), with any query or hash held apart by the host. A `?` or
+   * `#` in such a path belongs to a directory or file name, so the transform
+   * uses the id as it is. Left unset, the id is a bundler module id (Vite,
+   * Rollup, webpack, Rspack, Farm) whose query and hash suffix is stripped and
+   * whose host-wrapper queries (`?raw`, `?url`) are left to the host.
+   */
+  exactPath?: boolean;
 
   /**
    * Actual delivery lifecycle reported by the adapter. False identifies a
@@ -114,6 +137,14 @@ export interface TtscTransformHooks {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This supported callback boundary supplies dependencies without replacing host methods or inventing observations.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes spelling and optional facts; the owning member documents derivation, with a blank tag separator following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation The callback receives a native absolute spelling and generation-owned identity facts; it does not impose path case policy on the host.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscAddWatchFile only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscAddWatchFile only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscAddWatchFile only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscAddWatchFile = (
   file: string,
@@ -128,6 +159,15 @@ export type TtscAddWatchFile = (
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery is an explicit host contract rather than successful evidence manufactured for a failed compile.
  * @evidence contracts/common.md#meaningful-documentation Native prose and the owning member explain readonly batching and failed retention; separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native input spellings and filesystem identities remain in the documented input carrier without conversion to platform guesses.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscAddWatchFiles only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscAddWatchFiles only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscAddWatchFiles only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscAddWatchFiles = (
   inputs: readonly TtscWatchInput[],
@@ -142,6 +182,15 @@ export type TtscAddWatchFiles = (
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Registration uses the supported host callback rather than patching its watcher or cache internals.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the delivery role and the registration type documents the payload, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation The payload carries the record's actual native path; the host selects its writable location through the existing project boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscRegisterWatchProject only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscRegisterWatchProject only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscRegisterWatchProject only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type TtscRegisterWatchProject = (
   registration: TtscProjectRegistration,
@@ -155,5 +204,13 @@ export type TtscRegisterWatchProject = (
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported notification exposes uncertainty instead of forcing a cache hit through hidden host mutation.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the uncacheable effect and the owning member explains its triggers; separated tags follow documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This no-argument cache-control notification carries no native filesystem or process representation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscMarkVolatile only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscMarkVolatile only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscMarkVolatile only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscMarkVolatile = () => void;

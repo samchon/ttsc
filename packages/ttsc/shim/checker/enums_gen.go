@@ -2,8 +2,8 @@
 //
 // Completes every exposed enum family: re-exports each member not already
 // re-exported elsewhere in the shim package, so a plugin that can name the
-// enum type can name all of its values. Prevents the #230 class (a sibling
-// const silently missing). Regenerate after a typescript-go bump with
+// enum type can name all of its values. Prevents a partially re-exported
+// family (a sibling const silently missing). Regenerate after a typescript-go bump with
 // `pnpm --filter ttsc shim:audit -fix`.
 
 package checker
@@ -17,6 +17,7 @@ const (
   ElementFlagsVariable                                  = innerchecker.ElementFlagsVariable
   IterationTypeKindNext                                 = innerchecker.IterationTypeKindNext
   IterationTypeKindReturn                               = innerchecker.IterationTypeKindReturn
+  IterationTypeKindYield                                = innerchecker.IterationTypeKindYield
   IterationUseAllowsAsyncIterablesFlag                  = innerchecker.IterationUseAllowsAsyncIterablesFlag
   IterationUseAllowsStringInputFlag                     = innerchecker.IterationUseAllowsStringInputFlag
   IterationUseAllowsSyncIterablesFlag                   = innerchecker.IterationUseAllowsSyncIterablesFlag
@@ -25,6 +26,7 @@ const (
   IterationUseCacheFlags                                = innerchecker.IterationUseCacheFlags
   IterationUseDestructuring                             = innerchecker.IterationUseDestructuring
   IterationUseDestructuringFlag                         = innerchecker.IterationUseDestructuringFlag
+  IterationUseElement                                   = innerchecker.IterationUseElement
   IterationUseForAwaitOf                                = innerchecker.IterationUseForAwaitOf
   IterationUseForOf                                     = innerchecker.IterationUseForOf
   IterationUseForOfFlag                                 = innerchecker.IterationUseForOfFlag

@@ -2,19 +2,13 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "../../internal/E2ETrace";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { COMPILER_OPTION_KINDS } from "../../flags/COMPILER_OPTION_KINDS";
-import { getBoolean } from "../../flags/getBoolean";
-import { getNumber } from "../../flags/getNumber";
-import { getString } from "../../flags/getString";
-import { getStringList } from "../../flags/getStringList";
-import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
-import { parseFlags } from "../../flags/parseFlags";
-import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
-import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
+import { parseTtsxCLI } from "./parseTtsxCLI";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { TtsxEntryOptions } from "./TtsxEntryOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
@@ -26,32 +20,36 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * main module in a child of the current Node.js runtime, whose module hooks
  * serve that emit under the source's own path.
  *
- * The launcher owns the process tree it starts, so it behaves toward it the way
- * a shell does (samchon/ttsc#1403). A termination signal that arrives while the
- * project is being prepared is held until preparation has cleaned up after
- * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or
- * container runtime sends to the launcher's pid alone, are forwarded to it;
+ * The launcher holds its platform termination listeners while preparing the
+ * project and running its direct program child. A received signal is handled
+ * after synchronous preparation yields and cleanup has been attempted. While
+ * the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or container
+ * runtime can send to the launcher's pid alone, are forwarded to that child;
  * `SIGINT` from a terminal already reaches the whole process group, so it is
- * not delivered a second time. The runtime directory is removed on exit once no
- * descendant still owns it. A program that died of a signal makes ttsx die of
- * the same one, so a shell sees `128 + n` exactly as it would for `node`.
+ * not delivered a second time. Runtime-directory removal is attempted only
+ * when the cooperative ownership record is abandoned or unowned; unknown or
+ * live ownership defers it. A reported child signal is re-raised on the
+ * launcher under the platform's signal behavior, with failure to self-signal
+ * exiting as status 1. This is not recursive process-tree termination or a
+ * descendant-close receipt.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  *
- * @returns The program's exit code, or `2` on a ttsx-level error. When the
- *   program died of a signal, the promise never settles: ttsx re-raises the
- *   signal on itself instead.
+ * @returns The program's reported exit code, or `2` on a launcher-level error.
+ *   A reported asynchronous spawn error returns `1`. A child signal initiates
+ *   self-signalling instead of certifying a normally settled promise or
+ *   descendant termination.
  *
  * @evidence contracts/common.md#principled-implementation The shared flag parser separates compiler options from entry argv; TypeScript entries use a checked emit manifest and JavaScript entries install the runtime preload, then Node loads the original entry as its main module.
- * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; one launcher-level finally removes listeners, while the prepared-entry boundary owns runtime-output cleanup.
+ * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; launcher finally removes its listeners while prepared-entry cleanup attempts relinquishment/removal. Program execution observes error or exit, not an awaited child-close or descendant join.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported build/watch modes and JavaScript-only configuration flags are rejected explicitly; supported Node preloads carry runtime hooks without replacing foreign globals or fabricating a successful child exit.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain execution identity, signal policy, cleanup and exit effects; helper comments distinguish program argv, preload order and best-effort cleanup.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs resolve entries/preloads, spawn receives the current Node executable and argument array, and Windows signal limitations are isolated in LauncherSignals rather than assuming POSIX process behavior.
- * @evidence contracts/performance.md#efficient-algorithms CLI parsing and token scans are linear in argv size, preparation delegates the required compiler work, and the launcher starts one child without polling or buffering inherited output.
+ * @evidence contracts/performance.md#efficient-algorithms Argument/name/preload text processing and native entry/cache/compiler resolution precede the final program child. TypeScript preparation delegates compilation and serializes/writes its full manifest; helpers can launch their own children. Final program stdio is inherited without parent output buffering or polling; cleanup adds lock/owner-record/native removal costs beyond argv count.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns an effectful program run and fresh arguments; reusable compiler generations belong to prepareExecution and the runtime build owners.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One run owns a child and a fixed platform signal-listener set; finally disposes listeners and relinquishes output under the runtime lock, while live descendant owner claims postpone removal. Signals target the direct child rather than recursively terminating every descendant, and an unresponsive child has no forced-kill deadline here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Exit/error observation is not child-close or descendant settlement, and an unresponsive program child has no forced-kill deadline here.
  */
 export async function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
@@ -75,7 +73,7 @@ async function run(
   argv: readonly string[],
   signals: LauncherSignals,
 ): Promise<number> {
-  const parsed = parseCLI(argv);
+  const parsed = parseTtsxCLI(argv);
   if (parsed === "help") {
     printHelp();
     return 0;
@@ -141,156 +139,6 @@ function formatError(error: unknown): string {
     return error.message;
   }
   return String(error);
-}
-
-function parseCLI(argv: readonly string[]) {
-  // ttsx accepts ttsc-style flags plus its own `--no-plugins` / `--require`.
-  // The shared schema engine recognises both; the engine returns positional
-  // tokens (entry file + flag values that aren't `.ts`) and a passthrough
-  // list mirroring the pre-schema behaviour.
-  //
-  // The legacy uppercase `-P` spelling ttsx has always accepted needs no
-  // rewrite: the engine resolves a token to the flag the compiler resolves it
-  // to, so `-P` and `-P=<file>` reach `--tsconfig` by the same rule that makes
-  // `-p` reach it. A textual pre-rewrite here would be a second rule for a job
-  // the engine owns.
-  //
-  // Terminal flags (--help / --version) belong to ttsx only before the entry;
-  // after it they are the program's own argv, exactly as `node entry.js
-  // --version` hands `--version` to the program (samchon/ttsc#1401). The
-  // parser already draws that boundary, so they are read off its result, and
-  // resolved through the schema so every spelling the compiler accepts
-  // (`--HELP`, `-Version`) reaches the same branch.
-  let result: ReturnType<typeof parseFlags>;
-  try {
-    result = parseFlags({
-      argv,
-      errorPrefix: "ttsx:",
-      forwardAfterFirstPositional: true,
-      honorDoubleDashSeparator: true,
-      // The entry is the first bare token that is no option's value, whatever
-      // its extension: the schema and the compiler's own option table say
-      // which options take a value (the `es2020` of `--target es2020`), so a
-      // JavaScript entry is the entry too rather than a forwarded value
-      // (samchon/ttsc#1569).
-      subcommand: "ttsx",
-    });
-  } catch (error) {
-    // Help still prints when the other options do not parse, as long as it was
-    // asked for before anything that looks like the entry.
-    const terminal = terminalRequest(argv.slice(0, firstPositionalIndex(argv)));
-    if (terminal !== null) return terminal;
-    throw error;
-  }
-  const terminal = terminalRequest([
-    ...[...result.values.keys()],
-    ...result.passthrough,
-  ]);
-  if (terminal !== null) return terminal;
-  assertNoSolutionBuild(result, "ttsx:");
-  assertNoWatch(result);
-
-  const entry = result.positional[0];
-  if (entry === undefined) {
-    throw new Error("ttsx: entry file is required");
-  }
-  // With `forwardAfterFirstPositional: true`, the parser reports
-  // `result.positional` as just the entry, `result.passthrough` as the
-  // tsgo-forwarded flags (and their in-order space values) arriving BEFORE the
-  // entry, and `result.tail` as every token AFTER the entry — the user
-  // program's argv (e.g. the `generate --input src/input` tail of `ttsx
-  // typia.ts generate --input src/input`), which MUST NOT reach tsgo.
-  const postEntryArgs: string[] = [...result.tail];
-
-  // `--require` is declared `repeatable`, so the engine records every accepted
-  // value in argv order and the launcher reads the list straight off the parse
-  // result.
-  //
-  // This replaces a second, hand-written scan over raw argv that re-derived the
-  // pre-entry boundary from the entry's extension. Applied to raw tokens that
-  // test cannot tell an entry from a `--require` value carrying a TypeScript
-  // extension, nor from an inline `--require=<x>.ts` token, so the scan
-  // stopped before the tokens it existed to collect and preloads were dropped
-  // silently. The engine already owns that boundary:
-  // `forwardAfterFirstPositional` routes every post-entry token to
-  // `result.tail` without parsing it, so `ttsx entry.ts -r preload.cjs` still
-  // forwards the pair to the program instead of preloading it.
-  const preload = getStringList(result, "--require");
-
-  return {
-    binary: getString(result, "--binary"),
-    cacheDir: getString(result, "--cache-dir"),
-    checkers: getNumber(result, "--checkers"),
-    cwd: getString(result, "--cwd"),
-    entry,
-    noPlugins: getBoolean(result, "--no-plugins") === true,
-    passthrough: postEntryArgs,
-    preload,
-    project: getString(result, "--tsconfig"),
-    singleThreaded: getBoolean(result, "--singleThreaded") === true,
-    tsgoFlags: [...result.passthrough],
-  };
-}
-
-/**
- * `"help"` or `"version"` when one of `tokens` asks for it, else `null`. Only
- * dash-prefixed tokens can name a flag; a bare value such as the `all` of
- * `--target all` must not read as `--all`.
- */
-function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
-  for (const token of tokens) {
-    if (!token.startsWith("-")) continue;
-    const flag = resolveFlagSpec(token)?.name;
-    if (flag === "--help") return "help";
-    if (flag === "--version") return "version";
-  }
-  return null;
-}
-
-/**
- * Index of the first bare token that is no option's value, or the length. Used
- * only where the parser itself failed, to still find the options before the
- * entry.
- */
-function firstPositionalIndex(argv: readonly string[]): number {
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index]!;
-    if (token.startsWith("@")) continue;
-    if (!token.startsWith("-")) return index;
-    if (token.includes("=")) continue;
-    const flag = resolveFlagSpec(token);
-    const next = argv[index + 1];
-    if (next === undefined || next.startsWith("-")) continue;
-    const takesValue =
-      flag !== undefined
-        ? flag.kind !== "boolean"
-        : COMPILER_OPTION_KINDS.get(normalizeFlagToken(token)) === "value";
-    if (takesValue || next === "true" || next === "false") index += 1;
-  }
-  return argv.length;
-}
-
-/**
- * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
- *
- * Forwarded to the type-check, it turned the check into a process that never
- * returns, so the entry never ran and the command hung with no output
- * (samchon/ttsc#1409). ttsx runs the entry once after one check, and a watch
- * that restarts the program is a different feature; the message names the two
- * tools that already provide the halves. A `--watch` after the entry is the
- * program's own flag and never reaches here.
- */
-function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
-  const watching =
-    result.values.has("--watch") ||
-    result.passthrough.some(
-      (token) =>
-        token.startsWith("-") && resolveFlagSpec(token)?.name === "--watch",
-    );
-  if (!watching) return;
-  throw new Error(
-    "ttsx: --watch is not supported; ttsx type-checks once and then runs the entry. For a watching type-check use `ttsc --watch --noEmit`; to restart the program on changes use `node --watch --require ttsc/register <entry.ts>`. Arguments after the entry, including --watch, go to the program.",
-  );
 }
 
 /** Whether the entry is a TypeScript source, which ttsx checks and builds. */
@@ -360,27 +208,9 @@ function prependNodeOption(
     : option;
 }
 
-function resolvePreload(cwd: string, preload: string): string {
-  if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
-    return path.resolve(cwd, preload);
-  }
-  return preload;
-}
-
-function isRelativeSpecifier(specifier: string): boolean {
-  return (
-    specifier === "." ||
-    specifier === ".." ||
-    specifier.startsWith("./") ||
-    specifier.startsWith("../") ||
-    specifier.startsWith(".\\") ||
-    specifier.startsWith("..\\")
-  );
-}
-
 /**
  * Run a JavaScript entry as Node's main module under the runtime
- * `ttsc/register` installs (samchon/ttsc#1569).
+ * `ttsc/register` installs.
  *
  * A JavaScript entry, such as a CLI's bin script run so that the TypeScript
  * configuration and sources it loads are served, has no project to check up
@@ -391,21 +221,12 @@ function isRelativeSpecifier(specifier: string): boolean {
  * of a TypeScript entry are refused rather than ignored.
  */
 async function runJavaScriptEntry(
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
   cwd: string,
   entry: string,
   signals: LauncherSignals,
 ): Promise<number> {
-  const unsupported = [
-    ...(parsed.project !== undefined ? ["--project"] : []),
-    ...(parsed.cacheDir !== undefined ? ["--cache-dir"] : []),
-    ...(parsed.checkers !== undefined ? ["--checkers"] : []),
-    ...(parsed.noPlugins ? ["--no-plugins"] : []),
-    ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
-    ...parsed.tsgoFlags.filter(
-      (token) => token.startsWith("-") || token.startsWith("@"),
-    ),
-  ];
+  const unsupported = TtsxEntryOptions.unsupportedJavaScriptBuildOptions(parsed);
   if (unsupported.length !== 0) {
     process.stderr.write(
       `ttsx: ${unsupported.join(", ")} configure${unsupported.length === 1 ? "s" : ""} the up-front build of a TypeScript entry, and ${path.basename(entry)} is JavaScript; set compiler options in the tsconfig.json that owns the TypeScript it loads\n`,
@@ -416,7 +237,7 @@ async function runJavaScriptEntry(
     "--disable-warning=ExperimentalWarning",
     ...parsed.preload.flatMap((preload) => [
       "-r",
-      resolvePreload(cwd, preload),
+      TtsxEntryOptions.resolvePreload(cwd, preload),
     ]),
     entry,
     ...parsed.passthrough,
@@ -444,14 +265,13 @@ async function runJavaScriptEntry(
  * is Node's own main module, exactly as under `node <entry>` or `node -r
  * ttsc/register <entry>`: `require.main === module` and `import.meta.main` hold
  * in it, `process.argv` is Node's own, and an error thrown while it evaluates
- * reaches `process.on("uncaughtException")` and Node's exit status
- * (samchon/ttsc#1402). A bootstrap used to load the entry instead, and the
- * program saw the bootstrap as its main module. A runtime manifest pins the
+ * reaches `process.on("uncaughtException")` and Node's exit status,
+ * never a bootstrap module that loads it. A runtime manifest pins the
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
  * find tsgo without re-resolving it from inside the hook.
  */
 async function runPreparedEntry(
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
   sourceEntry: string,
@@ -498,7 +318,7 @@ async function runPreparedEntry(
       "--disable-warning=ExperimentalWarning",
       ...parsed.preload.flatMap((preload) => [
         "-r",
-        resolvePreload(cwd, preload),
+        TtsxEntryOptions.resolvePreload(cwd, preload),
       ]),
       sourceEntry,
       ...parsed.passthrough,
@@ -542,12 +362,14 @@ async function runProgram(
     afterExit?: () => void;
   } = {},
 ): Promise<number> {
+  const trace = E2ETrace.begin(process.execPath, args, { cwd }, "ttsx-runtime");
   const child = spawn(process.execPath, args, {
     cwd,
     env,
     stdio: "inherit",
     windowsHide: true,
   });
+  E2ETrace.asynchronous(trace, child);
   signals.forwardTo(child);
   const outcome = await new Promise<{
     code: number | null;

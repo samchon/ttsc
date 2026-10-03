@@ -31,7 +31,7 @@ func serveRequestLine(t *testing.T, file string) string {
 // the same file requested twice returns the identical cached transform, and a
 // file outside the program is reported not-found.
 //
-// This is the resident transform host of samchon/ttsc#255: one warm process
+// This is the resident transform host: one warm process
 // answers per-file requests without recompiling the project per call. The host
 // keys its cache exactly like the transform envelope (project-relative paths)
 // and accepts absolute request paths.
@@ -40,6 +40,11 @@ func serveRequestLine(t *testing.T, file string) string {
 //  2. Feed RunServe the project file twice, then a non-project file.
 //  3. Assert the two project-file replies are identical (served from cache) and
 //     the non-project reply is not-found.
+//
+// @evidence contracts/testing.md#behavioral-verification RunServe answers the same project file twice with identical cached transforms and reports a file outside the program as not found.
+// @evidence contracts/testing.md#independent-expectations The replies are compared with each other and with the authored source, and the not-found reply is a literal protocol value.
+// @evidence contracts/testing.md#distinguishing-cases A project file requested twice contrasts with a non-project file requested once.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeReturnsCachedPerFileTransform is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -94,6 +99,11 @@ func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
 // The line protocol matches replies to requests by order, so a malformed line
 // that produced zero or two replies would shift every later reply onto the wrong
 // request.
+//
+// @evidence contracts/testing.md#behavioral-verification A malformed request line consumes exactly one reply (an empty not-found response) and a valid request after it still resolves to its own file.
+// @evidence contracts/testing.md#independent-expectations The line protocol matches replies to requests by order, so the expected reply count and the later valid reply are literal.
+// @evidence contracts/testing.md#distinguishing-cases Zero or two replies for the malformed line would shift every later reply; the valid request after it detects that desynchronization.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeMalformedRequestStaysFIFOAligned is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeMalformedRequestStaysFIFOAligned(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -139,6 +149,11 @@ func TestUtilityServeMalformedRequestStaysFIFOAligned(t *testing.T) {
 // not newline-terminated (the input ends mid-line at EOF) is still answered
 // exactly once. ReadString returns the final line together with io.EOF, so the
 // loop must process it before terminating; a naive loop would drop it.
+//
+// @evidence contracts/testing.md#behavioral-verification A final request line without a trailing newline is still processed and answered.
+// @evidence contracts/testing.md#independent-expectations The reply for the unterminated line is the authored transform of the requested file.
+// @evidence contracts/testing.md#distinguishing-cases Newline-terminated lines are the neighbor handled by sibling tests; the last unterminated line is the boundary a line scanner can drop.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeProcessesFinalLineWithoutNewline is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeProcessesFinalLineWithoutNewline(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

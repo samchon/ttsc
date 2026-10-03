@@ -229,11 +229,9 @@ func gapHasComment(src string, start, end int) bool {
 
 // prevStatementEnd returns the offset where the content preceding `stmt`
 // on its line ends, used as the lower bound of the inter-statement gap
-// scanned for comments. It locates `stmt` in its parent statement list
-// and returns the previous sibling's end; for the first statement of a
-// list it returns the parent owner's start (the `{`/`case:` boundary).
-// The fallback walks back from `floor` to the previous non-whitespace
-// byte so a comment-free caller still gets a sane lower bound.
+// scanned for comments. It scans backwards from `floor` and returns the offset
+// just after the nearest preceding `;`, `}`, `{` or `:`, or the start of the
+// current line when a newline comes first.
 func prevStatementEnd(src string, floor int) int {
   // floor sits just past the whitespace run before the statement, i.e.
   // immediately after the previous content's last byte. Walking back one

@@ -16,7 +16,6 @@ import { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
-import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
@@ -27,9 +26,7 @@ import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
-import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
-import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
-import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
+import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
@@ -40,18 +37,16 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
-import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
+import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
-import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
 import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
-import { reclaimDependencyBuildLock } from "./reclaimDependencyBuildLock";
-import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
 import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
+import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
 
 /**
  * Install the source-loading hooks on the current (main) thread. Idempotent:
@@ -59,11 +54,12 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * child process the program spawns, and `ttsc/register` may install them again
  * in a process that already has them.
  *
- * The hooks give ttsx ts-node-style whole-graph reach without weakening the
- * compile gate. The owning entry project is type-checked and built up front (by
- * `prepareExecution`, with its transform plugins such as typia); these hooks
- * serve that build under the source URLs so `__dirname`/`import.meta.url` keep
- * pointing at the source tree. Three load paths:
+ * Prepared entries use their owner's build, including its selected transform
+ * plugins, under source URLs so `__dirname`/`import.meta.url` keep source-tree
+ * coordinates. Callback-prepared and direct prebuilt entry admission are distinct
+ * from dependency builds and orphan recovery; this installer does not certify
+ * that every dynamically loaded module has passed an entry type-check gate.
+ * Three load paths:
  *
  * 1. A `.ts` belonging to the entry project: serve the pre-built emitted JS
  *    (transform plugins already applied) under the producer's captured physical
@@ -83,25 +79,26 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
  * Both graphs go through `registerHooks`, the supported customization API. A
- * CommonJS module an ESM `import` reaches is served as an ESM facade that loads
+ * CommonJS module an ESM `import` reaches may need an ESM facade that loads
  * it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
  * loader with source, the module's own `require()` bypasses the hooks on some
- * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there
- * (samchon/ttsc#1280). The one reach the API lacks on some releases is
- * `require.resolve`, which is probed before installation. A host that bypasses
- * public resolve hooks is rejected with an actionable error; foreign resolver
- * methods and extension registries are never replaced. Ecosystem tools must use
- * the registered loader rather than require a `require.extensions`
- * advertisement.
+ * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there.
+ * Capability and entry predicates also admit direct CommonJS source lanes.
+ * One reach the API lacks on some releases is
+ * `require.resolve`, which is probed before installation. Served CommonJS
+ * bodies receive an owned require function whose resolve member applies the
+ * same source policy on those releases. Its copied extension registry
+ * advertises the supported source extensions; foreign resolver methods and
+ * global extension registries are never replaced.
  *
- * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades retain Node's own evaluation and binding semantics; hosts whose require.resolve bypasses the public hooks are rejected before installation.
+ * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades delegate native evaluation and project detected own named exports under the selected namespace capability; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation no longer mutates Module._resolveFilename or require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, while incapable hosts fail instead of preserving an unsupported resolver beneath patches.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability failure and the absence of extension-registry advertising; helper comments state ownership and failure effects with descriptive prose separated from tags.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation mutates neither Module._resolveFilename nor require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
- * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes avoid a complete emit scan on each load; export discovery visits each graph node once per traversal, and config-chain validation scans its discovered inputs. Compiler identity validation streams B executable bytes per lookup because metadata cannot certify unchanged bytes. Native compilation is required for a new project or orphan; recursive graphs remain subject to the JavaScript stack limit.
- * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; root keys include source bytes and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Hooks and memoized module roles/builds live for this process, growing with distinct loaded projects, roots and export scans without a fixed historical cap. Isolated output directories and publication staging belong to synchronous operations and are reclaimed on failure; WeakMap ownership indexes do not extend their build lifetime. Cross-process generations follow their cache owner's retention policy.
+ * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes replace repeated whole-emit scans with indexed source/native-identity queries. Export discovery processes source/emit bytes, reexport edges, native resolution and Set/name unions under traversal-local seen sets; separate roots can repeat traversal. Config-chain validation reads discovered inputs. Compiler identity brackets and streams executable bytes on valid lookups, refusing failed observations. Native build/name-scan/orphan paths add compilation, path/metadata/IO cost; recursive graphs remain subject to stack limits.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a helper-instance module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This installed helper retains hooks, callback and memoized module roles/builds, growing with distinct projects, roots and export scans without an eviction cap. Synchronous isolated output/publication staging paths attempt cleanup; failed native removal can propagate or add a causal cleanup error rather than certify release. WeakMap indexes do not independently retain their build keys. Node module caches and cross-process generations have their separate retention owners.
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (options.prepareEntry !== undefined) {
@@ -113,13 +110,8 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   assertNodeRuntimeSupport();
   // Probed before the runtime's hooks exist, so nothing the probes load is
   // served or recorded as an input of the program.
-  if (!RuntimeLoaderCapabilities.requireResolveConsultsHooks()) {
-    throw new Error(
-      `ttsx: Node.js ${process.versions.node} bypasses module.registerHooks in require.resolve. ` +
-        "Upgrade to a Node.js release whose synchronous hooks cover require.resolve " +
-        "(Node.js 24.18.0 is verified). The runtime does not patch Node's private resolver.",
-    );
-  }
+  nativeRequireResolveHooks = RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  CommonJsRuntimeSource.configure(resolveCommonJsRequest);
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   // Error stacks use the served source maps. This supported switch is applied
   // only after the required public loader capabilities have been established.
@@ -129,6 +121,48 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   registerHooks({ load, resolve });
   PluginDescriptorInputObservation.begin();
   installed = true;
+}
+
+/** Actual public-hook coverage determines whether module-local resolve needs adaptation. */
+let nativeRequireResolveHooks = true;
+
+/** Preserve native resolution first and apply the existing source policy to an owned require. */
+function resolveCommonJsRequest(
+  native: NodeJS.RequireResolve,
+  specifier: string,
+  options: { paths?: string[] } | undefined,
+  filename: string,
+): string {
+  if (nativeRequireResolveHooks || typeof specifier !== "string")
+    return native(specifier, options);
+  const parents = path.isAbsolute(specifier)
+    ? [undefined]
+    : options?.paths === undefined
+      ? [pathToFileURL(filename).href]
+      : Array.isArray(options.paths) && options.paths.every((entry) => typeof entry === "string")
+        ? options.paths.map((entry) => pathToFileURL(path.join(path.resolve(entry), "index.js")).href)
+        : [];
+  const observations = parents.map((parent) => observePluginDescriptorResolutionCandidates(specifier, parent));
+  let selected: string | undefined;
+  try {
+    try {
+      const resolved = native(specifier, options);
+      if (path.isAbsolute(resolved)) selected = pathToFileURL(resolved).href;
+      if (selected !== undefined) recordPluginDescriptorResolution(specifier, parents[0], selected);
+      return resolved;
+    } catch (error) {
+      for (const parent of parents) {
+        const rescued = probeRescuableSpecifier(specifier, parent);
+        if (rescued === null) continue;
+        selected = rescued;
+        recordPluginDescriptorResolution(specifier, parent, rescued);
+        return fileURLToPath(rescued);
+      }
+      throw error;
+    }
+  } finally {
+    for (const observation of observations) observation.commit(selected);
+  }
 }
 
 /**
@@ -141,7 +175,7 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
  * With no config there is no `jsx` either, so a `.tsx` orphan is compiled with
  * the automatic runtime, the one mode that needs no factory in scope: its
  * import source is `react` unless a `@jsxImportSource` pragma in the file says
- * otherwise (samchon/ttsc#1408).
+ * otherwise.
  */
 const ISOLATED_EMIT_ARGS = [
   "--ignoreConfig",
@@ -235,7 +269,7 @@ const runtimeEntryUrls = new Set<string>();
  * The process entry, where Node's ESM loader opens it: resolved with no parent
  * and without the `require` condition, as an `--import` preload makes Node run
  * every entry. A CommonJS entry is handed to Node with its source rather than
- * as the facade, so Node loads it as the main module (samchon/ttsc#1571).
+ * as the facade, so Node loads it as the main module.
  */
 const esmEntryUrls = new Set<string>();
 
@@ -328,7 +362,7 @@ function observePluginDescriptorResolutionCandidates(
   // A `#` specifier is looked up in the importer's own package `imports`, whose
   // manifest was recorded with the importer. When that maps it to a bare
   // package, the package's candidates up to the root that selected it are
-  // inputs, named once the resolution settles (samchon/ttsc#1498).
+  // inputs, named once the resolution settles.
   if (specifier.startsWith("#")) {
     const witnesses = observeImportSearchRoots(parent);
     return {
@@ -797,11 +831,11 @@ function load(
     served.moduleOptions,
   );
   // An ESM import of a CommonJS source gets the facade, which loads the module
-  // through the CommonJS loader, where the hooks see its own `require()` on
-  // every release (`commonJsImportFacade`, samchon/ttsc#1517).
+  // through the CommonJS loader, through the selected public CommonJS load boundary
+  // (`commonJsImportFacade`); entry predicates can instead admit served source.
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url))
-      return { format, shortCircuit: true, source: served.source };
+      return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
     return {
       format: "module",
       shortCircuit: true,
@@ -817,13 +851,13 @@ function load(
       ),
     };
   }
-  return { format, shortCircuit: true, source: served.source };
+  return { format, shortCircuit: true, source: format === "commonjs" ? CommonJsRuntimeSource.prepare(served.source, filename) : served.source };
 }
 
 /**
  * Load a JavaScript module, handing a CommonJS one an ESM import reaches to the
  * CommonJS loader through the facade where Node would otherwise evaluate it
- * with its narrower `require` (samchon/ttsc#1570). A runtime that gives a
+ * with its narrower `require`. A runtime that gives a
  * hook-served CommonJS module that `require` gives it to every CommonJS module
  * an import reaches once any load hook exists, so without the facade such a
  * module had no `require.cache`, `require.extensions` or
@@ -837,10 +871,7 @@ function loadJavaScript(
 ): LoadResult {
   const loaded = nextLoad(url, context);
   if (
-    loaded.format !== "commonjs" ||
-    hasCondition(context, "require") ||
-    RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
-    servesCommonJsFromSource(url)
+    loaded.format !== "commonjs"
   )
     return loaded;
   const source =
@@ -850,6 +881,15 @@ function loadJavaScript(
         ? Buffer.from(loaded.source as Uint8Array).toString("utf8")
         : readFileOrNull(filename);
   if (source === null) return loaded;
+  if (
+    hasCondition(context, "require") ||
+    RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
+    servesCommonJsFromSource(url)
+  ) return {
+    ...loaded,
+    shortCircuit: true,
+    source: CommonJsRuntimeSource.prepare(inlineServedSourceMap(source, filename, filename), filename),
+  };
   return {
     format: "module",
     shortCircuit: true,
@@ -1094,8 +1134,8 @@ function recordPluginDescriptorProjectInputs(
  * `load` hook and the CommonJS `require` handler.
  *
  * A file runs only from JavaScript a build provably compiled from that very
- * file, never from another file's output that shares its name
- * (samchon/ttsc#1382). The lanes, in order:
+ * file, never from another file's output that shares its name.
+ * The lanes, in order:
  *
  * 1. A checked entry build that compiled it (`ttsx`'s entry project, or a root
  *    `ttsc/register` prepared).
@@ -1226,7 +1266,7 @@ function emitOrphanSource(
       // The emit names its input by absolute path and reads no config, so it
       // runs from its own output directory rather than from a dependency's,
       // which below `node_modules` can pass Windows' MAX_PATH for a working
-      // directory (samchon/ttsc#1572).
+      // directory.
       { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(filename, outDir);
@@ -1239,7 +1279,7 @@ function emitOrphanSource(
     // and the emit read the file and ran the compiler again. Only a source that
     // held still across both reads, lowered by a compiler that is still the
     // keyed one, is what the key names; otherwise the lowering serves this run
-    // and is not recorded (samchon/ttsc#1508, samchon/ttsc#1521).
+    // and is not recorded.
     if (
       lowered !== null &&
       cache !== null &&
@@ -1335,7 +1375,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
  * A run prepared by ttsx or `ttsc/register` names it in its manifest, under the
  * run's resolved cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
  * project-local root), where it outlives the run and is collected and cleaned
- * with the rest of that root (samchon/ttsc#1562). A runtime without a manifest
+ * with the rest of that root. A runtime without a manifest
  * has no cache root to name, so its lowerings go where its dependency builds go
  * (`dependencyCacheRoot`), which is removed with the evaluation or the process
  * that made them.
@@ -1359,7 +1399,7 @@ function orphanCacheRoot(): string {
  * Read afresh at every use, never remembered by path: a long-lived process can
  * lower orphans before and after the compiler at that path is replaced, and an
  * entry lowered by the new one must not be recorded under the old one's key for
- * a later process to adopt (samchon/ttsc#1521).
+ * a later process to adopt.
  */
 function compilerIdentity(binary: string): string {
   return runtimeExecutableIdentity(binary) ?? crypto.randomUUID();
@@ -1391,7 +1431,7 @@ let ownPackageVersionCache: string | undefined;
  * source cannot be read.
  *
  * The cache outlives the run in its cache root, so a hit has to prove the
- * current inputs would produce the cached text (samchon/ttsc#1405). The key
+ * current inputs would produce the cached text. The key
  * holds everything that decides it: the source's bytes and path (the inlined
  * map names the path), the module format, the emit arguments, the compiler that
  * lowers it, and the ttsc that post-processes it. The compiler is keyed by what
@@ -1401,7 +1441,7 @@ let ownPackageVersionCache: string | undefined;
  *
  * The source is read here, and the emit reads it again. The answer carries the
  * bytes and the file's metadata before they were read, so `orphanSourceHeld`
- * can prove the emit read the same source (samchon/ttsc#1508).
+ * can prove the emit read the same source.
  */
 function orphanCacheFile(
   filename: string,
@@ -1822,7 +1862,7 @@ function ensureRootBuilt(
   source: string,
 ): DependencyBuildGeneration.BuiltProject {
   const identity = `${source}\0${contentDigest(source)}`;
-  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig, identity);
   const memo = cacheDir;
   const cached = builtRoots.get(memo);
@@ -1841,8 +1881,8 @@ function ensureRootBuilt(
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof),
+    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
+      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof, plugins),
     );
   } catch (error) {
     // The same content fails the same way, so a second reach of this root in
@@ -1885,6 +1925,7 @@ function buildRoot(
   cacheDir: string,
   metaPath: string,
   compilerProof?: string,
+  plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
   // Read through the descriptor-input recorder, so a plugin descriptor that
   // reaches this root reports the config chain it was compiled under.
@@ -1900,7 +1941,7 @@ function buildRoot(
       checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
-      options: { plugins: rootPluginPolicy() },
+      options: { plugins },
       projectRoot: project.root,
       role: "root",
       source,
@@ -1941,17 +1982,15 @@ function buildRoot(
 }
 
 /**
- * The plugin policy a root compiled at run time inherits: none while a plugin
+ * The plugin policy a project or root compiled at run time inherits: none while a plugin
  * descriptor is being loaded, because its own transform would re-enter plugin
  * loading, and none when the run itself disabled them (`ttsx --no-plugins`).
  */
-function rootPluginPolicy(): false | undefined {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1") return false;
-  return RuntimeManifestRegistry.runtimeManifests().some(
-    (manifest) => manifest.plugins === false,
-  )
-    ? false
-    : undefined;
+function runtimePluginPolicy(): false | undefined {
+  return selectRuntimePluginPolicy(
+    RuntimeManifestRegistry.runtimeManifests(),
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1",
+  );
 }
 
 /**
@@ -2001,7 +2040,7 @@ function isInstalledPackageSource(real: string): boolean {
 function ensureProjectBuilt(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
-  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig);
   const cached = builtProjects.get(cacheDir);
   if (cached !== undefined) {
@@ -2021,8 +2060,8 @@ function ensureProjectBuilt(
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-      buildDependency(tsconfig, cacheDir, metaPath, compilerProof),
+    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
+      buildDependency(tsconfig, cacheDir, metaPath, compilerProof, plugins),
     );
   } catch (error) {
     // Every file the project owns asks for this build before its own root
@@ -2054,6 +2093,9 @@ interface DependencyCachePaths {
   /** Executable content proof whose key must still hold before publication. */
   compilerProof?: string;
 
+  /** Plugin policy captured once for both cache addressing and compilation. */
+  plugins?: false;
+
   root: string;
 }
 
@@ -2069,9 +2111,11 @@ function dependencyCachePaths(
   } catch {
     // An unobservable executable gets a unique, non-reusable generation key.
   }
+  const plugins = runtimePluginPolicy();
   const key = dependencyCacheKey(tsconfig, {
     root: rootSource,
     compilerIdentity: compilerProof ?? crypto.randomUUID(),
+    plugins,
   });
   const root = dependencyCacheRoot();
   return {
@@ -2079,6 +2123,7 @@ function dependencyCachePaths(
     lockDir: path.join(root, `${key}.lock`),
     metaPath: path.join(root, `${key}.json`),
     compilerProof,
+    plugins,
     root,
   };
 }
@@ -2097,86 +2142,21 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
 }
 
 /**
- * Run `build` while holding the fenced lock for this dependency, re-checking
- * the cache once the lock is held (a concurrent builder may have just
- * finished). A loser polls for the winner's completion marker and, only when
- * the holding generation is provably abandoned (dead owner or the steal budget
- * elapsed), retires precisely that generation before retrying — never a
- * successor's.
- */
-function withBuildLock(
-  cacheDir: string,
-  metaPath: string,
-  lockDir: string,
-  build: () => DependencyBuildGeneration.BuiltProject,
-): DependencyBuildGeneration.BuiltProject {
-  for (;;) {
-    const reuse = readDependencyCache(cacheDir, metaPath);
-    if (reuse !== null) {
-      return reuse;
-    }
-    let lease: DependencyBuildLockLease | null;
-    try {
-      lease = acquireDependencyBuildLock(lockDir);
-    } catch {
-      // An unusable coordination directory must not silently skip the build.
-      // Generation-stamped emit and the atomic marker swap still keep every
-      // reader's view of publication consistent without the lock.
-      return build();
-    }
-    if (lease === null) {
-      const waited = waitForDependencyBuild(
-        cacheDir,
-        metaPath,
-        lockDir,
-        DEP_BUILD_LOCK_STEAL_MS,
-      );
-      if (waited.outcome === "built") {
-        return waited.built;
-      }
-      if (waited.outcome === "abandoned") {
-        // Retire only the generation this observation named. Losing the rename
-        // race means the holder's own release (or another waiter) already made
-        // progress, so a stale result never removes a live successor.
-        reclaimDependencyBuildLock(lockDir, waited.fence);
-      }
-      // "released" needs no repair: the holder freed the lock normally, so
-      // retry the ordinary acquisition.
-      continue;
-    }
-    const held = lease;
-    return runHoldingLock(
-      () => readDependencyCache(cacheDir, metaPath) ?? build(),
-      () => releaseDependencyBuildLock(lockDir, held),
-      // The runtime writes nothing of its own into the program's output; the
-      // generation left held is reclaimed as abandoned once this process
-      // exits.
-      () => undefined,
-    );
-  }
-}
-
-/** Block the current (synchronous) thread for `ms` without busy-spinning. */
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
-/**
  * Compile a dependency project into a fresh generation directory and publish
  * its completion marker atomically.
  *
- * The emit lands in `<cacheDir>/gen-<generation>`, a directory no other
- * generation or process shares, so it is never mutated in place while a reader
- * looks at it. Only after the emit is proven non-empty is the marker written by
- * temp-and-rename, binding metadata to that exact generation. A build that
- * produced no output drops its partial directory so a failed generation can
- * never be reused.
+ * Under cooperative cache ownership and noncolliding generation ids, emit
+ * lands in a fresh `<cacheDir>/gen-<generation>` rather than replacing a
+ * reader's generation in place. Emit presence and provenance are checked before
+ * temp-and-rename publication. Failure attempts to remove the partial directory;
+ * refused cleanup can leave it behind without publishing a successful marker.
  */
 function buildDependency(
   tsconfig: string,
   cacheDir: string,
   metaPath: string,
   compilerProof?: string,
+  plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
@@ -2203,20 +2183,20 @@ function buildDependency(
       // Every output this build writes stays in ttsx's private directory: a
       // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
       // output location forwarded on the command line, would otherwise land in
-      // the user's tree (samchon/ttsc#1404).
+      // the user's tree.
       isolateOutputsTo: emitDir,
       // The generation directory is an `outDir` this lane injected, not one the
       // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
       // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
       // a source-shipping dependency that declares no output buildable, and it is
       // the same root `resolveDependencySourceRoot` publishes for it below —
-      // without it that dependency falls back to type-stripping (issue #1172).
+      // without it that dependency falls back to type-stripping.
       pinInferredRootDir: true,
       // Emit a source map on the transient dependency emit (it never reaches the
       // dependency's published `lib/`) so the serve path can inline it under the
       // source URL, but only when the dependency configures none itself. Routed
       // as a dedicated build option, not a forwarded tsgo flag, so it never
-      // reaches a native plugin host's argument parser (issue #353).
+      // reaches a native plugin host's argument parser.
       forceRuntimeSourceMap:
         project.compilerOptions.sourceMap !== true &&
         project.compilerOptions.inlineSourceMap !== true,
@@ -2224,12 +2204,12 @@ function buildDependency(
       // can itself depend on a transform (e.g. a fixture whose values are built
       // with `typia.createRandom`), and its runtime behaviour is wrong without it.
       // `runBuild` runs on this main thread, so its plugin resolution works the
-      // same as the entry build's. The exception is loading a plugin descriptor
-      // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`): there the descriptor's own — possibly
+      // same as the entry build's. A run started with `--no-plugins` keeps that
+      // disabled policy across dependency projects. Loading a plugin descriptor
+      // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`) also disables plugins: its own — possibly
       // self-hosting — transform must NOT run, or it re-enters plugin loading and
       // deadlocks, so every dependency in that graph builds with plugins off.
-      plugins:
-        process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
+      plugins,
       quiet: true,
       resolvedProject: project,
       // Emit only: the entry project's up-front check is the type gate. A
@@ -2241,14 +2221,6 @@ function buildDependency(
       skipDiagnosticsCheck: true,
       tsconfig,
     });
-    const emittedSources = result.emittedSources;
-    const emittedSourceProofFailures = result.emittedSourceProofFailures;
-    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
-      throw new Error(
-        `ttsx: dependency build of ${tsconfig} did not report authoritative emit provenance`,
-        { cause: result },
-      );
-    }
     // Success is "the project wrote JavaScript", not the exit status: the build is
     // emit-only, so diagnostics do not fail it, and a native transform host
     // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
@@ -2262,6 +2234,16 @@ function buildDependency(
         ]
           .filter((line) => line.trim().length !== 0)
           .join("\n"),
+      );
+    }
+    // Absence above serves and publishes nothing. Every actual emitted byte
+    // still requires the selected producer's authoritative ownership record.
+    const emittedSources = result.emittedSources;
+    const emittedSourceProofFailures = result.emittedSourceProofFailures;
+    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
+      throw new Error(
+        `ttsx: dependency build of ${tsconfig} did not report authoritative emit provenance`,
+        { cause: result },
       );
     }
     const rootDir = resolveDependencySourceRoot(project);
@@ -2291,12 +2273,11 @@ function buildDependency(
 
 /**
  * Publish the completion marker atomically: write it to a private temp name in
- * the same directory, then rename onto `metaPath`. Node's rename replaces an
- * existing file atomically on POSIX and Windows alike, so a concurrent reader
- * sees either the whole previous marker or the whole new one, never a
- * half-written file. The marker is the LAST artifact a build writes, after its
- * generation's emit is complete, so observing the new marker guarantees the new
- * generation is complete.
+ * the same directory, then rename onto `metaPath`. Successful native rename
+ * replaces the whole marker rather than writing it in place; refusal propagates
+ * with an attempted temporary-file cleanup. The producer calls this after emit
+ * presence and provenance checks. Stable layout and retained immutable emit
+ * remain cooperative premises, and no fsync establishes crash durability.
  */
 function publishDependencyMeta(
   metaPath: string,
@@ -2341,80 +2322,6 @@ function throwAfterFailedArtifactCleanup(
  */
 class EmptyProjectEmitError extends Error {}
 
-// -----------------------------------------------------------------------------
-// Fenced dependency-build lock.
-//
-// The lock serialises concurrent first-builders of one dependency so the
-// expensive `runBuild` runs once per key while the rest wait and reuse the
-// published generation. It is generation-fenced so a stale observer or a former
-// owner can never release a successor's lock:
-//
-//   * `<lockDir>/current` is the held generation — a directory carrying a
-//     `generation` id and an `owner.json` (pid + hostname). A contender writes a
-//     private candidate and atomically renames it onto `current`; a directory
-//     rename cannot replace a non-empty `current`, so exactly one contender wins
-//     with no empty-owner publication window.
-//   * Release and reclaim both retire a generation by renaming `current` to its
-//     deterministic tombstone `<lockDir>/retired/<generation>`. The only way to
-//     free `current` is to create that tombstone, so a successor can acquire only
-//     after its predecessor's tombstone exists. A late or duplicate retire of an
-//     already-retired generation therefore finds the tombstone occupied and
-//     fails atomically, and a reclaim that named an old generation can never move
-//     a different successor into that old tombstone.
-//
-// This mirrors the source-plugin v2 protocol (`buildSourcePlugin.ts`) proven by
-// issue #452 / PR #460, minus the legacy-compatibility layer: the ttsx
-// dependency cache lives under a per-run directory with no shipped on-disk
-// format to stay compatible with.
-// -----------------------------------------------------------------------------
-
-const DEP_BUILD_LOCK_STEAL_MS =
-  DependencyBuildLockProtocol.DEP_BUILD_LOCK_WAIT_MS;
-
-/** Outcome of one waiting session on another process's dependency build lock. */
-type DependencyBuildWaitResult =
-  | { outcome: "built"; built: DependencyBuildGeneration.BuiltProject }
-  | { outcome: "released" }
-  | { outcome: "abandoned"; reason: string; fence: DependencyBuildLockFence };
-
-/** Poll for the locked builder to publish, up to `timeoutMs`. */
-function waitForDependencyBuild(
-  cacheDir: string,
-  metaPath: string,
-  lockDir: string,
-  timeoutMs: number,
-): DependencyBuildWaitResult {
-  const startedAt = Date.now();
-  for (;;) {
-    const reuse = readDependencyCache(cacheDir, metaPath);
-    if (reuse !== null) {
-      return { outcome: "built", built: reuse };
-    }
-    const now = Date.now();
-    const lock = inspectDependencyBuildLock(lockDir, now);
-    if (lock.state === "released") {
-      // The holder retired its generation between the cache check above and this
-      // observation: prefer the marker if it landed in that window, otherwise
-      // hand the free lock back to the caller to re-acquire.
-      const built = readDependencyCache(cacheDir, metaPath);
-      return built !== null
-        ? { outcome: "built", built }
-        : { outcome: "released" };
-    }
-    if (lock.state === "abandoned") {
-      return { outcome: "abandoned", reason: lock.reason, fence: lock.fence };
-    }
-    if (now - startedAt > timeoutMs) {
-      return {
-        outcome: "abandoned",
-        reason: `timed out after ${DependencyBuildLockProtocol.formatDuration(now - startedAt)}`,
-        fence: lock.fence,
-      };
-    }
-    sleepSync(DependencyBuildLockProtocol.DEP_BUILD_LOCK_POLL_MS);
-  }
-}
-
 /** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
 interface ITsconfigLookup {
   candidates: readonly string[];
@@ -2424,7 +2331,7 @@ interface ITsconfigLookup {
 /**
  * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
  * when that config is a solution that does not contain the file, the referenced
- * project that does (samchon/ttsc#1406). `null` when no config owns the file at
+ * project that does. `null` when no config owns the file at
  * all.
  */
 function owningTsconfig(real: string): string | null {
@@ -2550,8 +2457,8 @@ function readFileOrNull(file: string | null): string | null {
  * it answer wrongly, but a physical one keeps every lookup on its cheap forward
  * mirror instead of the inverse scan.
  *
- * This is the pass the entry lane settled on for the same mixed pair; the two
- * lanes now read alike, `path.isAbsolute` guard included. `readProjectConfig`
+ * This is the same pass the entry lane applies to the same mixed pair, so the
+ * two lanes read alike, `path.isAbsolute` guard included. `readProjectConfig`
  * absolutizes every path option against the config that declared it, so that
  * guard is a mirror of the entry lane rather than a live branch.
  */

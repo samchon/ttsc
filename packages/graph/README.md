@@ -65,6 +65,8 @@ The interactive charts, every model, and the method are on the benchmark page: h
 
 ```ts
 /**
+ * ## Code Graph MCP
+ *
  * `inspect_typescript_graph` returns a compiler-built TypeScript graph contract
  * for the current on-disk source snapshot.
  *
@@ -72,30 +74,103 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Returned graph facts are sacred, infallible compiler truth for the snapshot
- * synchronized by that call. Never verify them with files or more graph calls.
+ * Declaration facts come from the compiler for the synchronized snapshot.
+ * The server derives file containers, containment, property kinds, path-convention test roles and dispatch
+ * hops; lint plugins supply artifact facts. The result's audit distinguishes
+ * these producers. Trust compiler facts without re-checking against files.
+ * Where an operation ranks a shortlist against your question (`lookup`,
+ * `entrypoints`, `tour`), its compiler facts retain that provenance while
+ * selection is heuristic: judge whether its coverage
+ * answers you, and a follow-up request or a read of a cited span is fair when
+ * it does not.
+ *
+ * ## Requests
+ *
+ * A request is a union: pick the single type below that best fits the question,
+ * and submit exactly that one.
+ *
+ * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
+ *   the whole answer; do not split it. Name the machinery you expect it to be
+ *   made of in its `reinterpretations`, or send none.
+ * - `entrypoints`: find where execution starts when entry points are unknown.
+ * - `lookup`: locate a named symbol, or — with a documentation target as the
+ *   query (`docs/pricing.md#sale`, `POST:/orders`) — the declarations whose
+ *   documentation cites it.
+ * - `trace`: follow calls or data flow forward or backward from a symbol, or —
+ *   with `to` — the path between two symbols when both ends are known, which is
+ *   the one call that answers "how does A reach B".
+ * - `details`: signatures, members, and relations of named symbols — including
+ *   the classes that implement an interface, which is the one call that answers
+ *   "what actually implements this".
+ * - `overview`: project layers and folder structure.
+ * - `escape`: the answer is outside the graph (source body text, non-TypeScript
+ *   files, exact search).
+ *
+ * ## Chain of Thought
+ *
+ * Fill these fields in order before the call; each one narrows the reasoning
+ * toward the single request you submit.
+ *
+ * - `question`: the code question, in the user's own words.
+ * - `draft`: `{ reason, type }` — why the smallest request that could answer it,
+ *   then that request's `type`.
+ * - `review`: fix a broad, stale, or duplicate draft. If the graph already
+ *   answered, or the evidence is outside it, escape.
+ * - `request`: the final choice. Each branch documents its own fields; fill them
+ *   from what the branch says, not from what another branch wanted.
+ *
+ * ## What to trust
+ *
+ * Before source edits, compiler declaration facts retain the resolution of the
+ * synchronized snapshot. The server derives `file` containers, `contains`
+ * ownership, `property` kinds, `dispatches` hops and path-convention `test`
+ * roles from those declarations. Lint plugins supply document, data-model and API-operation facts; `audit`
+ * identifies these distinct producers. Never use extra graph calls,
+ * repository search, or file reads to doubt,
+ * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,
+ * signature, decorator, test, reference, step, or anchor. The result projects
+ * the snapshot's facts and identifies their provenance; this server does not
+ * perform a second compiler verification pass.
+ *
+ * Selection is the separate question. `lookup`, `entrypoints`, and `tour` match
+ * your question and return a scored, ranked, per-file-capped, limited
+ * shortlist; their facts are still verified, but whether the shortlist covers
+ * what you asked is yours to judge, and their `audit` says that instead of
+ * claiming completeness. A follow-up request or a read of a cited span for
+ * missed coverage is legitimate — re-confirming a fact the graph already
+ * resolved is not.
+ *
+ * ## Stop
+ *
+ * Let the result's `next` set the pace, and do not re-confirm what the graph
+ * resolved.
+ *
+ * - A span is a citation, not a cue to open the file to re-check a fact.
+ * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
+ *   means make exactly the one request it names, `outside` means escape,
+ *   `clarify` means restate the request.
+ * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
+ *   `truncated` say whether coverage is settled; when it is not, one more
+ *   request is the right move — not a file read to re-verify facts already
+ *   given.
  */
 export interface ITtscGraphApplication {
   /**
-   * Answer a TypeScript question from the compiler's own index of this
-   * repository.
+   * Answer a TypeScript question from the synchronized source snapshot.
+   * Submit one request:
    *
-   * The graph holds every symbol, call, type, decorator and test, each with its
-   * file and line, resolved from the source on disk now. Submit exactly one
-   * request:
+   * - `tour`: architecture, runtime flow and nearby tests in one orientation
+   * - `trace`: calls, callers or the path from A to B
+   * - `details`: signatures, members and interface implementations
+   * - `lookup`: named declarations
+   * - `entrypoints`: where execution starts
+   * - `overview`: project layers and folders
+   * - `escape`: source bodies, span text or evidence outside the graph
    *
-   * - `tour`: architecture, the runtime flow from the public API to the code that
-   *   does the work, nearby paths, and the tests to read — a whole orientation in
-   *   one call
-   * - `trace`: what a symbol calls, what calls it, or the path from A to B
-   * - `details`: signatures, members, and what implements an interface
-   * - `lookup`: where a named symbol is declared
-   * - `entrypoints`: where execution starts, when the entry is unknown
-   * - `overview`: the project's layers and folder structure
-   *
-   * Every result is the checker's own resolution, audited before it is returned,
-   * so nothing in it needs verifying. Read a file for what the graph does not
-   * carry: a function's body, the text inside a span.
+   * `audit` identifies compiler declaration facts, server-derived structure
+   * and plugin artifact facts; it does not claim a second compiler check.
+   * Judge the coverage of ranked `lookup`, `entrypoints` and `tour` shortlists.
+   * Follow `next`; read source for omitted body text or missed coverage.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -106,7 +181,9 @@ export interface ITtscGraphApplication {
 }
 
 export namespace ITtscGraphApplication {
-  /** Draft, review, then submit exactly one graph request or escape. */
+  /**
+   * Draft, review, then submit exactly one graph request or escape.
+   */
   export interface IProps {
     /**
      * The code question, in the user's own words.
@@ -137,7 +214,9 @@ export namespace ITtscGraphApplication {
       | ITtscGraphEscape.IRequest;
   }
 
-  /** First-pass plan; `reason` precedes `type` so it is written first. */
+  /**
+   * First-pass plan; `reason` precedes `type` so it is written first.
+   */
   export interface IDraft {
     /** Why this is the smallest useful next step. */
     reason: string;
@@ -146,17 +225,26 @@ export namespace ITtscGraphApplication {
     type: IProps["request"]["type"];
   }
 
-  /** The selected request's output. `result.type` mirrors `request.type`. */
+  /**
+   * The selected request's output. `result.type` mirrors `request.type`.
+   */
   export interface IOutput {
     /**
-     * What the server audited this result against before returning it, in its
-     * own words: every node, span, edge, signature, member, and step in it
-     * resolves to the type-checked program for the snapshot the call synced
-     * to.
+     * The provenance and coverage of the returned projection. Compiler facts
+     * belong to the synchronized program; file containers, containment,
+     * property kinds, path-convention test roles and dispatch hops are server-derived structure. Artifact
+     * facts come from the publishing lint plugin. This text reports those
+     * origins without claiming a second compiler verification pass.
      *
-     * Nothing here was matched, ranked, or inferred, so the result is checker
-     * output end to end — complete and errorless for that snapshot, and opening
-     * a file it cites returns the fact already in it.
+     * The audit is operation-aware. For the walks from a named handle (`trace`,
+     * `overview`) it reports the result as the structure the graph holds,
+     * bounded where `truncated` says. For `details` it reports the two halves
+     * of a resolved symbol: its own shape returned whole, its fan-out returned
+     * as a slice with `trace` for the rest. For the ranked operations
+     * (`lookup`, `entrypoints`, `tour`) it adds that the selection is heuristic
+     * — matched, scored, ranked, and limited against the question — so the
+     * facts are verified but the shortlist's coverage is the caller's to
+     * judge.
      */
     audit: string;
 
@@ -188,7 +276,7 @@ The review is allowed to overturn the draft, and that matters more than the plan
 
 Nothing is forbidden. The tool description says when the graph applies and when to stop. Grep and file reads stay available, and the agent still uses them when they are the right move.
 
-What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. And since no file body is ever included, a large repository cannot inflate the response.
+What keeps the agent on the graph is precision. Declaration facts come from the TypeScript compiler for the synchronized snapshot. The server derives file containers, containment, property kinds, path-convention test roles and dispatch hops from those facts; lint plugins publish document, data-model and API-operation facts. The result's `audit` identifies these origins and distinguishes ranked selection from compiler resolution. No file body is included.
 
 Declaration signatures come from the native compiler's declaration heads. When a producer omits a head, the response omits `signature` instead of guessing from a source line that may contain an implementation body. Consumers can use the returned source span when they need the missing text.
 

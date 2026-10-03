@@ -16,6 +16,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The compact wire shape stays separate from the fully qualified memory evidence shape.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cross-file implementations retain their explicit file instead of being forced into the owner's path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reconstruction ownership and member comments state coordinate units and file absence semantics.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphSpan {
   /**

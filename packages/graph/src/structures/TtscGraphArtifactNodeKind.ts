@@ -34,6 +34,10 @@ export const TTSC_GRAPH_ARTIFACT_NODE_KINDS = [
  * @evidence contracts/common.md#clear-and-simple-design The predicate shares the exported kind list instead of maintaining a second classification switch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The check concerns semantic kinds, not heuristics about address punctuation or fixture paths.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why artifact identities cannot use the TypeScript id parser.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a boolean and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one includes test over six constant kinds.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure per-call work with no cache, so there is nothing to share or invalidate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation tests a kind name, which is not a path.
  */
 export function isArtifactNodeKind(kind: string): boolean {
   return (TTSC_GRAPH_ARTIFACT_NODE_KINDS as readonly string[]).includes(kind);

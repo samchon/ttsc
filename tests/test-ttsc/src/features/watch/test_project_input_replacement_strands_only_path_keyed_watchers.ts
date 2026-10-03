@@ -1,28 +1,30 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReplacementStrandsWatchers.js";
+import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReplacementStrandsWatchers";
 
 /**
- * Verifies a recursive root is reinstalled only where a replacement strands it.
+ * Verifies replacement selection requests reinstallation only for anchored roots.
  *
- * Reinstalling costs one watch descriptor per entry beneath the root and opens
- * a window in which nothing is delivered, so it is worth paying only on the
- * backend that needs it: the per-directory implementation Node uses off macOS
- * and Windows keys its handles by path, so a replaced directory keeps its key
- * and its arriving successor is skipped. Both native subtree backends follow
- * the path instead. A skipped rearm and a silent one look identical at the
- * rebuild boundary, so the rule is pinned here rather than inferred.
+ * Node's per-directory recursive implementation indexes handles by path and
+ * skips registering a known path. The supported selection policy requests
+ * reinstallation for anchored directory replacements on that backend, while
+ * leaving native subtree backends alone. This unit pins those decisions;
+ * actual replacement and resulting native event coverage are not observed.
  *
  * 1. Declare an exact file, a reload directory, and a glob population.
  * 2. Require a rearm where a declaration is anchored, on the path-keyed backend.
  * 3. Require none on the native backends, for a file, or below a glob root or a
  *    reload directory, whose own digest nothing beneath it can reach.
+ *
+ * @evidence contracts/testing.md#behavioral-verification projectInputReplacementStrandsWatchers requests rearming only for an anchored directory on the path-keyed backend.
+ * @evidence contracts/testing.md#independent-expectations Literal booleans specify the supported backend/declaration selection policy: anchored directory replacements rearm on the path-indexed backend, while native subtree selections and nonanchoring paths do not. Node recursive_watch.js path-keyed registration explains the positive premise; actual native coverage after replacement remains outside this unit's oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Linux declared ancestors and exact reload roots contrast with macOS and Windows, ordinary files, deep glob descendants and reload-directory children.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputReplacementStrandsWatchers with default native identity over TestProject-owned directories/files and explicit backend selection. Native stat/identity or read-only case queries are preparation/selection observations, not actual watcher delivery. No watcher, compiler or product host starts; the literal policy decisions do not prove native backend rearm effects.
  */
-export const test_project_input_replacement_strands_only_path_keyed_watchers =
-  (): void => {
+export function test_project_input_replacement_strands_only_path_keyed_watchers(): void {
     const root = TestProject.tmpdir("ttsc-project-input-strand-");
     const declared = path.join(root, "docs", "nested", "missing.md");
     const replaced = path.join(root, "docs-old");
@@ -79,4 +81,4 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
         `${label} must ${expected ? "rearm" : "not rearm"} the delivering root`,
       );
     }
-  };
+  }

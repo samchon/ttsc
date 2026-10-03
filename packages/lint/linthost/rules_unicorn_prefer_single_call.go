@@ -1,9 +1,11 @@
 // unicorn/prefer-single-call: `xs.push(1); xs.push(2);` repeats the
 // `xs.push` lookup and the call dispatch for what is conceptually one
-// "append these values" operation. Variadic methods like `push`,
-// `unshift`, `addEventListener`, and `removeEventListener` accept
-// multiple arguments specifically so authors can collapse the back-to-
-// back form into a single call.
+// "append these values" operation. Variadic methods like `push` and
+// `unshift` accept multiple arguments so authors can collapse consecutive
+// calls into one when method identity, receiver stability and argument
+// evaluation permit it. For unshift, reverse the argument groups of the
+// calls while preserving each group's internal order; this may reorder
+// evaluations. This report-only rule does not certify that transformation.
 //
 // AST-only: visit each `Block` AND `SourceFile`, scan the statement
 // list for any pair of consecutive `ExpressionStatement`s whose
@@ -54,7 +56,11 @@ func (unicornPreferSingleCall) Check(ctx *Context, node *shimast.Node) {
     if prevReceiver != currReceiver || prevMethod != currMethod {
       continue
     }
-    ctx.Report(stmts[i], "Combine consecutive `"+currMethod+"` calls with multiple arguments into a single call.")
+    message := "Consider combining consecutive `" + currMethod + "` calls after verifying method identity, receiver stability and argument evaluation."
+    if currMethod == "unshift" {
+      message += " Reverse the call argument groups while preserving the order within each group."
+    }
+    ctx.Report(stmts[i], message)
   }
 }
 
@@ -84,7 +90,7 @@ func unicornPreferSingleCallExtract(ctx *Context, stmt *shimast.Node) (string, s
   }
   method := identifierText(access.Name())
   switch method {
-  case "push", "unshift", "addEventListener", "removeEventListener":
+  case "push", "unshift":
   default:
     return "", ""
   }

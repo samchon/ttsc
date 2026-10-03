@@ -13,7 +13,7 @@ import { realpathHostInput } from "./realpathHostInput";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed canonicalization remains null instead of borrowing a recorded target or assuming the lexical path is physical identity.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains unresolved values and why realpaths accompany hashes, with prose/tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and realpath observation support OS-neutral symlink/junction identity without blanket lowercasing or slash-only parsing.
- * @evidence contracts/performance.md#efficient-algorithms A single input pass performs one delegated realpath lookup per input and creates a result record proportional to the input population.
+ * @evidence contracts/performance.md#efficient-algorithms Each input is natively normalized for its lexical key and receives one delegated current realpath query. Path/target text and native query work accompany input count; mapped pairs and the result coexist transiently, and duplicate resolved keys overwrite earlier observations rather than avoiding their queries.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current physical targets must be observed anew to detect retargeting; this mapper owns no canonicalization cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It returns caller-owned observations and retains no cross-call population or resource.

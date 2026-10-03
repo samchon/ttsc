@@ -8,11 +8,10 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLoadProgramClampsCheckerPoolToOne verifies forceSingleChecker
+// TestDriverLoadProgramClampsCheckerPoolToOne Verifies forceSingleChecker
 // collapses a multi-checker pool request down to a single checker.
 //
-// PR #112 dropped SingleThreaded, which switched on TypeScript-Go's
-// multi-checker pool. ttsc's transform and rewrite phases query types through
+// Without SingleThreaded, TypeScript-Go uses its multi-checker pool. ttsc's transform and rewrite phases query types through
 // the one checker GetTypeChecker hands back, so a pool larger than one lets a
 // type whose declarations span files on different checkers resolve to `any`.
 // forceSingleChecker must therefore clamp `Checkers` back to 1 even when the
@@ -22,6 +21,11 @@ import (
 // 1. Load a multi-file project with LoadProgramOptions.Checkers set to 4.
 // 2. Assert the resolved CompilerOptions.Checkers is clamped to exactly 1.
 // 3. Load the same project with SingleThreaded and assert it still applies.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram resolves a requested checker count of four to one and preserves a separately requested SingleThreaded option.
+// @evidence contracts/testing.md#independent-expectations The driver single-checker policy supplies the literal one expectation; inspecting options does not independently prove cross-file type query correctness.
+// @evidence contracts/testing.md#distinguishing-cases A multi-file project exercises explicit multi-checker clamping and the adjacent SingleThreaded policy branch.
+// @evidence contracts/testing.md#execution-ownership Go test/driver creates and closes two in-process Programs and reads their parsed options without building a host.
 func TestDriverLoadProgramClampsCheckerPoolToOne(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

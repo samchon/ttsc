@@ -11,6 +11,11 @@ import "testing"
 //  1. Install a counting canonicalizer on one mapper.
 //  2. Map the same absolute source path repeatedly.
 //  3. Require one canonicalization and one stable wire coordinate.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies repeated graph facts do not repeat filesystem canonicalization for the same raw source path.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: mapping the same absolute path 100 times under project C:/checkout/app must always return src/main.ts and call the replaceable canonicalizer exactly once. The test exercises the mapper through its canonicalize seam, so it proves caching, not the real EvalSymlinks result.
+// @evidence contracts/testing.md#distinguishing-cases Install a counting canonicalizer on one mapper; Map the same absolute source path repeatedly; Require one canonicalization and one stable wire coordinate.
+// @evidence contracts/testing.md#execution-ownership TestDumpPathMapperCachesAliasResolution is a Go source-unit entry. newDumpPathMapper execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpPathMapperCachesAliasResolution(t *testing.T) {
   mapper := newDumpPathMapper("C:/checkout/app")
   calls := 0

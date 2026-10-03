@@ -14,6 +14,11 @@ import (
 // 2. Assert the dependency owns provenance but no authored graph facts.
 // 3. Edit the dependency and assert the store publishes a complete replacement.
 // 4. Compare the replacement store with the full-dump oracle.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary proves the incremental store owns only workspace declarations while provenance still attests to every source the resident checker loaded.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a fixture where src/main.ts imports the raw-TypeScript package dep-src: the dependency must appear in provenance sources, must not be in the store's extracted files, its shard must hold no nodes or edges, and the only dependency node in the store must be an external node named dependencyValue; after editing the dependency the snapshot must be mode rebuild, changed, with one upsert per manifest entry and a changed checker digest for the dependency. The full-projection comparison runs another lane over the same compiler and extraction helpers, so it cannot independently detect a shared checker or extraction defect.
+// @evidence contracts/testing.md#distinguishing-cases Snapshot one workspace source that imports a raw TypeScript package; Assert the dependency owns provenance but no authored graph facts; Edit the dependency and assert the store publishes a complete replacement. 4. Compare the replacement store with the full-dump oracle.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T) {
   root := t.TempDir()
   dependencyPath := filepath.Join(root, "node_modules", "dep-src", "src", "index.ts")
@@ -34,7 +39,7 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
     t.Fatal(err)
   }
   defer session.Close()
-  if snapshot, _, _, err := session.SnapshotShards(); err != nil || snapshot == nil {
+  if snapshot, _, _, err := snapshotGraphShardState(session); err != nil || snapshot == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", snapshot != nil, err)
   }
 
@@ -78,7 +83,7 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   }
 
   writeGraphFile(t, dependencyPath, "export function dependencyValue(): number { return 2; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
-  replacement, mode, changed, err := session.SnapshotShards()
+  replacement, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

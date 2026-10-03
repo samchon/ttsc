@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FseventsStreams } from "../../../../../packages/ttsc/lib/launcher/internal/watch/FseventsStreams.js";
+import { FseventsStreams } from "../../../../../packages/ttsc/src/launcher/internal/watch/FseventsStreams";
 import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 
 /**
@@ -14,6 +14,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open watches on two sibling directories, each with its own stream.
  * 2. Open their ancestor and let the transfer rechecks run.
  * 3. Assert both child streams stop and both watches receive later events.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open transfers both sibling streams to their ancestor, stops both old streams, rechecks both watches once and routes subsequent sibling edits without cross-delivery.
+ * @evidence contracts/testing.md#independent-expectations Every displaced descendant must transfer, and a nonrecursive sibling must only receive its own direct entry. Literal complete recheck/change vectors and stop counts detect omission, duplication and sibling leakage independently.
+ * @evidence contracts/testing.md#distinguishing-cases Two separate child streams exercise more than singleton promotion; left a.ts and right b.ts are reciprocal isolation controls after transfer. The entire event vectors reject extra callbacks hidden by a last-event assertion.
+ * @evidence contracts/testing.md#execution-ownership This exported async source unit opens three streams through FakeFseventsBinding, drains the transfer microtask, emits on the replacement stream and closes all subscriptions. Native construction and OS kernel behavior are outside this unit.
  */
 export const test_fsevents_streams_take_over_disjoint_descendants =
   async (): Promise<void> => {
@@ -42,6 +47,8 @@ export const test_fsevents_streams_take_over_disjoint_descendants =
     binding.emit(2, path.join(right, "b.ts"), 0x1000);
     assert.deepEqual(leftEvents.at(-1), ["change", "a.ts"]);
     assert.deepEqual(rightEvents.at(-1), ["change", "b.ts"]);
+    assert.deepEqual(leftEvents, [["rename", null], ["change", "a.ts"]]);
+    assert.deepEqual(rightEvents, [["rename", null], ["change", "b.ts"]]);
     ancestor.close();
     leftWatch.close();
     rightWatch.close();

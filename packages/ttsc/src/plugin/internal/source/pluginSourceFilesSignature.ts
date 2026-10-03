@@ -12,12 +12,13 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  * A host that proves a plugin source often may keep the digest it read while
  * this signature holds still, as git keeps an index entry, and hand it to
  * `pluginSourceStateHolds` instead of reading every file again: a file added,
- * removed, renamed, or written moves the signature, provided each stamp's clock
- * tick had provably ended before the digest was read, so no later write can
- * reproduce it. What a stamp is, and whether its tick has ended, is the host's
- * to answer, since only the host owns a clock reference on the filesystem it
+ * removed or renamed changes the selected population, while content-write
+ * detection relies on the owner's reported metadata and separability premises.
+ * The signature itself does not read content or certify arbitrary metadata
+ * restoration. What metadata/separability proves is the host's to answer,
+ * since only the host owns a clock reference on the filesystem it
  * observes (`evidence`). The file list is ttsc's, so every host signs exactly
- * what the build keys on (samchon/ttsc#1492): `@ttsc/unplugin` keeps a digest
+ * what the build keys on: `@ttsc/unplugin` keeps a digest
  * per delivery this way, and the capability-resolution cache across processes.
  *
  * @param directory The plugin source directory, absolute.
@@ -27,9 +28,9 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  * @evidence contracts/common.md#principled-implementation Each selected file's relative path and caller-supplied metadata enter the signature, while all separability flags must hold; absent metadata rejects the proof rather than pretending an unreadable file is unchanged.
  * @evidence contracts/common.md#clear-and-simple-design The shared file population stays with ttsc while the observing owner supplies filesystem stamps and its clock-based separability judgment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The function does not infer safe reuse from a quiet watcher or a convenient timestamp; the consumer must establish each stamp's separability.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains added/removed/renamed files, ended clock ticks and why the observing host owns the metadata evidence callback.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains selected population changes and why metadata/separability premises and the evidence callback belong to the observing host, without equating this signature to content observation.
  * @evidence contracts/portability.md#os-neutral-implementation Native relative path spelling identifies files in this process; actual filesystem stamp precision and case capabilities are supplied by the observing owner.
- * @evidence contracts/performance.md#efficient-algorithms One sorted population walk and one evidence call per file avoid rereading source bytes while costing O(F) metadata work plus enumeration/sort.
+ * @evidence contracts/performance.md#efficient-algorithms Sorted enumeration includes native listing/path-text comparison costs. Each file invokes caller evidence and hashes relative-path/metadata-signature JSON bytes; callback cost is the observer's work and cannot be bounded by F alone. This function does not reread file content, but retains the full selected path population during the walk.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This returns the validation signature; the consumer owns the digest and permission to reuse it against that signature.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned signature and separability value survive; the callback's external observation resources remain caller-owned.

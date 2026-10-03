@@ -28,11 +28,15 @@
  * `withTtsc` compacts worker files into the main file before its workers exist,
  * under a process-shared lock for builds using the same project cache. Readers
  * take the union of every file, reading the worker files strictly before the
- * main file: the compactor renames the merged main into place strictly before
- * deleting a worker file, so a worker file that disappears mid-read is always
- * already merged into the main the reader loads afterwards. A worker file the
- * compactor could not delete stays, and the main names it as compacted, so no
- * reader or later compaction merges it twice.
+ * main file. The compactor renames each worker file to a claimed name first,
+ * renames the merged main into place next, and deletes the claimed files last.
+ * A name that vanishes between a reader's listing and its read may therefore be
+ * a claim whose merge is not published yet, so the reader lists again until a
+ * pass reads every name it saw, and degrades to a nonce when the directory does
+ * not settle. A claimed file deleted after the merge is already inside the main
+ * the reader loads afterwards. A worker file the compactor could not delete
+ * stays, and the main names it as compacted, so no reader or later compaction
+ * merges it twice.
  *
  * Sound degradations, by design:
  *
@@ -77,6 +81,9 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import type { SnapshotReadOperations } from "./SnapshotReadOperations";
+import type { TtscMetroProjectView } from "./TtscMetroProjectView";
+
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
 const SNAPSHOT_VERSION = 4;
 
@@ -94,6 +101,20 @@ const WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-";
 
 /** Prefix used after a compactor atomically claims an immutable worker file. */
 const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
+
+/**
+ * Listing passes a reader repeats while a listed snapshot name keeps vanishing
+ * before it can be read. Each repeat needs another compactor to rename or
+ * remove a file, so exhausting the bound means the directory is not settling
+ * and the state cannot be proven.
+ */
+const SNAPSHOT_LISTING_ATTEMPTS = 8;
+
+const HOST_SNAPSHOT_READ_OPERATIONS: SnapshotReadOperations = {
+  existsSync: (file) => fs.existsSync(file),
+  readFileSync: (file, encoding) => fs.readFileSync(file, encoding),
+  readdirSync: (directory) => fs.readdirSync(directory),
+};
 
 /** Directory lock serializing the one mutable main-snapshot rewrite. */
 const SNAPSHOT_COMPACTION_LOCK = "snapshot-compaction.lock";
@@ -225,8 +246,9 @@ export function resolveFingerprintBase(
 /**
  * The directories whose walk universes the fingerprint hashes. Implicit
  * selection searches from the base upward, so a config at the base uses that
- * walk and a config above it adds its directory. An explicit project inside
- * the base uses the base walk; one outside adds its directory. The separate
+ * walk and a config above it replaces the base walk with its own directory,
+ * which contains the base. An explicit project inside the base uses the base
+ * walk; one above the base replaces it; one elsewhere adds its directory. The separate
  * per-file project view can select a nested config below the base. Matching
  * the transform core's validation universe keeps the invariant simple:
  * everything it treats as an input is fingerprinted by the walk, the recorded
@@ -236,8 +258,10 @@ export function resolveFingerprintBase(
  *   The shared project resolver owns tsconfig selection; lexical path
  *   containment is separate from program membership.
  *   Blank explicit options mean implicit discovery. An in-root config avoids a
- *   duplicate whole-tree walk; an out-of-root config adds its directory
- *   because it can supply transform inputs.
+ *   duplicate whole-tree walk; a config above the base walks its own directory,
+ *   which contains the base, instead of hashing the base subtree twice; an
+ *   unrelated out-of-root config adds its directory because it can supply
+ *   transform inputs.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Project selection delegates to the shared resolver and containment to
@@ -299,79 +323,14 @@ function projectViewRoots(
   if (explicitProject === undefined && inside && directory !== resolvedBase) {
     return [directory];
   }
-  return inside ? [resolvedBase] : [resolvedBase, directory];
-}
-
-/**
- * One project, and the membership policy that describes it.
- *
- * The recorder's question is whether the project walk already covers an input,
- * so it needs both the walk's roots and the policy that walk used, and it is
- * wrong exactly when those two describe different projects. Passing them
- * separately made that mismatch expressible — the policy for one project
- * alongside the root of another — and passing the policy alone made it
- * expressible in a quieter way still, since a recorder that resolved its own
- * could describe a different program than the walk hashed. Both halves travel
- * together so neither can be supplied without the other (samchon/ttsc#1316).
- *
- * @evidence contracts/common.md#principled-implementation
- *   A readonly structural interface carries the selected config, discovery
- *   observations, membership policy and walk roots as one view.
- *   resolveProjectView supplies that coherent view to the recorder instead of
- *   independently resolving its parts.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   The view groups config, policy, roots and discovery observations so a
- *   recorder receives one selected project rather than independently chosen
- *   pieces. Readonly members prevent replacement through this interface.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   This data contract declares the view, not an algorithm or processing path.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Sharing the view is owned by callers; this interface coordinates no work.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The view carries values; its consumers own retention and native lifetimes.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The type does not structurally prohibit an inconsistent manually
- *   constructed value; it introduces no executable branches, consumer
- *   exceptions or foreign mutation.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Its strings retain lexical filesystem paths and its discovery entries
- *   retain identity predicates from the host. The interface does not
- *   normalize paths, invoke processes or equate filesystem paths with URLs.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains each readonly field, one selected project and
- *   the reason policy and roots travel together. Checked against the
- *   documentation skill: separate paragraphs state the contract and why its
- *   nonobvious boundary matters; field comments retain their own useful
- *   facts.
- */
-export interface TtscMetroProjectView {
-  /** The base directory both fingerprint sides agree on. */
-  readonly base: string;
-
-  /** Config candidates observed while selecting this transform's project. */
-  readonly discoveryInputs: readonly TtscWatchInput[];
-
-  /** The caller's explicit `project`, if any. */
-  readonly explicitProject: string | undefined;
-
-  /** The membership policy resolved for that project. */
-  readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
-
-  /** The policy used by the routed static walk. */
-  readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
-
-  /** Lexical roots whose fingerprint uses this project's policy. */
-  readonly roots: readonly string[];
-
-  /** The exact config selected for this project. */
-  readonly tsconfig: string;
+  if (inside) return [resolvedBase];
+  // A config above the base owns a walk that already contains the base
+  // subtree under the same membership policy, so walking the base as well would
+  // hash every file below it twice on each key. A config beside or elsewhere
+  // does not contain the base, so both roots stay.
+  return pathIsWithin(resolvedBase, directory)
+    ? [directory]
+    : [resolvedBase, directory];
 }
 
 /** One stable implicit-project view and the config graph that produced it. */
@@ -1147,9 +1106,8 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       return `${NON_REUSABLE_RUN_PREFIX}${runId}`;
     }
     // Read the worker files strictly before the main file (see the module doc
-    // comment): a concurrent compactor deletes a worker file only after the
-    // merged main is renamed into place, so whatever this enumeration misses
-    // is already inside the main read below.
+    // comment). The lock keeps another compactor from claiming or deleting a
+    // file during these reads, and a vanished name still forces a fresh listing.
     claimWorkerFiles(directory);
     const recovery = readUnhealthySnapshots(base);
     const workers = readWorkerFiles(directory);
@@ -1263,6 +1221,13 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
  * while holding a reusable run identity. A contending process therefore
  * degrades immediately to a nonce. The owner retires the directory atomically
  * after every success or failure path has persisted its verdict.
+ *
+ * A lock is reaped only when its recorded process is proven gone. An owner that
+ * died and whose process id now belongs to a live process, or a lock with an
+ * unreadable owner record, is treated as held: every run that meets it takes a
+ * nonce key and no reuse is lost silently, but the cache stays unusable until
+ * that process exits or `node_modules/.cache/ttsc-metro/snapshot-compaction.lock`
+ * is deleted by hand. Readers also treat a held lock as unsettled state.
  */
 function acquireSnapshotCompactionLock(
   directory: string,
@@ -1422,8 +1387,17 @@ function listExpiredKeyBaselines(directory: string): string[] {
 
 /**
  * Read the unioned snapshot state, or `undefined` when the main snapshot is
- * missing or any snapshot file is corrupt (a torn or foreign write means the
- * recorded set cannot be trusted, so the caller degrades to a nonce).
+ * missing, any snapshot file is corrupt (a torn or foreign write means the
+ * recorded set cannot be trusted, so the caller degrades to a nonce), or a
+ * concurrent compaction keeps renaming worker files so the listing never settles
+ * or a compaction lock stays held.
+ *
+ * `operations` is the read boundary (existence, listing, file text); the
+ * default reads the real filesystem, and a test passes its own to interleave a
+ * compaction with a listing. A pass is retried at most
+ * {@link SNAPSHOT_LISTING_ATTEMPTS} (8) times with a 5 ms pause between
+ * passes, so a held lock costs a call at most about 40 ms before the state is
+ * reported untrusted; the retry is bounded and holds no resource between passes.
  *
  * The result contains sorted absolute file and tree paths, the epoch identity,
  * and tainted/volatile flags. It reads persisted evidence without revalidating
@@ -1435,6 +1409,11 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   main publication, retaining file/tree/volatile/tainted state without
  *   replaying already compacted claims. This is the owned persisted-input
  *   protocol, not a separate compiler dependency model.
+ *   A pass is accepted only when no compaction lock existed before or after
+ *   it and the main file is unchanged, because a listing concurrent with a
+ *   rename can return the renamed entry under neither name.
+ *   The read boundary is an optional parameter, so the interleaving can be
+ *   driven deterministically while production reads the real filesystem.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   This reader validates persisted documents and unions their paths without
@@ -1468,11 +1447,56 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
  */
-export function readSnapshotState(base: string): SnapshotState | undefined {
+export function readSnapshotState(
+  base: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotState | undefined {
+  const directory = snapshotDirectory(base);
+  const lock = path.join(directory, SNAPSHOT_COMPACTION_LOCK);
+  // A directory listing taken while another process renames entries of that
+  // same directory is not guaranteed to return each renamed entry once: POSIX
+  // leaves it unspecified and NTFS orders entries by name, so a claimed worker
+  // file can appear under neither name, with its inputs not yet in the main
+  // file. A compaction holds the lock from its first claim until after it
+  // publishes the main file, so a pass counts only when no lock existed before
+  // or after it and the main file read the same on both sides. A compaction
+  // wholly inside the pass still changes the main file it publishes.
+  for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
+    if (!operations.existsSync(lock)) {
+      const before = readMainText(directory, operations);
+      const state = readSnapshotStateOnce(base, operations);
+      if (
+        !operations.existsSync(lock) &&
+        readMainText(directory, operations) === before
+      ) {
+        return state;
+      }
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+  }
+  return undefined;
+}
+
+/** The main snapshot's text, or `undefined` when it cannot be read. */
+function readMainText(
+  directory: string,
+  operations: SnapshotReadOperations,
+): string | undefined {
+  try {
+    return operations.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function readSnapshotStateOnce(
+  base: string,
+  operations: SnapshotReadOperations,
+): SnapshotState | undefined {
   if (unhealthySnapshots.has(base)) {
     return undefined;
   }
-  const recovery = readUnhealthySnapshots(base);
+  const recovery = readUnhealthySnapshots(base, operations);
   if (
     !recovery.readable ||
     recovery.paths.length !== 0 ||
@@ -1482,11 +1506,11 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   }
   const directory = snapshotDirectory(base);
   // Worker files strictly before the main file — see the module doc comment.
-  const workers = readWorkerFiles(directory);
+  const workers = readWorkerFiles(directory, operations);
   if (!workers.readable || workers.corruptPaths.length !== 0) {
     return undefined;
   }
-  const main = readMainDocument(directory);
+  const main = readMainDocument(directory, operations);
   if (main === undefined || typeof main.id !== "string") {
     return undefined;
   }
@@ -1523,21 +1547,25 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * any volatile declaration, compares compiler-generation evidence with the
  * matching main-process run baseline, and marks any temporal mismatch tainted.
  * A clean transform also writes a document so it can clear a volatile
- * declaration from an earlier run. The first or changed delivery flushes one
- * cumulative document; the unique name makes worker writes race-free, and
- * `withTtsc` compacts the files on the next run.
+ * declaration from an earlier run. The first delivery, a delivery that adds a
+ * path, and every delivery once the state is tainted flush one cumulative
+ * document; the unique name makes worker writes race-free, and `withTtsc`
+ * compacts the files on the next run.
  *
  * `record` accepts one lexical path without generation evidence; `recordMany`
  * accepts a module's generation evidence; `recordVolatile` withdraws the file
  * proof for non-file inputs. Without a run identity every input is retained;
  * production passes the identity whose immutable baseline was keyed in the main
- * process. An unknown or mismatching baseline marks the snapshot tainted.
+ * process. An unknown or mismatching baseline marks the snapshot tainted, and
+ * since `record` carries no evidence, a run identity always reads it as a
+ * mismatch.
  * Listing predicates retain their paths for the next run's key observation; the
  * worker never adds a new disk read to its earlier immutable baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
- * observed projects and distinct inputs. The first delivery and each changed
- * batch serialize the cumulative recorded set once, not once per input. A
+ * observed projects and distinct inputs. A flushing delivery serializes the
+ * cumulative recorded set once, not once per input, but a tainted state flushes
+ * on every delivery, so its cost grows with the recorded set for each module. A
  * failed write remains dirty for retry and tries recovery storage. If both
  * stores fail, a reusable run throws rather than publishing output backed by
  * lost evidence.
@@ -1561,9 +1589,10 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   Sets insert distinct inputs and a cached static-input Set checks coverage
- *   without searching the whole baseline. One changed module serializes the
+ *   without searching the whole baseline. A flushing module serializes the
  *   cumulative paths once, costing their count and encoded bytes rather than
- *   one cumulative serialization for every input.
+ *   one cumulative serialization for every input. A tainted state flushes on
+ *   every module, so that cost recurs per delivery until the worker ends.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Each base loads its immutable run baseline once and shares it across
@@ -1931,10 +1960,14 @@ function persistUnhealthySnapshot(
   );
 }
 
-function readUnhealthySnapshots(base: string): SnapshotDocuments {
+function readUnhealthySnapshots(
+  base: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotDocuments {
   return readSnapshotFiles(
     snapshotCacheDirectory(base),
     UNHEALTHY_SNAPSHOT_PREFIX,
+    operations,
   );
 }
 
@@ -2001,26 +2034,54 @@ function uncompactedWorkerEntries(
 
 /**
  * Read every worker snapshot file in `directory`. A file that disappears
- * mid-read was compacted (merged into the main snapshot first) and is skipped;
- * a file that exists but does not parse is reported in `corruptPaths` so
- * readers can degrade to a nonce and the compactor can sweep it.
+ * mid-read was renamed by a compactor, so the directory is listed again and the
+ * claimed copy is read under its new name; `readable` is false when the
+ * listing never settles. A file that exists but does not parse is reported in
+ * `corruptPaths` so readers can degrade to a nonce and the compactor can sweep
+ * it.
  */
-function readWorkerFiles(directory: string): {
+function readWorkerFiles(
+  directory: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): {
   corruptPaths: string[];
   entries: SnapshotDocument[];
   paths: string[];
   readable: boolean;
 } {
-  return readSnapshotFiles(directory, WORKER_SNAPSHOT_PREFIX);
+  return readSnapshotFiles(directory, WORKER_SNAPSHOT_PREFIX, operations);
 }
 
 function readSnapshotFiles(
   directory: string,
   prefix: string,
+  operations: SnapshotReadOperations,
 ): SnapshotDocuments {
+  // A name that vanishes between the listing and the read was renamed, not
+  // necessarily merged: compaction claims a worker file under a new name well
+  // before the merged main replaces the old one, so skipping the vanished name
+  // would leave its inputs in neither place the reader looks. List again until
+  // one pass reads every name it listed. The claimed copy then appears under
+  // its own name, and once the merged main is published and the claimed copy
+  // removed the main read that follows holds its content.
+  for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
+    const documents = readSnapshotListing(directory, prefix, operations);
+    if (documents !== undefined) {
+      return documents;
+    }
+  }
+  return { corruptPaths: [], entries: [], paths: [], readable: false };
+}
+
+/** One listing pass, or `undefined` when a listed name vanished before its read. */
+function readSnapshotListing(
+  directory: string,
+  prefix: string,
+  operations: SnapshotReadOperations,
+): SnapshotDocuments | undefined {
   let names: string[];
   try {
-    names = fs.readdirSync(directory);
+    names = operations.readdirSync(directory);
   } catch (error) {
     return {
       corruptPaths: [],
@@ -2039,11 +2100,12 @@ function readSnapshotFiles(
     const file = path.join(directory, name);
     let text: string;
     try {
-      text = fs.readFileSync(file, "utf8");
+      text = operations.readFileSync(file, "utf8");
     } catch (error) {
-      if (!isMissingFileError(error)) {
-        corruptPaths.push(file);
+      if (isMissingFileError(error)) {
+        return undefined;
       }
+      corruptPaths.push(file);
       continue;
     }
     const parsed = parseSnapshotDocument(text);
@@ -2066,10 +2128,16 @@ function isMissingFileError(error: unknown): boolean {
   );
 }
 
-function readMainDocument(directory: string): SnapshotDocument | undefined {
+function readMainDocument(
+  directory: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotDocument | undefined {
   let text: string;
   try {
-    text = fs.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
+    text = operations.readFileSync(
+      path.join(directory, MAIN_SNAPSHOT),
+      "utf8",
+    );
   } catch {
     return undefined;
   }

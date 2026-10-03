@@ -18,9 +18,15 @@ import (
 // 1. Build a fake sidecar that returns a command-backed action with `edit:null`.
 // 2. Ask NativePluginSource for code actions.
 // 3. Assert the action survives.
+//
+// @evidence contracts/testing.md#behavioral-verification CodeActions retains the owned command-backed action whose edit is explicitly null.
+// @evidence contracts/testing.md#independent-expectations LSP optional edit null is absence, while the advertised command remains executable.
+// @evidence contracts/testing.md#distinguishing-cases Explicit null is the accepted neighbor of the rejected nonnull direct edit.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceAcceptsNullCodeActionEdit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceAcceptsNullCodeActionEdit(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceNullEditSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceNullEditSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -35,6 +41,7 @@ func TestLSPNativePluginSourceAcceptsNullCodeActionEdit(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{})
   if len(actions) != 1 || actions[0].Command == nil || actions[0].Command.Command != "ttsc.fake.fix" {
     t.Fatalf("edit:null action was not preserved: %#v", actions)

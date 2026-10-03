@@ -1,26 +1,32 @@
 /**
- * Quote `token` for a `go.mod`/`go.work` line exactly as
- * `golang.org/x/mod/modfile`'s `AutoQuote` does: return it unchanged when it is
- * already a clean bare token, otherwise return its Go double-quoted form so the
- * value round-trips through the modfile lexer. A clean bare token is therefore
- * emitted byte-for-byte as before; only tokens that would otherwise be split or
- * interpreted as comments are quoted.
+ * Format a `go.mod`/`go.work` token using modfile's ASCII delimiter/comment
+ * rules and Go double-quoted escape spellings. Clean tokens remain unchanged.
+ * Printable categories come from the JavaScript runtime's Unicode tables,
+ * rather than the selected Go toolchain's tables, so this is not a universal
+ * byte-for-byte AutoQuote identity certificate across Unicode versions.
  *
- * @evidence contracts/common.md#principled-implementation The helpers reproduce modfile.MustQuote and strconv.Quote using printable Unicode categories and Go escape spellings; the ASCII-delimiter branch tests whether that delimiter is the sole code unit.
+ * Go token decoding requires Unicode scalar values. Malformed UTF-16 is not
+ * validated here: a lone surrogate becomes a surrogate escape that Go rejects,
+ * rather than a guaranteed lexer round-trip. Workspace consumers supply native
+ * path strings; this formatter neither validates their existence nor repairs
+ * malformed Unicode.
+ *
+ * @evidence contracts/common.md#principled-implementation The helpers use modfile ASCII delimiter/comment rules, runtime printable Unicode categories and Go escape spellings; the ASCII-delimiter branch tests whether that delimiter is the sole code unit. Unicode-table identity and malformed-UTF16 decoding are not certified.
  * @evidence contracts/common.md#clear-and-simple-design Quote selection, quoted emission and rune escaping remain separate private helpers under one token formatter.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Go grammar punctuation and control escapes are contract constants rather than consumer-specific path exceptions.
- * @evidence contracts/common.md#meaningful-documentation Owning prose explains clean-token preservation and comment/whitespace quoting; helper comments state the authoritative Go operations they mirror.
+ * @evidence contracts/common.md#meaningful-documentation Owning prose explains clean-token preservation, comment/whitespace quoting, runtime Unicode-table dependence and the malformed-UTF16 limit; helper comments distinguish Go-style rules from universal cross-runtime identity.
  * @evidence contracts/performance.md#efficient-algorithms Selection and quoted emission each traverse at most the token's code points, using constant-time delimiter length checks rather than an additional full byte-length scan.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This formats one caller-provided token and does not coordinate a retained computation across requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The formatter retains no state or external resource after returning its string.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation autoQuoteGoModToken computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function autoQuoteGoModToken(token: string): string {
   return mustQuoteGoModToken(token) ? goQuoteString(token) : token;
 }
 
-// Mirror `modfile.MustQuote`: report whether `s` must be quoted to appear as a
-// single token on a modfile line.
+// Apply modfile.MustQuote's ASCII grammar with runtime Unicode categories to
+// select quotation for a supplied JavaScript string.
 function mustQuoteGoModToken(s: string): boolean {
   for (const ch of s) {
     if (ch === " " || ch === '"' || ch === "'" || ch === "`") {
@@ -50,11 +56,9 @@ function mustQuoteGoModToken(s: string): boolean {
   return s === "" || s.includes("//") || s.includes("/*");
 }
 
-// Mirror `strconv.Quote`: wrap in double quotes, backslash-escape `"` and `\`,
-// emit Go-printable runes verbatim (including the ASCII space and printable
-// Unicode), and escape everything else with Go's `\a\b\f\n\r\t\v` / `\xNN` /
-// `\uNNNN` / `\UNNNNNNNN` forms so the token round-trips through
-// `strconv.Unquote` in the modfile lexer.
+// Emit Go-style quotes and escapes using JavaScript code-point iteration.
+// Runtime-printable characters pass through; malformed surrogate escapes are
+// not accepted by strconv.Unquote, as stated by the owning operation.
 function goQuoteString(s: string): string {
   let out = '"';
   for (const ch of s) {
@@ -100,8 +104,8 @@ function escapeGoRune(ch: string): string {
   }
 }
 
-// `strconv.IsPrint`: the graphic categories except that the ONLY spacing
-// character is the ASCII space (U+0020); other Unicode spaces are escaped.
+// strconv.IsPrint's category selection, using the runtime Unicode tables:
+// ASCII space is the sole admitted spacing character.
 const GO_PRINTABLE_RE = /^[\p{L}\p{M}\p{N}\p{P}\p{S}]$/u;
 
 function isGoPrintable(ch: string): boolean {

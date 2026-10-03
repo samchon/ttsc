@@ -16,9 +16,15 @@ import (
 // 1. Build a fake sidecar that owns ttsc.format.document and reflects stdin.
 // 2. Call ExecuteCommandWithContent with buffer text.
 // 3. Assert the returned edit's newText equals the piped buffer text.
+//
+// @evidence contracts/testing.md#behavioral-verification ExecuteCommandWithContent returns FLAG:const buffered = 1; from the fixture echo, proving the flag and stdin text crossed the process connection.
+// @evidence contracts/testing.md#independent-expectations The fixture reads actual stdin and independently marks flag presence; the supplied buffer defines the exact expected edit.
+// @evidence contracts/testing.md#distinguishing-cases Nonempty editor content is one of three explicit content-presence states sharing the same fixture program.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourcePipesContentStdin is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourcePipesContentStdin(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceContentStdinSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceContentStdinSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -33,6 +39,7 @@ func TestLSPNativePluginSourcePipesContentStdin(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
 
   uri := "file:///tmp/a.ts"
   arg, _ := json.Marshal(uri)
@@ -54,10 +61,21 @@ func TestLSPNativePluginSourcePipesContentStdin(t *testing.T) {
 
 // TestLSPNativePluginSourceOmitsContentStdinWhenEmpty verifies the existing
 // disk-formatting path is unchanged: with empty content the source must not
-// append --content-stdin nor pipe stdin, so the sidecar reports the flag absent.
+// append --content-stdin; the sidecar reports the flag absent and does not
+// inspect stdin in this branch.
+//
+// 1. Select the content-echo fixture from the shared native batch.
+// 2. Call ExecuteCommand through the ordinary disk-content path.
+// 3. Require one edit containing NOFLAG: without a content-presence marker.
+//
+// @evidence contracts/testing.md#behavioral-verification ExecuteCommand returns NOFLAG: from the fixture, establishing the ordinary disk-command path sends no content-stdin flag.
+// @evidence contracts/testing.md#independent-expectations The fixture independently reports the flag absence and only reads stdin when it is present.
+// @evidence contracts/testing.md#distinguishing-cases The ordinary no-content call is distinct from hasContent=true with an empty editor buffer and from nonempty content.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceOmitsContentStdinWhenEmpty is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceOmitsContentStdinWhenEmpty(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceContentStdinSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceContentStdinSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -72,6 +90,7 @@ func TestLSPNativePluginSourceOmitsContentStdinWhenEmpty(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
 
   uri := "file:///tmp/a.ts"
   arg, _ := json.Marshal(uri)
@@ -87,14 +106,24 @@ func TestLSPNativePluginSourceOmitsContentStdinWhenEmpty(t *testing.T) {
   }
 }
 
-// TestLSPNativePluginSourcePipesEmptyContentStdin pins the empty-buffer gate.
+// TestLSPNativePluginSourcePipesEmptyContentStdin verifies the empty-buffer gate.
 // When hasContent is true the source must append --content-stdin and pipe stdin
 // even though content is "", so an emptied editor buffer formats in-memory
 // instead of falling through to stale disk content. The sidecar reports the flag
 // present and echoes the (empty) stdin back.
+//
+// 1. Select the content-echo fixture from the shared native batch.
+// 2. Pass empty text with hasContent=true to ExecuteCommandWithContent.
+// 3. Require one edit containing FLAG: to distinguish present from absent content.
+//
+// @evidence contracts/testing.md#behavioral-verification ExecuteCommandWithContent with hasContent=true and empty text returns FLAG:, proving explicit empty content is not mistaken for missing content.
+// @evidence contracts/testing.md#independent-expectations The explicit content-presence contract makes an empty editor buffer authoritative instead of stale disk text.
+// @evidence contracts/testing.md#distinguishing-cases Empty-but-present input complements both nonempty content and the ordinary no-content command.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourcePipesEmptyContentStdin is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourcePipesEmptyContentStdin(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceContentStdinSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceContentStdinSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -109,6 +138,7 @@ func TestLSPNativePluginSourcePipesEmptyContentStdin(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
 
   uri := "file:///tmp/a.ts"
   arg, _ := json.Marshal(uri)

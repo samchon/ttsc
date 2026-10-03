@@ -20,6 +20,11 @@ import (
 // 1. Construct Foo.Bar via NewQualifiedName(Foo, Bar).
 // 2. Call NodeText on the qualified node.
 // 3. Assert the result is "Foo.Bar".
+//
+// @evidence contracts/testing.md#behavioral-verification NodeText joins the factory-built Foo.Bar qualified-name kind that lacks an upstream Text arm.
+// @evidence contracts/testing.md#independent-expectations The literal Foo.Bar expectation fixes the separator and both node payloads independently.
+// @evidence contracts/testing.md#distinguishing-cases A real qualified node distinguishes safe shim dispatch from a delegated upstream panic or identifier-only output.
+// @evidence contracts/testing.md#execution-ownership The shim and real AST factory execute in-process; typia and nestia integration remain distinct CI consumers.
 func TestNodeTextJoinsOneHopQualifiedName(t *testing.T) {
   factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
   left := factory.NewIdentifier("Foo")

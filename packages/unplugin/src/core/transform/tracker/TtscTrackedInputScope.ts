@@ -7,14 +7,16 @@
  * it without an event on each descendant. A content change of an ancestor never
  * counts. The scopes differ in what else they admit:
  *
- * - `content`: a `ReadFile`, so a content change of the path itself counts too.
+ * - `content`: a file read or a file-compatible mixed observation, so a content
+ *   change of the path itself counts too.
  * - `presence`: `FileExists`, `DirectoryExists`, `Stat`, or `Realpath` alone.
  *   Only a rename can change those answers, so neither a content change of the
  *   path (Windows reports a write below a directory as one) nor anything below
  *   it counts. This is what keeps a write under `node_modules`, which the
  *   resolver probes for existence alone, from counting against a generation.
- * - `children`: a directory listing (`GetAccessibleEntries`). A rename of a
- *   direct child adds or removes an entry; anything deeper does not.
+ * - `children`: a directory-qualified listing (`GetAccessibleEntries`). Empty
+ *   entry arrays alone do not establish this kind. A rename of a direct child
+ *   adds or removes an entry; anything deeper does not.
  * - `subtree`: a missing path's first missing component, whose creation can
  *   arrive through any descendant, or a directory whose observation is unknown
  *   and so keeps the conservative answer: any event on or below it.
@@ -35,6 +37,19 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose and the parallel variant list explain events and reasons;
  *   the type remains the documentation authority under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The variants define the native notification boundary's content, direct-child
+ *   and recursive dependencies. Supplied file kind and watch capability govern
+ *   classification and admission; event spelling does not prove native identity.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTrackedInputScope only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTrackedInputScope only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTrackedInputScope only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscTrackedInputScope =
   | "children"

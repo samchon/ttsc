@@ -20,9 +20,15 @@ import (
 // 1. Build a fake sidecar that returns a CodeAction with an inline edit.
 // 2. Ask NativePluginSource for code actions.
 // 3. Assert the action is dropped and the bridge logs the rejection.
+//
+// @evidence contracts/testing.md#behavioral-verification CodeActions drops an inline WorkspaceEdit action and logs returned direct LSP edit.
+// @evidence contracts/testing.md#independent-expectations The saved-file sidecar contract routes changes through owned commands and cannot certify version-aware direct edits.
+// @evidence contracts/testing.md#distinguishing-cases A real nonnull edit is rejected while explicit edit:null with an owned command survives.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceDropsDirectCodeActionEdit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceDropsDirectCodeActionEdit(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceDirectEditSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceDirectEditSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -39,6 +45,7 @@ func TestLSPNativePluginSourceDropsDirectCodeActionEdit(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); len(actions) != 0 {
     t.Fatalf("direct-edit action was not dropped: %#v", actions)
   }

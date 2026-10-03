@@ -1,50 +1,14 @@
-import { spawn, spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
-import {
-  nonNegativeIntegerOption,
-  parseLauncherOptions,
-  positiveIntegerOption,
-  projectOptions,
-} from "./launcherArgs";
-import { parseDump } from "./model/loadGraph";
+import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
+import { TtscGraphViewSnapshot } from "./TtscGraphViewSnapshot";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
-
-interface ViewOptions {
-  cwd: string;
-  tsconfig: string;
-  port: number;
-  open: boolean;
-  maxNodes: number;
-}
-
-function parseViewArgs(argv: readonly string[]): ViewOptions {
-  const values = parseLauncherOptions(argv, [
-    { key: "cwd", flags: ["--cwd"], kind: "value" },
-    { key: "tsconfig", flags: ["--tsconfig", "-p"], kind: "value" },
-    { key: "port", flags: ["--port"], kind: "value" },
-    { key: "open", flags: ["--no-open"], kind: "flag" },
-    { key: "max_nodes", flags: ["--max-nodes"], kind: "value" },
-  ]);
-  const project = projectOptions(values);
-  return {
-    ...project,
-    port:
-      values.has("port") === true
-        ? nonNegativeIntegerOption(values, "port", 65_535)
-        : 0,
-    open: values.get("open") !== true,
-    maxNodes:
-      values.has("max_nodes") === true
-        ? positiveIntegerOption(values, "max_nodes", Number.MAX_SAFE_INTEGER)
-        : 1200,
-  };
-}
 
 /**
  * `ttsc-graph view`: build the project's code graph, reduce it, and serve a
@@ -62,7 +26,7 @@ function parseViewArgs(argv: readonly string[]): ViewOptions {
  * @evidence contracts/performance.md#bound-retention-and-release-resources Capture descriptors are disposed in finally; the HTTP server and payload remain process-owned until shutdown, and listen failure closes active connections.
  */
 export function runView(argv: readonly string[]): number | void {
-  const opts = parseViewArgs(argv);
+  const opts = TtscGraphLauncherArguments.view(argv);
 
   // Anchor binary resolution at the project selected by `--cwd`, so `view` from
   // an unrelated directory still finds the `ttsc` installed under the target.
@@ -94,7 +58,7 @@ export function runView(argv: readonly string[]): number | void {
       cwd: opts.cwd,
       tsconfig: opts.tsconfig,
     });
-    dump = spawnSync(
+    dump = GraphProcessTrace.spawnSync(
       binary,
       [
         "dump",
@@ -123,20 +87,13 @@ export function runView(argv: readonly string[]): number | void {
     return dump.status ?? 1;
   }
 
-  let raw: ReturnType<typeof parseDump>;
-  try {
-    raw = parseDump(dumpStdout);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(
-      message.startsWith("@ttsc/graph:")
-        ? `${message}\n`
-        : `@ttsc/graph: could not validate the graph dump: ${message}\n`,
-    );
-    return 1;
+  const snapshot = TtscGraphViewSnapshot.decode(dumpStdout);
+  if (!snapshot.ok) {
+    process.stderr.write(snapshot.diagnostic);
+    return snapshot.code;
   }
 
-  const payload = reduce(raw, { maxNodes: opts.maxNodes });
+  const payload = reduce(snapshot.raw, { maxNodes: opts.maxNodes });
   payload.project = path.basename(path.resolve(opts.cwd));
   const graphJson = JSON.stringify(payload);
 
@@ -211,7 +168,7 @@ export function runView(argv: readonly string[]): number | void {
 function openBrowser(url: string): void {
   try {
     if (process.platform === "win32")
-      spawn("cmd", ["/c", "start", "", url], {
+      GraphProcessTrace.spawn("cmd", ["/c", "start", "", url], {
         stdio: "ignore",
         detached: true,
         windowsHide: true,
@@ -219,11 +176,11 @@ function openBrowser(url: string): void {
         .on("error", () => undefined)
         .unref();
     else if (process.platform === "darwin")
-      spawn("open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("open", [url], { stdio: "ignore", detached: true })
         .on("error", () => undefined)
         .unref();
     else
-      spawn("xdg-open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("xdg-open", [url], { stdio: "ignore", detached: true })
         .on("error", () => undefined)
         .unref();
   } catch {

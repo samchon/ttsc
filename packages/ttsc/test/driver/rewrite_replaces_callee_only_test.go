@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteReplacesCalleeOnly verifies rewrites can replace just the
+// TestDriverRewriteReplacesCalleeOnly Verifies rewrites can replace just the
 // callee prefix while preserving the original argument list.
 //
 // This covers the non-consuming rewrite mode used when generated output should
@@ -19,6 +19,11 @@ import (
 // 1. Compile a plugin call with one runtime argument.
 // 2. Register a rewrite with ConsumeParens disabled.
 // 3. Assert the replacement function receives the original argument list.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll replaces the callee while keeping the original argument list.
+// @evidence contracts/testing.md#independent-expectations ConsumeParens=false and the authored kept argument ground the expected call.
+// @evidence contracts/testing.md#distinguishing-cases Non-consuming mode contrasts with full-expression replacement.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverRewriteReplacesCalleeOnly is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverRewriteReplacesCalleeOnly(t *testing.T) {
   root := t.TempDir()
 

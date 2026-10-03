@@ -18,6 +18,11 @@ import (
 //  1. Commit a project whose consumer imports a module that does not exist yet.
 //  2. Create that module and request another shard snapshot.
 //  3. Require a shard for the new source and a replaced shard for its dependent.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a source that appears while the session is resident enters the generation as its own shard and unblocks the dependents that could not resolve it before.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a consumer that imports a not-yet-existing ./later: after src/later.ts is created, the snapshot must be changed with BaseGeneration equal to the initial generation, the new source must hold a committed shard key that is upserted, and the consumer's shard key must differ from its initial key and be upserted, because its import newly resolved. The snapshot mode is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases Commit a project whose consumer imports a module that does not exist yet; Create that module and request another shard snapshot; Require a shard for the new source and a replaced shard for its dependent.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsPublishCreatedSource is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsPublishCreatedSource(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -32,7 +37,7 @@ func TestServeShardsPublishCreatedSource(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  initial, mode, changed, err := session.SnapshotShards()
+  initial, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -52,7 +57,7 @@ func TestServeShardsPublishCreatedSource(t *testing.T) {
   createdFile := filepath.Join(root, "src", "later.ts")
   writeGraphFile(t, createdFile, "export function later(): number { return 7; }\n")
 
-  next, mode, changed, err := session.SnapshotShards()
+  next, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

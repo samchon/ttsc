@@ -9,7 +9,9 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  *
  * Every snapshot must be anchored at the selected project root; a plugin that
  * resolved a different root is an error rather than a silent union. Entries are
- * deduplicated by filesystem identity, so aliases of one file collapse. The
+ * deduplicated by the resolver's native identity keys. Aliases sharing an
+ * observed target key collapse; unknown/missing identities preserve their
+ * resolver distinctions rather than certifying every hard-link/inode alias. The
  * spellings the plugins actually published survive under `declared` whenever
  * they differ from the normalized ones, because a watcher has to observe a
  * symlink itself, not only the file it currently points at.
@@ -23,10 +25,10 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alias retention follows filesystem identity and the watch contract, rather than replacing filesystem methods or recognizing particular projects.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain root rejection, physical deduplication and why declared aliases survive; parameter documentation is separated from acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation The supplied identity context owns filesystem capabilities; node:path resolves native declarations and only glob output changes separators to protocol slashes.
- * @evidence contracts/performance.md#efficient-algorithms Each declaration performs map/set membership instead of scanning earlier aliases; canonical sorting costs O(U log U) for U retained entries after identity resolution.
+ * @evidence contracts/performance.md#efficient-algorithms Declarations use map/Set membership and one memoized native identity context, including delegated filesystem capability/ancestor observations. Path resolution/normalization and canonical comparisons have text costs. Unique entries and all retained declared aliases are separately flattened/sorted, so counts and bytes of both populations drive time/storage, not only unique identities.
  * @evidence contracts/performance.md#reuse-equivalent-work One identity context memoizes resolution across roots and repeated declarations in this merge; its caller controls reuse beyond this transaction and must invalidate changed filesystem observations.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources These maps are local to the merge and returned snapshot; the supplied identity context and watcher own retained state beyond this operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Maps, Sets and a default identity memo are call-local; returned snapshot arrays transfer to the caller. A supplied identity context may outlive this merge under its caller's invalidation policy; no independent descriptor, watcher or historical snapshot is retained by this function.
  */
 export function mergeProjectInputSnapshots(
   fallbackRoot: string,

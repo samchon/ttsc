@@ -5,7 +5,6 @@ import { resolveFilesystemPath } from "ttsc/path-identity";
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
-import { walkEnumeratesDirectory } from "../project/walkEnumeratesDirectory";
 import { isDeclarationFile } from "../utils/isDeclarationFile";
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
@@ -23,17 +22,32 @@ import { selectListedFiles } from "./selectListedFiles";
  * Identity-keyed adjacency supports reachability, while lexical proof keys
  * preserve the exact compiler predicate calls. Malformed or contradictory
  * proof records cannot become usable observations. Directory listings already
- * covered by project membership are omitted only when other predicates remain;
- * universal resolver listings keep their independent observation.
+ * recorded as enumerated by a complete pre-compile membership walk are omitted
+ * only when other predicates remain; universal resolver listings keep their
+ * independent observation. Lexical policy eligibility alone supplies no such
+ * traversal proof for linked or unreadable directories.
  *
- * @evidence contracts/common.md#principled-implementation The index separates physical graph membership from lexical predicates, normalizes untrusted proof shapes and makes conflicting duplicate observations permanently unusable; listing reduction relies on the recorded project membership covering that enumeration.
- * @evidence contracts/common.md#clear-and-simple-design One lazy builder centralizes graph and proof indexing; normalization, predicate compatibility, legacy projection and membership coverage remain delegated to their owning helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts First-match spellings and explicit conflict/failure sets preserve producer semantics; malformed evidence is not patched with a later host observation or a consumer-specific expected hash.
+ * @evidence contracts/common.md#principled-implementation The index separates physical graph membership from lexical predicates, normalizes untrusted proof shapes and makes conflicting duplicate observations permanently unusable; listing reduction requires the exact lexical path in a complete pre-compile enumeration under the matching compiler case policy, rather than mere path eligibility.
+ * @evidence contracts/common.md#clear-and-simple-design One lazy builder centralizes graph and proof indexing; normalization, predicate compatibility and legacy projection remain delegated, while listing reduction checks the capture owner's already recorded enumeration set.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Edge sources preserve their latest recorded spelling while other member insertions retain an existing spelling; explicit conflict/failure sets prevent contradictory proof reuse. Malformed evidence is not patched with a later host observation or a consumer-specific expected hash.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish identity indexing, lexical predicates, malformed evidence and the directory-listing exception; inline reasons explain the nonobvious proof reductions with documentation-skill paragraph and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation Native project paths resolve through the shared identity context; reported realpaths use the producer filesystem's win32 or posix path semantics rather than blindly treating a foreign-platform spelling as a host path.
- * @evidence contracts/performance.md#efficient-algorithms One scan indexes edges, candidates and proof records; duplicate predicate merges additionally inspect their recorded list contents. Maps and sets avoid rebuilding membership and key lookup for each module delivery.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Maps, arrays and copied predicate lists remain in the weakly owned
+ *   generation state, with populations driven by graph entries, retained target
+ *   occurrences and proof/list text. No independent historical cache or watcher
+ *   handle is acquired. Temporary construction sets and serialization strings
+ *   become collectible after construction; retained indexes leave with state.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Multiple linear passes collect edges, realized members, candidates and
+ *   proofs so later candidate sources cannot be misclassified as speculative.
+ *   Path resolution and memoized native identity add spelling/ancestor costs;
+ *   normalization copies each reported list and duplicate merges serialize
+ *   overlapping predicates, retaining their entry/text cost. Object.entries,
+ *   filtered candidates, target arrays and selected sets allocate temporary
+ *   population-sized storage. Maps and sets support keyed lookup; no per-module
+ *   rebuild is needed for the immutable generation.
  * @evidence contracts/performance.md#reuse-equivalent-work state.graph stores the completed index once for an immutable envelope, root and membership snapshot; every delivery shares it without repeating producer parsing or filesystem identity resolution.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Index maps retain only the current generation's graph members, proofs and conflicts on weakly owned state; temporary construction sets do not escape and no watcher handles are acquired.
  */
 export function envelopeGraphIndexes(
   state: TtscEnvelopeDerivation,
@@ -74,8 +88,7 @@ export function envelopeGraphIndexes(
       built.memberSpellings.add(absolute);
       built.spellings.set(identity, absolute);
       const entries = built.edges.get(identity) ?? [];
-      entries.push(
-        ...targets
+      for (const entryToAppend of targets
           .filter(
             (target): target is string =>
               typeof target === "string" && target.length !== 0,
@@ -88,12 +101,11 @@ export function envelopeGraphIndexes(
               built.spellings.set(targetIdentity, absoluteTarget);
             }
             return absoluteTarget;
-          }),
-      );
+          })) entries.push(entryToAppend);
       built.edges.set(identity, entries);
     }
-    built.globals.push(...selectListedFiles(props.projectRoot, graph.globals));
-    built.configs.push(...selectListedFiles(props.projectRoot, graph.configs));
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.globals)) built.globals.push(entryToAppend);
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.configs)) built.configs.push(entryToAppend);
     for (const input of [...built.globals, ...built.configs]) {
       const identity = derivationIdentity(state, input);
       built.memberSpellings.add(path.resolve(input));
@@ -115,9 +127,7 @@ export function envelopeGraphIndexes(
       }
     }
     const realized = new Set(built.memberSpellings);
-    built.resolutionInputs.push(
-      ...selectListedFiles(props.projectRoot, graph.resolutionInputs),
-    );
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.resolutionInputs)) built.resolutionInputs.push(entryToAppend);
     for (const input of built.resolutionInputs) {
       const spelling = path.resolve(input);
       const identity = derivationIdentity(state, input);
@@ -202,9 +212,10 @@ export function envelopeGraphIndexes(
     // proves under the same policy (`walkProjectInputs`), and proving the raw
     // listing instead failed the generation, measured on a Turbopack pool, for
     // every unrelated file a framework wrote beside the project. The listing is
-    // kept where the walk does not enumerate the directory, where automatic
-    // type discovery read it as a type root, which the walk does not model,
-    // and where it is the only predicate the path carries.
+    // kept where the complete pre-compile walk did not enumerate the exact
+    // lexical directory, including skipped links and failed enumeration, where
+    // automatic type discovery read it as a type root, which the walk does not
+    // model, and where it is the only predicate the path carries.
     const membership = TRANSFORM_RESULT_MEMBERSHIP.get(props.result);
     if (membership !== undefined) {
       const universalInputs = new Set(
@@ -220,11 +231,7 @@ export function envelopeGraphIndexes(
         const { accessibleEntries: _listing, ...remaining } = observation;
         if (
           Object.values(remaining).every((value) => value === undefined) ||
-          !walkEnumeratesDirectory(
-            membership.projectRoot,
-            spelling,
-            membership.policy,
-          )
+          !membership.enumeratedDirectories.has(spelling)
         ) {
           continue;
         }

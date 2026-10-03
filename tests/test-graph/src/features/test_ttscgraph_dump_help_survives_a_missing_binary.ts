@@ -1,107 +1,48 @@
-import { TestProject } from "@ttsc/testing";
-import fs from "node:fs";
-import path from "node:path";
+import assert from "node:assert/strict";
 
-import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
+import { TtscGraphLauncherArguments } from "../../../../packages/graph/src/TtscGraphLauncherArguments";
 
 /**
- * Verifies `dump --help` still answers when the native binary cannot be found.
+ * Verifies the missing-binary dump fallback answers help with usage and fails other commands.
  *
- * `dump` forwards every flag to `ttscgraph`, which owns the contract and
- * answers `--help` itself. When no platform package is installed the launcher
- * used to fail resolution first, so the one command that could tell a caller
- * what to install was reachable only by callers who had already installed it.
- * The fallback must stay a fallback: an ordinary `dump` with no binary is still
- * an error, and a resolvable binary must keep owning help.
+ * runDump consults TtscGraphLauncherArguments.missingDump only after binary
+ * resolution returns null. Help spellings must then succeed with a usage summary
+ * that names the native authority, any other dump must fail with the
+ * installation diagnostic, and a resolved binary's help must be forwarded
+ * unchanged.
  *
- * 1. Run from an empty project with no resolvable binary and no override.
- * 2. Assert every help spelling exits 0 with usage naming the native authority.
- * 3. Assert an ordinary `dump` still fails, and that a resolvable binary receives
- *    `--help` instead of the launcher answering for it.
+ * 1. Parse each of --help, -help and -h as dump arguments and require code 0, a
+ *    "Usage: ttsc-graph dump" stdout naming ttscgraph and no stderr.
+ * 2. Require missingDump(["--pretty"]) to return code 1 with the could-not-resolve
+ *    stderr diagnostic and no stdout.
+ * 3. Require dumpVector(["--help"], null) to forward ["dump", "--help"] and
+ *    dumpCompletion({ status: 23 }) to return code 23.
+ *
+ * @evidence contracts/testing.md#behavioral-verification For each of --help, -help and -h, TtscGraphLauncherArguments.dump must accept the argument and missingDump must return code 0 with a stdout starting "Usage: ttsc-graph dump" that mentions ttscgraph and no stderr; missingDump(["--pretty"]) must return code 1 with the could-not-resolve diagnostic on stderr and no stdout; dumpVector(["--help"], null) must return ["dump", "--help"] and dumpCompletion({ status: 23 }) must return { code: 23 }.
+ * @evidence contracts/testing.md#independent-expectations The alias list, the codes 0, 1 and 23, the usage-heading and diagnostic patterns and the literal argv are authored in the test; no executable produces the expected output. Only the heading and the word ttscgraph of the help body are matched, so drift in the rest of the summary is not detected.
+ * @evidence contracts/testing.md#distinguishing-cases The three help aliases contrast an ordinary --pretty dump (success with usage versus installation failure), and the forwarded ["dump", "--help"] vector with exit status 23 contrast the fallback with delegation to an installed binary. The missing binary is modeled by calling missingDump directly, not by running runDump.
+ * @evidence contracts/testing.md#execution-ownership Calls the pure TtscGraphLauncherArguments operations dump, missingDump, dumpVector and dumpCompletion in the test process; binary resolution, process spawning and the stdout/stderr writes of runDump are not executed.
  */
-export const test_ttscgraph_dump_help_survives_a_missing_binary = () => {
-  // An empty temporary project: no `ttsc` to resolve a platform package from,
-  // and no `TTSC_GRAPH_BINARY` override. Pointing the override at a missing
-  // file would not model this — `resolveGraphBinary` returns an absolute
-  // override unchecked, so that produces a spawn failure, not an unresolved
-  // binary, and would exercise the wrong branch entirely.
-  const root = TestProject.tmpdir("ttscgraph-dump-help-");
-
-  const run = (args: string[], binary?: string, marker?: string) =>
-    TestProject.spawn(process.execPath, [resolveGraphLauncher(), ...args], {
-      cwd: root,
-      env: {
-        ...process.env,
-        TTSC_GRAPH_BINARY: binary ?? "",
-        ...(marker === undefined ? {} : { TTSCGRAPH_MARKER: marker }),
-      },
-      timeout: 30_000,
-    });
-
+export function test_ttscgraph_dump_help_survives_a_missing_binary(): void {
+  const failures: unknown[] = [];
   for (const flag of ["--help", "-help", "-h"]) {
-    const result = run(["dump", flag]);
-    assert.equal(
-      result.status,
-      0,
-      `dump ${flag} without a binary exits successfully\nstderr: ${result.stderr}`,
-    );
-    assert.match(
-      result.stdout ?? "",
-      /^Usage: ttsc-graph dump/m,
-      `dump ${flag} writes usage`,
-    );
-    // The summary is not the contract. A reader has to be told where the real
-    // list lives, or a drifted copy silently becomes the answer.
-    assert.match(
-      result.stdout ?? "",
-      /ttscgraph/,
-      `dump ${flag} names the native authority`,
-    );
+    try {
+      TtscGraphLauncherArguments.dump([flag]);
+      const result = TtscGraphLauncherArguments.missingDump([flag]);
+      assert.equal(result.code, 0);
+      assert.match(result.stdout ?? "", /^Usage: ttsc-graph dump/mu);
+      assert.match(result.stdout ?? "", /ttscgraph/u);
+      assert.equal(result.stderr, undefined);
+    } catch (error) { failures.push(error); }
   }
-
-  // The fallback is scoped to help. Resolution failure is still an error for
-  // the command that actually needs the binary.
-  const ordinary = run(["dump", "--pretty"]);
-  assert.notEqual(
-    ordinary.status,
-    0,
-    `an ordinary dump without a binary still fails\nstdout: ${ordinary.stdout}`,
-  );
-  assert.match(
-    ordinary.stderr ?? "",
-    /could not resolve the ttscgraph binary/,
-    "the resolution error is preserved",
-  );
-
-  // A resolvable binary keeps owning help, so the two texts cannot diverge for
-  // anyone who has it installed.
-  const sentinel = TestProject.tmpdir("ttscgraph-dump-help-sentinel-");
-  const marker = path.join(sentinel, "native-marker.json");
-  const binary = path.join(sentinel, "ttscgraph");
-  fs.writeFileSync(
-    binary,
-    [
-      "#!/usr/bin/env node",
-      "const fs = require('node:fs');",
-      "fs.writeFileSync(process.env.TTSCGRAPH_MARKER, JSON.stringify(process.argv.slice(2)));",
-      "process.exit(23);",
-      "",
-    ].join("\n"),
-  );
-  fs.chmodSync(binary, 0o755);
-  // Windows cannot mark the sentinel executable, so the forwarding half only
-  // runs where spawning it can actually succeed.
-  if (process.platform !== "win32") {
-    const forwarded = run(["dump", "--help"], binary, marker);
-    assert.equal(
-      forwarded.status,
-      23,
-      `a resolvable binary answers dump --help itself\nstdout: ${forwarded.stdout}`,
-    );
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(marker, "utf8")) as string[],
-      ["dump", "--help"],
-      "the help flag reaches the native binary unchanged",
-    );
-  }
-};
+  try {
+    TtscGraphLauncherArguments.dump(["--pretty"]);
+    const ordinary = TtscGraphLauncherArguments.missingDump(["--pretty"]);
+    assert.equal(ordinary.code, 1);
+    assert.match(ordinary.stderr ?? "", /could not resolve the ttscgraph binary/u);
+    assert.equal(ordinary.stdout, undefined);
+    assert.deepEqual(TtscGraphLauncherArguments.dumpVector(["--help"], null), ["dump", "--help"]);
+    assert.deepEqual(TtscGraphLauncherArguments.dumpCompletion({ status: 23 }), { code: 23 });
+  } catch (error) { failures.push(error); }
+  if (failures.length !== 0) throw new AggregateError(failures, "dump help source controls failed");
+}

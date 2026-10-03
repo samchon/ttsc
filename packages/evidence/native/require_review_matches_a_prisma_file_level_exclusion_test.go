@@ -8,9 +8,8 @@ import "testing"
  *
  * A file-level Prisma carrier has no semantic claim host: its exclusion reaches
  * the review ledger only through the declaration-side source-position fallback.
- * Every existing Prisma review test stops at parsing, so removing that fallback
- * left every ledger exclusion permanently unreviewed while the suite stayed
- * green. The wrong-host arm also prevents a target-only lookup from letting a
+ * Parsing-only coverage does not exercise that fallback; without it, a ledger
+ * exclusion remains unreviewed despite a review in its own file-level run. The wrong-host arm also prevents a target-only lookup from letting a
  * review on a model answer for the file carrier.
  *
  *  1. Exclude one Markdown section from an unattached Prisma `///` run and read
@@ -19,6 +18,11 @@ import "testing"
  *     unreviewed.
  *  3. Move the fingerprinted review beside the exclusion and assert the graph
  *     is clean.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot uses the built Prisma parser for a file-level exclusion; a token on Sale must leave it unreviewed, while the same token beside the file carrier must pass.
+ * @evidence contracts/testing.md#independent-expectations A file-level carrier is matched by its source position, not by an unrelated model's review. The diagnostic-derived token cannot independently establish hashing.
+ * @evidence contracts/testing.md#distinguishing-cases Bare, wrong-model-host and correctly co-located review states share one workspace root and fixed Markdown content.
+ * @evidence contracts/testing.md#execution-ownership TestRequireReviewMatchesAPrismaFileLevelExclusion is a Go unit entry of package evidence, run by go test in the package process. It calls the loader functions it names and, through them, the Node parser or normalizer child that the built lib/internal loader provides; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestRequireReviewMatchesAPrismaFileLevelExclusion(t *testing.T) {
   config := `{"claims":[{

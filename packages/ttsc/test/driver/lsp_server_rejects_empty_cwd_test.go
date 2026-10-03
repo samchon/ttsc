@@ -9,14 +9,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerRejectsEmptyCwd verifies the early-validation path in
-// RunLSPServer. tsgo's lsp.NewServer panics on an empty Cwd; the wrapper
-// converts that into a typed error so editor hosts surface a clean
-// message instead of a stack trace.
+// TestLSPServerRejectsEmptyCwd Verifies that RunLSPServer rejects empty Cwd with ErrLSPCwdRequired.
+//
+// Rejection precedes reading deliberately unusable input; valid Cwd is exercised elsewhere.
 //
 // 1. Call RunLSPServer with Cwd="".
 // 2. Assert ErrLSPCwdRequired is returned.
-// 3. Assert no goroutines were started (function returns before any).
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer rejects empty Cwd with ErrLSPCwdRequired.
+// @evidence contracts/testing.md#independent-expectations The public required-working-directory precondition establishes the sentinel.
+// @evidence contracts/testing.md#distinguishing-cases Rejection precedes reading deliberately unusable input; valid Cwd is exercised elsewhere.
+// @evidence contracts/testing.md#execution-ownership This Go entry calls the public early validation path directly without starting a runner. Go discovers TestLSPServerRejectsEmptyCwd under ./test/driver.
 func TestLSPServerRejectsEmptyCwd(t *testing.T) {
   err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
     In:  io.NopCloser(nil),

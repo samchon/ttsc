@@ -2,18 +2,19 @@ import { type AnyNode, parse as parseJavaScript } from "acorn";
 import { parse as parseCommonJs } from "cjs-module-lexer";
 
 /**
- * Node's export metadata plus the scoped star helpers ttsx already supports.
- * Node's frozen lexer patterns omit helpers inside blocks and functions. An AST
+ * CommonJS lexer metadata plus the scoped star helpers ttsx already supports.
+ * Base lexer patterns can omit helpers inside blocks and functions. An AST
  * supplies those calls without interpreting regex or template text as code.
  *
- * @evidence contracts/common.md#principled-implementation Native lexer metadata remains authoritative, while Acorn node kinds identify supported literal require/export-star shapes without treating comments or string contents as code; this is metadata discovery, not evaluation or lexical binding analysis.
+ * @evidence contracts/common.md#principled-implementation The maintained cjs-module-lexer metadata remains the base, while Acorn node kinds identify supported literal require/export-star shapes without treating comments or string contents as code; this is metadata discovery, not evaluation or lexical binding analysis.
  * @evidence contracts/common.md#clear-and-simple-design A native parse plus one optional AST walk isolates supplemental star discovery; the node predicate admits only structured parser nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported helper spellings are the transform protocol, and parser failures preserve native metadata so Node's actual loader still owns syntax rejection.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the metadata boundary and why an AST supplements the frozen lexer; failure comments distinguish discovery from loading.
- * @evidence contracts/performance.md#efficient-algorithms The initial lexer scans source bytes; AST work is skipped without the helper marker, otherwise each node is visited once and K matching calls are sorted by source position in O(K log K) with O(nodes + K) temporary storage.
+ * @evidence contracts/performance.md#efficient-algorithms The lexer and helper-marker scan process source text. Supplemental Acorn parsing/walking visits AST child references and property arrays; K matched calls sort by numeric source position in O(K log K). Deduplication hashes specifier text; AST/pending/matches and returned name arrays scale with source and discovered metadata, without a configured source-size or recursion-depth cap.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This per-source parser owns no cross-request coordinator; consumers choose whether identical transformed source metadata can be reused.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parser nodes and pending matches are call-local; no handle, task or historical cache is acquired.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources AST, pending references and matches are call-local; returned lexer arrays/deduplicated specifier strings belong to the caller. No native handle, task or historical cache is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The body interprets in-memory JavaScript syntax and literal reexport strings, without resolving native paths or executing loader/process APIs. The consuming runtime owns native resolution and module loading.
  */
 export function parseCommonJsExports(
   source: string,

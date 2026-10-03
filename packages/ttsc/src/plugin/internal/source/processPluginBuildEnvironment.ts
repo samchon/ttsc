@@ -1,16 +1,4 @@
-import crypto from "node:crypto";
-
-import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
-import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
-
-/**
- * The build environments this process read, by directory and by the process's
- * variables at the read, each with the metadata of the paths it depended on.
- */
-const read = new Map<
-  string,
-  { environment: string; witness: PluginBuildEnvironmentWitness.Record }
->();
+import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings";
 
 /**
  * The environment a plugin build in `directory` is keyed on under this
@@ -22,15 +10,15 @@ const read = new Map<
  * metadata/context memo also runs `go version` and reads the binary, and a
  * changed SDK manifest rehashes all contributing content. A consumer that
  * proves a plugin source's state for every adoption, record, or delivery would
- * pay that each time, for an environment that changes with the process's
- * variables and otherwise almost never. The read is therefore kept under the
+ * pay that work again without reuse. The read is therefore kept under the
  * variables it was taken with, all of them, so a changed variable reads it
  * again, and with the metadata of every path it depended on that no variable
  * carries (`PluginBuildEnvironmentWitness`): the Go tool, the Go environment
  * file `go env -w` writes, the executables the C toolchain commands name, and
  * GOROOT. A kept read is reused only while each of them holds its metadata, so
- * a toolchain replaced in place or a `go env -w` is read at the next use, not
- * after a proof has already accepted the old reading (samchon/ttsc#1516). The
+ * a distinguishable metadata change triggers a new reading at use. This is
+ * the witness's declared distinguishability premise, not detection of every
+ * possible metadata-restored change. The
  * build itself never reads through here: it keys each binary on a fresh read.
  *
  * @param directory The directory a build runs `go` in.
@@ -41,32 +29,13 @@ const read = new Map<
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh performs the real environment read rather than assuming that a stable compiler path or quiet source tree implies a stable toolchain.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why environment probing is retained, its variable/path invalidation, and why builds still read fresh; descriptive prose and tags are separated.
  * @evidence contracts/portability.md#os-neutral-implementation Native environment and filesystem identity are delegated to the shared platform-aware probe and metadata witness rather than inferred from an OS name.
- * @evidence contracts/performance.md#efficient-algorithms For V environment variables and P witnessed paths a hit costs sorting O(V log V) plus O(P) metadata probes; it avoids subprocesses and content reads while still inspecting dependencies required for validity.
+ * @evidence contracts/performance.md#efficient-algorithms The delegated owner serializes/hashes variable names/values after text-sensitive sorting and validates witnessed native paths. A qualified hit avoids cold tool/content preparation but not native lookup/path/link/text costs. Misses/refresh delegate actual Go/toolchain/SDK readings; V/P counts alone do not bound all bytes or native work.
  * @evidence contracts/performance.md#reuse-equivalent-work Directory and all effective variables identify a candidate reading; the complete external-path witness must hold, otherwise the environment is read and its record replaced.
- * @evidence contracts/performance.md#bound-retention-and-release-resources This process owns the map until termination. Entries are replaced for an existing key but distinct directory/variable combinations have no eviction bound; long-lived processes with changing contexts retain historical witnesses.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources PluginBuildEnvironmentReadings owns the process-shared map and asynchronous worker/request lifetimes, not this forwarding call. Existing keys are replaced, but distinct directory/variable combinations retain historical witnesses without an eviction bound; consumers and the owner govern that retention.
  */
 export function processPluginBuildEnvironment(
   directory: string,
   refresh = false,
 ): string {
-  const variables = crypto.createHash("sha256");
-  for (const [key, value] of Object.entries(process.env).sort(
-    ([left], [right]) => (left < right ? -1 : left > right ? 1 : 0),
-  )) {
-    if (value !== undefined)
-      variables.update(`${key.length}:${key}${value.length}:${value}\0`);
-  }
-  const key = `${directory}\0${variables.digest("hex")}`;
-  if (!refresh) {
-    const known = read.get(key);
-    if (
-      known !== undefined &&
-      PluginBuildEnvironmentWitness.holds(known.witness)
-    )
-      return known.environment;
-  }
-  const witness: PluginBuildEnvironmentWitness.Record = new Map();
-  const environment = pluginBuildEnvironment(directory, process.env, witness);
-  read.set(key, { environment, witness });
-  return environment;
+  return PluginBuildEnvironmentReadings.read(directory, refresh);
 }

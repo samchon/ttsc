@@ -13,14 +13,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerInjectedImport drives the official
-// driver.EmitWithPluginTransformer end-to-end with typia's real pattern: the
-// plugin INJECTS its own namespace import built with ec.Factory and references
-// a member through one file-level unique name. tsgo's builtin module-transform
-// then emits the require unconditionally (a synthetic import has no parse node,
-// so import-elision never drops it) and the generated name lines up between the
-// import and the reference, all without any checker/symbol involvement and
-// without text-splice or hand-rolled aliasing.
+// TestEmitWithPluginTransformerInjectedImport Verifies an injected namespace import and
+// generated reference share the emitted dependency binding.
+//
+// A synthetic namespace import has no parse original for import elision to discard. Its
+// file-level unique name must stay shared by the require declaration and exported member
+// reference; matching both structures detects an emitted alias with no usable binding.
+//
+// 1. Inject the namespace import and replace the fixture numeric initializer with its member access.
+// 2. Require the dependency require and exported foo access through the same generated binding.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual namespace import injection and numeric replacement, requiring ./dep require declaration and exported foo access through that same generated binding.
+// @evidence contracts/testing.md#independent-expectations Authored ./dep and foo specify required semantics; regex captures generated alias only to correlate its declaration and use.
+// @evidence contracts/testing.md#distinguishing-cases An absent source import becomes an injected runtime import with shared unique name, distinguishing retained binding from dangling or mismatched use.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit uses the actual emit factory, visitor and compiler with a private Program and local write map and deferred close, without an installed plugin or compiled host.
 func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

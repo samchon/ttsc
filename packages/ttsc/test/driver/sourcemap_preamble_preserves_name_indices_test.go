@@ -6,15 +6,15 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreamblePreservesNameIndices verifies that 5-field
+// TestAdjustSourceMapForPreamblePreservesNameIndices Verifies that 5-field
 // (name-bearing) segments keep their correct absolute name index after the
 // preamble shift, including across a dropped name-bearing segment.
 //
 // nameIndex is cumulative across the whole mappings string. When a name-bearing
 // segment is dropped (it fell inside the preamble region), the re-encoder must
 // NOT advance its output name cumulant past the drop, or every later segment's
-// decoded name index is wrong. The earlier single-fixture test had no 5-field
-// segments, so this branch was unproven.
+// decoded name index is wrong. Only a map with 5-field segments
+// reaches this branch.
 //
 //  1. Build a single-source map with three name-bearing segments, the middle one
 //     inside the preamble region (dropLines 2).
@@ -22,6 +22,11 @@ import (
 //  3. Assert the surviving segments shifted by -2 and kept their absolute name
 //     indices (0 and 2), proving the dropped segment's name index 1 did not skew
 //     the running cumulant.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble preserves name indices 0 and 2 around a dropped middle segment.
+// @evidence contracts/testing.md#independent-expectations A separate test VLQ codec decodes independently authored name indices and source-line shifts.
+// @evidence contracts/testing.md#distinguishing-cases A dropped name index 1 must not skew later cumulative state; extra survivor count is not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestAdjustSourceMapForPreamblePreservesNameIndices is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestAdjustSourceMapForPreamblePreservesNameIndices(t *testing.T) {
   const dropLines = 2
   sources := []string{"src/a.ts"}

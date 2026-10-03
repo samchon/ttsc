@@ -45,6 +45,10 @@ const preambleHashbangLine = "#!/usr/bin/env node"
 //     mark anywhere (the negative twin).
 //  4. Repeat the positive case with `inlineSourceMap`, where the preamble-shift
 //     correction rewrites the emitted text after the mark was applied.
+// @evidence contracts/testing.md#behavioral-verification Runs actual linked-preamble and identity-transform emission for three option rows, requiring BOM/hashbang ordering or BOM absence, retained preamble, and valid inline base64/JSON map.
+// @evidence contracts/testing.md#independent-expectations Literal UTF8 BOM, hashbang leader and preamble marker independently define byte positions; standard decoders independently inspect inline map encoding.
+// @evidence contracts/testing.md#distinguishing-cases BOM enabled/disabled and inline-map correction distinguish ordering and trailer-splice interactions with the real injected preamble.
+// @evidence contracts/testing.md#execution-ownership Named owning Go driver unit rows call actual registered-plugin/compiler operations, each with private Program cleanup and captured writes; no script execution or compiled host.
 func TestEmitPluginTransformEmitBOMPrecedesTheSourcePreamble(t *testing.T) {
   t.Run("emit_bom_marks_the_file_ahead_of_the_shebang", func(t *testing.T) {
     js := emitHashbangWithPreamble(t, `"emitBOM": true`)

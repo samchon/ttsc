@@ -3,28 +3,23 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
 /**
  * The program the isolated watch process runs.
  *
- * Every registration opens its locations' watches in the child and reports
- * `ready` once they are open, every event goes back with the registration's id,
- * and a `drain` is answered once every event queued before it has been sent.
- * Each registration owns its watches, so opening or closing one disturbs no
- * other.
+ * Each registration owns its opened watches and reports readiness or failure.
+ * Admitted events carry that registration's id. Drains use the native backend's
+ * frontier described below; a reply alone does not certify every scope, since
+ * probe-dependent streams can be named unproven and gaps withdraw authority.
  *
- * On Windows the watches are `fs.watch`. The kernel queues a directory change's
- * completion when the change is recorded, before the write returns, and its
- * completion port hands completions out in the order they were queued, so the
- * change's callback runs before the callback of the drain message sent after
- * the write. A drain is therefore answered after two turns of the child's loop:
- * the first lets the loop poll for completions already queued, the second runs
- * after their callbacks. That is a claim about the kernel's ordering, not about
- * time, and it is measured on the real backend, two hundred writes in a row, by
- * the scenario that drains a real Windows watch.
+ * On Windows the watches are `fs.watch`. A drain yields through two immediate
+ * turns to allow the loop to poll and deliver queued callbacks before replying.
+ * The real Windows scenario checks two hundred synchronous write/drain pairs;
+ * the scripted unit checks this scheduling boundary separately. These checks
+ * are not a universal kernel-order proof: FIFO completion-port queueing alone
+ * does not guarantee dequeue order or establish when notification completion
+ * becomes observable relative to a write and IPC request.
  *
  * On macOS the watches go through the `fsevents` binding, one FSEventStream
- * each, instead of `fs.watch` (samchon/ttsc#1425). libuv serves all directory
- * watches of one loop through a single stream it re-creates whenever one opens
- * or closes, losing the events in between (samchon/ttsc#1418), and it discards
- * every event that carries a dropped-events flag. The binding starts each
- * stream inside `watch()` and passes every flag through, so the child:
+ * per location, instead of relying on `fs.watch` for stream and loss authority
+ * (samchon/ttsc#1418, samchon/ttsc#1425). The binding supplies a stream closer
+ * and native flags to this callback boundary, so the child:
  *
  * - Maps each event's flags to the event type libuv would report, and drops what
  *   a non-recursive watch would not hear;
@@ -32,56 +27,79 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  *   id, a changed root, a mount or unmount, or a path it cannot place, since
  *   events of that stream may have been lost.
  *
- * FSEvents delivers with a latency (the binding creates each stream with 0.1
- * s), so turns of the loop prove nothing there, and a stream created now still
- * delivers events of writes made just before, which the service had not yet
- * logged (samchon/ttsc#1453, samchon/ttsc#1454). FSEvents does preserve order
- * within one stream, so a location that names a probe directory, one the parent
- * owns below the stream's root, is proven by writing a probe there and hearing
- * it on that stream: every earlier event of the stream has arrived by then, and
- * nothing heard before it belongs to the time after the probe was written. Such
- * a stream is opened at the probe's root, not at the location, and its events
+ * FSEvents delivers with a latency, so turns of the loop prove nothing there,
+ * and a stream created now can still deliver events of writes made just before,
+ * which the service had not yet logged (samchon/ttsc#1453, samchon/ttsc#1454).
+ * Ordered delivery within one stream is the probe frontier's premise. A
+ * location naming a probe
+ * directory below the stream's root writes there and waits for clean delivery
+ * on that stream; loss flags still withdraw authority. This delivered frontier
+ * is not an atomic timestamp classification of every write. Such a stream is
+ * opened at the probe's root, not at the location, and its events
  * are placed against the location. The child writes one probe when the stream
  * opens, and reports `ready` only once it is heard, discarding what arrived
  * before it as the past; and one per `drain`, answering once it is heard. A
- * probe that is not heard within the probe timeout says the stream does not
- * deliver, so the child closes it and reports the registration failed. A stream
+ * probe that is not heard within the timeout withdraws authority: delayed
+ * scheduling/delivery also expires it, without proving permanent inability.
+ * The child closes the registration and reports failure. A stream
  * with no probe cannot be proven, and the drain names its location as
  * unproven.
  *
- * Without the binding, a macOS watch can lose events silently, so the child
- * reports every registration failed instead.
+ * When the requested macOS binding is unresolved or cannot be loaded, the
+ * child reports the registration failed instead of substituting fs.watch.
  *
- * @param fsevents Where the `fsevents` binding is, on macOS. `null` when it
- *   cannot be loaded there, and `undefined` on every other platform.
+ * Native event names reach the parent without a basename prefilter: neither
+ * backend supplies an alias-free name capability here. Parent classifiers own
+ * exact native identity and uncertainty; requested event kinds still filter
+ * content independently of native name equivalence.
+ *
+ * @param fsevents The resolved binding path for the macOS backend. `null` means
+ *   the parent could not resolve it; loading a supplied path can fail separately.
+ *   `undefined` selects the fs.watch backend.
  * @evidence contracts/common.md#principled-implementation
  *   The child protocol keeps per-registration streams and ordered drains;
- *   macOS proof requires actual probe delivery and dropped flags withdraw coverage.
+ *   macOS proof requires clean probe delivery. Loss flags withdraw coverage
+ *   before probe recognition, so matching a probe name cannot erase that warning.
+ *   The Windows two-turn frontier retains its runtime/backend ordering premise;
+ *   this source does not independently prove kernel completeness.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One maintained child program serves both native backends; this function only
  *   injects resolved capability and the shared timeout, with JSON-safe path encoding.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Native flags and deadlines express backend contracts, not fixture-specific
  *   repairs. Missing bindings and probes report uncertainty rather than silent success.
+ *   Name inequality cannot establish native alias inequality; native names
+ *   reach the owning parent classifier without a basename substitution.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain ordering, native loss, probe lifecycle and absence;
  *   embedded-program comments identify state ownership under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral parent code delegates native flags and watcher capability to this
  *   child boundary; node:path handles relative names and canonical stream roots.
+ *   Windows alternate event names and Unicode uncertainty reach the parent
+ *   instead of being interpreted as a universal lowercase identity rule.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Producing source is linear in the fixed program text; the child indexes
- *   registrations and name Sets, and a drain writes one probe per eligible
- *   directory shared by its streams rather than one per project input.
+ *   Source construction copies fixed program text plus JSON-encoded binding
+ *   path bytes. The child stores R registrations and S streams; drain scans
+ *   every stream, retains per-stream expectations and unproven rows, and groups
+ *   writes by eligible probe directory. Native watch/realpath/mkdir/write/remove,
+ *   callbacks and encoded IPC path bytes remain part of the delegated cost.
+ *   Without basename filtering, admitted events carry their name text through
+ *   IPC for parent validation; subscription/event populations and message bytes
+ *   govern that additional routing work.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The constant program is reused for every child start; within a drain,
  *   equivalent probe-directory work is shared while each stream must observe it.
  *   Separate openings retain their own temporal probe boundary.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Parent source strings live through spawn. The child owns current registrations,
- *   streams, probe files and timers; removal, failed opening and probe completion
- *   retire them. Outstanding drain population follows current parent demand;
- *   process termination ends remaining native resources.
+ *   Source storage transfers to the spawn caller. The child owns registrations,
+ *   streams and per-opening/drain probe expectations/timers. Removal attempts
+ *   every acquired closer; heard/timeout requests file removal but ignores its
+ *   failure, and abandoned expectations can leave probe files for namespace
+ *   cleanup. Failed partial opening remains registered until parent removal.
+ *   Async stop/removal completion is not awaited; disconnect attempts retirement
+ *   then exits. R/S/outstanding probes, IPC queues and filesystem bytes have no
+ *   count/byte bound; process exit ends native handles, not retained disk files.
  */
 export function watchBrokerSource(fsevents?: string | null): string {
   return `const fseventsPath = ${fsevents === undefined ? "undefined" : JSON.stringify(fsevents)};\nconst probeTimeoutMs = ${WATCH_PROBE_TIMEOUT_MS};\n${WATCH_BROKER_PROGRAM}`;
@@ -132,13 +150,11 @@ function load() {
 }
 
 function subscriber(message, location) {
-  const names = location.names === undefined ? undefined : new Set(location.names.map((name) => name.toLowerCase()));
   return (event, filename) => {
-    const matches = names === undefined || filename === null || names.has(String(filename).toLowerCase());
     // An event without a name is a backend's notice that anything below the
     // directory may have changed, such as a Windows buffer overflow, so every
     // registration hears it, whichever events it asked for.
-    if (matches && (message.allEvents || event === "rename" || filename === null || location.recursive === true)) {
+    if (message.allEvents || event === "rename" || filename === null || location.recursive === true) {
       process.send?.({ directory: location.directory, eventType: event, filename: filename === null ? null : String(filename), id: message.id });
     }
   };
@@ -190,6 +206,11 @@ function stream(location, deliver, registration) {
   const within = (parent, file) => file === parent || file.startsWith(parent.endsWith("/") ? parent : parent + "/");
   const opened = { close: undefined, location: location.directory, pending: new Map(), probe, proven: probe === undefined };
   const stop = fsevents.watch(root, (file, flags) => {
+    // Loss authority is independent of the path, including our own probe.
+    if ((flags & DROPPED) !== 0) {
+      process.send?.({ gap: true, id });
+      return;
+    }
     // A probe of this stream: everything before it has been delivered.
     if (probe !== undefined && within(probe.directory, file)) {
       const waiting = opened.pending.get(path.basename(file));
@@ -197,10 +218,6 @@ function stream(location, deliver, registration) {
         opened.pending.delete(path.basename(file));
         waiting.heard();
       }
-      return;
-    }
-    if ((flags & DROPPED) !== 0) {
-      process.send?.({ gap: true, id });
       return;
     }
     // Before the opening probe, the stream still delivers the past.
@@ -244,9 +261,9 @@ function stream(location, deliver, registration) {
 }
 
 // Expect one probe on a stream, and call heard() once the stream delivers it
-// or missed() once it will not: the probe timed out, which says the stream does
-// not deliver, so the registration is reported failed and its streams closed;
-// or the stream was closed first.
+// or missed() after authority is withdrawn: the delivery threshold expired, so
+// the registration is reported failed and its streams are closed, or the stream
+// was closed first. Expiry is not proof of permanent native nondelivery.
 function expectProbe(opened, registration, name, heard, missed) {
   const file = path.join(opened.probe.directory, name);
   const entry = {

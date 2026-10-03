@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
  * Verifies exports arrays preserve Node's final null/invalid decision.
@@ -14,6 +14,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * 2. Exercise an inactive nested key and selected encoded, directory, and
  *    malformed targets that must fail during loading.
  * 3. Assert only invalid selection falls through; blocking and loading do not.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls createSandboxRequire and requires each fixture package, asserting blocked exports never reveal default/fallback files while null-then-valid and inactive-condition controls return their literal module values.
+ * @evidence contracts/testing.md#independent-expectations Node package-target resolution distinguishes blocked, unresolved and selected targets before loading. The independent empty/null arrays and malformed encoded targets define failures; valid.cjs and default.cjs contain distinct literal exports.
+ * @evidence contracts/testing.md#distinguishing-cases Empty, null-only and invalid-then-null arrays block; null-then-valid succeeds. A nested inactive dot condition permits default, while encoded slash, directory and malformed-escape selected targets cannot switch to an existing array fallback.
+ * @evidence contracts/testing.md#execution-ownership This exported unit executes the authored resolver/evaluator against immutable in-memory manifests and CommonJS strings in the playground batch. It opens no real package installation or host; the neighboring fallback and URL-target tests own legacy resolution and successful normalization.
  */
 export const test_create_sandbox_require_preserves_array_blocking_semantics =
   () => {

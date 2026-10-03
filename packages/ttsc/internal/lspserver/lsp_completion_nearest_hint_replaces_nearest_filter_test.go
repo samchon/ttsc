@@ -17,6 +17,11 @@ func (nearestCompletionHintSource) CompletionHints() []LSPCompletionHint {
 // TestLSPCompletionNearestHintReplacesNearestFilter exercises the request path:
 // a later short trigger beats an earlier long trigger and replaces only the
 // filter immediately after the winning occurrence.
+//
+// @evidence contracts/testing.md#behavioral-verification completionItemsFor returns only the nearest trigger's item and a replacement range that covers just the filter after that trigger.
+// @evidence contracts/testing.md#independent-expectations The expected item and range columns are literals computed from the literal document text.
+// @evidence contracts/testing.md#distinguishing-cases An earlier long trigger and a later short one share the line, so the earlier one's filter would give a different range.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionNearestHintReplacesNearestFilter is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionNearestHintReplacesNearestFilter(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   const text = "/** @evidence first @pa"

@@ -10,16 +10,19 @@ import (
 // argument returns an exit code and writes usage to the command's own stream,
 // instead of terminating the process.
 //
-// This is the negative twin of the capability case and the reason the seams
-// exist. The command used to parse flag.CommandLine, whose default error
-// handling is flag.ExitOnError: a malformed argument called os.Exit(2) from
-// inside run, which no test can observe and which would take a test binary down
-// with it. Nothing else about the command is reachable while that is true.
+// The package-controlled streams and ContinueOnError parser let the caller
+// observe rejection without terminating the test process. Help is distinguished
+// from an unknown flag even though both paths return a parser error.
 //
 //  1. Run the command with an unknown flag, capturing both streams.
 //  2. Assert it returns 2 rather than exiting, and that nothing reached stdout.
 //  3. Assert the usage text went to the command's stderr stream.
 //  4. Assert `-h` still succeeds, because asking for usage is not an error.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a bad argument returns an exit code and writes usage to the command's own stream, instead of terminating the process.
+// @evidence contracts/testing.md#independent-expectations Literal status 2 for an unknown flag follows the command's rejection policy; status 0 for -h follows its successful-help policy around flag.ErrHelp. Unknown-flag stderr must name the rejected flag and show -tsconfig usage, with empty stdout. Help must show usage and return 0; this case does not separately assert help stdout. These expectations are not computed from run.
+// @evidence contracts/testing.md#distinguishing-cases Run the command with an unknown flag, capturing both streams; Assert it returns 2 rather than exiting, and that nothing reached stdout; Assert the usage text went to the command's stderr stream. 4. Assert `-h` still succeeds, because asking for usage is not an error.
+// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnknownFlagWithoutExitingTheProcess is a Go source-unit entry. It calls the package's run function in-process with stdout and stderr swapped for buffers; both argument paths return before any project is loaded, so no consumer is installed and no binary is built or launched.
 func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
   var out, errOut bytes.Buffer
   restoreStdout, restoreStderr := stdout, stderr
@@ -41,10 +44,8 @@ func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
     t.Fatalf("stderr carried no usage text: %q", errOut.String())
   }
 
-  // The negative twin of the rejection: `flag.ContinueOnError` reports `-h` as
-  // an error too, and mapping every parse failure to 2 would turn the help flag
-  // into a failed invocation. The global flag set this command used to read
-  // exited 0 for it.
+  // ContinueOnError reports -h as ErrHelp; mapping every parse error to status 2
+  // would turn this successful usage request into a failed invocation.
   out.Reset()
   errOut.Reset()
   if code := run([]string{"-h"}); code != 0 {

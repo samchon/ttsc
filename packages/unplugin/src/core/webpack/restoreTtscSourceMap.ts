@@ -12,8 +12,9 @@ import { TTSC_SOURCE_MAP_STASH } from "./TTSC_SOURCE_MAP_STASH";
  * it, passes that map on in place of the missing one.
  *
  * The map is passed on only when the host asked for maps, when no map arrived,
- * and when the text arriving here is the text the map was made for, so a map
- * never describes other text. Everything else passes through untouched.
+ * and when the arriving string equals the stashed transformed string. This
+ * associates the owned map with its recorded text; it does not validate an
+ * incoming host map. Other content, maps and metadata pass through untouched.
  *
  * @param content Module text the previous loader produced.
  * @param map Source map the previous loader produced, if any.
@@ -23,6 +24,20 @@ import { TTSC_SOURCE_MAP_STASH } from "./TTSC_SOURCE_MAP_STASH";
  * @evidence contracts/common.md#clear-and-simple-design A single callback forwards content and metadata unchanged while choosing the one map this adapter owns.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The private WeakMap hands off owned transform output without replacing host methods or manufacturing a map to satisfy a test.
  * @evidence contracts/common.md#meaningful-documentation The comment identifies the upstream map loss and every restoration condition; the callback receiver and pass-through parameters remain explicit.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One WeakMap lookup/delete precedes fixed guards and strict string equality,
+ *   whose comparison can follow content length. No content/map copy is made;
+ *   the host callback's own work is additional.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Reuses the producer's result across the transform/restoration phases only
+ *   for the same loader context, requested maps, absent incoming map and exact
+ *   stashed code. A different text/context cannot authorize that handoff.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Deletes this context's entry before any guard or callback, including a
+ *   rejected map or throwing callback. Content/map/meta transfer unchanged to
+ *   the host; unconsumed context retention belongs to the WeakMap producer.
  */
 export function restoreTtscSourceMap(
   this: {

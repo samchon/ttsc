@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitRewritesPluginCalls verifies the public driver emit contract.
+// TestDriverEmitRewritesPluginCalls Verifies the public driver emit contract.
 //
 // This scenario is isolated in its own file so a failure names the exact native
 // host behavior under test, matching the one-feature-per-file style used by the
@@ -19,6 +19,11 @@ import (
 // 1. Build a real tsconfig project with a plugin-owned call expression.
 // 2. Register one emit-time rewrite against the parsed source file.
 // 3. Emit through the public driver facade and assert the rewritten JavaScript.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram, RewriteSet.Add and EmitAll produce JavaScript containing the rewrite sentinel and literal rewritten replacement.
+// @evidence contracts/testing.md#independent-expectations The registered replacement literal and the documented sentinel establish those two expectations; substring checks do not prove runtime equivalence or removal of every original call.
+// @evidence contracts/testing.md#distinguishing-cases One plugin.make call is replaced in a one-source Program; scanner rejection and preserved neighboring syntax are owned by the dedicated rewrite cases.
+// @evidence contracts/testing.md#execution-ownership Go test/driver executes the driver facade and captures its write callback in memory without starting the product host.
 func TestDriverEmitRewritesPluginCalls(t *testing.T) {
   root := t.TempDir()
 

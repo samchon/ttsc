@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPFrameReaderReadsWellFormedFrames verifies the happy-path framing
+// TestLSPFrameReaderReadsWellFormedFrames Verifies the happy-path framing
 // loop that the proxy depends on for every editor-side message.
 //
 // FrameReader.Read returns the header block and body separately so the
@@ -20,7 +20,14 @@ import (
 //
 // 1. Concatenate two well-formed frames with extra Content-Type headers.
 // 2. Drain the stream until ErrFrameClosed.
-// 3. Assert the body bytes and the header block are returned losslessly.
+// 3. Assert both bodies are returned exactly, the first header block still
+//    contains its Content-Type and Content-Length lines, and the third read
+//    reports ErrFrameClosed.
+//
+// @evidence contracts/testing.md#behavioral-verification FrameReader.Read returns two literal bodies, retains the first vendor and length headers, then reports ErrFrameClosed.
+// @evidence contracts/testing.md#independent-expectations Authored Content-Length-framed bytes establish both body contents and the clean end-of-stream expectation without using WriteFrame to generate the oracle.
+// @evidence contracts/testing.md#distinguishing-cases Two consecutive frames, a vendor header and terminal clean EOF distinguish consumption, preservation and shutdown.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver framing unit reads a bytes.Reader directly without starting a product transport.
 func TestLSPFrameReaderReadsWellFormedFrames(t *testing.T) {
   first := []byte("Content-Length: 7\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{\"a\":1}")
   second := []byte("Content-Length: 7\r\n\r\n{\"b\":2}")

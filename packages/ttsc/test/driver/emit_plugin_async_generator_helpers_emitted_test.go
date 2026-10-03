@@ -26,6 +26,14 @@ import (
 // so this test does not assert `__generator`; it pins the part of the
 // async/generator downlevel contract that tsgo actually implements today
 // (`__awaiter` injection) and that a plugin pass must not break.
+//
+// 1. Transform the fixture numeric literal to 42 and record visitor execution.
+// 2. Require the replacement and __awaiter lowering while rejecting the retained native async function.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformer with a numeric replacement and requires the visitor ran, output contains 42 and __awaiter(this, while native async function load is absent.
+// @evidence contracts/testing.md#independent-expectations Literal replacement 42 and async helper/application spellings independently define the expected transformation; no other emitter supplies the expected result.
+// @evidence contracts/testing.md#distinguishing-cases Low-target async lowering must coexist with the plugin replacement; native async retention and missing helper application are rejected. This test makes no generator-state-machine claim.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit runs direct compiler and synthetic transformer APIs, captures output strings and closes its Program; generated JavaScript is inspected rather than executed.
 func TestEmitWithPluginTransformerAsyncGeneratorHelpersEmitted(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

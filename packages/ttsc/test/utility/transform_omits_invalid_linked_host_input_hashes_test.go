@@ -37,6 +37,11 @@ func (plugin invalidHostInputHashPlugin) SourcePreamble(ctx driver.PluginContext
 //  1. Register a linked plugin that reports valid, malformed, then valid proof.
 //  2. Run the real utility transform entrypoint.
 //  3. Assert the path remains and both kinds of proof stay omitted.
+//
+// @evidence contracts/testing.md#behavioral-verification Malformed fingerprint and identity values reported through the Go seam keep the path as an input but withhold both kinds of proof.
+// @evidence contracts/testing.md#independent-expectations The valid, malformed and valid sequence uses literal SHA-shaped and non-SHA strings.
+// @evidence contracts/testing.md#distinguishing-cases Malformed values between two valid reports show that an invalid proof does not pass and a later valid proof cannot repair it.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsInvalidLinkedHostInputHashes is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsInvalidLinkedHostInputHashes(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

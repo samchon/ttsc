@@ -130,8 +130,8 @@ func isTypeScriptPath(path string) bool {
 // typeScriptMatchBase pairs a configured base with the directory a Program
 // source path is measured against.
 //
-// This kind walks nothing, so the link asymmetry #1258 removed from the two
-// walkers looked like a walk problem and was left here. It is not: `os.Stat`
+// This kind walks nothing, so link resolution can look like a problem for the
+// walkers alone. It is not: `os.Stat`
 // accepts a linked root as a directory, and a Program reports whatever path its
 // tsconfig resolved, so when the two disagree about the link every source fails
 // the comparison, the claim selects nothing, and it deactivates without a word.
@@ -212,9 +212,13 @@ func (paths *typeScriptSourcePaths) resolve(name string) string {
 }
 
 // canonicalTypeScriptDirectory follows every linked ancestor as the base
-// resolver does. EvalSymlinks then expands a Windows 8.3 spelling if one is
-// present. A missing directory keeps the resolved existing prefix and its
-// missing suffix, which lets an unsaved Program source still match its base.
+// resolver does. EvalSymlinks then expands native aliases such as Windows 8.3
+// spelling. A host may open a long link chain while refusing EvalSymlinks of a
+// descendant; in that case an ancestor's successful native expansion supplies
+// the prefix and the unchanged suffix keeps the unresolved lexical path. This
+// does not claim that the bounded resolver followed the entire link chain.
+// A missing directory likewise keeps its existing prefix and missing suffix,
+// which lets an unsaved Program source still match its base.
 func canonicalTypeScriptDirectory(directory string) string {
   current := filepath.Clean(filepath.FromSlash(directory))
   missing := []string{}
@@ -235,7 +239,23 @@ func canonicalTypeScriptDirectory(directory string) string {
       if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
         resolved = evaluated
       } else if !settled {
-        return filepath.ToSlash(directory)
+        // Native expansion may succeed for the base but fail below the same
+        // chain. Normalize the prefix through that successful observation so
+        // one Program's base and sources do not disagree only about aliases.
+        prefix := filepath.Dir(current)
+        suffix := []string{filepath.Base(current)}
+        for {
+          if evaluated, err := filepath.EvalSymlinks(prefix); err == nil {
+            resolved = filepath.Join(append([]string{evaluated}, suffix...)...)
+            break
+          }
+          parent := filepath.Dir(prefix)
+          if parent == prefix {
+            return filepath.ToSlash(directory)
+          }
+          suffix = append([]string{filepath.Base(prefix)}, suffix...)
+          prefix = parent
+        }
       }
       parts := append([]string{filepath.FromSlash(resolved)}, missing...)
       return filepath.ToSlash(filepath.Join(parts...))
@@ -881,8 +901,7 @@ func collectClassDeclarationNames(
 // Its own withdrawal tag is read here for a separate fault rather than the same
 // one: the statement wrapper's tag was taken for every declarator it holds, so
 // `@internal` written on an inner declarator withdrew nothing. Recording the
-// node closes the first two and leaves this one standing, which is why #1126
-// states them apart.
+// node closes the first two and leaves this one standing, which is why they are stated apart.
 func collectTypeScriptVariables(
   file *shimast.SourceFile,
   statement *shimast.Node,

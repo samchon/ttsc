@@ -1,0 +1,49 @@
+package linthost
+
+import "testing"
+
+// TestCommandFormatRound3ForceBreak covers the print-width
+// fast path: a force-breaking node nested inside an otherwise-fitting call/new
+// (an array `shouldBreak`, or a function-composition `new`) must still explode,
+// and the BigInt array must NOT fill. Each `assertFormatResult` feeds a FLAT
+// source (the first three fit in 80 columns, the BigInt array is 81) and asserts
+// the independent authored broken output, exercising the flat -> broken reflow
+// direction.
+//
+//  1. Seed four flat sources with independently authored broken expectations.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require the exact broken output.
+//
+// @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on flat sources (three fit in 80 columns, the BigInt array is 81) and require the exact broken output: an array of arrays inside `new Map([...])` and inside `foo([...])`, `new Foo(() => a, () => b)` exploded, and an overflowing BigInt array exploded one element per line rather than filled.
+// @evidence contracts/testing.md#independent-expectations Inputs and complete expected outputs are independent authored literals preserving array nesting, string/number/BigInt values, constructor/callee names and arrow operands. No expected text is derived from formatter output or an external formatter invocation.
+// @evidence contracts/testing.md#distinguishing-cases All four are inputs that must change from a flat layout (the flat-to-broken direction), including the negative-fill case where BigInt elements must not be packed like numbers.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.
+func TestCommandFormatRound3ForceBreak(t *testing.T) {
+  // A same-kind array-of-arrays nested in `new Map([...])` force-breaks even
+  // though the flat form fits; subtree force-break detection must reach it.
+  t.Run("array_of_arrays_in_new_map_breaks_from_flat", func(t *testing.T) {
+    assertFormatResult(t,
+      "const b = new Map([[\"a\", 1], [\"b\", 2]]);\n",
+      "const b = new Map([\n  [\"a\", 1],\n  [\"b\", 2],\n]);\n")
+  })
+  // Same shape nested in a plain call argument.
+  t.Run("array_of_arrays_in_call_breaks_from_flat", func(t *testing.T) {
+    assertFormatResult(t,
+      "foo([[1, 2], [3, 4]]);\n",
+      "foo([\n  [1, 2],\n  [3, 4],\n]);\n")
+  })
+  // Function composition on a NEW expression also requires a broken list.
+  t.Run("function_composition_new_breaks_from_flat", func(t *testing.T) {
+    assertFormatResult(t,
+      "new Foo(() => a, () => b);\n",
+      "new Foo(\n  () => a,\n  () => b,\n);\n")
+  })
+  // A BigInt array is NOT concisely printed by isNumericElement, so an
+  // overflowing one explodes one element per line
+  // rather than filling several per line.
+  t.Run("bigint_array_one_per_line", func(t *testing.T) {
+    assertFormatResult(t,
+      "const x = [11111111111n, 22222222222n, 33333333333n, 44444444444n, 55555555555n];\n",
+      "const x = [\n  11111111111n,\n  22222222222n,\n  33333333333n,\n  44444444444n,\n  55555555555n,\n];\n")
+  })
+}

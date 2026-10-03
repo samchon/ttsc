@@ -15,12 +15,10 @@ interface ConfigEvaluatorProcessResult {
  * launched, something outside killed it, or it exited non-zero after printing
  * its own reason.
  *
- * Nothing is bounded here — not time, not output. Both were the compiler
- * deciding, on numbers nobody chose for this machine, that a user's own config
- * had run too long or said too much. A slow config is a slow build the user can
- * watch and interrupt; a loud one is output they asked for. Neither is this
- * process's memory to spend either, because the child's streams are no longer
- * collected into it.
+ * The caller owns execution time and output routing. This classifier does not
+ * infer a timeout or output limit from a failed status, and stores no child
+ * output. A result with no error or signal and a null status remains a failure
+ * because it does not establish a successful exit.
  *
  * @evidence contracts/common.md#principled-implementation Spawn error, terminating signal and nonzero status are inspected in that order so the returned error describes the actual process outcome.
  * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes process termination reasons without owning execution or output capture.
@@ -58,9 +56,9 @@ export function configEvaluatorProcessFailure(
  * site: the status says that it failed, and this says why.
  *
  * Only a well-formed envelope is honoured. A real evaluation payload never
- * carries this key, and every other shape — an absent file, a build that failed
- * before the loader ran, a half-written result, a payload written before a
- * later non-zero exit — leaves the process status to speak for itself.
+ * carries this key. An absent file, a build that failed before the loader ran,
+ * a half-written result or an ordinary payload followed by a nonzero exit
+ * leaves the process status to speak for itself.
  *
  * @evidence contracts/common.md#principled-implementation JSON parsing plus object and string guards accept only a textual loader-error envelope; absent or malformed data yields no additional reason.
  * @evidence contracts/common.md#clear-and-simple-design A single reader owns failure-envelope decoding beside the process classifier.

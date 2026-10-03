@@ -9,8 +9,9 @@
 // build-wasm.cjs emits a rewritten `dist/go.mod` that points at the
 // vendored `./shim-vendor/shim/*` tree. Pack-prepare swaps the working-tree
 // `go.mod` for that copy just before pack, then restores the original
-// afterwards. The original is stashed in `build/.go.mod.stash` so an
-// interrupted pack can be recovered by running `--restore`.
+// afterwards. The original is stashed in
+// `node_modules/.cache/ttsc-wasm/go.mod.stash` so an interrupted pack can be
+// recovered by running `--restore`.
 //
 // Usage:
 //   node build/pack-prepare.cjs --stash    # prepack: stash + swap

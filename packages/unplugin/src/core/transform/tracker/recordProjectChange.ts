@@ -22,14 +22,17 @@ const MAX_GENERATION_MUTATION_PATHS = 8;
  *   Native JSDoc separates content classification from the sample bound and
  *   explains the omitted flag, following the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Set membership and insertion use expected constant work per event;
- *   retained exact paths never exceed eight.
+ *   Set membership and insertion use expected constant entry-count work per
+ *   event; initial string hashing/comparison can depend on path length.
+ *   Retained exact paths never exceed eight.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Repeated exact paths reuse their existing Set entry. A fresh tracker owns
  *   a new generation's sample, so old observations cannot certify new work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The caller-owned tracker retains at most eight path strings plus an
- *   overflow bit for its generation; this function acquires no handles.
+ *   overflow bit for its generation. Path byte length has no additional cap;
+ *   this function acquires no handles.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Adds the path string a backend reported to a bounded set as given; no path is parsed or compared.
  */
 export function recordProjectChange(
   tracker: TtscProjectMutationTracker,

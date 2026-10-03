@@ -215,10 +215,10 @@ func (loader *typeScriptLoader) resolveUncached(
       normalized = append(normalized, module)
     }
     // The Program answers first, and not only because it answers without a
-    // syscall. A project that emits beside its sources has both `x.js` and
-    // `x.ts` on disk, and `x.js` is written earlier in the candidate order;
-    // resolving an import to emitted JavaScript would read a module whose
-    // declarations the graph cannot address.
+    // syscall. A module under edit has to be read as the editor has it rather
+    // than as the disk last saw it, which is the rule `inventory` states for a
+    // file already named. The candidates never include emitted JavaScript, so
+    // an emit beside its sources cannot win here.
     for _, candidate := range normalized {
       if loader.programInventory(candidate) != nil {
         if !loader.withinBoundary(candidate) {
@@ -352,7 +352,7 @@ func (loader *typeScriptLoader) projectPath(relative string) string {
 
 // isCleanProjectRelativePath reports whether a path is already the identity
 // `projectPath` would produce: forward slashes, no drive or leading separator,
-// and no `.` or `..` segment to collapse.
+// and no empty, `.`, or `..` segment to collapse.
 func isCleanProjectRelativePath(value string) bool {
   if value == "" || strings.ContainsRune(value, '\\') {
     return false
@@ -480,7 +480,7 @@ func (loader *typeScriptLoader) locateInstalledPackage(
 // The second answer is what separates an exhausted chain from a resolved
 // directory, which are one string without it: a caller comparing paths against
 // a link that still names another link cannot tell that it holds one, and that
-// is how the leaf case of #1269 stayed silent until the caller was told.
+// is how a leaf link stays silent unless the caller is told.
 //
 // The bound counts links followed, not answers given. A chain that ends exactly
 // on the last hop this rule follows has landed on its directory with no

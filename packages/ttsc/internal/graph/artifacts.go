@@ -79,22 +79,25 @@ func IsArtifactKind(kind NodeKind) bool {
   return false
 }
 
-// LoadArtifacts reads the artifact set a plugin published, or nil when no path
-// was given.
+// LoadArtifacts reads a supplied artifact publication, or nil for an omitted or
+// whitespace-only path and for os.IsNotExist acquisition failures.
 //
 // A missing file is not an error: the caller names a path a plugin may or may
 // not have produced, and a project that publishes nothing is the common case. A
 // file that exists and does not parse is an error, because that is a producer
 // the caller was told to expect.
+// Native reading is not an atomic snapshot or producer authentication. Decoding
+// checks JSON/field types; accepted artifact kinds and addresses are separate
+// ApplyArtifacts admission decisions.
 //
-// @evidence contracts/common.md#principled-implementation A supplied file is decoded as the publishing protocol; absence denotes no publication while malformed existing bytes remain an error.
+// @evidence contracts/common.md#principled-implementation A nonblank path is read verbatim and decoded; omitted/blank paths and os.IsNotExist mean no publication, while other acquisition and JSON decode errors propagate without certifying producer origin or artifact admission.
 // @evidence contracts/common.md#clear-and-simple-design Native acquisition delegates decoding to ParseArtifacts so callers needing byte identity can use the same parser.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Only the supported absent-publication case is optional; decoding failures are not hidden to satisfy an expected empty graph.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish omitted path, missing file and malformed publication, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation os.ReadFile and os.IsNotExist preserve native path and failure semantics without shell interpolation or OS-specific separators.
-// @evidence contracts/performance.md#efficient-algorithms One read and one JSON decode cost O(published bytes); whole-file allocation follows the protocol's array payload.
+// @evidence contracts/performance.md#efficient-algorithms Path whitespace inspection precedes native whole-file acquisition and JSON decoding; work includes path bytes, native open/read effects, payload scanning and record/string/slice allocation rather than a single syscall or schema-bounded payload.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This independent acquisition does not own snapshot identity or repeated-consumer reuse; callers that hash bytes use ParseArtifacts directly.
-// @evidence contracts/performance.md#bound-retention-and-release-resources os.ReadFile closes its handle; decoded records transfer to the caller and no file watcher or cache is retained.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native ReadFile defers descriptor close under its own error semantics. File bytes and decoded records coexist without a payload cap; the bytes are temporary and returned records belong to the caller, with no retained watcher or cache.
 func LoadArtifacts(path string) ([]Artifact, error) {
   if strings.TrimSpace(path) == "" {
     return nil, nil
@@ -115,15 +118,18 @@ func LoadArtifacts(path string) ([]Artifact, error) {
 // parses. Reading the file twice — once to state what it holds and once to
 // decode it — lets an overwrite land between the two, leaving a session whose
 // recorded identity describes a set it is not holding.
+// The caller must keep these bytes stable while parsing and separately bind any
+// hash to the same captured input. Standard JSON decoding accepts null and
+// unknown fields and does not validate artifact kinds, address identity or origin.
 //
-// @evidence contracts/common.md#principled-implementation encoding/json decodes precisely the bytes the caller captured, preserving equality between content identity and parsed publication.
+// @evidence contracts/common.md#principled-implementation encoding/json decodes the supplied stable bytes; binding a captured hash to those same bytes and admitting artifact identity remain with the caller, not this parser.
 // @evidence contracts/common.md#clear-and-simple-design A byte-only parser isolates protocol decoding from native acquisition.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Decode errors propagate without accepting fixture-specific malformed records or reparsing changed disk bytes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the same-byte identity requirement and why parsing is separate, with documentation-skill tag spacing.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Parsing a JSON byte slice owns no native filesystem or process boundary.
 // @evidence contracts/performance.md#efficient-algorithms Decode work and allocated record space scale linearly with the JSON payload.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse of parsed publication is the caller's snapshot decision, not this one-shot parser's responsibility.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed data transfers to the caller with no retained buffer or native handle.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Decoded strings, records and alias slices scale with supplied bytes without a parser-level payload cap; returned data belongs to the caller and this helper retains no independent buffer cache or native handle.
 func ParseArtifacts(data []byte) ([]Artifact, error) {
   var artifacts []Artifact
   if err := json.Unmarshal(data, &artifacts); err != nil {
@@ -145,21 +151,25 @@ func ParseArtifacts(data []byte) ([]Artifact, error) {
 //
 // An address that collides with an existing node loses: a checker-resolved
 // declaration is a fact of this Program, and a published artifact is not.
+// Equal published addresses retain caller order; the first accepted record
+// wins. Aliases cannot replace canonical nodes, and parents resolve only among
+// accepted artifacts, excluding self-parent links. This is not schema or cycle
+// validation of the supplied publication.
 //
 // @evidence contracts/common.md#principled-implementation Only accepted canonical records publish aliases and parent facts; compiler identities and canonical addresses win collisions before documentation references resolve.
 // @evidence contracts/common.md#clear-and-simple-design Ordered acceptance, alias registration, containment and citation projection keep each identity decision in a separate pass over the accepted publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown producer kinds and colliding records are rejected consistently instead of compensating through aliases or mutating compiler declarations.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state opaque IDs, collision precedence, containment ownership and edge deduplication, separated under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Addresses remain opaque; physical File locations pass unchanged to the dump's shared native path boundary.
-// @evidence contracts/performance.md#efficient-algorithms Sorting costs O(A log A); accepted aliases and existing edges/tags each receive linear scans with expected constant-time identity lookup.
+// @evidence contracts/portability.md#os-neutral-implementation Addresses remain opaque; supplied File strings pass unchanged to the dump's native path boundary without this function certifying their physical identity.
+// @evidence contracts/performance.md#efficient-algorithms Stable sorting includes address-text comparisons and record swaps; subsequent scans include all aliases, existing edges and tags, with string hashing/comparison and leading-token scans. Population-only constant-time lookup or O(A log A) does not describe the full byte and stable-swap costs.
 // @evidence contracts/performance.md#reuse-equivalent-work A shared canonical/alias map resolves every citation consistently and an edge-key set reuses existing relationship identity instead of appending equivalent edges.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Sorting, acceptance and lookup scratch are call-local; accepted artifact nodes and new relationships transfer into the caller-owned graph generation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Sorting, acceptance and lookup scratch scale with the supplied population and have no size cap; accepted artifact strings, nodes and new relationships remain in the caller-owned graph generation until the caller releases it and other aliases.
 func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   if g == nil || len(artifacts) == 0 {
     return
   }
-  // Sorted so the emitted node and edge order is a function of the addresses
-  // rather than of the order a plugin happened to walk its documents.
+  // Sort distinct addresses while retaining input order for duplicate addresses,
+  // whose first accepted record supplies the node and publication metadata.
   sorted := make([]Artifact, len(artifacts))
   copy(sorted, artifacts)
   sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Address < sorted[j].Address })
@@ -193,10 +203,10 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
 
   // Aliases are registered after every address, and only where nothing claims
   // the spelling. An alias is an additional name for one artifact, never a
-  // rename of another: registering it in the same pass let one artifact's alias
+  // rename of another: registering it in the same pass would let one artifact's alias
   // overwrite an earlier artifact's own address, and a citation of that address
-  // then resolved to the wrong node — a confident wrong answer, which is worse
-  // than the token it replaced.
+  // would then resolve to the wrong node — a confident wrong answer, which is
+  // worse than the token it replaced.
   for _, artifact := range accepted {
     for _, alias := range artifact.Aliases {
       if alias == "" || alias == artifact.Address {

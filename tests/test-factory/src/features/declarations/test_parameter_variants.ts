@@ -1,13 +1,21 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "@ttsc/factory";
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
 import { id, kw, num, print } from "../../internal/helpers";
 
 /**
- * Print {@link factory.createParameterDeclaration|parameter} variants.
+ * Verifies printing of {@link factory.createParameterDeclaration|parameter} variants.
  *
  * A rest parameter `...args: string[]`, an optional `x?: number`, and a
  * decorated parameter with a default `@inject x: number = 1`.
+ *
+ * 1. Rest, optional and decorated/default parameters retain their markers, type and initializer in arrow syntax.
+ * 2. Literal ...args: string[], x?: number and @inject x: number = 1 expectations are authored syntax, not printer snapshots.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Rest, optional and decorated/default parameters retain their markers, type and initializer in arrow syntax.
+ * @evidence contracts/testing.md#independent-expectations Literal ...args: string[], x?: number and @inject x: number = 1 expectations are authored syntax, not printer snapshots.
+ * @evidence contracts/testing.md#distinguishing-cases Rest versus optional versus initialized/decorated shapes pin different parameter branches; default marker must not become optional.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_parameter_variants. Calls createParameterDeclaration and arrow construction, then TsPrinter.print through the unit export.
  */
 export const test_parameter_variants = (): void => {
   const arrow = (p: ReturnType<typeof factory.createParameterDeclaration>) =>

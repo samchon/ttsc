@@ -1,11 +1,17 @@
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  "math"
+  "strconv"
+  "strings"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
 
 // radix: `parseInt(x)` without an explicit radix argument can trigger
 // implementation-defined octal parsing in older environments. ESLint's
-// default "always" mode requires the second argument and rejects values
-// outside the valid bases {2, 8, 10, 16}.
+// default "always" mode requires the second argument and rejects a literal
+// radix that is not an integer from 2 through 36.
 // https://eslint.org/docs/latest/rules/radix
 type radix struct{}
 
@@ -37,14 +43,38 @@ func (radix) Check(ctx *Context, node *shimast.Node) {
     ctx.Report(node, "Missing radix parameter.")
     return
   }
-  if radixArg.Kind == shimast.KindNumericLiteral {
-    text := numericLiteralText(radixArg)
-    if text == "10" || text == "16" || text == "8" || text == "2" {
-      return
+  // Only a radix whose value is known is judged: a number outside the integers
+  // 2 through 36, a string, a boolean, `null` or `undefined` is invalid, while a
+  // variable or call result cannot be checked statically.
+  switch radixArg.Kind {
+  case shimast.KindNumericLiteral:
+    if !radixLiteralIsValid(numericLiteralText(radixArg)) {
+      ctx.Report(radixArg, "Invalid radix parameter.")
     }
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral,
+    shimast.KindTrueKeyword, shimast.KindFalseKeyword, shimast.KindNullKeyword,
+    shimast.KindUndefinedKeyword:
     ctx.Report(radixArg, "Invalid radix parameter.")
-    return
+  case shimast.KindIdentifier:
+    if identifierText(radixArg) == "undefined" {
+      ctx.Report(radixArg, "Invalid radix parameter.")
+    }
   }
+}
+
+// radixLiteralIsValid reports whether a numeric literal is an integer from 2
+// through 36, the range parseInt accepts as a radix.
+func radixLiteralIsValid(text string) bool {
+  clean := strings.ReplaceAll(text, "_", "")
+  value, err := strconv.ParseFloat(clean, 64)
+  if err != nil {
+    parsed, intErr := strconv.ParseInt(clean, 0, 64)
+    if intErr != nil {
+      return false
+    }
+    value = float64(parsed)
+  }
+  return value == math.Trunc(value) && value >= 2 && value <= 36
 }
 
 // noNewWrappers: `new String("")`, `new Number(0)`, `new Boolean(false)`

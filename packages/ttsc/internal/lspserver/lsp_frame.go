@@ -49,6 +49,7 @@ const MaxHeaderBytes = 64 << 10
 // @evidenceExclude contracts/performance.md#efficient-algorithms Read chooses the framing algorithm; this type carries its buffered input.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The type does not coordinate shared computations across readers.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transport owner controls closure; this representation owns no native handle independently.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type FrameReader struct {
   br *bufio.Reader
 }
@@ -60,9 +61,10 @@ type FrameReader struct {
 // @evidence contracts/common.md#clear-and-simple-design Construction wraps one caller-owned reader and returns framing state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported buffering avoids mutating the foreign reader implementation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states lazy consumption and closure ownership, following the documentation skill.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Construction delegates buffering; Read owns input processing.
+// @evidence contracts/performance.md#efficient-algorithms bufio.NewReader allocates a default-sized buffer or reuses an existing sufficiently large bufio.Reader, then returns one framing wrapper without reading the stream. An already larger caller buffer is preserved, not reduced to the framing caps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Distinct streams cannot share unread framing state.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned reader owns its buffer while the caller retains transport closure.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewFrameReader computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewFrameReader(r io.Reader) *FrameReader {
   return &FrameReader{br: bufio.NewReader(r)}
 }
@@ -75,9 +77,10 @@ func NewFrameReader(r io.Reader) *FrameReader {
 // @evidence contracts/common.md#clear-and-simple-design Header accumulation precedes bounded body allocation, with Content-Length recognition delegated to one helper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Case-insensitive header names and size caps follow framing policy rather than known editor messages.
 // @evidence contracts/common.md#meaningful-documentation Native prose states separate header and body returns, following the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms ReadSlice and builders process H header bytes and B body bytes in O(H+B) time and O(H+B) returned/temporary storage, under independent caps.
+// @evidence contracts/performance.md#efficient-algorithms Header slicing, accumulation, parsing and body copying process H header bytes and B body bytes with O(H+B) byte work/storage under independent per-frame caps, in addition to the reader's retained buffer. Arbitrary reader latency is not bounded by those counts: this method supplies no deadline or cancellation, and caps do not bound how many completed frames callers retain.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Consuming the next stream frame is effectful and cannot reuse a previous frame's body.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Per-frame buffers are returned to the caller; the transport owner closes the reader.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Read computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (fr *FrameReader) Read() (headers string, body []byte, err error) {
   var headerBuf strings.Builder
   contentLength := -1
@@ -154,9 +157,10 @@ func parseContentLength(line string) (int, bool) {
 // @evidence contracts/common.md#clear-and-simple-design Header and body are written directly while the caller owns synchronization.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol line endings are legitimate constants, independent of native text conventions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains outgoing header syntax and its reason, following the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Only the length header is allocated; the existing B-byte body is passed directly to the writer without a concatenated frame copy.
+// @evidence contracts/performance.md#efficient-algorithms Framing formats the length header and passes the existing B-byte body directly without concatenating a frame copy. io.WriteString can additionally copy header bytes when the writer lacks StringWriter; writer buffering, copying and blocking remain delegated costs. This function provides no output-size cap, write deadline or cancellation.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each frame write is an externally visible transport effect.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function neither retains the body nor takes ownership of the writer.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation WriteFrame computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func WriteFrame(w io.Writer, body []byte) error {
   header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
   if _, err := io.WriteString(w, header); err != nil {

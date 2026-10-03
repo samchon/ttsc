@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createInputObserver } from "../../../../../packages/unplugin/lib/core/observer/createInputObserver.js";
-import { filesystemClockReferences } from "../../../../../packages/unplugin/lib/core/transform/clock/filesystemClockReferences.js";
-import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/lib/core/transform/clock/refreshFilesystemClockReference.js";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.js";
-import { pluginSourceState } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceState.js";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
+import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
+import { filesystemClockReferences } from "../../../../../packages/unplugin/src/core/transform/clock/filesystemClockReferences";
+import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshFilesystemClockReference";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the input observer mints a clock reference of its own when it proves
@@ -31,15 +31,27 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
  *    host's filesystem.
  * 2. Edit a file below the source, and assert the owner is reloaded and a
  *    reference exists again, minted by the check.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored observer checks a source-tree proof after a clock-reference reset; the input edit must reload its owner and leave one newly minted filesystem reference.
+ * @evidence contracts/testing.md#independent-expectations
+ *   A source proof must establish a current host filesystem clock reference before reusing metadata. Counts zero before and one after are independent requirements, not values computed by the observer.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers quiet initial registration, the explicitly cleared-reference boundary and an edited source causing both owner reload and reference creation. Digest rollback trust has complementary ownership in the source proof tests.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source calls createInputObserver.open/replace, clears filesystemClockReferences, injects a changed Go-file notification and disposes in finally; real pluginSourceState/holds may probe go env/go version and GOROOT identity, but no plugin binary is built.
  */
 export async function test_input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-input-observer-clock-reference-"),
   );
-  TestProject.writeFiles(root, {
-    "plugin/go.mod": "module example.com/plugin\n\ngo 1.26\n",
-    "plugin/main.go": "package main\n\nfunc main() {}\n",
-  });
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/e2e/input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source/inputs-1",
+    ),
+    root,
+  );
   const source = path.join(root, "plugin");
   const owner = path.join(root, "owner");
   const input = (): TtscWatchInput => ({

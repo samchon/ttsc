@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverPluginConfigBaseDirPrecedence verifies the anchor ladder of
+// TestDriverPluginConfigBaseDirPrecedence Verifies the anchor ladder of
 // PluginConfigBaseDir: the explicit TTSC_PLUGIN_CONFIG_DIR channel wins when
 // set (absolute or cwd-relative), a blank channel falls back to the tsconfig
 // directory (itself resolved against cwd), and an empty tsconfig falls back
@@ -21,6 +21,11 @@ import (
 //  2. Probe the blank/whitespace env fallbacks with absolute and relative
 //     tsconfig paths.
 //  3. Probe the empty-tsconfig cwd fallback.
+//
+// @evidence contracts/testing.md#behavioral-verification PluginConfigBaseDir returns the literal expected anchors for absolute and relative env values, blank env with absolute/relative config, and empty-config fallback.
+// @evidence contracts/testing.md#independent-expectations The explicit config directory overrides the tsconfig directory, which overrides cwd; fixture roots and relative path components establish each independent anchor.
+// @evidence contracts/testing.md#distinguishing-cases Absolute env, cwd-relative env, whitespace env, absolute config, relative config and no config cover the tested precedence branches.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the anchor helper directly under t.Setenv; no config evaluator or native plugin process is started.
 func TestDriverPluginConfigBaseDirPrecedence(t *testing.T) {
   cwd := t.TempDir()
   project := t.TempDir()

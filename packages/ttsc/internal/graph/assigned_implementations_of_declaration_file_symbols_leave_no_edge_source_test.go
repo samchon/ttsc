@@ -43,6 +43,11 @@ const ambientGlobalFixtureTSConfig = `{
 //  2. Build the graph.
 //  3. Assert no edge leaves an external node, and that `main.ts`'s module node
 //     still owns the value-call edge to `helper`.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that assigning a function to a symbol declared in a declaration file records no edge leaving the external boundary leaf that symbol enters the graph as.
+// @evidence contracts/testing.md#independent-expectations The expectations follow from the ownership rule stated in the test and are checked over a literal fixture: no edge in the built graph may have an external node as its source, and the main.ts module node (moduleID of its path) must own a value-call edge to the helper node (nodeID of its path). The ids are built by the package's own id functions, so a change to id grammar would not be caught here.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose `src/globals.d.ts` declares `var patched` in a global augmentation and whose `src/main.ts` assigns an arrow function to it that calls a local `helper`; Build the graph; Assert no edge leaves an external node, and that `main.ts`'s module node still owns the value-call edge to `helper`.
+// @evidence contracts/testing.md#execution-ownership TestAssignedImplementationsOfDeclarationFileSymbolsLeaveNoEdgeSource is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestAssignedImplementationsOfDeclarationFileSymbolsLeaveNoEdgeSource(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), ambientGlobalFixtureTSConfig)

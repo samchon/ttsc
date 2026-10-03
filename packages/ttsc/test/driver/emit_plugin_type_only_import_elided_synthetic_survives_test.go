@@ -13,18 +13,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerTypeOnlyImportElidedSyntheticSurvives pins both
-// sides of the import-elision contract at once:
+// TestEmitWithPluginTransformerTypeOnlyImportElidedSyntheticSurvives Verifies type-only
+// imports disappear while an injected namespace import and matching runtime reference survive.
 //
-//   - A *parsed* import that is used only in type position is dropped by tsgo's
-//     import elision (no `require("./types")` reaches the emitted JS), because the
-//     checker proves it carries no runtime value.
-//   - A *synthetic* namespace import the plugin injects via ec.Factory has no
-//     parse node and no checker symbol, so elision cannot reason about it and it
-//     survives as an unconditional `require("./dep")` — the same property
-//     emit_plugin_test.go relies on, asserted here from the opposite direction
-//     (a real type-only import next to it is what proves elision is actually
-//     running and would have removed the synthetic one if it were elidable).
+// The original Shape import is used only in a type annotation and must disappear from
+// runtime output. The injected namespace import has no parse original and must survive
+// with its matching foo use. Their coexistence distinguishes working import elision from
+// either disabling elision or dropping every import.
+//
+// 1. Inject a runtime namespace import beside the fixture type-only import.
+// 2. Require the type-only module and symbol to disappear while the injected require and matching foo use remain.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual namespace import injection and requires original types import/symbol erased while injected dep require and matching foo use survive.
+// @evidence contracts/testing.md#independent-expectations Authored ./types/Shape type-only use contrasts explicitly injected ./dep/foo runtime use; generated alias captures only correlate binding and use.
+// @evidence contracts/testing.md#distinguishing-cases Original type import and synthetic value import coexist, distinguishing functioning elision from overbroad dropping or disabled elision.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit runs actual compiler/visitor APIs on private Program input and captures output with deferred close; no runtime loader or installed plugin.
 func TestEmitWithPluginTransformerTypeOnlyImportElidedSyntheticSurvives(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

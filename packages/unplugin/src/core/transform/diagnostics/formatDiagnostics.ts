@@ -14,6 +14,16 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  * @evidence contracts/common.md#clear-and-simple-design One projection joins present location components and delegates terminal escape removal to its single owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting preserves diagnostic order and supplied positions rather than substituting expected fixture messages or synthetic success.
  * @evidence contracts/common.md#meaningful-documentation The native comment states the rendered shape and explains why an empty failure still needs a message.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One projection visits each diagnostic and scans each message once for
+ *   CSI escapes. Total work and output space scale with the diagnostic count
+ *   and rendered text lengths; supplied order and coordinates are retained.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function formatDiagnostics(
   diagnostics: ITtscCompilerDiagnostic[],

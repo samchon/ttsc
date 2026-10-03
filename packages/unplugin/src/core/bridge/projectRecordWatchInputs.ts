@@ -28,7 +28,20 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain restored-session ownership and membership separation,
  *   with prose/tags following documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation The root membership input obtains physical identity from the host filesystem resolver and actual directory case policy, while persisted lexical input spellings remain paired with their original evidence.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Root membership uses the host resolver's observed physical/case identity
+ *   when available and its lexical fallback otherwise; this conversion does
+ *   not certify native watch coverage. Persisted input spelling/evidence pairs
+ *   remain unchanged and bridge admission re-proves them.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a fresh array owned by the caller and keeps no reference to it.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Object.entries and map allocate I pairs and I delivery objects. Optional
+ *   root membership additionally creates an identity context and pays native
+ *   realpath/ancestor/case observations plus path text; no input content is read.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This conversion owns no cross-call cache; each refresh constructs its own
+ *   input array/root identity transaction. Observer/bridge owners decide whether
+ *   equivalent evidence can share subscriptions after current admission.
  */
 export function projectRecordWatchInputs(
   record: TtscProjectRecord,

@@ -12,12 +12,32 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
-// runDump builds the full code graph for a project and prints it as JSON to
-// stdout, then exits. Unlike serve it does not stay resident: it is the one-shot
-// `ttscgraph dump` a user pipes into a file to feed the 3D viewer or any other
-// tooling. Every node and edge is included, with none of the MCP response caps.
+// preparedDumpCommand retains one loaded Program and its actual graph, source
+// texts and producer origin until the command adapter finishes encoding.
+type preparedDumpCommand struct {
+  program *driver.Program
+  built *graph.Graph
+  cwd string
+  tsconfig string
+  texts map[string]string
+  origin graph.DumpOrigin
+  pretty bool
+}
+
+// runDump emits the complete raw graph as a JSON document, without MCP caps.
+// Host ignore acquisition belongs to this default command adapter. The prepared
+// command owns grammar, compiler loading, origin claims and streaming encoding.
 // Returns 0 on success, 1 on a load or serialize error, 2 on invalid invocation.
 func runDump(args []string) int {
+  prepared, code := prepareDumpCommand(args)
+  if prepared == nil { return code }
+  defer func() { _ = prepared.program.Close() }()
+  return prepared.encode(graph.GitIgnoredFiles(prepared.cwd, prepared.built))
+}
+
+// prepareDumpCommand owns the shipped grammar and producer claims. It releases
+// the Program on preparation failure; a successful caller owns its final close.
+func prepareDumpCommand(args []string) (*preparedDumpCommand, int) {
   fs := flag.NewFlagSet("ttscgraph dump", flag.ContinueOnError)
   fs.SetOutput(stderr)
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
@@ -29,7 +49,7 @@ func runDump(args []string) int {
     "path to the artifacts a plugin published (JSON); absent or missing means none",
   )
   if err := fs.Parse(args); err != nil {
-    return 2
+    return nil, 2
   }
 
   cwd := strings.TrimSpace(*cwdFlag)
@@ -37,7 +57,7 @@ func runDump(args []string) int {
     resolved, err := getwd()
     if err != nil {
       fmt.Fprintf(stderr, "ttscgraph: could not resolve working directory: %v\n", err)
-      return 2
+      return nil, 2
     }
     cwd = resolved
   }
@@ -53,13 +73,12 @@ func runDump(args []string) int {
   prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: could not load %s/%s: %v\n", cwd, tsconfig, err)
-    return 1
+    return nil, 1
   }
   if prog == nil {
     fmt.Fprintf(stderr, "ttscgraph: could not load %s/%s\n", cwd, tsconfig)
-    return 1
+    return nil, 1
   }
-  defer func() { _ = prog.Close() }()
 
   g := graph.Build(prog)
   // The artifacts arrive from a plugin that parsed documents this Program never
@@ -69,30 +88,26 @@ func runDump(args []string) int {
   artifacts, err := graph.LoadArtifacts(strings.TrimSpace(*artifactsFlag))
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: could not read the published artifacts: %v\n", err)
-    return 1
+    _ = prog.Close()
+    return nil, 1
   }
   graph.ApplyArtifacts(g, artifacts)
-  ignored := graph.GitIgnoredFiles(cwd, g)
   texts := graph.SourceTexts(prog)
   origin, err := dumpOrigin(prog, texts, strings.TrimSpace(*artifactsFlag) != "")
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
-    return 1
+    _ = prog.Close()
+    return nil, 1
   }
-  // Stream the document out instead of marshalling it into one byte slice and
-  // then copying that slice into a string: on VS Code the dump is 323 MB, so
-  // the string conversion alone was a second full copy of it, for nothing. The
-  // encoder writes through a buffer straight to stdout.
-  if err := graph.EncodeDump(
-    stdout,
-    g,
-    cwd,
-    tsconfig,
-    ignored,
-    texts,
-    origin,
-    *prettyFlag,
-  ); err != nil {
+  return &preparedDumpCommand{program: prog, built: g, cwd: cwd, tsconfig: tsconfig, texts: texts, origin: origin, pretty: *prettyFlag}, 0
+}
+
+// encode projects an actual prepared command with evaluated ignore membership.
+// It preserves stdout streaming and reports the same serialization diagnostics.
+// Buffered streaming avoids retaining another complete JSON byte slice and
+// string, which matters for large raw graph documents.
+func (prepared *preparedDumpCommand) encode(ignored map[string]bool) int {
+  if err := graph.EncodeDump(stdout, prepared.built, prepared.cwd, prepared.tsconfig, ignored, prepared.texts, prepared.origin, prepared.pretty); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
   }

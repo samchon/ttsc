@@ -1,9 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { matchesProjectRootFile } from "../../../../../packages/unplugin/lib/core/tsconfig/matchesProjectRootFile.mjs";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { isPackageDirectory } from "../../../../../packages/unplugin/src/core/tsconfig/isPackageDirectory";
+import { matchesProjectRootFile } from "../../../../../packages/unplugin/src/core/tsconfig/matchesProjectRootFile";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies root-file matching follows TypeScript-Go's wildcard rules for tool
@@ -23,7 +24,14 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 2. Match JSON under an include that lists a `.json` spec, and a literal file.
  * 3. Match dotted and package directories named literally, and a wildcard that
  *    spells `.min.`.
- * 4. Assert each file and directory answer is TypeScript-Go's.
+ * 4. Assert each file and directory answer is TypeScript-Go's. Package-folder
+ *    classification consumes the whole bare name: trailing line terminators
+ *    form different names, admitted by a POSIX wildcard rather than excluded.
+ *    The explicit view is authored; no native filename or Go run is measured.
+ * @evidence contracts/testing.md#behavioral-verification Authored root matching applies TypeScript-Go wildcard admission to source/package/hidden/JSON/minified paths and distinguishes file from directory matching.
+ * @evidence contracts/testing.md#independent-expectations Pinned TypeScript-Go isPackageFolder uses full-name length and EqualFold for the three package names. Literal table rows specify this full-name boundary, supported default glob, explicit files, JSON-spec and minified-file expectations; expected booleans are not obtained from the matcher.
+ * @evidence contracts/testing.md#distinguishing-cases Default include, named hidden/package directories, literal JSON, shallow JSON patterns and explicit .min. patterns preserve every positive and adjacent negative row. Complete package names and mixed case are contrasted with empty, prefixed, suffixed and five line-terminator endings; explicit POSIX wildcard directory/file admission distinguishes their downstream effect.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes the actual matcher and config reader directly on a small JSON fixture, without starting a compiler merely to reach wildcard policy.
  */
 export async function test_membership_policy_matches_root_files_as_typescript_go_does(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-root-match-");
@@ -91,4 +99,49 @@ export async function test_membership_policy_matches_root_files_as_typescript_go
       ["node_modules/other/index.ts", false, false],
     ],
   );
+
+  const posix = {
+    ...policy({}),
+    useCaseSensitiveFileNames: true,
+    rootFileSpecs: { files: [], include: ["/project/**/*"] },
+  };
+  assert.equal(isPackageDirectory(""), false);
+  for (const [name, mixed] of [
+    ["node_modules", "NoDe_MoDuLeS"],
+    ["bower_components", "BoWeR_CoMpOnEnTs"],
+    ["jspm_packages", "JsPm_PaCkAgEs"],
+  ] as const) {
+    assert.equal(isPackageDirectory(name), true);
+    assert.equal(isPackageDirectory(mixed), true);
+    assert.equal(isPackageDirectory(`prefix-${name}`), false);
+    assert.equal(isPackageDirectory(`${name}-suffix`), false);
+    assert.equal(
+      matchesProjectRootFile(`/project/${name}/main.ts`, posix, false, "linux"),
+      false,
+      "a complete package name remains excluded by a wildcard",
+    );
+    for (const ending of ["\n", "\r", "\r\n", "\u2028", "\u2029"]) {
+      const different = `${name}${ending}`;
+      assert.equal(
+        isPackageDirectory(different),
+        false,
+        JSON.stringify(different),
+      );
+      assert.equal(
+        matchesProjectRootFile(`/project/${different}`, posix, true, "linux"),
+        true,
+        `wildcard directory admission: ${JSON.stringify(different)}`,
+      );
+      assert.equal(
+        matchesProjectRootFile(
+          `/project/${different}/main.ts`,
+          posix,
+          false,
+          "linux",
+        ),
+        true,
+        `wildcard file admission: ${JSON.stringify(different)}`,
+      );
+    }
+  }
 }

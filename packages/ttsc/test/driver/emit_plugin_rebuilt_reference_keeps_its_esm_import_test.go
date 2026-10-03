@@ -12,8 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport carries the
-// dangling-reference case onto the ES module lane.
+// TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport Verifies a rebuilt reference
+// retains the original ES module import and exported use.
 //
 // The sibling rebuilt-reference tests all emit CommonJS, where the damage is a
 // missing `require` binding beside an alias that still mentions it. Under
@@ -27,6 +27,11 @@ import (
 //  2. A plugin rebuilds that reference from a fresh ec.Factory identifier,
 //     SetOriginal-linked back to the parse-tree one.
 //  3. Assert the emitted module still declares the import and still uses `foo`.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual original-linked foo reconstruction and requires occurrence plus retained exported foo use and its exact ESM import declaration.
+// @evidence contracts/testing.md#independent-expectations Literal import { foo } from ./dep and export const a = foo come from authored ESM input independently of the printer.
+// @evidence contracts/testing.md#distinguishing-cases ESM import retention contrasts CommonJS require binding cases, and reconstruction control rejects an accidentally plain emitter.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit executes actual compiler and emit visitor APIs on private input with captured writes and deferred Program close; no ESM consumer executes.
 func TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -46,6 +51,7 @@ func TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport(t *testing.T
   }
   defer prog.Close()
 
+  rebuilt := false
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -54,6 +60,7 @@ func TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport(t *testing.T
       }
       if node.Kind == shimast.KindIdentifier && node.Text() == "foo" &&
         node.Parent != nil && node.Parent.Kind == shimast.KindVariableDeclaration {
+        rebuilt = true
         syn := ec.Factory.NewIdentifier("foo")
         ec.SetOriginal(syn, node)
         return syn
@@ -70,6 +77,9 @@ func TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport(t *testing.T
     return nil
   }); err != nil {
     t.Fatal(err)
+  }
+  if !rebuilt {
+    t.Fatal("plugin never rebuilt the authored reference")
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)

@@ -29,11 +29,6 @@ import path from "node:path";
  *   The default-export protocol uses the supported host loader. No wrapper
  *   substitutes its own transform implementation or compensates for failed
  *   source resolution.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   node:path.resolve constructs the absolute sibling driver path from the
- *   host-supplied dirname on Windows and POSIX. Native roots and separators
- *   come from that supplied directory, rather than an ambient __dirname or a
- *   manually concatenated path.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the host directory, driver ownership and the
  *   limited meaning of descriptor-input reuse in separate paragraphs. Context

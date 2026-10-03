@@ -11,5 +11,17 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose names graph membership and opacity; tags follow a blank
  *   description separator as documentation guidance requires.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ViteModuleNodeLike only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ViteModuleNodeLike only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ViteModuleNodeLike only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ViteModuleNodeLike only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type ViteModuleNodeLike = object;

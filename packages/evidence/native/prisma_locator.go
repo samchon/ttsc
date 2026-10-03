@@ -23,14 +23,16 @@ const (
   prismaBlockComment prismaCommentForm = "block"
 )
 
-// prismaCommentRun is one contiguous comment block and the declaration it
-// attaches to.
+// prismaCommentRun is one comment run and the declaration it attaches to.
 //
-// Body preserves the run's own line spacing — a line the run skipped is empty
-// rather than absent — so a tag's offset inside the body is still its offset in
-// the file. Key is the declaration the run documents, empty when it documents
-// nothing unless FileLevel identifies a top-level triple-slash exclusion
-// carrier.
+// A run is either the contiguous documentation block above one declaration or a
+// single comment line that can never document one: a `//` line, or a comment
+// that shares its line with code. Body preserves a documentation run's own line
+// spacing — a line the run skipped is empty rather than absent — so a tag's
+// offset inside the body is still its offset in the file. Key is the
+// declaration the run documents, empty when it documents nothing unless
+// FileLevel identifies a top-level triple-slash exclusion carrier. Trailing
+// marks the single-line run whose comment shares its line with code.
 type prismaCommentRun struct {
   Form      prismaCommentForm
   Path      string
@@ -38,6 +40,7 @@ type prismaCommentRun struct {
   Body      string
   Key       string
   FileLevel bool
+  Trailing  bool
 }
 
 // prismaFileScan is everything one schema file yields to the native side.
@@ -46,12 +49,20 @@ type prismaFileScan struct {
   Comments  []prismaCommentRun
 }
 
+// prismaByteOrderMark is the UTF-8 encoding of U+FEFF, spelled as bytes so the
+// constant is visible in an editor that hides the character.
+const prismaByteOrderMark = "\xef\xbb\xbf"
+
+// prismaLineBreaks rewrites every line terminator Prisma's grammar accepts to
+// `\n`, taking `\r\n` as one terminator rather than two.
+var prismaLineBreaks = strings.NewReplacer("\r\n", "\n", "\r", "\n")
+
 // prismaBlockKeywords are the top-level block openers Prisma's grammar accepts.
 //
-// All six are recognized even though only `model`, `view`, and `type` can own a
-// unit, because recognizing a block is how the scan knows when it is *not*
-// inside one. Dropping `datasource` and `generator` would leave their settings
-// looking like members of whatever block was declared before them.
+// All six are recognized even though only `model` and `view` own a unit, because
+// recognizing a block is how the scan knows when it is *not* inside one.
+// Dropping `datasource` and `generator` would leave their settings looking like
+// members of whatever block was declared before them.
 var prismaBlockKeywords = map[string]bool{
   "model":      true,
   "view":       true,
@@ -61,7 +72,13 @@ var prismaBlockKeywords = map[string]bool{
   "generator":  true,
 }
 
-// prismaMemberBlocks are the blocks whose members this graph addresses.
+// prismaMemberBlocks are the blocks whose names and members the scan locates.
+//
+// Locating a block is not owning a unit for it. A `type` block is a composite
+// type, which is outside the unit model: the parser reports it apart from the
+// models the units are built from, so its locations are recorded and never
+// looked up, and a citation written in one is reported as documenting something
+// that is not a model, column, or relation.
 var prismaMemberBlocks = map[string]bool{
   "model": true,
   "view":  true,
@@ -120,14 +137,27 @@ func locatePrismaDeclarations(
 //   - A run followed by a block attribute or by the block's closing brace
 //     documents nothing.
 //
+// A comment that shares its line with code never joins a run. Prisma reads a
+// trailing `///` or `/* */` as documentation of the field on its own line, and
+// never of the declaration below it, and this graph reads a citation only from
+// the lines above a declaration, so such a comment is reported instead.
+//
 // A run that documents nothing keeps an empty Key rather than being dropped,
 // because a citation written there is a citation that will never be honoured —
 // and this rule reports that rather than letting it pass for a tag that works.
+//
+// The scan reads the text the parser was handed, not the bytes on disk: the
+// bridge decodes a file as UTF-8, which drops a leading byte order mark, and
+// Prisma's grammar ends a line at `\n`, `\r\n`, or a lone `\r`. A scan that kept
+// the mark would fail to recognise a first-line block opener or to attach a
+// first-line comment, and one that split on `\n` alone would see a lone-`\r`
+// file as a single line.
 func scanPrismaFile(
   source string,
   content string,
   locations map[string]prismaLocation,
 ) prismaFileScan {
+  content = prismaLineBreaks.Replace(strings.TrimPrefix(content, prismaByteOrderMark))
   scan := prismaFileScan{Locations: locations}
   record := func(key string, line int) {
     if key == "" {
@@ -155,8 +185,7 @@ func scanPrismaFile(
     pending = nil
   }
   for index, raw := range lines {
-    line := strings.TrimSuffix(raw, "\r")
-    code, comment, form, stillCommented := prismaPartsOf(line, commented)
+    code, comment, form, stillCommented := prismaPartsOf(raw, commented)
     commented = stillCommented
     trimmed := strings.TrimSpace(code)
     if comment != "" || form != "" {
@@ -222,9 +251,9 @@ type prismaPendingComment struct {
   Form prismaCommentForm
   Line int
   Text string
-  // Trailing marks a comment that shared its line with code. Prisma treats
-  // such a comment as the field's trailing comment rather than as
-  // documentation, so it can never document the declaration below it.
+  // Trailing marks a comment that shared its line with code. Such a comment
+  // belongs to the line it sits on, never to the declaration below it, so it
+  // cannot join the documentation run above that declaration.
   Trailing bool
   // TopLevel marks a comment written outside every Prisma block. A detached
   // documentation run there may carry claim-local exclusions for the file
@@ -232,12 +261,16 @@ type prismaPendingComment struct {
   TopLevel bool
 }
 
-// prismaCommentRuns groups pending comment lines into one run per form.
+// prismaCommentRuns turns the pending comment lines above one declaration into
+// runs.
 //
-// Only the doc-comment run can carry a citation, so the other two are grouped
-// solely to be reported. Keeping the doc run's body line-aligned is what lets a
-// tag inside it be reported at the line it was written on: a line the run
-// skipped becomes an empty line rather than disappearing.
+// Every `///` and `/* */` line that does not share its line with code is joined
+// into the one documentation run, and that run alone can carry a citation. Every
+// other line, a `//` comment or a comment trailing code, becomes a run of its
+// own, and exists solely to be reported. Keeping the documentation run's body
+// line-aligned is what lets a tag inside it be reported at the line it was
+// written on: a line the run skipped becomes an empty line rather than
+// disappearing.
 func prismaCommentRuns(
   source string,
   pending []prismaPendingComment,
@@ -258,11 +291,12 @@ func prismaCommentRuns(
       continue
     }
     runs = append(runs, prismaCommentRun{
-      Form: comment.Form,
-      Path: source,
-      Line: comment.Line,
-      Body: comment.Text,
-      Key:  "",
+      Form:     comment.Form,
+      Path:     source,
+      Line:     comment.Line,
+      Body:     comment.Text,
+      Key:      "",
+      Trailing: comment.Trailing,
     })
   }
   if len(documenting) != 0 {
@@ -294,8 +328,8 @@ func prismaCommentRuns(
 // String contents are dropped from the code rather than kept, because a brace
 // inside one must not open or close a block — `@default("}")` is a legal field
 // that a naive brace count reads as the end of its model. The comment text is
-// returned rather than discarded, because two of the three forms cannot carry a
-// citation and this rule reports one written there instead of ignoring it.
+// returned rather than discarded, because a `//` comment cannot carry a citation
+// and this rule reports one written there instead of ignoring it.
 func prismaPartsOf(
   line string,
   commented bool,

@@ -10,15 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverProgramSourcesAndRawEmit verifies public program inspection and
-// unmodified TypeScript-Go emit through the driver facade.
+// TestDriverProgramSourcesAndRawEmit Verifies that SourceFiles filters declarations, SourceFile resolves the source path, and raw emit contains exports.value.
 //
-// This keeps the read-only Program facade behavior covered separately from the
-// rewrite pipeline, including declaration filtering.
+// The filtered list and JavaScript are asserted, without certifying full output or declaration emission.
 //
 // 1. Load a project containing one source file and one declaration file.
 // 2. Assert public source enumeration filters declarations.
 // 3. Emit raw JavaScript through a caller-provided WriteFile callback.
+//
+// @evidence contracts/testing.md#behavioral-verification SourceFiles filters declarations, SourceFile resolves the source path, and raw emit contains exports.value.
+// @evidence contracts/testing.md#independent-expectations One authored source, one declaration, and the source's export define the expected population and CommonJS text.
+// @evidence contracts/testing.md#distinguishing-cases The filtered list and JavaScript are asserted, without certifying full output or declaration emission.
+// @evidence contracts/testing.md#execution-ownership The public Go Program and recording raw writer execute over one temporary project. Go discovers TestDriverProgramSourcesAndRawEmit under ./test/driver.
 func TestDriverProgramSourcesAndRawEmit(t *testing.T) {
   root := t.TempDir()
 

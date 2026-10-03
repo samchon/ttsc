@@ -1,0 +1,12 @@
+declare const require: (specifier: "lib") => typeof import("lib");
+const lib = require("lib");
+if ("Hidden" in lib) throw new Error("type-only export leaked");
+if ("commentedGhost" in lib) throw new Error("comment export leaked");
+if ("stringGhost" in lib) throw new Error("string export leaked");
+if ("commentAssignGhost" in lib) throw new Error("comment assign export leaked");
+if ("blockAssignGhost" in lib) throw new Error("block assign export leaked");
+if ("stringAssignGhost" in lib) throw new Error("string assign export leaked");
+if ("templateAssignGhost" in lib) throw new Error("template assign export leaked");
+console.log(lib.foo + ":" + lib.bar() + ":" + lib.qux + ":" + lib.grouped.leaf);
+
+export {};

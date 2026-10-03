@@ -31,15 +31,17 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * The watch launcher must serialize cycles and use reload when invocation
  * selection or startup environment changes. A session does not independently
  * compare every option/environment field before reusing its cached context.
+ * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and the active
+ * sidecar count being retired, and distinguishes a failed resident transport.
  *
  * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle.
  * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency has an actual transport-failure one-shot path, not a successful-result substitution; configuration positions remain distinct even when processes share a key.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; run and dispose document lifecycle effects.
  * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks and cache touch helpers use selected binary paths; child creation delegates native executable/argv/environment handling to ResidentCheckProcess and BuildExecution.
- * @evidence contracts/performance.md#efficient-algorithms Per-cycle selection and buffer union scale with configured checks and pending paths; snapshot comparisons are linear in normalized inputs and accumulated output may recopy earlier phase text.
+ * @evidence contracts/performance.md#efficient-algorithms Per-cycle command planning, key serialization and buffer unions process configured checks and pending path text; sorting/comparison bytes, native cache observations, subscribed input discovery and delegated checks add work. Snapshot comparison visits normalized strings and accumulated output can repeatedly copy earlier phase text.
  * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs; current input snapshots and change requests determine warm Program updates.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Reset/dispose clear execution, snapshots, buffers and sidecar ownership; under stable options process keys are bounded by configured checks, but pending unique paths may grow during repeated earlier failures and OS-level termination is delegated to the child owner.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Reset clears active maps, execution and snapshots while retiring children and join promises remain separately retained. Unknown joins remain retained rejection and prevent replacement; delegated termination is not descendant settlement. Stable options bound active process keys by configured checks, but pending unique paths and repeated disposal promise chains have no independent historical ceiling.
  */
 export class ResidentCheckWatchSession {
   private execution:
@@ -54,6 +56,10 @@ export class ResidentCheckWatchSession {
 
   /** Sidecars acquired for the stable invocation; reset releases every key. */
   private readonly processes = new Map<string, ResidentCheckProcess>();
+  private readonly retiringProcesses = new Set<ResidentCheckProcess>();
+  private retirement: Promise<void> = Promise.resolve();
+  private closed = false;
+  private generation = 0;
 
   /**
    * Run one serialized watch cycle through the shared build/check policies.
@@ -71,20 +77,24 @@ export class ResidentCheckWatchSession {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resident transport retires that process and uses the established real check command; the fallback neither drops forwarded compiler options nor converts a nonzero check into success.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs document serialization, stable startup inputs, reload and failed-sidecar behavior instead of claiming arbitrary option changes are handled automatically.
    * @evidence contracts/portability.md#os-neutral-implementation Native binary existence and cache freshness use filesystem helpers; all commands preserve selected cwd and use native process/environment abstractions without shell interpolation.
-   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution, but still perform required dependency discovery and per-entry change union; total cost includes actual host work and pending-path sorting.
+   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution until a missing binary or changed subscribed topology resets selection. Native existence/cache touches, optional onProjectInputs discovery, command/key construction, per-entry unions/sorts, delegated host work and output normalization/merging retain their actual entry/text/byte costs.
    * @evidence contracts/performance.md#reuse-equivalent-work Selected context and capability-supported sidecars survive only stable invocation cycles; change requests update Programs, reload/topology transitions reset them, and effectful configured entries remain separately scheduled.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains successful sidecars and per-entry pending changes; failures retire their process, reset clears all state, and unconsumed path sets have no finite bound while an earlier entry repeatedly fails.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains active sidecars and per-entry pending changes; transport failure retires its process and awaits actual close before fallback. Reset clears active state but not unknown retiring ownership or its rejection. Unconsumed path sets have no finite bound while an earlier entry repeatedly fails; child close does not certify descendants.
    */
   public async run(
     options: RunBuildOptions,
     change: ResidentCheckWatchChange = {},
   ): Promise<TtscBuildResult> {
-    if (change.reload === true) this.reset();
+    let generation = this.generation;
+    await this.retirement;
+    this.assertOpen(generation);
+    if (change.reload === true)
+      generation = await this.resetForRun("watch-reload");
 
     const timing = BuildTiming.createBuildTiming(options);
     const projectFree = BuildExecution.runProjectFreeTerminalFlag(options);
     if (projectFree !== null) {
-      this.reset();
+      await this.resetForRun("terminal-flag");
       return BuildTiming.appendTimingOutput(projectFree, timing);
     }
 
@@ -103,11 +113,11 @@ export class ResidentCheckWatchSession {
       );
       buildOptions = prepared.buildOptions;
       if (prepared.result !== undefined) {
-        this.reset();
+        await this.resetForRun("preparation-result");
         return BuildTiming.appendTimingOutput(prepared.result, timing);
       }
       if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
-        this.reset();
+        await this.resetForRun("incompatible-execution");
         return BuildTiming.appendTimingOutput(
           BuildExecution.runPreparedBuild(
             options,
@@ -124,11 +134,11 @@ export class ResidentCheckWatchSession {
       // resolving them again, so it records each cycle's use in their cache
       // entries, and a binary the cache removed anyway sends the session back
       // through resolution, which builds it again, rather than failing a
-      // sidecar respawn (samchon/ttsc#1556).
+      // sidecar respawn.
       if (
         execution.nativePlugins.some((plugin) => !fs.existsSync(plugin.binary))
       ) {
-        this.reset();
+        await this.resetForRun("missing-plugin-binary");
         return this.run(options);
       }
       for (const plugin of execution.nativePlugins)
@@ -139,7 +149,7 @@ export class ResidentCheckWatchSession {
       reusedExecution &&
       this.refreshProjectInputTopology(options, execution)
     ) {
-      this.reset();
+      await this.resetForRun("project-input-topology");
       return this.run(options);
     }
 
@@ -148,7 +158,9 @@ export class ResidentCheckWatchSession {
       execution,
       timing,
       change,
+      generation,
     );
+    this.assertOpen(generation);
     let result: TtscBuildResult;
     if (checked.status !== 0) {
       result = BuildExecution.appendTypeScriptDiagnosticsAfterPluginFailure(
@@ -173,33 +185,105 @@ export class ResidentCheckWatchSession {
 
   /**
    * Request termination of every retained sidecar and discard session state.
-   * This is synchronous release initiation, not an awaitable guarantee of OS
-   * process exit; child termination and queued-request rejection belong to the
-   * ResidentCheckProcess owner. A later run can start a fresh session
-   * selection.
+   * This initiates retirement synchronously; a later run awaits actual child close
+   * before selecting a fresh session. Use close for terminal, awaitable release.
+   * Child termination and queued-request rejection belong to the process owner.
    *
    * @evidence contracts/common.md#principled-implementation Reset visits each owned process before clearing its map and discards pending changes, dependency snapshot and selected execution together.
    * @evidence contracts/common.md#clear-and-simple-design Disposal uses the same reset boundary as topology transitions, keeping resource and cached-selection release in one place.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Release calls the supported child disposal API rather than replacing process methods or marking still-owned resources as successful check results.
-   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes termination initiation from awaited OS exit and describes fresh reuse after disposal.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes synchronous initiation, joined reuse and terminal close.
    * @evidence contracts/portability.md#os-neutral-implementation Platform-specific child termination is delegated to ResidentCheckProcess; this coordinator does not assume a POSIX signal guarantees process-tree exit on every OS.
-   * @evidence contracts/performance.md#efficient-algorithms Reset traverses the retained process population once and clears maps without scanning individual pending paths.
+   * @evidence contracts/performance.md#efficient-algorithms Reset deduplicates active and retiring children, traverses that population and collects previous/current promise outcomes; delegated disposal can reject queued child requests. Maps clear without a separate path-by-path pending-request scan, while debug serialization and callbacks add their own costs.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal invalidates shared execution ownership rather than establishing reusable computation.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives dispose before map ownership is cleared, and buffer/snapshot/context references are released; actual native termination guarantees remain with the child owner.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives retirement before map ownership is cleared; known failed exits can be replaced only after actual close, while unknown joins reject. Buffers and selected state release immediately and the generation rejects late work.
    */
   public dispose(): void {
-    this.reset();
+    if (this.closed) return;
+    void this.reset("dispose");
   }
 
-  /** Release the selected invocation and every sidecar/buffer acquired for it. */
-  private reset(): void {
-    for (const process of this.processes.values()) process.dispose();
+  /**
+   * Terminally close this session and await every retained or retiring child.
+   * Unlike dispose, later runs are rejected and cannot start a fallback.
+   *
+   * @evidence contracts/common.md#principled-implementation Terminal admission closes before owned processes are retired, and completion awaits their actual child-close outcomes.
+   * @evidence contracts/common.md#clear-and-simple-design The same reset boundary owns reusable disposal and terminal closure, with a separate admission flag for their different public contracts.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Closing forbids subsequent process acquisition or fallback and retains failed or unknown retirement as rejection.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes terminal closure from the compatible reusable dispose operation.
+   * @evidence contracts/portability.md#os-neutral-implementation Native EOF and close validation belong to each process owner; the session joins outcomes without assuming POSIX signal behavior on Windows.
+   * @evidence contracts/performance.md#efficient-algorithms Terminal reset deduplicates active and retiring children and observes their joins alongside the previous retirement promise. Outcome/failure collection and delegated queued-request disposal contribute work; unknown joins can reject at the child owner's event-loop deadline rather than becoming successful closes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated terminal closes share the retirement promise, while subsequent computation is forbidden by terminal admission.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Closing releases maps and selected state immediately but retains join promises until every actual child outcome settles; failed or unknown ownership remains rejection.
+   */
+  public close(): Promise<void> {
+    if (!this.closed) {
+      this.closed = true;
+      void this.reset("close");
+    }
+    return this.retirement;
+  }
+
+  private assertOpen(generation = this.generation): void {
+    if (this.closed) throw new Error("ttsc: resident check watch session closed");
+    if (generation !== this.generation)
+      throw new Error("ttsc: resident check watch cycle retired");
+  }
+
+  private async resetForRun(reason: string): Promise<number> {
+    const retirement = this.reset(reason);
+    const generation = this.generation;
+    await retirement;
+    this.assertOpen(generation);
+    return generation;
+  }
+
+  /** Release selection immediately and join its children before replacement. */
+  private reset(reason: string): Promise<void> {
+    ++this.generation;
+    if (process.env.TTSC_WATCH_DEBUG_INPUTS) {
+      process.stdout.write(
+        `[ttsc:debug] resident reset ${JSON.stringify({
+          reason,
+          selectedExecution: this.execution !== undefined,
+          processes: this.processes.size,
+        })}\n`,
+      );
+    }
+    const previous = this.retirement;
+    const children = new Set([
+      ...this.processes.values(), ...this.retiringProcesses,
+    ]);
+    const retiring = [...children].map((child) => {
+      const joined = this.trackRetirement(child);
+      return this.closed ? child.close() : joined;
+    });
+    this.retirement = Promise.allSettled([previous, ...retiring]).then((results) => {
+      const errors = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      if (errors.length !== 0)
+        throw new AggregateError(errors, "ttsc: resident check retirement failed");
+    });
+    void this.retirement.catch(() => {});
     this.processes.clear();
     this.pendingChanges.clear();
     this.execution = undefined;
     this.projectInputs = undefined;
+    return this.retirement;
+  }
+
+  private trackRetirement(child: ResidentCheckProcess): Promise<void> {
+    this.retiringProcesses.add(child);
+    child.dispose();
+    const joined = child.waitForExit();
+    void joined.then(
+      () => this.retiringProcesses.delete(child),
+      () => {}, // Unknown ownership stays retained and prevents replacement.
+    );
+    return joined;
   }
 
   /** Capture discoveries only when the caller actually subscribes to them. */
@@ -244,6 +328,7 @@ export class ResidentCheckWatchSession {
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     timing: BuildTiming.BuildTiming,
     change: ResidentCheckWatchChange,
+    generation: number,
   ): Promise<TtscBuildResult> {
     let out: TtscBuildResult = {
       diagnostics: [],
@@ -265,6 +350,7 @@ export class ResidentCheckWatchSession {
     bufferResidentCheckEntryRequests(this.pendingChanges, checks, request);
 
     for (const { args, entryIndex, key, plugin } of checks) {
+      this.assertOpen(generation);
       let result: TtscBuildResult;
       if (key === undefined) {
         result = BuildExecution.runNativePluginCommand(
@@ -307,8 +393,26 @@ export class ResidentCheckWatchSession {
             execution.projectRoot,
           );
         } catch {
+          if (process.env.TTSC_WATCH_DEBUG_INPUTS) {
+            process.stdout.write(
+              `[ttsc:debug] resident transport failed ${JSON.stringify({
+                entryIndex,
+                plugin: plugin.name,
+              })}\n`,
+            );
+          }
           resident.dispose();
           this.processes.delete(key);
+          const previousRetirement = this.retirement;
+          this.retirement = Promise.allSettled([
+            previousRetirement, this.trackRetirement(resident),
+          ]).then((results) => {
+            const failed = results.find((result) => result.status === "rejected");
+            if (failed?.status === "rejected") throw failed.reason;
+          });
+          void this.retirement.catch(() => {});
+          await this.retirement;
+          this.assertOpen(generation);
           // The one-shot fallback observes the complete current filesystem,
           // and a later sidecar starts cold, so neither needs old deltas.
           // A capability-aware host may still disappear or violate framing.

@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies the endpoint, declaration-file exclusion and path convention,
  *   following the documentation skill's usage-context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSourceFilesResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSourceFilesResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSourceFilesResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscSourceFilesResult {
   /** Non-declaration source paths: project-relative inside cwd, absolute outside. */

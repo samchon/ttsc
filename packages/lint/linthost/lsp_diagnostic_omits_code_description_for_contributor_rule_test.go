@@ -1,0 +1,81 @@
+package linthost
+
+import (
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+// TestLSPDiagnosticOmitsCodeDescriptionForContributorRule verifies a
+// third-party rule's diagnostic carries no documentation URL.
+//
+// This is the negative twin of the built-in link. The append-only rule-code
+// ledger retains removed names, and a contributor may reuse one after its native
+// rule disappears. The runtime adapter check must therefore stop the contributor
+// from inheriting a ttsc.dev page that documents someone else's rule.
+//
+//  1. Register a contributor under a retired name still present in the ledger.
+//  2. Run the engine so the rule reports one finding.
+//  3. Assert the converted LSP diagnostic keeps its rule id but no
+//     codeDescription, while a built-in rule still resolves one.
+//
+// @evidence contracts/testing.md#behavioral-verification The test requires inspectContributor to preserve the fixture's explicit AST-only metadata, then the contributor adapter reports its literal ordinary SeverityError finding under the retired name without codeDescription, rejecting recovered failures; the built-in no-alert mapping remains present.
+// @evidence contracts/testing.md#independent-expectations The fixture reports only a constant range, so its metadata must require no checker. A contributor does not own the retired built-in documentation; nil description and the positive built-in URL follow this distinction independently of ledger lookup.
+// @evidence contracts/testing.md#distinguishing-cases A contributor adapter registered under the retired built-in name solid/jsx-uses-vars is run through the Engine; its converted diagnostic must keep that name as its code and have a nil codeDescription, and ruleDocumentationURL for no-alert must stay non-empty so a globally dead field cannot satisfy the test. The built-in href value itself is asserted elsewhere.
+// @evidence contracts/testing.md#execution-ownership Registers an explicitly AST-only contributor adapter in the in-process rule registry (removed on cleanup), runs NewEngine over a parsed virtual file and converts the finding with findingToLSPDiagnostic; no command dispatch or host process is started.
+func TestLSPDiagnosticOmitsCodeDescriptionForContributorRule(t *testing.T) {
+  file := parseTSFile(t, "/virtual/contributor.ts", "export const value = 1;\n")
+  contributor := &undocumentedContributorRule{}
+  metadata, err := inspectContributor(contributor)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if metadata.needsTypeChecker {
+    t.Fatal("constant-range contributor unexpectedly requires a type checker")
+  }
+  Register(newContributorAdapter(metadata))
+  t.Cleanup(func() {
+    delete(registered.rules, contributor.Name())
+    invalidateRuntimeRuleCodes()
+  })
+
+  findings := NewEngine(RuleConfig{contributor.Name(): SeverityError}).
+    Run([]*shimast.SourceFile{file}, nil)
+  if got, want := len(findings), 1; got != want {
+    t.Fatalf("findings = %d, want %d: %+v", got, want, findings)
+  }
+
+  if finding := findings[0]; finding.engineFailure || finding.Severity != SeverityError ||
+    finding.Message != "undocumented contributor finding" {
+    t.Fatalf("expected the authored ordinary contributor finding: %+v", finding)
+  }
+
+  diagnostic := findingToLSPDiagnostic(findings[0])
+  if diagnostic.Code != contributor.Name() {
+    t.Fatalf("diagnostic code = %q, want %q", diagnostic.Code, contributor.Name())
+  }
+  if diagnostic.CodeDescription != nil {
+    t.Fatalf("contributor rule inherited a documentation URL: %#v", diagnostic.CodeDescription)
+  }
+
+  // The same conversion must still resolve a built-in rule, so the assertion
+  // above pins the contributor exclusion rather than a globally dead field.
+  if got := ruleDocumentationURL("no-alert"); got == "" {
+    t.Fatal("built-in rule lost its documentation URL alongside the contributor exclusion")
+  }
+}
+
+type undocumentedContributorRule struct{}
+
+func (*undocumentedContributorRule) Name() string { return "solid/jsx-uses-vars" }
+func (*undocumentedContributorRule) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
+func (*undocumentedContributorRule) Check(ctx *publicrule.Context, _ *shimast.Node) {
+  ctx.ReportRange(0, 1, "undocumented contributor finding")
+}
+
+// NeedsTypeChecker declares that this private fixture only reports an authored range.
+// Its metadata and ordinary finding are asserted by the exported test above.
+func (*undocumentedContributorRule) NeedsTypeChecker() bool { return false }

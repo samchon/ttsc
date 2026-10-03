@@ -31,7 +31,7 @@ export {
   setSyntheticTrailingComments,
 } from "./comments";
 export type { SynthesizedComment } from "./comments";
-export type * from "./ast";
+export * from "./ast";
 
 export type { NodeFactory } from "./NodeFactory";
 

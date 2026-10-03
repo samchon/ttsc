@@ -1,0 +1,41 @@
+package linthost
+
+import (
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestDispatchBlockPreservesBlankLineBetweenStatements verifies the
+// block printer keeps a single user-authored blank line between two
+// statements instead of deleting it.
+//
+// printBlock mints fresh Hardline separators between statements and
+// adds a LiteralLine for this two-break source gap. The expected empty
+// line has no trailing indentation whitespace. The test exercises this
+// direct printer output, not a `ttsc format` pass or historical behavior.
+//
+//  1. Parse a callback body with a blank line between `setup();` and
+//     `teardown();`.
+//  2. Dispatch the Block through PrintNode at the default width.
+//  3. Assert the rendered block keeps exactly one empty line between
+//     the two statements.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must retain the blank line separating setup from teardown and report complete coverage.
+// @evidence contracts/testing.md#independent-expectations The full expected block fixes both statement order and the intentional empty line independently of the printer.
+// @evidence contracts/testing.md#distinguishing-cases A two-break statement gap complements the ordinary consecutive-statements block and predicate one-break negative.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockPreservesBlankLineBetweenStatements is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed callback body block with a blank line between two statements inside the test process; it installs no consumer, builds no native artifact and starts no product host.
+func TestDispatchBlockPreservesBlankLineBetweenStatements(t *testing.T) {
+  file := parseTS(t, "register(() => {\n  setup();\n\n  teardown();\n});\n")
+  node := firstNodeOfKind(t, file, shimast.KindBlock)
+  ctx := NewPrintContext(file, DefaultPrintOptions())
+  doc, covered := PrintNode(ctx, node)
+  if !covered {
+    t.Fatalf("callback body of single-line statements should be covered")
+  }
+  got := Print(doc, ctx.Opts)
+  want := "{\n  setup();\n\n  teardown();\n}"
+  if got != want {
+    t.Fatalf("blank-line preservation mismatch:\nwant %q\ngot  %q", want, got)
+  }
+}

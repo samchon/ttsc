@@ -21,11 +21,17 @@
     ]
   },
   "ExtraFields": {
+    "NodeBuilder": [
+      "impl"
+    ],
     "Type": [
       "alias"
     ],
     "Checker": [
       "globalRegExpType"
     ]
+  },
+  "ExtraFieldFiles": {
+    "NodeBuilder": "node_builder_fields_gen.go"
   }
 }

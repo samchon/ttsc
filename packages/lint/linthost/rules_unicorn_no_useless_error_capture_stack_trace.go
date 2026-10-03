@@ -1,15 +1,9 @@
-// unicorn/no-useless-error-capture-stack-trace: `new Error()` already
-// captures a stack trace by default, so calling
-// `Error.captureStackTrace(this, …)` inside an Error-subclass
-// constructor just rebuilds the same trace and adds noise without
-// changing behavior. The rule flags the redundant call.
-//
-// AST-only MVP: visit each `CallExpression`, match when the callee is
-// `Error.captureStackTrace` and the first argument is the `this`
-// keyword. Detecting "inside an Error subclass constructor" is left to
-// a future iteration — the MVP covers the common shape directly and is
-// safe because `Error.captureStackTrace(this, …)` is uniformly useless
-// inside subclasses anyway.
+// unicorn/no-useless-error-capture-stack-trace reports the explicit this-target
+// capture policy. A supplied constructor filter must name the surrounding
+// constructor or new.target; an external filter can remove meaningful frames.
+// The name-based matcher does not prove Error inheritance or builtin identity.
+// It retains the existing no-filter policy without claiming every such call
+// produces an equivalent runtime stack. No automatic rewrite is supplied.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-error-capture-stack-trace.md
 package linthost
 
@@ -37,6 +31,18 @@ func (unicornNoUselessErrorCaptureStackTrace) Check(ctx *Context, node *shimast.
   first := stripParens(call.Arguments.Nodes[0])
   if first == nil || first.Kind != shimast.KindThisKeyword {
     return
+  }
+  if len(call.Arguments.Nodes) >= 2 {
+    filter := stripParens(call.Arguments.Nodes[1])
+    var constructor *shimast.Node
+    for parent := node.Parent; parent != nil; parent = parent.Parent {
+      if parent.Kind == shimast.KindConstructor { constructor = parent; break }
+      if isFunctionLikeKind(parent) { break }
+    }
+    if constructor == nil || constructor.Parent == nil || filter == nil { return }
+    owner := constructor.Parent.Name()
+    if filter.Kind != shimast.KindMetaProperty && (filter.Kind != shimast.KindIdentifier || identifierText(filter) != identifierText(owner)) { return }
+    if filter.Kind == shimast.KindMetaProperty && nodeText(ctx.File, filter) != "new.target" { return }
   }
   ctx.Report(node, "Don't call `Error.captureStackTrace(this, ...)` in an `Error` subclass — the default capture already happens.")
 }

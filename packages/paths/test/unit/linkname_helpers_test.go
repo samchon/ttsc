@@ -1,0 +1,87 @@
+// linkname_helpers_test.go exposes unexported symbols from the paths driver to
+// this external test package via go:linkname. The struct layout mirrors
+// driver.rewriter; the `paths*` names are test-local adapters so unit tests can
+// reach driver internals without crossing module boundaries.
+package paths_test
+
+import (
+  _ "unsafe"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  _ "github.com/samchon/ttsc/packages/paths/driver"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
+)
+
+type pathsRewriter struct {
+  checker           *shimchecker.Checker
+  basePath          string
+  canonicalFileName func(string) string
+  jsxPreserve       bool
+  outDir            string
+  patterns          []pathsPathPattern
+  rootDir           string
+  sourceFiles       map[string]string
+}
+
+type pathsPathPattern struct {
+  pattern string
+  targets []string
+}
+
+//go:linkname pathsNewRewriter github.com/samchon/ttsc/packages/paths/driver.newRewriter
+func pathsNewRewriter(prog *driver.Program) *pathsRewriter
+
+//go:linkname pathsApply github.com/samchon/ttsc/packages/paths/driver.(*rewriter).apply
+func pathsApply(r *pathsRewriter, file *shimast.SourceFile)
+
+//go:linkname pathsVisitModuleSpecifiers github.com/samchon/ttsc/packages/paths/driver.visitModuleSpecifiers
+func pathsVisitModuleSpecifiers(file *shimast.SourceFile, checker *shimchecker.Checker, visit func(*shimast.Node))
+
+//go:linkname pathsIsModuleSpecifierCall github.com/samchon/ttsc/packages/paths/driver.isModuleSpecifierCall
+func pathsIsModuleSpecifierCall(checker *shimchecker.Checker, call *shimast.CallExpression) bool
+
+//go:linkname pathsRewrite github.com/samchon/ttsc/packages/paths/driver.(*rewriter).rewrite
+func pathsRewrite(r *pathsRewriter, fromSource string, specifier string) (string, bool)
+
+//go:linkname pathsResolveSource github.com/samchon/ttsc/packages/paths/driver.(*rewriter).resolveSource
+func pathsResolveSource(r *pathsRewriter, specifier string) (string, bool)
+
+//go:linkname pathsLookupSource github.com/samchon/ttsc/packages/paths/driver.(*rewriter).lookupSource
+func pathsLookupSource(r *pathsRewriter, candidate string) (string, bool)
+
+//go:linkname pathsSourceKey github.com/samchon/ttsc/packages/paths/driver.(*rewriter).sourceKey
+func pathsSourceKey(r *pathsRewriter, value string) string
+
+//go:linkname pathsOutputPathForSource github.com/samchon/ttsc/packages/paths/driver.(*rewriter).outputPathForSource
+func pathsOutputPathForSource(r *pathsRewriter, source string) string
+
+//go:linkname pathsMatchPattern github.com/samchon/ttsc/packages/paths/driver.matchPattern
+func pathsMatchPattern(pattern string, specifier string) (string, bool)
+
+//go:linkname pathsOrderPatterns github.com/samchon/ttsc/packages/paths/driver.orderPatterns
+func pathsOrderPatterns(patterns []pathsPathPattern)
+
+//go:linkname pathsPatternPrefixLength github.com/samchon/ttsc/packages/paths/driver.patternPrefixLength
+func pathsPatternPrefixLength(pattern string) int
+
+//go:linkname pathsOptionalPath github.com/samchon/ttsc/packages/paths/driver.optionalPath
+func pathsOptionalPath(value string, cwd string) string
+
+//go:linkname pathsInferredRootDir github.com/samchon/ttsc/packages/paths/driver.inferredRootDir
+func pathsInferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
+
+//go:linkname pathsCommonSourceDir github.com/samchon/ttsc/packages/paths/driver.commonSourceDir
+func pathsCommonSourceDir(fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
+
+//go:linkname pathsNormalizePath github.com/samchon/ttsc/packages/paths/driver.normalizePath
+func pathsNormalizePath(value string) string
+
+//go:linkname pathsStripKnownSourceExtension github.com/samchon/ttsc/packages/paths/driver.stripKnownSourceExtension
+func pathsStripKnownSourceExtension(value string) string
+
+//go:linkname pathsReplaceSourceExtension github.com/samchon/ttsc/packages/paths/driver.replaceSourceExtension
+func pathsReplaceSourceExtension(value string, ext string) string
+
+//go:linkname pathsEmittedExtension github.com/samchon/ttsc/packages/paths/driver.emittedExtension
+func pathsEmittedExtension(source string, jsxPreserve bool) string

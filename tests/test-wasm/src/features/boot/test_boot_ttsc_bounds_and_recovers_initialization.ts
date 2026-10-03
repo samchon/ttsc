@@ -16,7 +16,7 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
 }
 
 /**
- * Verifies caller cancellation settles every asynchronous boot phase and
+ * Verifies caller cancellation settles fetch, queue and readiness waits and
  * enforces the pre-runtime versus running-runtime retry boundary.
  *
  * A stalled fetch or Go runtime previously left the per-key single-flight and
@@ -25,16 +25,22 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  *
  * There is no boot deadline to exercise. How long a fetch and instantiation
  * take belongs to the network and the machine, so `signal` is the only way a
- * boot ends early — which makes it the thing that must release the cache
+ * boot ends early, which makes it the thing that must release the cache
  * entry.
  *
- * 1. Stall fetch, abort it, and observe the forwarded signal.
- * 2. Assert phase-specific abort ownership and readiness callback cleanup.
- * 3. Retry the same key and resolve normally.
- * 4. Join and cancel a shared same-key fetch, then retry it.
- * 5. Abort during Go readiness and prove queued and later boots are terminal.
- * 6. Fire stale Ready/Failed signals and prove no replacement bridge is exposed.
- * 7. Cancel a different-URL pre-runtime boot and retry after its predecessor.
+ * 1. Stall fetch, abort it, observe the forwarded signal, assert phase-specific
+ *    abort ownership and readiness callback cleanup, then retry the same key and
+ *    resolve normally.
+ * 2. Join and cancel a shared same-key fetch and retry it, and cancel a
+ *    different-URL pre-runtime boot and retry after its predecessor.
+ * 3. Abort during Go readiness and prove queued and later boots are terminal.
+ * 4. Fire stale Ready and Failed signals and prove no replacement bridge is
+ *    exposed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification bootTtsc releases canceled pre-runtime cache and queue entries, forwards fetch cancellation, and terminally rejects a started runtime rather than exposing a replacement bridge. Exact promise identity, cause, callback absence and run count detect poisoned retries or stale readiness.
+ * @evidence contracts/testing.md#independent-expectations The caller cancellation contract permits retry only before go.run; after it starts the Worker must be replaced. Authored cause objects, expected error code, one runtime invocation and absent Ready/Failed slots are independent state oracles, not results copied from bootTtsc.
+ * @evidence contracts/testing.md#distinguishing-cases Stalled fetch, same-key joining, different-URL queued cancellation, running-runtime abort and late Ready/Failed callbacks retain their separate failure populations. Successful same-key retries provide the pre-runtime positive controls.
+ * @evidence contracts/testing.md#execution-ownership test_boot_ttsc_bounds_and_recovers_initialization uses signal latches and withBootStubs to call authored bootTtsc serially in Node. Its four named API populations own every abort/retry assertion; the controlled fetch/Go doubles require neither a Wasm artifact nor a Worker.
  */
 export const test_boot_ttsc_bounds_and_recovers_initialization =
   async (): Promise<void> => {

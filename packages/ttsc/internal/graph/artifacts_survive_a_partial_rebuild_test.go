@@ -23,6 +23,11 @@ import (
 //  1. Build the complete graph with artifacts applied, and confirm the edge.
 //  2. Rebuild only the citing file, as the shard path does.
 //  3. Assert the edge is there again, and that the artifact came with it.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a citation of an artifact is still a relation after the incremental path rebuilds the file that wrote it.
+// @evidence contracts/testing.md#independent-expectations The expectation is the same literal fixture built two ways: the doc-ref edge to docs/sale.md#pricing must exist after the complete build with artifacts applied, and again after BuildFiles over only the citing file followed by ApplyArtifacts, and the partial graph must hold the artifact node. The complete build is the baseline, so only the selected file path is taken from the code under test.
+// @evidence contracts/testing.md#distinguishing-cases Build the complete graph with artifacts applied, and confirm the edge; Rebuild only the citing file, as the shard path does; Assert the edge is there again, and that the artifact came with it.
+// @evidence contracts/testing.md#execution-ownership TestArtifactsSurviveAPartialRebuild is a Go source-unit entry. BuildFiles, Build, ApplyArtifacts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestArtifactsSurviveAPartialRebuild(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

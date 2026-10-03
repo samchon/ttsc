@@ -22,6 +22,11 @@ const O_TRUNC = 512;
  * 2. Attempt `O_TRUNC` on a non-empty directory and on the root.
  * 3. Assert both are rejected with `EISDIR` and `fd` -1, and that each directory
  *    still stats as a directory with every descendant readable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.open with O_TRUNC empties a regular file but refuses directory/root targets with no handle or subtree damage. Complete listings and directory stats detect orphaned descendants behind false success.
+ * @evidence contracts/testing.md#independent-expectations Truncation applies only to regular files; directories must reject EISDIR with fd -1. Literal empty file, LEAF bytes, tree child list and root entries independently describe the seeded state that must survive rejection.
+ * @evidence contracts/testing.md#distinguishing-cases Writable regular-file truncation succeeds; nonempty directory with write-only/read-write modes and root truncate reject. Read-only directory traversal is retained by the stats-and-lists sibling.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_open_trunc_never_turns_a_directory_into_a_file invokes createMemFS and openResult, then stat/readdir/readFileText. This entry owns all three rejected descriptor outcomes and preserved subtree observations directly in Node.
  */
 export const test_memfs_open_trunc_never_turns_a_directory_into_a_file =
   async (): Promise<void> => {

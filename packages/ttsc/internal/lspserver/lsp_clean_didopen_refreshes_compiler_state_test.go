@@ -72,8 +72,8 @@ func didOpenEnvelope(uri string, text string) Envelope {
 // opening a dirty buffer still refreshes neither.
 //
 // The resident lint Program and the graph symbol provider stay warm for the
-// whole editor session, and before this only didSave refreshed them. A document
-// closed across a branch switch, a `git pull`, or an edit from a second editor
+// whole editor session, and a save is not the only moment their input can have
+// moved. A document closed across a branch switch, a `git pull`, or an edit from a second editor
 // therefore came back with diagnostics computed over the pre-change AST and
 // published against the new buffer. Equality with today's disk is not evidence
 // that the warm Program was built from today's disk, so the clean branch is
@@ -84,6 +84,11 @@ func didOpenEnvelope(uri string, text string) Envelope {
 //     refreshed and the resident refresh named that document's URI.
 //  2. Open a second file with text that differs from disk.
 //  3. Assert neither cache was refreshed and the notification still forwards.
+//
+// @evidence contracts/testing.md#behavioral-verification Opening a document whose buffer equals disk refreshes both the resident lint Program and the graph symbol provider and names that document's URI, while opening a dirty buffer refreshes neither.
+// @evidence contracts/testing.md#independent-expectations The refresh counts and the named URI are literal expectations for the two opened files.
+// @evidence contracts/testing.md#distinguishing-cases A clean open and a dirty open differ only in buffer-versus-disk equality, so a refresh gated on the wrong condition fails one half.
+// @evidence contracts/testing.md#execution-ownership TestLSPCleanDidOpenRefreshesCompilerState is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCleanDidOpenRefreshesCompilerState(t *testing.T) {
   dir := t.TempDir()
   clean := filepath.Join(dir, "clean.ts")

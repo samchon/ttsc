@@ -17,7 +17,7 @@ Never create a clone or worktree. If the current checkout contains unrelated or 
 
 Use one commit per coherent unit when the diff is large. Follow the repository's `<type>(<scope>): <subject>` history with an imperative lowercase subject and no trailing period.
 
-Run the validation the [development skill](../development/SKILL.md#work-rules) requires. Its single `pnpm format` pass belongs to the final merge candidate, not to individual commits or corrections.
+Run the [development validation](../development/validation.md). Apply its [final formatting](../development/implementation.md#final-formatting) at the final preparation for merge.
 
 Stage explicit paths when the worktree is mixed. Never include unrelated user changes silently.
 
@@ -31,7 +31,7 @@ Push only the topic branch with upstream tracking. Use a file-backed body for mu
 
 ## Issue Campaigns
 
-An issue campaign pushes and opens its cycle pull request only through [its development procedure](../issue-campaign/development.md), which owns the claim, the final formatting point, the check loop, and the review record.
+An issue campaign pushes and opens its cycle pull request only through [its development procedure](../issue-campaign/development.md), which owns the claim, the check loop and the review record, and applies [final formatting](../development/implementation.md#final-formatting).
 
 ## Read Checks
 

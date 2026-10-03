@@ -44,8 +44,9 @@ export interface ICreateWorkerCompilerOptions {
   /**
    * Extra entries spliced into the tsconfig's `compilerOptions`. Use to wire
    * site-specific plugins, paths, or lib overrides. The typia plugin entry is
-   * appended automatically when `typiaPlugin` is enabled — sites should NOT
-   * include it here.
+   * appended automatically after any `plugins` array given here when
+   * `typiaPlugin` is enabled — sites should NOT include it themselves, and an
+   * entry naming the same transform module is replaced by the appended one.
    */
   extraCompilerOptions?: Record<string, unknown>;
 }

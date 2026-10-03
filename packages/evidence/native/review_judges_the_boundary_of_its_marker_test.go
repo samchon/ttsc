@@ -21,6 +21,11 @@ import (
  *  2. The second review's description opens with `#req-search-policies`, which is
  *     `#`-prefixed and neither seven characters nor hex.
  *  3. Assert only the first target is reported, so the anchor stayed prose.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runReviewRule evaluates evidenceReviewed for Pricing and a real Search review carrying a prose anchor; assertReported requires exactly the Pricing unreviewed finding.
+ * @evidence contracts/testing.md#independent-expectations A longer marker name is not evidenceReview, while a prose requirement anchor followed by an explanation is a valid description; the literal sources and the single expected finding follow from the tag grammar rather than from rule output.
+ * @evidence contracts/testing.md#distinguishing-cases The marker half is a real discrimination: prefix matching would pair the Pricing review and drop the finding. The fingerprint half is observable only as the absence of a Malformed finding for the Search review (reviewRule never reads the fingerprint token), so a parser that ate the anchor into a fingerprint would stay undetected here; the uppercase and anchor cases are owned by ReviewRejectsAFingerprintOnlyDescription.
+ * @evidence contracts/testing.md#execution-ownership TestReviewJudgesTheBoundaryOfItsMarker is a selectable native Go unit entry. runReviewRule parses one supplied source and calls reviewRule.Check in-process with a captured reporter; no target artifact, installed consumer or real compiler host is needed.
  */
 func TestReviewJudgesTheBoundaryOfItsMarker(t *testing.T) {
   messages := runReviewRule(t, "src/ISale.ts", `

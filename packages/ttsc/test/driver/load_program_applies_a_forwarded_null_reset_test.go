@@ -6,25 +6,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLoadProgramAppliesAForwardedNullReset verifies a forwarded `null` resets
-// the config's option the way TypeScript-Go's own command line does.
+// TestLoadProgramAppliesAForwardedNullReset Verifies that forwarded null resets clear declarationDir and tsBuildInfoFile and avoid TS5069; the no-reset twin retains declarationDir and reports TS5069.
 //
-// ttsc keeps every output of a private build in one directory by forwarding
-// `--declarationDir null`, `--tsBuildInfoFile null`, and `--outFile null`
-// (`TsgoArguments.isolatedTsgoOutputArgs`). The parsed CompilerOptions cannot
-// carry a reset: the field stays at its zero value, which the config merge reads
-// as "not given", so the config's own location survived. That wrote build
-// information into the user's tree and, beside `--declaration false`, failed
-// the build with TS5069. The command line's raw options carry the explicit
-// null, and TypeScript-Go's command line hands them to the merge; the twin
-// without the reset pins that the config's value is otherwise kept.
+// The same config is loaded with and without resets; outFile and actual emitted files are not asserted.
 //
-//  1. Build a project whose config declares `declarationDir` and a
-//     `tsBuildInfoFile`.
-//  2. Load it with `--declaration false` and both locations reset to `null`,
-//     then with `--declaration false` alone.
-//  3. Assert the reset clears both options and the Program reports nothing, and
-//     that without it the config's `declarationDir` stays and TS5069 follows.
+// 1. Build a project whose config declares `declarationDir` and a `tsBuildInfoFile`.
+// 2. Load it with `--declaration false` and both locations reset to `null`, then with `--declaration false` alone.
+// 3. Assert the reset clears both options and the Program reports nothing, and that without it the config's `declarationDir` stays and TS5069 follows.
+//
+// @evidence contracts/testing.md#behavioral-verification Forwarded null resets clear declarationDir and tsBuildInfoFile and avoid TS5069; the no-reset twin retains declarationDir and reports TS5069.
+// @evidence contracts/testing.md#independent-expectations Explicit CLI null reset semantics and declaration-disabled option conflict define the expected fields and code.
+// @evidence contracts/testing.md#distinguishing-cases The same config is loaded with and without resets; outFile and actual emitted files are not asserted.
+// @evidence contracts/testing.md#execution-ownership Both Programs use direct Go TsgoArgs loading and are explicitly closed. Go discovers TestLoadProgramAppliesAForwardedNullReset under ./test/driver.
 func TestLoadProgramAppliesAForwardedNullReset(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

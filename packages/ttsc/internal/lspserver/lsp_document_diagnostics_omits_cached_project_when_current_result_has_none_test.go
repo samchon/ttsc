@@ -13,6 +13,11 @@ import "testing"
 //  1. Seed one producer's last-good project publication.
 //  2. Make the current document diagnostic invocation fail before publication.
 //  3. Assert document diagnostics omit Project while the cache remains intact.
+//
+// @evidence contracts/testing.md#behavioral-verification When the current document diagnostic invocation fails before publication the result omits Project while the producer's last-good cache stays intact.
+// @evidence contracts/testing.md#independent-expectations The expected absent Project and retained cache are literal state checks.
+// @evidence contracts/testing.md#distinguishing-cases The failing run and the seeded cache are the two states that a stale-cache return would conflate.
+// @evidence contracts/testing.md#execution-ownership TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone(
   t *testing.T,
 ) {

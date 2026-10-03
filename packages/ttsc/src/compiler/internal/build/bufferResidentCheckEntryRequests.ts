@@ -11,11 +11,12 @@ import type { ResidentCheckEntryPlan } from "./ResidentCheckEntryPlan";
  * @evidence contracts/common.md#clear-and-simple-design The outer loop selects resident entries and one private merger owns canonical request construction; process sharing remains separate from delivery ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Buffering follows configured positions rather than deduplicating plugin executions to hide failures; inputs are not patched or mutated.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains duplicate-entry delivery, failure effects and sticky invalidation with separate prose and acknowledgment blocks.
- * @evidence contracts/performance.md#efficient-algorithms Set union eliminates repeated membership scans; each resident entry sorts its combined unique paths, costing O(P log P) for P pending paths.
+ * @evidence contracts/performance.md#efficient-algorithms Each resident entry scans its previous and incoming path lists into Sets and sorts the distinct spellings. Work includes string hashing and sort comparisons; temporary space scales with scanned references and unique paths, repeated separately for each configured delivery position.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This buffer preserves delivery data rather than coordinating shared computation; each configured effectful check still runs separately when due.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the pending map, with one slot per configured resident entry; consumption or session reset releases it, while unique paths can grow without a bound if an earlier check keeps failing.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This merger compares supplied path strings as delivery data without interpreting filesystem identity, case policy or native separators; the request adapter and native consumer own those boundaries.
  */
 export function bufferResidentCheckEntryRequests(
   pending: Map<number, ResidentCheckRequest>,

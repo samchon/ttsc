@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/ttsc/lib/internal/parseWindowsDirectoryCaseSensitivity.js";
+import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/ttsc/src/internal/parseWindowsDirectoryCaseSensitivity";
 
 /**
  * Verifies fsutil case-sensitivity parsing does not depend on English text.
@@ -13,6 +13,11 @@ import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/tt
  * 1. Parse the two English states without a volume query.
  * 2. Parse opaque localized enabled and disabled byte messages.
  * 3. Reject a missing root marker, an empty suffix, and truncated evidence.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls parseWindowsDirectoryCaseSensitivity with raw response bytes and checks enabled, disabled and unknown results without executing fsutil.
+ * @evidence contracts/testing.md#independent-expectations Literal English state words and independently authored opaque enabled/disabled suffixes define expected booleans under the successful-query and disabled-volume-root premises. The unit does not infer actual directory case support.
+ * @evidence contracts/testing.md#distinguishing-cases English states need no baseline; localized equal versus unequal suffixes contrast with missing volume marker, empty suffix and truncated target evidence that must return undefined.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it parses in-memory Buffers that stand for fsutil output on any host, and starts no shell, process or filesystem case query. No real fsutil output is observed.
  */
 export const test_windows_directory_case_sensitivity_parser_is_locale_independent =
   (): void => {

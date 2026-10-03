@@ -1,7 +1,6 @@
 package driver_test
 
 import (
-  "os/exec"
   "path/filepath"
   "strings"
   "testing"
@@ -9,17 +8,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewritePrefersRetainedESMImportOverRequireDecoy verifies a
-// CommonJS-shaped local cannot impersonate an import retained in ESM output.
+// TestDriverRewritePrefersRetainedESMImportOverRequireDecoy Verifies the retained ES module import wins over its helper-shaped require decoy.
 //
 // The emitted declaration parser sees both user code and emitter-owned code.
 // When a real import remains in the output, its exact source-local identity
 // must win over a same-module helper/require declaration that merely resembles
 // the CommonJS emitter shape.
 //
-// 1. Emit ESM with a retained default import and a same-module require decoy.
-// 2. Register one rewrite for the imported call through the public driver API.
-// 3. Execute the module and assert only the imported call was replaced.
+// 1. Emit the original nodenext module fixture and register the imported-call rewrite.
+// 2. Require the unchanged require-shaped decoy and retained default import.
+// 3. Require the literal exported replacement in the ES module output.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual driver emission, requiring unchanged plugin_99 call, retained ./plugin.js default import and literal export value.
+// @evidence contracts/testing.md#independent-expectations Authored retained plugin import, decoy call and rewritten-esm literal independently distinguish the target and protected expression.
+// @evidence contracts/testing.md#distinguishing-cases A retained ESM import coexists with a same-module CommonJS-shaped helper/require declaration; CommonJS ownership is covered by sibling units.
+// @evidence contracts/testing.md#execution-ownership The Go unit directly emits and inspects its Program; the E2E batch independently imports this ESM artifact and preserves decoy/value runtime assertions.
 func TestDriverRewritePrefersRetainedESMImportOverRequireDecoy(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "package.json", `{"type":"module"}
@@ -85,16 +88,9 @@ export const value = plugin.make("input");
   if !strings.Contains(js, `plugin_99.default.make("kept")`) {
     t.Fatalf("require-shaped decoy was rewritten:\n%s", js)
   }
-  command := exec.Command("node", "--input-type=module", "-e", `const v = await import("./index.js"); process.stdout.write(JSON.stringify(v))`)
-  command.Dir = filepath.Dir(jsPath)
-  output, err := command.CombinedOutput()
-  if err != nil {
-    t.Fatalf("rewritten JavaScript failed: %v\n%s", err, output)
-  }
-  got := string(output)
-  for _, want := range []string{`"decoy":"decoy:kept"`, `"value":"rewritten-esm"`} {
-    if !strings.Contains(got, want) {
-      t.Fatalf("runtime output missing %s: %s\n%s", want, got, js)
+  for _, want := range []string{`import plugin from "./plugin.js";`, `export const value = "rewritten-esm";`} {
+    if !strings.Contains(js, want) {
+      t.Fatalf("retained ESM structure missing %s:\n%s", want, js)
     }
   }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { pluginSourceCovers } from "ttsc/plugin-source";
+import { pluginSourceCovers } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceCovers";
 
 /**
  * Verifies `pluginSourceCovers` answers which paths below a plugin source bear
@@ -18,9 +18,13 @@ import { pluginSourceCovers } from "ttsc/plugin-source";
  *    that name is one the build reads.
  * 3. Assert a path outside the source is not covered, and a child whose name
  *    starts with two dots is.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pluginSourceCovers distinguishes build-visible entries, pruned directories and paths outside the source.
+ * @evidence contracts/testing.md#independent-expectations the build reads files named node_modules, .git and .ttsc but prunes directories carrying those names.
+ * @evidence contracts/testing.md#distinguishing-cases source root, descendants, directory versus entry, pruned descendants, sibling and parent paths and ..tools remain distinguished.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pluginSourceCovers directly with path strings (no filesystem access); no process, build or watcher host.
  */
-export const test_plugin_source_covers_answers_by_the_build_prune_rule =
-  (): void => {
+export function test_plugin_source_covers_answers_by_the_build_prune_rule(): void {
     const root = path.resolve("plugin-module");
 
     // 1. The source and its packages.

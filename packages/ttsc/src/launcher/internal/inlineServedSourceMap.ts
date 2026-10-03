@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
  * `sourceMappingURL` that Node resolves against the `.ts` script URL — where no
  * `.js.map` exists — and that the per-run emit directory deletes at process
  * exit anyway. Node's V8 coverage then caches the script with `data: null` and
- * c8 misattributes lines (false 100%, issue #353); `--enable-source-maps`
+ * c8 misattributes lines (it reports a false 100%); `--enable-source-maps`
  * cannot map stack frames. Inlining the map into the served text (which V8
  * captures at compile time) survives both the wrong resolution base and the
  * post-exit cleanup, and absolutizing `sources` fixes the mis-rooted paths that
@@ -213,17 +213,35 @@ function inlineComment(
     return null;
   }
   try {
-    map.sources = absolutizeSources(map, path.dirname(emittedFile), sourceFile);
+    absolutizeMap(map, path.dirname(emittedFile), sourceFile);
   } catch {
     // A URL root that cannot resolve its relative entries must retain the
     // original metadata rather than silently become a native path.
     return null;
   }
-  // `sources` are now absolute `file://` URLs, so any `sourceRoot` prefix would
-  // corrupt them — drop it.
-  delete map.sourceRoot;
   const encoded = Buffer.from(JSON.stringify(map), "utf8").toString("base64");
   return `//# sourceMappingURL=data:application/json;charset=utf-8;base64,${encoded}`;
+}
+
+/** Normalize each embedded map without inventing root-level sources for an index. */
+function absolutizeMap(
+  map: { sources?: unknown; sourceRoot?: unknown; [key: string]: unknown },
+  mapDir: string,
+  sourceFile: string | undefined,
+): void {
+  if (Array.isArray(map.sections)) {
+    for (const section of map.sections) {
+      const child: unknown = section?.map;
+      if (child === null || typeof child !== "object" || Array.isArray(child))
+        throw new Error("unsupported external source-map section");
+      // Sections can describe different originals; use each map's own anchor.
+      absolutizeMap(child as typeof map, mapDir, undefined);
+    }
+  } else {
+    map.sources = absolutizeSources(map, mapDir, sourceFile);
+    // Absolute source URLs no longer use their former relative root.
+    delete map.sourceRoot;
+  }
 }
 
 /**

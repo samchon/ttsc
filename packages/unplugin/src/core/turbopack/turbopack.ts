@@ -10,7 +10,6 @@ import { TtscCompileFailureError } from "../transform/errors/TtscCompileFailureE
 import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
-import { stripQuery } from "../transform/utils/stripQuery";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
@@ -20,9 +19,9 @@ import { failedModuleSource } from "./failedModuleSource";
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
  * never signals build boundaries to a loader, so the cache lives for the
  * worker's lifetime. Because no build-start boundary exists, every cache hit
- * validates all project and graph inputs before selecting output (see
+ * validates current reuse premises before selecting output (see
  * `transformTtsc`). When `withTtsc` opened a session for the pool, the workers
- * share each compile through it instead of compiling the project once each
+ * can adopt equivalent proven publications rather than always compiling locally
  * (samchon/ttsc#1390).
  */
 const transformCache = createTtscTransformCache();
@@ -36,7 +35,7 @@ shareTtscTransformCache(transformCache, readTtscTransformSession());
 let bridge: HostWatchBridge | undefined;
 
 /**
- * The tool directories whose records this worker has proven against the disk
+ * The tool directories whose record inventory this worker has attempted
  * for a one-shot build, for a loader wired by hand, without `withTtsc`.
  */
 const refreshed = new Set<string>();
@@ -90,24 +89,32 @@ const refreshed = new Set<string>();
  *   accepted filesystem root. The shared observer owns native case/path/watch
  *   capabilities; optional bound methods represent host loader capabilities.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Each request performs path-length inclusion and one shared transform lookup;
- *   the first one-shot request per tool root scans its R records. Project proof
- *   is paid through cache validation rather than compiling all sources per module.
+ *   Inclusion and shallow option/hook adaptation retain path/own-key text work.
+ *   Shared transform validation pays current native identity, byte/list/graph
+ *   proofs and compiler misses/map delivery; it is not one constant lookup.
+ *   First inventory per tool root adds record parse/replay/IO, while watching
+ *   registration adds qualified observer work and error modules serialize errors.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   A worker cache shares validated project generations across loader calls;
  *   inherited sessions share compiles across pool workers. Without a build-start
- *   boundary every hit validates producer inputs before selecting output.
+ *   boundary every hit qualifies current producer proofs before selecting output;
+ *   native observer authority may avoid rereading proven unchanged populations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The worker owns its cache, bridge and refreshed-root set for its lifetime.
- *   Turbopack exposes no loader teardown hook, so process exit ends these resources;
- *   retained root history and generation bytes have no fixed package-wide cap.
+ *   Turbopack exposes no loader teardown hook, so native live resources rely on
+ *   worker lifetime rather than this function's explicit join/close. Persistent
+ *   session storage has its own pruning owner; no count/byte cap or descendant
+ *   cleanup guarantee follows from the worker exit. Refreshed roots record an
+ *   attempted inventory even when inaccessible, not a completed proof certificate.
  */
 export function turbopack(
   this: TtscTurbopackLoaderContext,
   source: string,
 ): void {
   const callback = this.async();
-  const file = stripQuery(this.resourcePath);
+  // The loader context's `resourcePath` is the file's own; its query is
+  // `resourceQuery`, so a `?` or `#` here belongs to a directory or file name.
+  const file = this.resourcePath;
   // The shared predicate itself, not a copy of part of it. A rule wider than
   // the four exact TypeScript source rules is natural for a mixed project, but
   // it used to route JavaScript and virtual ids into the whole-project
@@ -163,6 +170,7 @@ export function turbopack(
     refreshProjectRecordFiles(toolDirectory);
   }
   const hooks: TtscTransformHooks = {
+    exactPath: true,
     ...(addDependency === undefined
       ? {}
       : {
@@ -206,8 +214,9 @@ export function turbopack(
       // compile that ended in diagnostics or in an exception it reported, is
       // reported through the loader context's own channel instead, and the
       // module evaluates to that error, so the worker lives on and the page
-      // fails with the same message until an input changes, which is what
-      // the verdict is a function of. Every other failure, an adapter error
+      // retains the reported message under the adapter's generation validation.
+      // A reported exception need not be deterministic for identical inputs.
+      // Every other failure, an adapter error
       // before any compile or a generation the adapter could not capture
       // while its inputs kept changing, says nothing about the state, and a
       // module kept on it would never run again: the run fails, and Turbopack

@@ -11,6 +11,15 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation does not collapse a matching metadata string or silent watcher into unconditional content validity.
  * @evidence contracts/common.md#meaningful-documentation Native prose and spaced member documentation distinguish the three premises and resource boundary, with a blank acknowledgment separator under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral observation facts are produced from native device stamps and topology; the type does not encode one OS as a case-policy, clock or watcher capability guarantee.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscInputMetadataEvidence only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscInputMetadataEvidence only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscInputMetadataEvidence only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscInputMetadataEvidence {
   /** The joined metadata signature of the lexical path and its link target. */

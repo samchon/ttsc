@@ -4,9 +4,7 @@ import (
   "bytes"
   "encoding/json"
   "os"
-  "os/exec"
   "path/filepath"
-  "runtime"
   "strings"
   "testing"
 
@@ -26,9 +24,15 @@ import (
 // 2. Construct NativePluginSource from a manifest containing that binary.
 // 3. Call CommandIDs, Diagnostics, CodeActions, and ExecuteCommand.
 // 4. Assert returned LSP shapes and forwarded flags match the manifest.
+//
+// @evidence contracts/testing.md#behavioral-verification NativePluginSource discovers command IDs/kinds, publishes document and project diagnostics, returns a command action and decodes its changes edit; the actual call log contains all verbs and physical config/project-context/plugin flags.
+// @evidence contracts/testing.md#independent-expectations Authored protocol payloads, manifest inputs and literal edit text define independent transport expectations. Log fragment checks establish presence rather than exact argv equality.
+// @evidence contracts/testing.md#distinguishing-cases One fixture checks discovery plus diagnostics, code actions and executeCommand, including logical versus physical project config and project publication; malformed response and ownership cases are separate.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceRoutesSidecarProtocol is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildFakeLSPSidecar(t, dir)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildFakeLSPSidecar(t)
   logPath := filepath.Join(dir, "calls.log")
   t.Setenv("TTSC_FAKE_PLUGIN_LOG", logPath)
   physicalConfig := filepath.Join(dir, "physical-tsconfig.json")
@@ -71,6 +75,7 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if got := source.CommandIDs(); len(got) != 1 || got[0] != "ttsc.fake.fix" {
     t.Fatalf("CommandIDs: want [ttsc.fake.fix], got %#v", got)
   }
@@ -130,21 +135,9 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
   }
 }
 
-func buildFakeLSPSidecar(t *testing.T, dir string) string {
+func buildFakeLSPSidecar(t *testing.T) string {
   t.Helper()
-  source := filepath.Join(dir, "fake_sidecar.go")
-  if err := os.WriteFile(source, []byte(fakeLSPSidecarSource), 0644); err != nil {
-    t.Fatal(err)
-  }
-  binary := filepath.Join(dir, "fake-sidecar")
-  if runtime.GOOS == "windows" {
-    binary += ".exe"
-  }
-  cmd := exec.Command("go", "build", "-o", binary, source)
-  if out, err := cmd.CombinedOutput(); err != nil {
-    t.Fatalf("go build fake sidecar failed: %v\n%s", err, out)
-  }
-  return binary
+  return buildNativePluginSourceTestSidecar(t, fakeLSPSidecarSource)
 }
 
 const fakeLSPSidecarSource = `package main

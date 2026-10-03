@@ -282,7 +282,7 @@ type evidenceUnit struct {
   // So a nested change moves both its own unit's digest and every enclosing
   // unit's. `scopeIndex` composes ancestors and descendants anyway, so detection
   // is unaffected, but nothing here may assume a unit's digest is independent of
-  // its subtree. A feature built on that assumption was reverted once already.
+  // its subtree.
   //
   // Removing the documentation comment is what stops the review from
   // invalidating itself: writing an `@evidenceReview` inside a unit that is

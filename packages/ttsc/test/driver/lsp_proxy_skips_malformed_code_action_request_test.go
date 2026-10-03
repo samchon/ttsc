@@ -7,16 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySkipsMalformedCodeActionRequest pins the "remember" path's
-// safety net: a codeAction request whose params cannot be decoded must
-// be forwarded upstream verbatim and must not be recorded, so the
-// matching upstream response is not erroneously augmented.
+// TestLSPProxySkipsMalformedCodeActionRequest Verifies that a numeric-params action request and matching response both forward unchanged.
 //
-// 1. Configure a source that would contribute an action.
-// 2. Send a request whose params decode fails (params is a number).
-// 3. Forward the request upstream.
-// 4. Send the matching response from upstream.
-// 5. Assert the editor sees the response unmodified.
+// The source would add an action, exposing erroneous bookkeeping for the malformed request.
+//
+// 1. Configure a source that would add an action.
+// 2. Send a numeric-params action request and assert unchanged upstream forwarding.
+// 3. Send its matching upstream response and assert unchanged editor forwarding.
+//
+// @evidence contracts/testing.md#behavioral-verification A numeric-params action request and matching response both forward unchanged.
+// @evidence contracts/testing.md#independent-expectations Numeric params cannot describe the action request; original authored bytes define safe forwarding.
+// @evidence contracts/testing.md#distinguishing-cases The source would add an action, exposing erroneous bookkeeping for the malformed request.
+// @evidence contracts/testing.md#execution-ownership The Go pipe proxy receives a malformed request and synthetic matching response. Go discovers TestLSPProxySkipsMalformedCodeActionRequest under ./test/driver.
 func TestLSPProxySkipsMalformedCodeActionRequest(t *testing.T) {
   source := &stubSource{
     actions: []driver.LSPCodeAction{{Title: "should-not-appear"}},

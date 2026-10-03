@@ -288,13 +288,14 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 //
 // The absolute fallback belongs to the default base alone, which is the only
 // base with no declared spelling, and the project root is then the only thing
-// left to name. Of the four callers, two reach it: `unlistableBaseProblem` and
-// `unresolvedBaseProblem`, both of which a base with no declared root can arrive
-// at. `describePopulation` returns on the default base before it names anything,
-// and `describeBaseDirectoryProblem` is only ever entered through
-// `baseDirectoryProblem`, which does the same. Neither of the two that reach it
-// asks for an edit to a property that is not there, which is what makes the
-// spelling usable where no property exists.
+// left to name. `unlistableBaseProblem`, `unresolvedBaseProblem`, and the two
+// rooted TypeScript reference messages can arrive there with a default base,
+// because `root: "."` resolves back onto the project root.
+// `describePopulation` returns on the default base before it names anything, and
+// `describeBaseDirectoryProblem` is only ever entered through
+// `baseDirectoryProblem`, which does the same. None of the callers that reach
+// the fallback asks for an edit to a property that is not there, which is what
+// makes the spelling usable where no property exists.
 func populationRootLabel(base populationBase) string {
   if base.Declared == "" {
     return filepath.ToSlash(base.Absolute)
@@ -510,8 +511,7 @@ func describeBaseDirectoryProblem(
 // Every component is resolved, not only the leaf. A link on an ancestor is
 // exactly what `os.Lstat` of the leaf cannot see, and it is the shape a package
 // manager installs: the workspace dependency is the link and the root an author
-// declares is a directory inside it. Resolving only the leaf left that silent,
-// which is what #1269 recorded.
+// declares is a directory inside it. Resolving only the leaf leaves that silent.
 //
 // The answer is verified rather than trusted, at every component and not only
 // at the last. `resolveLinkedDirectory` gives up after a fixed number of hops
@@ -564,8 +564,8 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
 //
 // A component whose chain outran the resolver ends the walk. Joining the rest
 // onto it would produce a path the filesystem opens and every string
-// comparison misses, which is #1269 exactly, one component further up than the
-// case that opened it.
+// comparison misses, which is the same silent failure as an unresolved leaf, one component
+// further up.
 func resolveLinkedPath(absolute string) (string, bool) {
   volume := filepath.VolumeName(absolute)
   rest := absolute[len(volume):]
@@ -748,7 +748,7 @@ func unreadableWalkEntryProblem(
 // path such as `C:docs` is not absolute by the path API yet resolves against
 // whatever directory that drive is currently on, so it names a different
 // location on two machines while looking superficially safe — the rationale
-// `glob_honors_public_path_contract_test.go` records for the same rejection in
+// `glob_rejects_windows_drive_paths_test.go` records for the same rejection in
 // `files`.
 //
 // `..` is accepted here, and that is the whole point of the property. It is

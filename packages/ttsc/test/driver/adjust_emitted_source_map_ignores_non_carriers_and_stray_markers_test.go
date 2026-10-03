@@ -23,6 +23,10 @@ import (
 //  2. Feed a `.js` whose only `data:application/json;base64,` occurrence is
 //     inside a string literal (no `//# sourceMappingURL=` trailer).
 //  3. Assert both are returned unchanged with ok=false.
+// @evidence contracts/testing.md#behavioral-verification Calls AdjustEmittedSourceMap and requires unchanged text and false for a populated non-carrier and a JavaScript string containing a data URL.
+// @evidence contracts/testing.md#independent-expectations Literal complete fixture strings independently establish byte preservation; expectations do not use the production detector.
+// @evidence contracts/testing.md#distinguishing-cases A valid trailer inside tsbuildinfo tests the extension guard; a data URL inside a JavaScript string tests marker admission. Carrier positives belong to the sibling dispatcher case.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit calls the public operation on strings with no filesystem, producer or child process.
 func TestAdjustEmittedSourceMapIgnoresNonCarriersAndStrayMarkers(t *testing.T) {
   const dropLines = 3
   mapJSON := makeMapJSON([]string{"src/a.ts"}, buildMappings([]absSeg{

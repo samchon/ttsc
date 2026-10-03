@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig lets later array extends clear inherited plugins.
@@ -20,6 +20,11 @@ import {
  *    []`.
  * 2. Write a project tsconfig that extends `[base-a, base-b]`.
  * 3. Assert the resolved plugins array is empty and `pluginBaseDirs` is empty.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Asserts both plugins and pluginBaseDirs become empty after a later preset clears the array, detecting resurrection of inherited plugin entries or their base directory.
+ * @evidence contracts/testing.md#independent-expectations The later preset explicitly declares an empty plugins array; ordered tsconfig replacement requires no plugin and no plugin resolution owner.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty earlier and empty later entries contrast with applies_array_extends_in_order, whose later nonempty entry wins, and the omitted-child inheritance case.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending an array whose later entry declares an empty plugins list in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_lets_later_array_extends_clear_inherited_plugins =
   () => {

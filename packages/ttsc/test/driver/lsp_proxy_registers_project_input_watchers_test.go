@@ -39,16 +39,20 @@ func (s *dynamicProjectInputSource) replace(snapshot driver.LSPProjectInputSnaps
   }
 }
 
-// TestLSPProxyRegistersProjectInputWatchers verifies declared filesystem
-// topology becomes an editor-owned dynamic watched-file registration.
+// TestLSPProxyRegistersProjectInputWatchers Verifies registration replacement and stale cleanup requests.
 //
-// Depending on typescript-go's broad workspace watcher is an implementation
-// accident and misses dependencies outside the workspace. Registration must
-// start after initialized and replace its previous generation without a gap.
+// A mutable project-input source drives the proxy registration handshake. The
+// assertions check request methods, distinct replacement request ids and one
+// nonempty stale registration id; they do not inspect the registered patterns.
 //
-//  1. Initialize a client with dynamic RelativePattern support.
-//  2. Observe and acknowledge the initial project-input registration.
-//  3. Replace the snapshot, then acknowledge its successor and stale cleanup.
+// 1. Initialize dynamic RelativePattern support and acknowledge registration.
+// 2. Replace exact-file inputs with a glob snapshot and acknowledge its successor.
+// 3. Require a stale unregistration request and acknowledge its nonempty id.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run sends initial and replacement registration requests with distinct ids, then a nonempty stale unregistration after acknowledgments.
+// @evidence contracts/testing.md#independent-expectations Dynamic watched-file registrations require successor identity and stale cleanup; client/registerCapability and client/unregisterCapability methods supply the wire expectations.
+// @evidence contracts/testing.md#distinguishing-cases An exact-file snapshot changes to a glob snapshot after initialized; the body does not inspect pattern payloads or prove which registration id was removed.
+// @evidence contracts/testing.md#execution-ownership Go test/driver runs the pipe proxy with a mutable project-input source and simulated client acknowledgments, without a filesystem watcher or editor process.
 func TestLSPProxyRegistersProjectInputWatchers(t *testing.T) {
   root := t.TempDir()
   source := &dynamicProjectInputSource{

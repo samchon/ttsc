@@ -29,7 +29,7 @@ func serveUpdateLine(t *testing.T, file, content string) string {
 // an in-memory edit and re-transforms, so a later transform request returns the
 // edited content without restarting the host.
 //
-// This is the incremental half of the resident host (samchon/ttsc#255): an
+// This is the incremental half of the resident host: an
 // editor or watch consumer feeds an unsaved buffer through an update request and
 // the next transform must reflect it. The host keys the overlay so the edit
 // shadows the on-disk file, rebuilds the transform over the new content, and
@@ -38,6 +38,11 @@ func serveUpdateLine(t *testing.T, file, content string) string {
 // 1. Transform index.ts and confirm the original value.
 // 2. Update index.ts with new content and confirm the rebuild succeeded.
 // 3. Transform index.ts again and confirm the edited value is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification An update request replaces a file's content in memory and the next transform request returns the edited value without restarting the host.
+// @evidence contracts/testing.md#independent-expectations The original and edited values are literals written in the test.
+// @evidence contracts/testing.md#distinguishing-cases The same file is transformed before and after the update, so a stale cache returns the old value and fails.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeReflectsOverlayUpdate is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -99,7 +104,7 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
 // update to a DIFFERENT file still succeeds rather than staying wedged on the
 // broken buffer.
 //
-// This is the load-bearing half of the update contract (samchon/ttsc#255): an
+// This is the load-bearing half of the update contract: an
 // editor sends a transient broken buffer mid-keystroke, and the resident host
 // must neither crash nor corrupt the cache, and must recover on the next good
 // edit. The recovery edit targets b.ts, not the broken a.ts, so it can only
@@ -111,6 +116,11 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
 //  2. Update b.ts with valid content; assert updated:true, which holds only if
 //     a.ts was rolled back (otherwise the rebuild still sees a.ts broken).
 //  3. Transform b.ts and confirm the new value.
+//
+// @evidence contracts/testing.md#behavioral-verification An update that does not compile reports updated:false and leaves the previous transform, and a later valid update to a different file still succeeds.
+// @evidence contracts/testing.md#independent-expectations The updated:false and updated:true replies and the transformed values are literal protocol expectations.
+// @evidence contracts/testing.md#distinguishing-cases The recovery edit targets b.ts, not the broken a.ts, so it succeeds only if the rejected a.ts buffer was rolled back; a same-file recovery would pass without rollback.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeUpdateFailureRollsBackAndRecovers is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeUpdateFailureRollsBackAndRecovers(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

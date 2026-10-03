@@ -1,0 +1,60 @@
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+/**
+ * Verifies ttsx mirrors a project-root entry that is a file symlink.
+ *
+ * `prepareExecution::linkVirtualEntry` mirrors project-root entries into the
+ * virtual filesystem layout. Directory entries and directory-target symlinks
+ * get junction handling, plain files get hard-link/copy, but a file symlink
+ * falls through to the re-symlink branch — which on Windows requires
+ * `SeCreateSymbolicLinkPrivilege` and now falls back to hard-link/copy instead
+ * of aborting the run (#306). This locks the branch: a file-symlink entry must
+ * never fail the virtual-layout mirror.
+ *
+ * 1. Create a CJS ttsx project whose root contains a symlink to a file outside the
+ *    project.
+ * 2. Run ttsx against the entry.
+ * 3. Assert the virtual-layout mirror completes and the entry executes.
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx mirrors a root file symlink and executes file-symlink-ok when native fixture link creation is permitted.
+ * @evidence contracts/testing.md#independent-expectations Authored output and lstat proof of a real file link establish expectations independently of mirror logic.
+ * @evidence contracts/testing.md#distinguishing-cases External file target contrasts with the directory-link case; forced mirror rejection/copy bytes belong to the direct unit.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one real link/launcher request; native setup denial returns before the request and is a host limitation.
+ * @evidence contracts/e2e.md#necessary-boundary Full prepareExecution must accept real file-link input before startup. Direct fallback units do not certify complete assembly.
+ * @evidence contracts/e2e.md#shared-execution One project/external file/host covers actual mirror assembly without per-assertion preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable tracked target/root survive synchronous completion. The setup-only catch distinguishes native fixture denial from a product mirror failure.
+ * @evidence contracts/e2e.md#preserved-coverage Original link, zero status and exact output remain on capable hosts. Incapable hosts cannot execute this boundary; the forced-rejection unit preserves fallback assertions without claiming equivalent assembly.
+ */
+export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry(): void | false {
+    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_virtual_layout_mirrors_a_file_symlink_project_entry/inputs-1"));
+    const linkedFile = path.join(
+      TestProject.tmpdir("ttsx-linked-file-"),
+      "linked.txt",
+    );
+    fs.writeFileSync(linkedFile, "linked", "utf8");
+    const entry = path.join(root, "linked.txt");
+    try {
+      fs.symlinkSync(linkedFile, entry, "file");
+    } catch {
+      // Creating the fixture needs the symlink privilege this contract is
+      // about, so without it there is no file-symlink entry to mirror. The
+      // fallback taken when the mirror itself is refused is pinned by
+      // test_linkvirtualentry_copies_a_file_symlink_entry_when_symlink_creation_fails.
+      return false;
+    }
+    assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
+
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      { cwd: root },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "file-symlink-ok");
+  }

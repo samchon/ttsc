@@ -12,8 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding
-// covers the one alias declaration kind that is not part of an import clause.
+// TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding Verifies a rebuilt
+// import-equals reference retains its external-module binding.
 //
 // Elision reaches this node through shouldEmitImportEqualsDeclaration rather
 // than the clause path the sibling tests take. That predicate is a disjunction,
@@ -31,6 +31,11 @@ import (
 //     SetOriginal-linked back to the parse-tree one.
 //  3. Assert the emitted file still declares the require binding and still
 //     reads `foo` through it.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the actual original-linked import-equals rebuild, requires it occurred and checks retained dep.foo plus its literal require binding.
+// @evidence contracts/testing.md#independent-expectations Authored dep identifier, foo member and ./dep module independently establish the required import-equals binding and reference.
+// @evidence contracts/testing.md#distinguishing-cases ImportEqualsDeclaration admission differs from import clauses; observed reconstruction prevents the original plain output from certifying the transformation.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit runs its actual in-process visitor/compiler, captures output and closes its Program without native host or runtime execution.
 func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -50,6 +55,7 @@ func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t 
   }
   defer prog.Close()
 
+  rebuilt := false
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -58,6 +64,7 @@ func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t 
       }
       if node.Kind == shimast.KindIdentifier && node.Text() == "dep" &&
         node.Parent != nil && node.Parent.Kind == shimast.KindPropertyAccessExpression {
+        rebuilt = true
         syn := ec.Factory.NewIdentifier("dep")
         ec.SetOriginal(syn, node)
         return syn
@@ -74,6 +81,9 @@ func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t 
     return nil
   }); err != nil {
     t.Fatal(err)
+  }
+  if !rebuilt {
+    t.Fatal("plugin never rebuilt the authored reference")
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)

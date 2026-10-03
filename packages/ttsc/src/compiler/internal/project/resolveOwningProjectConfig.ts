@@ -15,11 +15,10 @@ import { readJsoncFile } from "./readJsoncFile";
  * delegates them. Vite, Nx, and many monorepo templates generate that layout,
  * and a runner that stops at the nearest config compiles the file with the
  * solution's empty options while the editor, which follows the references,
- * shows no error (samchon/ttsc#1406). This applies the language service's rule
- * for choosing a file's project:
+ * shows no error. This lookup selects within the declared reference graph:
  *
  * 1. A config that declares no `references` owns the file. Nothing is spawned, so
- *    an ordinary project pays nothing for this.
+ *    an ordinary project avoids compiler expansion but still reads its config.
  * 2. Otherwise, the config owns the file when its own root files contain it.
  * 3. Otherwise, each reference in declaration order: a referenced config that
  *    contains the file owns it; one that does not is searched through its own
@@ -33,10 +32,18 @@ import { readJsoncFile } from "./readJsoncFile";
  * expands to, and each is compared with the file by filesystem identity.
  * `references` are read from the config itself, because TypeScript never
  * inherits them through `extends`.
+ * Read/parse failures supply no reference edges; failed compiler invocations
+ * or malformed output supply no positive membership observation. The original
+ * discovered config is then a fallback, not proof that it contains the file.
+ * Identity comparisons use observed realpaths and case capabilities, retaining
+ * best-effort spelling when native identity lookup is unavailable.
  *
  * Graph observations are shared only within this lookup. Later requests can see
  * changed configs, inherited options, directory membership or compiler inputs;
  * a config pathname alone cannot establish that the expansion is still valid.
+ * The callback observes direct config reads, not every inherited config or
+ * compiler input consulted by expansion. Synchronous compiler work has no
+ * explicit execution deadline in this operation.
  *
  * @param props.tsconfig - The config project discovery found for the file.
  * @param props.file - The file whose project is asked for.
@@ -44,14 +51,14 @@ import { readJsoncFile } from "./readJsoncFile";
  * @param props.onConfig - Called with every config this reads, so a caller that
  *   fingerprints its inputs can record them.
  *
- * @evidence contracts/common.md#principled-implementation Compiler showConfig establishes root membership, filesystem identities compare aliases, and a visited set terminates reference cycles while declaration-order DFS selects the first containing project.
+ * @evidence contracts/common.md#principled-implementation Successful compiler showConfig supplies root membership observations, best-effort filesystem identity compares aliases, and visited identity keys terminate repeated graph states while declaration-order DFS selects the first observed containing project. Failed observations preserve the discovered fallback without certifying membership.
  * @evidence contracts/common.md#clear-and-simple-design Reference reading, compiler expansion and membership comparison have separate local responsibilities; discovery retains its original fallback when no referenced project contains the target.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Solution handling follows references and actual compiler root lists rather than guessed include patterns or named project layouts; stale cross-request answers are not preserved by compensating target checks.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state ownership order, fallback, callbacks and lookup-scoped reuse, with parameter explanations separated from acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Node path operations select native config spellings, actual filesystem identity compares target and roots, and spawnNative owns executable representation rather than applying OS-name case guesses.
- * @evidence contracts/performance.md#efficient-algorithms Each distinct physical config is visited once in the reference DFS and receives at most one expansion plus one concurrent-target retry; membership scans root lists, with the ordinary no-reference path avoiding a subprocess.
- * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses its discovered reference edges and filesystem identity observations; the visited set prevents duplicate config expansions, while later requests rerun expansion because paths alone cannot prove unchanged inheritance, directory membership or compiler selection.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The identity context, visited set and current root observation belong to one synchronous lookup and become unreachable when it returns or throws; no historical config populations remain in this module.
+ * @evidence contracts/performance.md#efficient-algorithms Each distinct observed config identity key is visited once in the DFS and receives at most one expansion plus one ctime-based retry; ctime can change for metadata updates as well as creation. Direct config reads/parsing, reference path text/stat work, delegated identity/case probes and binary selection precede or accompany compiler execution. Root-list decoding and membership scans cost their bytes and entries; DFS stack depth follows the reference chain and native recursion limits still apply. The no-reference path avoids a compiler subprocess, not config I/O.
+ * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses discovered reference edges and filesystem identity observations; visited keys prevent expansion of a repeated observed identity, while later requests rerun because paths alone cannot prove unchanged inheritance, directory membership or compiler selection. Best-effort identity cannot guarantee deduplication of every physical alias.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Identity maps, visited keys and root observations are lookup-local with no historical population retained here. Synchronous expansion delegates capture cleanup to spawnNative's finally path, whose cleanup failures are suppressed; output storage and child duration have no configured ceiling here. A nonterminating child prevents the lookup from finishing, rather than being released by this graph traversal.
  */
 export function resolveOwningProjectConfig(props: {
   /** Absolute or invocation-relative spelling of the discovered config. */
@@ -81,8 +88,8 @@ export function resolveOwningProjectConfig(props: {
   /**
    * Compare a compiler root observation with this lookup's target identity.
    *
-   * Equal filesystem keys denote one physical target despite different native
-   * spellings. A single short-circuit scan shares the lookup's identity
+   * Equal keys compare this lookup's best-effort identity observations; native
+   * lookup failures do not prove physical equivalence. A scan shares the identity
    * context; no guessed suffix matching, separate membership index or
    * historical cache is introduced for this one target.
    */
@@ -103,9 +110,8 @@ export function resolveOwningProjectConfig(props: {
   function contains(config: string): boolean {
     const roots = rootFiles(config, props.binary);
     if (listed(roots)) return true;
-    // A file created after the list was taken cannot be in it, and a running
-    // program does write the sources it then loads. Only such a file asks the
-    // compiler again, so a file that simply belongs elsewhere costs nothing.
+    // Recent ctime permits one retry after a miss; it can reflect a metadata
+    // change rather than creation and is not an atomic freshness proof.
     return (
       createdSince(props.file, roots.takenAt) &&
       listed(rootFiles(config, props.binary))
@@ -120,7 +126,7 @@ export function resolveOwningProjectConfig(props: {
    * config once. The discovered config reuses the reference edges already read
    * above.
    *
-   * Physical-identity keys remove cycles and alias duplicates without an
+   * Observed identity keys remove matching cycles and aliases without an
    * arbitrary depth cap. DFS checks each reference before descending, so order
    * selects the first containing project. Apart from compiler expansion, graph
    * work follows reachable vertices and edges; stack depth follows the explored

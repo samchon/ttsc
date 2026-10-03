@@ -116,6 +116,11 @@ func named(lines []Response, name string) []Response {
 
 // Shared watch descriptors: two subscriptions of one directory each hear its
 // events, typed as libuv types them, until one is removed.
+//
+// @evidence contracts/testing.md#behavioral-verification Two subscriptions of one directory each hear its events typed as libuv types them (rename on creation, change on modification) until one is removed.
+// @evidence contracts/testing.md#independent-expectations The expected event types and subscription ids are literals from the helper protocol.
+// @evidence contracts/testing.md#distinguishing-cases Both subscriptions are checked before and after one is removed.
+// @evidence contracts/testing.md#execution-ownership TestSharedDescriptorsAndRemoval is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSharedDescriptorsAndRemoval(t *testing.T) {
   root := t.TempDir()
   s := start(t)
@@ -168,6 +173,11 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
 
 // Sync reads the instance empty first, so an edit made before it is answered
 // is reported ahead of the answer.
+//
+// @evidence contracts/testing.md#behavioral-verification A sync answer is preceded by all 200 events for files created before it.
+// @evidence contracts/testing.md#independent-expectations The expected count of 200 distinct names is the number of files the test wrote.
+// @evidence contracts/testing.md#distinguishing-cases A helper that answered sync before draining its instance would report fewer names.
+// @evidence contracts/testing.md#execution-ownership TestSyncFollowsEveryQueuedEvent is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
   root := t.TempDir()
   s := start(t)
@@ -190,6 +200,11 @@ func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
 
 // A deleted directory ends its subscription with `gone`, and its parent hears
 // the deletion as a rename of the entry.
+//
+// @evidence contracts/testing.md#behavioral-verification Deleting a watched directory reports gone for its subscription and a rename of the entry to its parent's subscription, after which a recreated directory is not reported through the released subscription.
+// @evidence contracts/testing.md#independent-expectations The expected gone and rename lines are literal protocol messages.
+// @evidence contracts/testing.md#distinguishing-cases The deleted directory, its parent and a later recreation are the three observed states.
+// @evidence contracts/testing.md#execution-ownership TestSelfDeletionEndsTheSubscription is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSelfDeletionEndsTheSubscription(t *testing.T) {
   root := t.TempDir()
   child := filepath.Join(root, "child")
@@ -225,6 +240,11 @@ func TestSelfDeletionEndsTheSubscription(t *testing.T) {
 }
 
 // A directory that cannot be watched is answered with an error.
+//
+// @evidence contracts/testing.md#behavioral-verification Adding a path that does not exist answers with an error and no ready reply.
+// @evidence contracts/testing.md#independent-expectations A missing temporary subdirectory cannot be watched by the kernel, so the error reply is the contract.
+// @evidence contracts/testing.md#distinguishing-cases A missing directory contrasts with the watchable directories of sibling tests.
+// @evidence contracts/testing.md#execution-ownership TestAddReportsAnUnwatchableDirectory is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestAddReportsAnUnwatchableDirectory(t *testing.T) {
   s := start(t)
   s.send(Request{Op: "add", ID: 1, Path: filepath.Join(t.TempDir(), "missing")})
@@ -235,6 +255,11 @@ func TestAddReportsAnUnwatchableDirectory(t *testing.T) {
 }
 
 // The helper exits cleanly once its client closes stdin.
+//
+// @evidence contracts/testing.md#behavioral-verification The helper exits with code 0 within ten seconds after its client closes stdin.
+// @evidence contracts/testing.md#independent-expectations Exit code 0 is the documented clean-shutdown status.
+// @evidence contracts/testing.md#distinguishing-cases A helper that kept running would fail the timeout branch.
+// @evidence contracts/testing.md#execution-ownership TestExitsWhenStdinCloses is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestExitsWhenStdinCloses(t *testing.T) {
   s := start(t)
   s.stdin.Close()
@@ -252,6 +277,11 @@ func TestExitsWhenStdinCloses(t *testing.T) {
 // directory entry's attribute change is a rename as libuv reports it, a
 // nameless event and an unknown descriptor are dropped, and the end of a watch
 // is reported once.
+//
+// @evidence contracts/testing.md#behavioral-verification The event decoder reports an overflow to every subscription, an attribute change on a directory entry as a rename, drops nameless events and unknown descriptors, and reports the end of a watch once.
+// @evidence contracts/testing.md#independent-expectations The expected output lines are literal JSON messages written from the helper protocol.
+// @evidence contracts/testing.md#distinguishing-cases Overflow, directory attribute, nameless, unknown-descriptor and end-of-watch events each take a different branch.
+// @evidence contracts/testing.md#execution-ownership TestDispatchMapsEventsAsLibuvDoes is a Go unit test built only on Linux: it feeds hand-encoded inotify event bytes to the decoder of an in-process helper and starts no process.
 func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
   var out bytes.Buffer
   h := newHelper(-1, &out)
@@ -314,6 +344,11 @@ func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
 // A real kernel overflow: an instance nobody reads fills past
 // fs.inotify.max_queued_events, the kernel drops the rest and queues one
 // IN_Q_OVERFLOW event, and the helper's own read and decode report it.
+//
+// @evidence contracts/testing.md#behavioral-verification A real kernel overflow, created by filling an unread inotify instance past fs.inotify.max_queued_events, is reported by the helper's own drain and decode as an overflow response.
+// @evidence contracts/testing.md#independent-expectations The kernel's queue limit is read from /proc and exceeded by one creation, so the overflow is produced by the kernel and not by the test's encoding.
+// @evidence contracts/testing.md#distinguishing-cases A limit above one million is skipped explicitly because filling it would take too long; below it the overflow must be reported.
+// @evidence contracts/testing.md#execution-ownership TestReportsARealKernelOverflow is a Go unit test built only on Linux: it drives a helper value over a real inotify descriptor in-process and starts no process.
 func TestReportsARealKernelOverflow(t *testing.T) {
   setting, err := os.ReadFile("/proc/sys/fs/inotify/max_queued_events")
   if err != nil {

@@ -9,9 +9,14 @@ import (
 // TestServePhaseTraceIsOptInAndPayloadFree proves the benchmark diagnostic is
 // disabled by default and exposes timings without project or request content.
 //
-//  1. Run the same native shard request with tracing disabled and enabled.
+//  1. Run the same shard request through the source owner with tracing disabled and enabled.
 //  2. Capture only the server diagnostic stream, not the response payload.
 //  3. Require the five named phases and reject fixture paths and JSON bodies.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServePhaseTraceIsOptInAndPayloadFree proves the benchmark diagnostic is disabled by default and exposes timings without project or request content.
+// @evidence contracts/testing.md#independent-expectations The expectation is the opt-in contract: with the trace variable empty stderr must stay empty, and with it set to 1 each of the five phase names must appear in a literal 'owner=producer request=17 mode=initial phase=<name> durationMs=' line while the root path, the request field name and JSON braces must not. A trace that is always on or that prints payload fails.
+// @evidence contracts/testing.md#distinguishing-cases Run the same shard request through the source owner with tracing disabled and enabled; Capture only the server diagnostic stream, not the response payload; Require the five named phases and reject fixture paths and JSON bodies.
+// @evidence contracts/testing.md#execution-ownership TestServePhaseTraceIsOptInAndPayloadFree is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServePhaseTraceIsOptInAndPayloadFree(t *testing.T) {
   root := graphSessionFixture(t)
   request := "{\"id\":17,\"graphSnapshotVersion\":1}\n"
@@ -21,7 +26,7 @@ func TestServePhaseTraceIsOptInAndPayloadFree(t *testing.T) {
   t.Setenv(graphPhaseTraceEnvironment, "")
   var disabled bytes.Buffer
   stderr = &disabled
-  if code := serveSnapshots(strings.NewReader(request), &bytes.Buffer{}, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(strings.NewReader(request), &bytes.Buffer{}, root, "tsconfig.json"); code != 0 {
     t.Fatalf("disabled trace exited %d", code)
   }
   if disabled.Len() != 0 {
@@ -31,7 +36,7 @@ func TestServePhaseTraceIsOptInAndPayloadFree(t *testing.T) {
   t.Setenv(graphPhaseTraceEnvironment, "1")
   var enabled bytes.Buffer
   stderr = &enabled
-  if code := serveSnapshots(strings.NewReader(request), &bytes.Buffer{}, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(strings.NewReader(request), &bytes.Buffer{}, root, "tsconfig.json"); code != 0 {
     t.Fatalf("enabled trace exited %d", code)
   }
   trace := enabled.String()

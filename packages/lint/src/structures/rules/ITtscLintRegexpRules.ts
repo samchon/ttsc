@@ -28,7 +28,13 @@ export interface ITtscLintRegexpRules {
 
   /**
    * Reject duplicate literal characters inside simple regex character classes
-   * (`/[aa]/`).
+   * (`/[aa]/`). Whole escape atoms are decoded before comparison. Unicode
+   * modes (`u` and `v`) compare code points; legacy mode compares UTF-16 code
+   * units. Distinct accented characters do not become duplicates because
+   * their UTF-8 encodings share bytes.
+   *
+   * Range overlap and `v`-mode set expressions remain outside this simple-class
+   * subset. The rule reports a diagnostic without an automatic edit.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/no-dupe-characters-character-class.html
    */

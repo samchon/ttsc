@@ -33,9 +33,9 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  * Rule id conventions:
  *
  * - Bare kebab-case ids (`eqeqeq`, `no-console`) belong to
- *   {@link ITtscLintCoreRules} — generic ESLint-compatible rules that apply to
+ *   {@link ITtscLintCoreRules}, generic ESLint-compatible rules that apply to
  *   both JS and TS source.
- * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules} —
+ * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules},
  *   TypeScript-only and `@typescript-eslint` plugin rules. `@ttsc/lint` does
  *   not accept legacy bare names or `@typescript-eslint/*` aliases for these
  *   rules.
@@ -52,15 +52,15 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  *   public rules surface.
  * - Any other `"<namespace>/<rule>"` key is accepted via
  *   {@link ITtscLintContributorRules} so plugin-shipped rules compose cleanly
- *   without ambient module augmentation. A plugin can augment
- *   `ITtscLintRuleOptionsMap`; {@link TtscLintRuleOptionsOverlay} then tightens
- *   that rule's options while the open fallback remains for unregistered
- *   contributor names.
+ *   without ambient module augmentation. A plugin publishes an exported rule
+ *   interface that the user passes to `ITtscLintConfig` as its generic argument;
+ *   {@link TtscLintContributorOverlay} then tightens those rules' options while
+ *   the open fallback remains for unlisted contributor names.
  *
- * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while tightening augmented options for known names.
+ * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while keeping the open contributor fallback for unlisted names; the typed contributor overlay is added by the config type that uses this alias.
  * @evidence contracts/common.md#clear-and-simple-design One composition alias assembles independently owned rule families and the contributor extension boundary.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types and augmentation rather than consumer-specific aliases or runtime mutation.
- * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains augmentation; lists, paragraphs and tag separation follow documentation guidance.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types rather than consumer-specific aliases or runtime mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains the generic contributor overlay; lists, paragraphs and tag separation follow documentation guidance.
  */
 export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTypeScriptRules &

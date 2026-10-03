@@ -1,30 +1,36 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a symlinked reload input observes edits to the file it points at.
+ * Verifies lexical and target anchors for native reload link declarations.
  *
- * A reload declaration selects plugins and contributors, so its content decides
- * whether the next cycle can stay resident. The declaration is a lexical path,
- * but a symlink can place the bytes it names in an unrelated directory: an
- * anchor on the declaration's own parent then sees the link being retargeted
- * and nothing else, while the fingerprint that decides the reload was taken
- * from the target's content. Both anchors must exist.
+ * 1. Author an external target and its project-local symbolic declaration.
+ * 2. Verify both actual registration arguments and deliver a target byte edit.
+ * 3. Retarget the declaration and require the original cold config transition.
  *
- * 1. Declare a reload input inside the project that links to an external file.
- * 2. Edit the external target and require a cold config transition.
- * 3. Retarget the link and require the same transition from the lexical anchor.
+ * @evidence contracts/testing.md#behavioral-verification Actual source topology, directory adapter and fingerprint decisions consume supplied target and lexical notifications, reporting config transitions for both original stimuli.
+ * @evidence contracts/testing.md#independent-expectations Authored target, replacement and declaration paths establish independent subscription arguments and byte changes; positional compiler listing throws if reached.
+ * @evidence contracts/testing.md#distinguishing-cases Target byte editing differs from lexical link retargeting, and both anchors are independently checked. POSIX retains the original file symlink declaration. Windows declares an actual leaf directory junction for entry retargeting and its child selection.json for byte editing: a parent junction alone misses the link-anchor predicate, while a directory fingerprint alone does not read child bytes. These are distinct supported native inputs, not identical file-link framing; preparation failure is explicit and not product coverage.
+ * @evidence contracts/testing.md#execution-ownership This unit owns manually supplied reload declarations and their actual source decisions through recorded observers. It performs no compiler query or native observer registration; the retained native cases own actual OS delivery.
  */
 export const test_watch_topology_watches_reload_symlink_targets =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-watch-reload-symlink-");
-    const externalRoot = TestProject.tmpdir("ttsc-watch-reload-target-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-watch-reload-symlink-"),
+    );
+    const externalRoot = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-watch-reload-target-"),
+    );
     const target = path.join(externalRoot, "selected", "selection.json");
     const replacement = path.join(externalRoot, "other", "selection.json");
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -32,13 +38,21 @@ export const test_watch_topology_watches_reload_symlink_targets =
     fs.writeFileSync(target, '{"plugin":"first"}\n', "utf8");
     fs.writeFileSync(replacement, '{"plugin":"second"}\n', "utf8");
 
-    const declaration = path.join(root, "selection.json");
-    try {
-      fs.symlinkSync(target, declaration, "file");
-    } catch {
-      // The filesystem cannot express the alias this case is about.
-      return;
-    }
+    const windows = process.platform === "win32";
+    const declaration = path.join(
+      root,
+      windows ? "selection-link" : "selection.json",
+    );
+    const selectedFile = windows
+      ? path.join(declaration, "selection.json")
+      : declaration;
+    fs.symlinkSync(
+      windows ? path.dirname(target) : target,
+      declaration,
+      windows ? "junction" : "file",
+    );
+    assert.equal(fs.lstatSync(declaration).isSymbolicLink(), true);
+    assert.equal(fs.realpathSync.native(selectedFile), target);
 
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -53,7 +67,11 @@ export const test_watch_topology_watches_reload_symlink_targets =
       "utf8",
     );
 
+    const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(
+      watchDirectoryThroughFsWatch,
+    );
     const changes: WatchInputChange[] = [];
+    const failures: Error[] = [];
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -68,6 +86,12 @@ export const test_watch_topology_watches_reload_symlink_targets =
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      openDirectoryWatch,
+      openFileWatch,
+      fs.readdirSync,
+      () => {
+        assert.fail("positional inputs must not query compiler membership");
+      },
     );
     try {
       topology.refresh(false);
@@ -75,19 +99,66 @@ export const test_watch_topology_watches_reload_symlink_targets =
         root,
         files: [],
         globs: [],
-        reloadFiles: [declaration],
+        reloadFiles: windows ? [declaration, selectedFile] : [declaration],
       });
 
-      await waitForConfigChange(changes, "target edit", () => {
-        fs.writeFileSync(target, '{"plugin":"first-edited"}\n', "utf8");
-      });
-      await waitForConfigChange(changes, "link retarget", () => {
-        fs.rmSync(declaration, { force: true });
-        fs.symlinkSync(replacement, declaration, "file");
-      });
+      assert.ok(
+        watchers.some(
+          (watcher) =>
+            watcher.active &&
+            watcher.location === externalRoot &&
+            watcher.recursive,
+        ),
+        "the external target must have an independently registered anchor",
+      );
+      assert.ok(
+        watchers.some((watcher) => watcher.active && watcher.location === root),
+        "the lexical declaration must keep its parent anchor",
+      );
+      for (const [label, stimulus] of [
+        [
+          "target edit",
+          () => {
+            fs.writeFileSync(target, '{"plugin":"first-edited"}\n', "utf8");
+            deliverWatchEvent(watchers, target, "change");
+          },
+        ],
+        [
+          "link retarget",
+          () => {
+            assert.equal(fs.lstatSync(declaration).isSymbolicLink(), true);
+            fs.unlinkSync(declaration);
+            fs.symlinkSync(
+              windows ? path.dirname(replacement) : replacement,
+              declaration,
+              windows ? "junction" : "file",
+            );
+            assert.equal(fs.realpathSync.native(selectedFile), replacement);
+            deliverWatchEvent(watchers, declaration, "rename");
+          },
+        ],
+      ] as const) {
+        try {
+          await waitForConfigChange(changes, label, stimulus);
+        } catch (cause) {
+          failures.push(new Error(label, { cause }));
+        }
+      }
+      assert.ok(
+        watchers.some(
+          (watcher) =>
+            watcher.active &&
+            watcher.location === externalRoot &&
+            watcher.recursive,
+        ),
+        "retargeting must retain the external anchor covering the replacement",
+      );
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "native reload link scenarios failed");
   };
 
 async function waitForConfigChange(
@@ -98,15 +169,15 @@ async function waitForConfigChange(
   // Let any event still in flight from the previous phase land before the
   // ledger is cleared, so a late arrival cannot satisfy the next expectation.
   await new Promise((resolve) => setTimeout(resolve, 250));
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  const deadline = Date.now() + 30_000;
   changes.length = 0;
+  stimulus();
   while (!changes.some((change) => change.kind === "config")) {
     if (Date.now() >= deadline) {
       assert.fail(
         `expected a cold config transition after a ${label}: ${JSON.stringify(changes)}`,
       );
     }
-    stimulus();
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }

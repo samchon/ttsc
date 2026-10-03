@@ -27,14 +27,16 @@ export namespace CompilerDiagnostics {
    * Return fallback diagnostics the failed plugin did not already report.
    * Matching offsets take precedence only when both reports carry offsets;
    * otherwise rendered line and column determine the position. A completely
-   * redundant fallback returns null; surviving text keeps its context lines.
+   * redundant fallback returns null. Partial filtering retains selected report
+   * context, drops summary lines, and rejoins text with LF separators; text
+   * before the first recognized report and nonindented context also survives.
    *
    * @evidence contracts/common.md#principled-implementation Identity includes category, typed code, file and headline; separate offset and rendered-position indexes preserve the pairwise rule when an offset is missing.
    * @evidence contracts/common.md#clear-and-simple-design Structured selection precedes rendered-text filtering, keeping diagnostic identity in one index helper and continuation handling in one text helper.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Fallback suppression compares actual reports and preserves surviving output; it does not recognize fixed error codes or suppress a failing status to satisfy an example.
    * @evidence contracts/common.md#meaningful-documentation The native comment explains position precedence, the null result and text-context preservation with prose separated from tags.
    * @evidence contracts/portability.md#os-neutral-implementation Rendered relative filenames are resolved by node:path against the compiler cwd; report filenames otherwise retain the producer's native spelling without guessed case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Indexed diagnostic membership avoids failure-by-fallback and selected-by-line cross products; processing is linear in diagnostic and text size apart from native path normalization.
+   * @evidence contracts/performance.md#efficient-algorithms Separate identity/offset/position indexes avoid failure-by-fallback and selected-by-line cross products. Building and querying keys includes headline scans, JSON tuple serialization and hashing of diagnostic text; partial stdout/stderr filtering performs ANSI removal, format regex matching and native path normalization per line. Work and temporary records depend on diagnostic, line and text sizes; regex backtracking is not bounded by index cardinality.
    * @evidence contracts/performance.md#reuse-equivalent-work The selected diagnostic index is shared by stdout and stderr filtering, since both outputs refer to the same surviving population.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Diagnostic indexes and output arrays are invocation-local; this function owns no persistent cache or handle.
@@ -191,7 +193,7 @@ export namespace CompilerDiagnostics {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Patterns implement compiler and plugin render formats instead of matching selected messages or coercing arbitrary plugin prefixes into TypeScript numbers.
    * @evidence contracts/common.md#meaningful-documentation Native documentation gives accepted forms, coordinate units, optional cwd meaning and the null outcome in separated paragraphs.
    * @evidence contracts/portability.md#os-neutral-implementation Native node:path recognizes absolute paths and resolves relative paths against cwd; greedy filename captures retain drive colons without treating protocol spelling as filesystem identity.
-   * @evidence contracts/performance.md#efficient-algorithms At most three anchored matches inspect one line; temporary capture and result storage scale with that line's text.
+   * @evidence contracts/performance.md#efficient-algorithms At most three anchored format matches precede category/code conversion and native filename normalization. Captures, numeric token conversion and path text contribute processing/storage cost; the greedy/optional filename patterns can backtrack on malformed lines, so three recognizers do not establish a linear-time ceiling.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser coordinates no repeated producer or cross-request computation; diagnostic indexing belongs to the selecting operation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A parsed record is returned immediately; the parser retains no history or native resource.

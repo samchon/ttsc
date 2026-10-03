@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,14 +6,14 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig applies array extends in order.
  *
  * TypeScript 5.0 supports an `extends` array where later entries override
  * earlier ones. `readProjectConfig` must honour the same left-to-right
- * precedence: scalar options like `outDir` take the last non-null value, and
+ * precedence: scalar options like `outDir` take the value of the last entry that declares them (an explicit `null` is a reset, owned by lets_a_child_null_reset_an_inherited_outdir), and
  * plugins take the value from the last entry that defines them.
  *
  * 1. Create `base-a.json` (outDir, rootDir, plugins-a) and `base-b.json` (outDir
@@ -22,6 +22,11 @@ import {
  *    its own `declarationDir`.
  * 3. Assert `outDir` comes from `base-b`, `rootDir` from `base-a`, `plugins` from
  *    `base-b`, and `pluginBaseDirs` lists only the `shared` directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compares outDir, rootDir, declarationDir, plugins and pluginBaseDirs after ordered array inheritance, detecting reversed precedence or an incorrect declaring directory.
+ * @evidence contracts/testing.md#independent-expectations The second preset explicitly overrides output and plugins while omitting the first preset rootDir; the child declarationDir is independently authored.
+ * @evidence contracts/testing.md#distinguishing-cases Overridden options, inherited omitted options and child-only options are distinguished in one array; lets_later_array_extends_clear_inherited_plugins owns the explicit empty-list boundary.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project tsconfig that extends two base configs through an array in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_applies_array_extends_in_order = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

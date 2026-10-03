@@ -15,9 +15,9 @@ import (
 // closed when a node names a file the manifest does not carry — a guard that is
 // right for a declaration, whose file is always a program source. A published
 // artifact has no such file: it is a Markdown document, a Prisma schema, or, for
-// an operation named by method and path, nothing at all. So the guard rejected
-// it and the resident session failed to start for any project that publishes
-// one, which is the whole product surface.
+// an operation named by method and path, nothing at all. The guard has to
+// leave it alone, or the resident session would fail to start for any project
+// that publishes one, which is the whole product surface.
 //
 // The metadata shard is where facts no source owns belong, and the client
 // exempts it from the ownership check for that reason.
@@ -25,6 +25,11 @@ import (
 //  1. Build a session over a one-file project, carrying one artifact.
 //  2. Take a full shard snapshot.
 //  3. Assert it succeeded and that the artifact is in it.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a session carrying published artifacts can produce a shard snapshot at all.
+// @evidence contracts/testing.md#independent-expectations The expected facts are literal: the two supplied artifact addresses (docs/sale.md#pricing and POST:/orders, the second with no file at all) must each appear as a node in some upserted shard, and any shard that names a source must own only nodes from that file. The session must also declare the artifactNodes capability and name a second producer; the earlier ownership guard that rejected fileless artifacts fails the projection call.
+// @evidence contracts/testing.md#distinguishing-cases Build a session over a one-file project, carrying one artifact; Take a full shard snapshot; Assert it succeeded and that the artifact is in it.
+// @evidence contracts/testing.md#execution-ownership TestServeProjectsAnArtifactNoSourceOwns is a Go source-unit entry. It builds a resident session with newGraphSessionWithArtifacts and projects a full shard snapshot through projectFullGraphShards with explicit empty ignore membership; the compiler session is real and in-process, with no installed consumer, native build or Git acquisition.
 func TestServeProjectsAnArtifactNoSourceOwns(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -57,7 +62,7 @@ export function priced(): void {}
   }
   defer func() { _ = session.Close() }()
 
-  snapshot, _, err := session.buildFullShardSnapshot()
+  snapshot, _, err := projectFullGraphShards(session)
   if err != nil {
     t.Fatalf("the shard projection rejected a published artifact: %v", err)
   }

@@ -22,6 +22,11 @@ import (
 //  1. Discover hints from a plugin whose sidecar cannot answer.
 //  2. Assert the corpus is empty.
 //  3. Assert nothing was written to the log.
+//
+// @evidence contracts/testing.md#behavioral-verification Discovering hints from a plugin whose sidecar cannot answer yields an empty corpus and writes nothing to the log.
+// @evidence contracts/testing.md#independent-expectations An empty corpus and an empty log are the contract for a plugin without the hint verb.
+// @evidence contracts/testing.md#distinguishing-cases An unresolvable binary is the faithful stand-in for a sidecar that rejects the verb; a working sidecar is covered by sibling tests.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsAbsenceIsNotAnError is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsAbsenceIsNotAnError(t *testing.T) {
   var log bytes.Buffer
   source := &NativePluginSource{

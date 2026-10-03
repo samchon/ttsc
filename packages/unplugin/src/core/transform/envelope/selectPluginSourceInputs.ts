@@ -20,9 +20,9 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Digest values come from the actual envelope and are not recomputed later to retroactively certify the compile; non-string values cannot masquerade as a source-state proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why plugin source trees are universal inputs, what malformed entries mean and generation memoization, with parameter and tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve supplies absolute source-directory spellings; no OS-specific directory names, separator rewriting or case assumptions are introduced by the map adapter.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap ownership releases the map with its result object; entries grow only with valid producer directories and this adapter does not acquire subtree observers or retain older generations.
  * @evidence contracts/performance.md#efficient-algorithms One pass over pluginSources builds the map once per result, and repeated module queries use the WeakMap instead of rescanning source directories.
  * @evidence contracts/performance.md#reuse-equivalent-work The immutable result object identifies equivalent source-state requests; fresh generation objects build fresh maps, and consumers must not mutate the returned read-only map.
- * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap ownership releases the map with its result object; entries grow only with valid producer directories and this adapter does not acquire subtree observers or retain older generations.
  */
 export function selectPluginSourceInputs(
   result: ITtscCompilerTransformation,

@@ -1,0 +1,176 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { pluginSourceState } from "ttsc/plugin-source";
+
+const require_ = createRequire(import.meta.url);
+const ttscLib = path.dirname(require_.resolve("ttsc"));
+const { readCapabilityResolution } = require_(
+  path.join(ttscLib, "plugin", "internal", "readCapabilityResolution.js"),
+) as {
+  readCapabilityResolution(options: IKey): object | null;
+};
+const { writeCapabilityResolution } = require_(
+  path.join(ttscLib, "plugin", "internal", "writeCapabilityResolution.js"),
+) as {
+  writeCapabilityResolution(
+    options: IKey,
+    answer: {
+      hostInputHashes: Record<string, string | null>;
+      hostInputRealpaths: Record<string, string | null>;
+      hostInputs: string[];
+      manifest: string;
+      pluginSources: Record<string, string>;
+      plugins: { binary: string; capabilities: Record<string, boolean> }[];
+      projectContext: string | null;
+    },
+  ): void;
+};
+
+const { hashHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "hashHostInputPaths.js"),
+) as {
+  hashHostInputPaths(inputs: readonly string[]): Record<string, string | null>;
+};
+const { realpathHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "realpathHostInputPaths.js"),
+) as {
+  realpathHostInputPaths(
+    inputs: readonly string[],
+  ): Record<string, string | null>;
+};
+interface IKey {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  tsconfig: string;
+  version: string;
+}
+
+/**
+ * Verifies a cached capability answer proves its plugin sources without reading
+ * their files while the files' metadata holds, and reads them once it moves
+ * (samchon/ttsc#1492).
+ *
+ * The answer is proven by the state of every directory its binaries were keyed
+ * on, which a full proof reads byte by byte: half a second for `@ttsc/lint`'s
+ * module on every read, where a graph session reads it on every republish. The
+ * entry records the digest with the metadata signature of exactly the files it
+ * read, taken when every stamp had provably left its clock tick, and a read
+ * whose signature still matches hands the recorded digest to the proof. What
+ * the read used is observed through the entry itself: a recorded digest that
+ * does not describe the files refutes the entry exactly when the read trusted
+ * it, and changes nothing when the read went to the files.
+ *
+ * 1. Record an entry for a module whose stamps lie in the past, and assert a read
+ *    answers from it.
+ * 2. Replace the recorded digest with one no file produces, keeping its signature,
+ *    and assert the read refuses the entry: it took the digest rather than
+ *    reading the files.
+ * 3. Record again, rewrite a file with the same bytes, which moves its metadata
+ *    alone, replace the recorded digest again, and assert the read answers: it
+ *    read the files, which still give the recorded state.
+ * 4. Edit a file, and assert the read refuses the entry.
+ * @evidence contracts/testing.md#behavioral-verification The actual source-bearing cache accepts an unchanged proof, rejects an intentionally wrong recorded digest while its signature holds, rereads moved metadata despite that digest, and rejects edited source bytes.
+ * @evidence contracts/testing.md#independent-expectations Authored source bytes, independently moved timestamps and literal recorded-digest tampering establish unchanged, untrusted and changed proof premises; each signature existence assertion ensures the acceleration lane is reached.
+ * @evidence contracts/testing.md#distinguishing-cases Positive cache reachability, signature-hit caller digest trust, identical bytes with moved metadata and changed bytes retain all original assertions.
+ * @evidence contracts/testing.md#execution-ownership This E2E-selected entry directly calls built cache/source-state owners over private files and real Go/toolchain inputs, without native compilation or a product host. Its exact authored owner is tests/test-ttsc/src/features/api/test_capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved.ts, preserving the four original proof transitions; supplied-reading composition is separate.
+ * @evidence contracts/e2e.md#necessary-boundary Real file metadata and Go environment are owning-operation inputs, not a necessary installed-consumer or native producer protocol. The authored direct unit retains these actual inputs rather than replacing them with a supplied digest; built-module import alone does not require this duplicate E2E placement.
+ * @evidence contracts/e2e.md#shared-execution Original distinctions share their module/cache and runner lifetime, with fresh required observations for changed inputs. Real Go queries retain their cost under direct-unit transfer; parent invocation counts do not certify tool identity, internal query totals or measured savings.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private module and cache/environment-file paths isolate mutations; original effective environment restoration and per-transition proofs remain, and no freshness witness is bypassed or global filesystem operation replaced.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion and mutation remains here and in the named actual cache/source-state direct owner, whose historical queue051 execution is separately recorded. Current prepared identity and duplicate-removal survival gates remain; the supplied composer does not substitute for the actual metadata/environment inputs.
+ */
+export function test_capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved() {
+    const cwd = TestProject.tmpdir("ttsc-capability-source-reads-");
+    const cache = path.join(cwd, "cache");
+    const module = path.join(cwd, "plugin-module");
+    const binary = path.join(cwd, "plugin.exe");
+    const tsconfig = path.join(cwd, "tsconfig.json");
+    write(tsconfig, "{}");
+    write(binary, "binary");
+    write(
+      path.join(module, "go.mod"),
+      "module example.com/plugin\n\ngo 1.26\n",
+    );
+    write(path.join(module, "cmd", "plugin", "main.go"), "package main\n");
+    write(path.join(module, "internal", "mark", "mark.go"), "package mark\n");
+    const files = [
+      path.join(module, "go.mod"),
+      path.join(module, "cmd", "plugin", "main.go"),
+      path.join(module, "internal", "mark", "mark.go"),
+    ];
+    /** Move every stamp an hour back, out of any tick a reference minted now. */
+    const settle = (): void => {
+      const past = new Date(Date.now() - 3_600_000);
+      for (const file of files) fs.utimesSync(file, past, past);
+    };
+    const key: IKey = {
+      cwd,
+      env: { TTSC_CACHE_DIR: cache },
+      tsconfig: "tsconfig.json",
+      version: "1.2.3",
+    };
+    const record = (): void =>
+      writeCapabilityResolution(key, {
+        // What a fresh load reports: each input with the proof it took.
+        hostInputHashes: hashHostInputPaths([tsconfig]),
+        hostInputRealpaths: realpathHostInputPaths([tsconfig]),
+        hostInputs: [tsconfig],
+        manifest: "[]",
+        pluginSources: { [module]: pluginSourceState(module) },
+        plugins: [{ binary, capabilities: { graphNodes: true } }],
+        projectContext: null,
+      });
+    const answers = (): boolean => readCapabilityResolution(key) !== null;
+    /** Replace the recorded digest with one that describes no file. */
+    const misrecord = (): void => {
+      const file = entryFile(cache);
+      const entry = JSON.parse(fs.readFileSync(file, "utf8")) as {
+        pluginSources: Record<string, { digest?: string; signature?: string }>;
+      };
+      const source = entry.pluginSources[module]!;
+      assert.equal(typeof source.signature, "string", "a signature was kept");
+      source.digest = "0".repeat(64);
+      fs.writeFileSync(file, JSON.stringify(entry), "utf8");
+    };
+
+    // 1. A hit.
+    settle();
+    record();
+    assert.equal(answers(), true);
+
+    // 2. The hit trusted the recorded digest: a wrong one refutes it.
+    misrecord();
+    assert.equal(answers(), false, "the read went to the files");
+
+    // 3. Moved metadata sends the read to the files, whatever was recorded.
+    settle();
+    record();
+    write(files[1]!, "package main\n");
+    misrecord();
+    assert.equal(answers(), true, "the read trusted a digest its files moved");
+
+    // 4. A real edit refuses the entry.
+    settle();
+    record();
+    write(files[2]!, "package mark\n\n// edited\n");
+    assert.equal(answers(), false);
+}
+
+/** The single entry the fixture writes, whatever its key hashes to. */
+function entryFile(cache: string): string {
+  const directory = path.join(cache, "capabilities");
+  const entries = fs.readdirSync(directory).filter((n) => n.endsWith(".json"));
+  assert.equal(
+    entries.length,
+    1,
+    `expected one entry, got ${entries.join(",")}`,
+  );
+  return path.join(directory, entries[0]!);
+}
+
+function write(file: string, content: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content, "utf8");
+}

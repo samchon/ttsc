@@ -112,36 +112,41 @@ func (s *graphSession) SnapshotShards() (*serveGraphSnapshot, string, bool, erro
 }
 
 func (s *graphSession) snapshotShardsWithTiming() (*serveGraphSnapshot, string, bool, time.Duration, time.Duration, error) {
-  semanticStarted := time.Now()
+  prepared, mode, changed, semanticDuration, preparationDuration, err := s.prepareShardSnapshot()
+  if err != nil || prepared == nil { return nil, mode, changed, semanticDuration, preparationDuration, err }
+  started := time.Now()
+  snapshot, _, err := publishNativeShardProjection(prepared, s.cwd)
+  if err != nil { return nil, "", false, semanticDuration, preparationDuration + time.Since(started), err }
+  return snapshot, prepared.change.mode, true, semanticDuration, preparationDuration + time.Since(started), nil
+}
+
+// prepareShardSnapshot prepares an actual transaction without acquiring host
+// ignore membership. Its completion owns validation, publication and retries.
+func (s *graphSession) prepareShardSnapshot() (*preparedShardProjection, string, bool, time.Duration, time.Duration, error) {
+  started := time.Now()
   change, err := s.nextChange(true)
-  semanticDuration := time.Since(semanticStarted)
-  if err != nil {
-    return nil, "", false, semanticDuration, 0, err
-  }
-  if change == nil {
-    return nil, serveModeUnchanged, false, semanticDuration, 0, nil
-  }
-
+  duration := time.Since(started)
+  if err != nil { return nil, "", false, duration, 0, err }
+  if change == nil { return nil, serveModeUnchanged, false, duration, 0, nil }
   exportStarted := time.Now()
-  snapshot, store, err := s.buildShardSnapshot(change)
-  exportDuration := time.Since(exportStarted)
-  if err != nil {
-    s.pending = change
-    return nil, "", false, semanticDuration, exportDuration, err
+  var prepared *preparedShardProjection
+  if change.full || s.graphStore == nil { prepared, err = s.prepareFullShardProjection() } else { prepared, err = s.prepareIncrementalShardProjection(change) }
+  if err != nil { s.pending = change; return nil, "", false, duration, time.Since(exportStarted), err }
+  var own func(*preparedShardProjection) *preparedShardProjection
+  own = func(current *preparedShardProjection) *preparedShardProjection {
+    return &preparedShardProjection{built: current.built, change: change, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
+      snapshot, store, fallback, err := current.publish(ignored)
+      if err != nil { s.pending = change; return nil, nil, nil, err }
+      if fallback != nil { return nil, nil, own(fallback), nil }
+      s.graphStore = store
+      s.pending = nil
+      return snapshot, store, nil, nil
+    }}
   }
-  s.graphStore = store
-  s.pending = nil
-  return snapshot, change.mode, true, semanticDuration, exportDuration, nil
+  return own(prepared), change.mode, true, duration, time.Since(exportStarted), nil
 }
 
-func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
-  if change.full || s.graphStore == nil {
-    return s.buildFullShardSnapshot()
-  }
-  return s.buildIncrementalShardSnapshot(change)
-}
-
-func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareFullShardProjection() (*preparedShardProjection, error) {
   program := s.compiler.Program()
   built := graph.Build(program)
   graph.ApplyArtifacts(built, s.artifacts)
@@ -149,20 +154,21 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   provenance := s.provenance(texts)
   identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance, program.TSProgram.UseCaseSensitiveFileNames())
   if err != nil {
-    return nil, nil, err
+    return nil, err
   }
+  return &preparedShardProjection{built: built, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
   facts, err := graph.NewDumpFacts(
     built,
     s.cwd,
-    graph.GitIgnoredFiles(s.cwd, built),
+    ignored,
     texts,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   resolutionDigests, err := serveGraphResolutionDigests(program, s.cwd)
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   shards, sourceKeys, dumpNodeFiles, externalNodes, sourceExternal, err := partitionServeGraphFacts(
     identity,
@@ -174,7 +180,7 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     resolutionDigests,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   externalReferences := map[string]int{}
   for _, targets := range sourceExternal {
@@ -183,11 +189,11 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     }
   }
   if err := installExternalShard(shards, identity, externalNodes, externalReferences); err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   externalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, built.Nodes, identity.caseSensitive)
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   store := &serveGraphStore{
     shards:                map[string]committedServeGraphShard{},
@@ -216,28 +222,29 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     true,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   store.sequence = snapshot.Sequence
   store.generation = snapshot.Generation
   store.shards = committed
   store.nodeOwners = nodeOwners
   store.incomingEdges = incomingEdges
-  return snapshot, store, nil
+  return snapshot, store, nil, nil
+  }}, nil
 }
 
-func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareIncrementalShardProjection(change *graphChange) (*preparedShardProjection, error) {
   prior := s.graphStore
   program := s.compiler.Program()
   if prior.identity.caseSensitive != program.TSProgram.UseCaseSensitiveFileNames() {
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
   selected := invalidatedGraphFiles(program, prior.reverseDependencies, change.files, change.publicFiles)
   if len(selected) == 0 {
     // A changed declaration or virtual input outside the authored graph can
     // alter external endpoints and global types. Rebuild when no exact source
     // owner can be established instead of publishing an empty semantic delta.
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
 
   // Re-export edges can stamp a declaration owned by a forward dependency.
@@ -301,24 +308,26 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     s.diskDigests,
   )
   if !ok {
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
   identity := prior.identity
+  return &preparedShardProjection{built: partial, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
   facts, err := graph.NewDumpFacts(
     partial,
     s.cwd,
-    graph.GitIgnoredFiles(s.cwd, partial),
+    ignored,
     texts,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   selectedFiles := sortedSelectedFiles(selected)
   selectedSources := make([]*shimast.SourceFile, 0, len(selectedFiles))
   for _, file := range selectedFiles {
     source := graphSourceFile(program, file)
     if source == nil {
-      return s.buildCompleteShardFallback(change)
+      fallback, err := s.prepareCompleteShardFallback(change)
+      return nil, nil, fallback, err
     }
     selectedSources = append(selectedSources, source)
   }
@@ -332,7 +341,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     prior.resolutionDigests,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
 
   nextShards := maps.Clone(prior.shards)
@@ -386,7 +395,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     nextRaw[key] = shard
   }
   if err := installExternalShard(nextRaw, identity, nextExternalNodes, nextExternalReferences); err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   dirty := make(map[string]bool, len(replacements)+1)
   for key := range replacements {
@@ -416,7 +425,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
   nextExternalNodeWireIDs := maps.Clone(prior.externalNodeWireIDs)
   changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes, identity.caseSensitive)
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   for id, wireID := range changedExternalNodeWireIDs {
     nextExternalNodeWireIDs[id] = wireID
@@ -425,7 +434,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     if node.External {
       wireID, exists := nextExternalNodeWireIDs[id]
       if !exists {
-        return nil, nil, fmt.Errorf("ttscgraph: external node %s has no wire identity", id)
+        return nil, nil, nil, fmt.Errorf("ttscgraph: external node %s has no wire identity", id)
       }
       if nextExternalReferences[wireID] <= 0 {
         delete(nextNodes, id)
@@ -443,7 +452,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     false,
   )
   if err != nil {
-    return nil, nil, err
+    return nil, nil, nil, err
   }
   store := &serveGraphStore{
     sequence:              snapshot.Sequence,
@@ -467,13 +476,14 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     incomingEdges:         incomingEdges,
     extractedFiles:        append([]string{}, selectedFiles...),
   }
-  return snapshot, store, nil
+  return snapshot, store, nil, nil
+  }}, nil
 }
 
-func (s *graphSession) buildCompleteShardFallback(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareCompleteShardFallback(change *graphChange) (*preparedShardProjection, error) {
   change.mode = serveModeRebuild
   change.full = true
-  return s.buildFullShardSnapshot()
+  return s.prepareFullShardProjection()
 }
 
 func commitServeGraphSnapshot(
@@ -880,9 +890,9 @@ func partitionServeGraphFacts(
     // Markdown document, a Prisma schema, or nothing at all for an operation
     // named only by method and path. It belongs to the metadata shard, which
     // carries the facts no source owns — and which the client exempts from the
-    // ownership check for exactly that reason. Without this the projection
-    // rejected the node outright and the resident session failed to start for
-    // any project that publishes one.
+    // ownership check for exactly that reason. Treating the node as
+    // source-owned would fail the projection for any project that publishes
+    // one.
     if graph.IsArtifactKind(graph.NodeKind(node.Kind)) {
       metadata := shards[metadataKey]
       metadata.Nodes = append(metadata.Nodes, node)

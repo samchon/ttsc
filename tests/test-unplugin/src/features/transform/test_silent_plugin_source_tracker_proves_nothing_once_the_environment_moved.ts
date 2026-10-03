@@ -1,40 +1,38 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { processPluginBuildEnvironment } from "ttsc/plugin-source";
 
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/lib/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM.mjs";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/lib/core/transform/cache/TtscCachedProjectTransform.mjs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import type { TtscHostInputValidation } from "../../../../../packages/unplugin/lib/core/transform/validation/TtscHostInputValidation.mjs";
-import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin/lib/core/transform/validation/matchesUniversalHostInputTrees.mjs";
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
+import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputTrees";
 
 /**
- * Verifies a silent tracker over a plugin source proves its files only, never
- * the build environment outside them.
+ * Verifies a silent source tracker cannot certify an external build environment
+ * different from the one under which its tree was last proven.
  *
- * A delivery skipped a plugin source directory whenever its tracker heard
- * nothing below it. The Go toolchain the binary was built with lives outside
- * that directory, so a toolchain replaced in place kept the generation proven
- * (samchon/ttsc#1516). The skip now also requires the environment the tree was
- * last proven under to be this process's reading.
+ * An impossible recorded tree-state literal makes fallback proof observable.
+ * Qualified silence may skip source files under the current environment, but
+ * must replay that same state when the external environment label differs.
  *
- * 1. Give a generation a plugin source tree whose recorded state is wrong, and a
- *    tracker that covers the directory and heard nothing.
- * 2. Record the current environment as the one it was last proven under, and
- *    assert the silent tree is skipped.
- * 3. Record another environment, and assert the tree is proven again and fails.
+ * 1. Copy the original native Go source fixture and supply a silent tracker.
+ * 2. Record the actual current environment label and require source skip.
+ * 3. Substitute another-environment and require the wrong tree state to fail.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls actual matchesUniversalHostInputTrees with identical source/tracker and wrong tree-state literal. Current native environment permits the documented skip; another-environment requires reproof and literal false.
+ * @evidence contracts/testing.md#independent-expectations The source watch boundary covers files rather than external toolchain state. The independent impossible a-state-the-directory-does-not-hold literal detects reproof; true/false expectations do not derive from the validator. Actual provider label supplies setup only, not a digest-format oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Same versus different recorded environment is the only changed input, preserving silent coverage and source bytes. Capture/validation race entries own environment movement during proof; no actual watcher or toolchain replacement is claimed here.
+ * @evidence contracts/testing.md#execution-ownership This discoverable direct unit uses the original package-owned fixture bytes, actual processPluginBuildEnvironment and authored comparator tracker fields. Go env/version/GOROOT are owning inputs; no compiler/plugin artifact, native watcher, installed consumer or host executes. The tracker shape does not certify native delivery capability.
  */
 export async function test_silent_plugin_source_tracker_proves_nothing_once_the_environment_moved(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-silent-tree-"),
   );
-  TestProject.writeFiles(root, {
-    "plugin/go.mod": "module example.com/plugin\n\ngo 1.26\n",
-    "plugin/main.go": "package main\n\nfunc main() {}\n",
-  });
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/e2e/silent_plugin_source_tracker_proves_nothing_once_the_environment_moved/inputs-1"), root);
   const source = path.join(root, "plugin");
   const result = { type: "success", typescript: {} };
   TRANSFORM_RESULT_FILESYSTEM.set(

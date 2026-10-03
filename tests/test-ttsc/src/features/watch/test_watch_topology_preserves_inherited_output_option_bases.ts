@@ -1,23 +1,39 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
 
 /**
- * Verifies inherited path-valued compiler outputs remain relative to the
- * tsconfig that declared them.
+ * Verifies inherited output paths retain their declaring configuration base.
  *
- * 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config.
- * 2. Suppress writes at the base config's output paths.
- * 3. Treat the old project-root-relative interpretations as external inputs.
+ * Actual source config parsing and output inference consume one authored source
+ * member. Explicit directory creation events contrast products and external
+ * root-relative twins without requesting a compiler or native observer.
+ *
+ * 1. Declare output and build-info paths in the nested base config.
+ * 2. Create the base-relative products and require project-lane quietness.
+ * 3. Create each root-relative non-product twin and require a project report.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: inherited path-valued compiler outputs remain relative to the tsconfig that declared them. 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config. 2. Suppress writes at the base config's output paths. 3. Treat the old project-root-relative interpretations as external inputs.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options in a nested base config and the authored base-relative and root-relative paths establish which paths are products and which are external inputs: the base-relative products must stay quiet and each root-relative twin must report as a project change; the expectations are literal, not read from topology output.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config. 2. Suppress writes at the base config's output paths. 3. Treat the old project-root-relative interpretations as external inputs.
+ * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology consumes the authored absolute compiler member and recorded source-adapter subscriptions. Config inheritance, output inference, project registration and event decisions run unchanged; no compiler process or native observer executes. Original product/non-product expectations and cleanup remain.
  */
 export const test_watch_topology_preserves_inherited_output_option_bases =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-inherited-watch-outputs-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-inherited-watch-outputs-"),
+    );
     const source = path.join(root, "src", "main.ts");
     const base = path.join(root, "config", "base.json");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -44,6 +60,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
     );
 
     const changes: WatchInputChange[] = [];
+    const observed = recordWatchers(watchDirectoryThroughFsWatch);
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -59,6 +76,10 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      observed.openDirectoryWatch,
+      observed.openFileWatch,
+      fs.readdirSync,
+      () => [source],
     );
     try {
       topology.refresh(false);
@@ -74,6 +95,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
       for (const output of declaredOutputs) {
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, "{}\n", "utf8");
+        deliverWatchEvent(observed.watchers, path.dirname(output), "rename");
       }
       await expectProjectQuiet(changes);
 
@@ -90,6 +112,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
         const previous = projectChangeCount(changes);
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, "{}\n", "utf8");
+        deliverWatchEvent(observed.watchers, path.dirname(output), "rename");
         await waitForProjectChange(changes, previous);
       }
     } finally {
@@ -103,6 +126,7 @@ async function expectProjectQuiet(
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
+  assert.equal(projectChangeCount(changes), 0);
 }
 
 async function waitForProjectChange(

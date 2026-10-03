@@ -12,26 +12,30 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
-// TestRunDeclaresTheCapabilityItsOutputCarries verifies that every capability
-// this command declares is paired with the output that backs it, and that a
-// project carrying no documentation tag emits that field nowhere.
+// TestRunDeclaresTheCapabilityItsOutputCarries pins this producer's two
+// capability declarations and checks representative output for each: tag text
+// and at least one non-empty checker digest. An untagged project emits no docTags
+// key. Digest contents and complete source coverage are not checked here.
 //
-// The claim is a separate literal from the shipped `ttscgraph dump`'s, so the
-// test that guards that one guards nothing here: deleting graph.CapabilityDocTags
-// from this command's list used to break nothing at all, in a package that had
-// never had a test file. The claim matters because the two states a consumer must
+// This producer assembles its own capability list, separately from the shipped
+// `ttscgraph dump`. The claim matters because the two states a consumer must
 // distinguish — "this declaration cites nothing" and "this producer never
 // looked" — are the same absent field, so a dump that carries tags and forgets to
 // say so is read as a repository where nothing cites anything.
 //
-// The declared set is compared whole rather than member by member, so a
-// capability added to the list arrives with the evidence for it or fails here.
+// The fixed expected set rejects added or missing capability declarations; it
+// does not derive expectations from the producer's assembled list.
 //
-//  1. Run the command over a project with a tag, capturing stdout.
-//  2. Assert the declared set is exactly what this command claims, and that each
-//     claim is backed: a tag in the output, and a digested source.
-//  3. Run it over a project with no tag and assert the field appears nowhere,
+//  1. Prepare and encode a project with a tag, capturing stdout.
+//  2. Assert the fixed two-capability set, literal tag text and key, and at least
+//     one non-empty checker digest.
+//  3. Encode a project with no tag and assert the field appears nowhere,
 //     while both claims still do.
+//
+// @evidence contracts/testing.md#behavioral-verification Exercises actual preparation and encoding with empty ignore membership, checking the fixed two-capability declarations, representative tag and checker-digest output, and absence of the docTags key for an untagged project. It does not exercise Git-filtered command execution or certify all source digests.
+// @evidence contracts/testing.md#independent-expectations The fixed expected set chooses graph.CapabilityDocTags and graph.CapabilitySourceDigests from the supported wire contract, independently of the producer's assembled list. Literal tag text, docTags key presence or absence, and at least one non-empty checker digest provide separate output expectations. A wrong non-empty digest or omitted additional source can remain indistinguishable here; neither digest contents nor complete coverage is asserted.
+// @evidence contracts/testing.md#distinguishing-cases Tagged and untagged projects both require the exact two-capability set and at least one non-empty checker digest. Only the tagged project requires the literal documentation tag and docTags key; the untagged project rejects that key anywhere in the dump.
+// @evidence contracts/testing.md#execution-ownership TestRunDeclaresTheCapabilityItsOutputCarries is a Go source-unit entry. runSourceProjection exercises the real sibling prepareCommand and encode operations with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestRunDeclaresTheCapabilityItsOutputCarries(t *testing.T) {
   tagged := runGraphdump(t, `/** @evidence docs/a.md#x Cited. */
 export function subject(): void {}
@@ -95,10 +99,9 @@ export function subject(): void {}
 
 // runGraphdump runs the command over a one-file project and returns its stdout.
 //
-// It goes through run(args) and the package streams rather than through os.Args,
-// flag.CommandLine, and an os.Stdout pipe. Those seams exist on the shipped
-// sibling for this reason, and this command grew them so its own claim could be
-// asserted against its own output without patching process globals.
+// It consumes this command's actual preparation and encoder with explicit empty
+// ignore membership. The package streams preserve its producer claim without
+// routing portable capability assertions through a Git child process.
 func runGraphdump(t *testing.T, source string) string {
   t.Helper()
   root := t.TempDir()
@@ -120,7 +123,7 @@ func runGraphdump(t *testing.T, source string) string {
   stdout, stderr = &out, &errOut
   defer func() { stdout, stderr = restoreStdout, restoreStderr }()
 
-  if code := run([]string{"--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
+  if code := runSourceProjection([]string{"--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
     t.Fatalf("graphdump exited %d: %s", code, errOut.String())
   }
   return out.String()
@@ -134,4 +137,13 @@ func writeGraphdumpFile(t *testing.T, path, content string) {
   if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
     t.Fatal(err)
   }
+}
+
+// runSourceProjection consumes the same real command preparation and encoder
+// over the fixture's explicit empty ignore membership, without acquiring Git.
+func runSourceProjection(args []string) int {
+  prepared, code := prepareCommand(args)
+  if prepared == nil { return code }
+  defer func() { _ = prepared.program.Close() }()
+  return prepared.encode(nil)
 }

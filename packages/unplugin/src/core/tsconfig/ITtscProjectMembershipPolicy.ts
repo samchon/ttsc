@@ -1,44 +1,50 @@
 /**
- * An immutable description of what can and cannot enter the program.
+ * Immutable configuration premises for conservative project-root discovery.
  *
- * The project walk exists to notice files entering and leaving the _program_,
- * so both halves of that question belong to configuration rather than to a
- * guess. Before this the walk answered both from one hardcoded list of
- * directory names, which was wrong in both directions at once: a bundler
- * writing to any directory the list did not name changed project membership
- * with its own output, and a source directory whose name the list did name was
- * dropped from the walk entirely (samchon/ttsc#1307).
+ * Root specifications, admitted extensions and represented directory
+ * exclusions drive the project walk. Imported dependencies outside this
+ * selection remain compiler inputs and receive separate external proof.
+ * Readers keep unsupported exclusion globs conservative rather than claiming
+ * that this representation is the compiler's complete membership verdict.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Root specs, extension admission, exclusion provenance and config sources
- *   represent the resolved program-selection policy, with an explicit unknown
- *   root state and an optional compiler-reported name-comparison rule.
+ *   represent root-discovery premises, with an explicit unknown root state and
+ *   an optional compiler comparison answer whose source the producer owns.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   One policy couples selection with the provenance needed to overlay output
  *   options and invalidate a memo. Consumers implement matching and lifecycle.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Requested, regular-realpath and native-realpath roots carry observed native
- *   representations separately. The optional compiler-reported case flag governs
- *   pattern matching rather than imposing a universal source-filesystem OS rule.
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Selection comes from config meaning and the compiler's reported case rule;
+ *   Selection comes from config meaning and explicit comparison policy;
  *   the type does not encode a list of known consumers' directory names.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Member paragraphs explain permissive unreadable configs, compatibility
  *   provenance, inherited inputs and compiler case policy with their reasons.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Requested, regular-realpath and native-realpath roots carry observed native
+ *   representations separately. The optional compiler comparison flag governs
+ *   pattern matching rather than imposing a universal source-filesystem OS rule.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface ITtscProjectMembershipPolicy {
   /**
-   * Absolute root-file specifications, with TypeScript-Go's default include,
-   * every file below the config directory, materialized when neither list is
-   * declared.
+   * Absolute root-file specifications. The reader materializes the default
+   * recursive include when neither list is declared. Pattern matching keeps
+   * hidden/package and JSON rules; the walk also applies extension admission.
    *
-   * Absent only when the configuration could not be read, in which case every
-   * path is a possible root and only the walk's ignored names bound it.
+   * Absent when the reader cannot establish root specifications. Root matching
+   * then admits every possible root; other walk admission rules still apply.
    */
   readonly rootFileSpecs?: Readonly<{
     files: readonly string[];
@@ -69,7 +75,7 @@ export interface ITtscProjectMembershipPolicy {
     useImplicitOutputExclusions?: boolean;
   }>;
 
-  /** Absolute directories the resolved configuration keeps out of the program. */
+  /** Absolute directory exclusions represented for project-root discovery. */
   readonly excludedDirectories: readonly string[];
 
   /** Lowercased extensions a file needs to be a possible program input. */
@@ -88,13 +94,14 @@ export interface ITtscProjectMembershipPolicy {
   readonly sources: readonly string[];
 
   /**
-   * Whether the compiler compares file names case-sensitively, as the envelope
-   * reported it (`IReferenceGraph.useCaseSensitiveFileNames`,
-   * samchon/ttsc#1545). TypeScript-Go decides it from the filesystem its
-   * executable lives on, not from the platform, so root specs match the way the
-   * compiler matches them only under its own answer. Absent until a compile
-   * reported it; `policyUsesCaseSensitiveFileNames` then supplies the answer
-   * that compiler gives by TypeScript-Go's own rule (samchon/ttsc#1563).
+   * Compiler name-comparison answer used by this policy. Capture prefers the
+   * envelope's IReferenceGraph.useCaseSensitiveFileNames report but may prime
+   * an attempt with a provisional answer. This rule is independent of the
+   * source filesystem's native case capability. When this field is absent,
+   * policyUsesCaseSensitiveFileNames supplies a provisional cache-root proxy;
+   * it does not certify the executable's actual answer. Capture replaces that
+   * approximation with an available report and refuses a differently primed
+   * walk before retrying.
    */
   readonly useCaseSensitiveFileNames?: boolean;
 }

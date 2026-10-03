@@ -1,0 +1,147 @@
+import { TestUnpluginRuntime } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
+
+/**
+ * Capture everything written to stderr while `body` runs.
+ *
+ * The adapter reports a module it left untransformed on the same channel the
+ * generation's other non-fatal diagnostics use, so the report is observable
+ * only by intercepting that channel.
+ */
+async function captureStderr(body: () => Promise<void>): Promise<string> {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const original = process.stderr.write;
+  let captured = "";
+  process.stderr.write = ((chunk: unknown) => {
+    captured += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    await body();
+  } finally {
+    if (originalDescriptor) Object.defineProperty(process.stderr, "write", originalDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, original);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(process.stderr, "write"), originalDescriptor);
+  }
+  return captured;
+}
+
+/**
+ * Verifies a module the program does not contain is passed through, reported
+ * once per pass, and does not fail the build.
+ *
+ * `@ttsc/metro` handed such a module downstream while every unplugin adapter
+ * threw and the bundler turned that into a build failure (samchon/ttsc#1308).
+ * The core now decides it once for every host and returns `undefined`, as for a
+ * module ttsc leaves unchanged. Passing through must not be silent, because a
+ * skipped file keeps whatever plugin syntax it carries, and the config that
+ * could later include the module must stay watched so a fix can arrive.
+ *
+ * 1. Deliver a file outside the program's `include` and assert it passes through
+ *    with one batch of universal watch inputs, including the config.
+ * 2. Assert the report names the module and the program, and appears once per file
+ *    per pass.
+ * 3. Open a new pass and assert the report appears again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real Program module transforms, while scripts/tool.ts outside include passes through twice without throwing. One universal watch batch must include the config; stderr must name source and program exactly once in the pass and report the source again in a new pass.
+ * @evidence contracts/testing.md#independent-expectations The authored include:[src] excludes the separate scripts source independently of cache membership logic. Literal undefined pass-through, config inclusion and counted diagnostic occurrence require nonfatal reporting and recovery ownership; the test does not edit config to include the stray later.
+ * @evidence contracts/testing.md#distinguishing-cases In-program transform is the positive control for out-of-program pass-through. First versus repeated stray delivery tests per-file/per-pass report deduplication, and a new pass restores reporting.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_an_out_of_program_module_is_passed_through_and_reported in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The actual native Program membership envelope feeds the JS public transform, custom watch batching and stderr reporting. A synthetic member set cannot prove the real compiler excluded a bundler-reachable source or kept configuration recovery inputs.
+ * @evidence contracts/e2e.md#shared-execution One real-native-envelope fixture, contributor artifact, options and cache serve every member and stray delivery. Shared Program capture supports repeated requests; new pass changes report lifetime without recreating the consumer or native installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique root and scripts source isolate membership. captureStderr restores the original stream writer in finally for both reporting phases, and the outer finally resets the cache. TestProject owns temporary roots through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_an_out_of_program_module_is_passed_through_and_reported; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
+ */
+export async function test_transformttsc_an_out_of_program_module_is_passed_through_and_reported(): Promise<void> {
+  const fixture = createRealNativeEnvelopeFixture();
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const cache = api.createTtscTransformCache();
+  const options = api.resolveOptions({
+    project: path.join(fixture.root, "tsconfig.json"),
+  });
+  // The fixture's tsconfig includes `src` alone, so a source beside it is
+  // reachable by a bundler and absent from the program.
+  const stray = path.join(fixture.root, "scripts", "tool.ts");
+  fs.mkdirSync(path.dirname(stray), { recursive: true });
+  const source = "export const tool: string = 'STRAY';";
+  fs.writeFileSync(stray, source, "utf8");
+  const watchBatches: string[][] = [];
+
+  try {
+    const deliver = () =>
+      api.transformTtsc(
+        stray,
+        fs.readFileSync(stray, "utf8"),
+        options,
+        undefined,
+        cache,
+        {
+          addWatchFiles: (inputs: readonly { file: string }[]) =>
+            watchBatches.push(inputs.map((input) => path.resolve(input.file))),
+        },
+      );
+
+    const reported = await captureStderr(async () => {
+      api.beginTtscTransformBuild(cache);
+      assert.ok(
+        await api.transformTtsc(
+          fixture.modules[0]!,
+          fs.readFileSync(fixture.modules[0]!, "utf8"),
+          options,
+          undefined,
+          cache,
+        ),
+        "a module of the program is transformed",
+      );
+      assert.equal(
+        await deliver(),
+        undefined,
+        "a module the program does not contain must pass through, not throw",
+      );
+      assert.equal(
+        watchBatches.length,
+        1,
+        "a pass-through delivery must publish one universal input batch",
+      );
+      assert.ok(
+        watchBatches[0]!.includes(path.join(fixture.root, "tsconfig.json")),
+        "the config that can later include the module must remain watched",
+      );
+      // Same pass, same file: the report is about the file and the generation,
+      // not about the delivery, so asking again must not repeat it.
+      assert.equal(await deliver(), undefined);
+    });
+
+    assert.ok(
+      reported.includes(stray),
+      `the report must name the module (got ${JSON.stringify(reported)})`,
+    );
+    assert.ok(
+      reported.includes(path.join(fixture.root, "tsconfig.json")),
+      "the report must name the program the module is missing from",
+    );
+    assert.equal(
+      reported.split(stray).length - 1,
+      1,
+      "the report must appear once per file per pass, not once per delivery",
+    );
+
+    // A later pass reports again, because it is a new statement about a new
+    // pass, exactly as the generation's other diagnostics behave.
+    const second = await captureStderr(async () => {
+      api.beginTtscTransformBuild(cache);
+      assert.equal(await deliver(), undefined);
+    });
+    assert.ok(
+      second.includes(stray),
+      "a new pass must surface the report again",
+    );
+  } finally {
+    api.resetTtscTransformCache(cache);
+  }
+}

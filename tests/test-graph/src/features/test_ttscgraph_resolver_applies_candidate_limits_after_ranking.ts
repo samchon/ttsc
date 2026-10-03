@@ -16,9 +16,13 @@ import {
  * 2. Resolve them with zero, small, exact, and oversized limits.
  * 3. Assert each length is bounded and every non-empty result starts with the
  *    winner.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle asserts candidate lengths and the last exported winner across every nonempty limit.
+ * @evidence contracts/testing.md#independent-expectations Exported declarations outrank equivalent local ones; literal lengths follow five inputs capped at zero, one, three, five or eight.
+ * @evidence contracts/testing.md#distinguishing-cases Zero, small, exact and oversized limits distinguish payload capping from premature search truncation.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
-export const test_ttscgraph_resolver_applies_candidate_limits_after_ranking =
-  () => {
+export function test_ttscgraph_resolver_applies_candidate_limits_after_ranking(): void {
     const nodes: ResolverGraphNode[] = Array.from(
       { length: 5 },
       (_, index) => ({
@@ -43,4 +47,4 @@ export const test_ttscgraph_resolver_applies_candidate_limits_after_ranking =
       if (expectedLength > 0)
         assert.strictEqual(resolved.candidates?.[0]?.id, nodes[4]!.id);
     }
-  };
+}

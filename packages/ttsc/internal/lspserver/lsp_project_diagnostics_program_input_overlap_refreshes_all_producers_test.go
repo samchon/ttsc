@@ -20,6 +20,11 @@ import (
 //  2. Resolve its owner scope and widen it as a watched Program input.
 //  3. Assert the scope became all-producer.
 //  4. Refresh and assert both producers were invoked.
+//
+// @evidence contracts/testing.md#behavioral-verification A declared input that can also be a Program source widens the owner scope to all producers, and the refresh invokes both producers.
+// @evidence contracts/testing.md#independent-expectations The expected scope and invocation set are literals.
+// @evidence contracts/testing.md#distinguishing-cases Only the first producer declares the path, so owner-only scoping would invoke one.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers(
   t *testing.T,
 ) {

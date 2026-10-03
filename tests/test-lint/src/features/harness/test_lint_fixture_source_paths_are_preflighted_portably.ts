@@ -1,4 +1,4 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -13,10 +13,14 @@ import path from "node:path";
  *
  * 1. Try invalid source, package-link, exact-temp, and junction targets.
  * 2. Assert every rejected plan leaves its pre-existing roots untouched.
- * 3. Materialize normalized spaced sources and a scoped package link.
+ * 3. Materialize normalized spaced sources and a scoped package link request.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TestLint.createProject is called with each invalid source, generated-config, linkNodeModules and projectRoot plan and must throw the expected message before the disposable root gains any entry, then materializes one legal plan whose written source, root lint.config.json, normalized companion and COM0/LPT0 files are read back.
+ * @evidence contracts/testing.md#independent-expectations Authored invalid plans, literal message patterns, sentinel contents and an empty-directory listing independently define refusal and nonmutation; the accepted plan is certified by reading the generated files' bytes, not by checking that repository files exist.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected: traversal and absolute paths, trailing dot/space and `::$DATA` aliases, uppercase TypeScript suffixes, device names (CON, COM9, LPT superscript one, CONOUT$), a forbidden `?` character, separator/case collisions with main, companion and generated targets, node_modules ancestors, bad linkNodeModules names, a file or exact system temp directory as projectRoot, and a junction to an empty directory outside the system temp root. An occupied nested junction retains its sentinel. Accepted: a spaced backslash main path, `./lint.config.json`, a `..` segment normalized to src/nested/support.ts, COM0 and LPT0, and a `@ttsc/lint` linkNodeModules entry (accepted without error; the link target itself is not inspected).
+ * @evidence contracts/testing.md#execution-ownership Calls the authored materialization helper directly using disposable temporary trees and sentinel observations, cleaning every tree/project in finally; no compiler, installation or native lint host executes.
  */
-export const test_lint_fixture_source_paths_are_preflighted_portably =
-  (): void => {
+export function test_lint_fixture_source_paths_are_preflighted_portably(): void {
     const invalidRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), "ttsc-lint-source-preflight-"),
     );
@@ -270,18 +274,19 @@ export const test_lint_fixture_source_paths_are_preflighted_portably =
 
       const externalRoot = fs.mkdtempSync(
         path.join(
-          TestProject.WORKSPACE_ROOT,
+          os.homedir(),
           ".ttsc-lint-source-preflight-external-",
         ),
       );
       const externalSentinel = path.join(externalRoot, "sentinel.txt");
       const escapedRoot = path.join(invalidRoot, "escaped-root");
-      const nestedRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), "ttsc-lint-nested-junction-root-"),
-      );
-      const nestedSourceRoot = path.join(nestedRoot, "src");
+      let nestedRoot: string | undefined;
+      let nestedSourceRoot: string | undefined;
       try {
-        fs.writeFileSync(externalSentinel, "untouched", "utf8");
+        nestedRoot = fs.mkdtempSync(
+          path.join(os.tmpdir(), "ttsc-lint-nested-junction-root-"),
+        );
+        nestedSourceRoot = path.join(nestedRoot, "src");
         fs.symlinkSync(
           externalRoot,
           escapedRoot,
@@ -296,8 +301,9 @@ export const test_lint_fixture_source_paths_are_preflighted_portably =
             }),
           /projectRoot.*disposable directory strictly under/,
         );
-        assert.deepEqual(fs.readdirSync(externalRoot), ["sentinel.txt"]);
-        assert.equal(fs.readFileSync(externalSentinel, "utf8"), "untouched");
+        assert.deepEqual(fs.readdirSync(externalRoot), []);
+
+        fs.writeFileSync(externalSentinel, "untouched", "utf8");
 
         fs.symlinkSync(
           externalRoot,
@@ -317,8 +323,8 @@ export const test_lint_fixture_source_paths_are_preflighted_portably =
         assert.equal(fs.readFileSync(externalSentinel, "utf8"), "untouched");
       } finally {
         if (fs.existsSync(escapedRoot)) fs.unlinkSync(escapedRoot);
-        if (fs.existsSync(nestedSourceRoot)) fs.unlinkSync(nestedSourceRoot);
-        fs.rmSync(nestedRoot, { recursive: true, force: true });
+        if (nestedSourceRoot !== undefined && fs.existsSync(nestedSourceRoot)) fs.unlinkSync(nestedSourceRoot);
+        if (nestedRoot !== undefined) fs.rmSync(nestedRoot, { recursive: true, force: true });
         fs.rmSync(externalRoot, { recursive: true, force: true });
       }
 
@@ -390,4 +396,4 @@ export const test_lint_fixture_source_paths_are_preflighted_portably =
     } finally {
       fs.rmSync(invalidRoot, { recursive: true, force: true });
     }
-  };
+}

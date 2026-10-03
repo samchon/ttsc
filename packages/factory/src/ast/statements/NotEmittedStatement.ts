@@ -1,7 +1,9 @@
 import type { Node } from "../Node";
 
 /**
- * A statement placeholder that is intentionally not emitted. It emits nothing.
+ * A statement placeholder that is intentionally not emitted. In a statement list
+ * or standing alone it emits nothing, and in an embedded statement position,
+ * such as a loop body or an `if` branch, it emits `;` to keep the grammar valid.
  *
  * Built by {@link factory.createNotEmittedStatement}.
  *

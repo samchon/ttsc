@@ -1,0 +1,32 @@
+package linthost
+
+import "testing"
+
+// TestFormatPrintWidthKeepsShortCallWithCallbackHugged verifies a call
+// whose only argument is a multi-line arrow callback keeps the callback
+// hugging the parens — it is reflowed for consistent indentation but
+// the argument list is not exploded.
+//
+// The constructor argument printer and structured arrow block compose
+// the supported hugged layout. The authored result requires each body
+// statement to use two spaces despite different original indents; it
+// does not execute an earlier printer or a subsequent type-check pass.
+//
+//  1. Feed a `new` expression whose argument is an arrow callback whose
+//     block body is mis-indented in the source.
+//  2. Run formatPrintWidth at the default 80-column width.
+//  3. Assert the callback hugs the parens and every body line lands at
+//     a consistent two-space indent.
+//
+// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the keeps short call with callback hugged fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the callback hugs the parens and every body line lands at a consistent two-space indent.
+// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Feed a `new` expression whose argument is an arrow callback whose block body is mis-indented in the source. The asserted decision is: Assert the callback hugs the parens and every body line lands at a consistent two-space indent. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthKeepsShortCallWithCallbackHugged is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
+func TestFormatPrintWidthKeepsShortCallWithCallbackHugged(t *testing.T) {
+  assertFixSnapshot(
+    t,
+    "format/print-width",
+    "const x = new Singleton(\n      () => {\n  doStuff();\n        return 1;\n});\n",
+    "const x = new Singleton(() => {\n  doStuff();\n  return 1;\n});\n",
+  )
+}

@@ -1,0 +1,1 @@
+{"compilerOptions":{"module":"commonjs","outDir":"../dist","rootDir":".","strict":true,"target":"ES2022","types":[]},"include":["main.ts"]}

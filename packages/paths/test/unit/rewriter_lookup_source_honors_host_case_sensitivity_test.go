@@ -1,0 +1,59 @@
+package paths_test
+
+import (
+  "path/filepath"
+  "strings"
+  "testing"
+)
+
+// TestRewriterLookupSourceHonorsHostCaseSensitivity verifies source lookup follows the compiler host's case sensitivity.
+//
+// The rewriter once stored and queried case-preserving keys even when the host
+// treated case-only paths as identical. Canonical keys must still return the
+// Program's original normalized source spelling.
+//
+// 1. Seed exact, extensionless, explicit-extension, and index source paths.
+// 2. Query case-only variants through sensitive and insensitive rewriters.
+// 3. Assert only the insensitive host resolves each original source path.
+//
+// @evidence contracts/testing.md#behavioral-verification Builds exact and strings.ToLower indexes and asserts uppercase exact, extensionless, explicit MTS and index candidates resolve only with insensitive identity.
+// @evidence contracts/testing.md#independent-expectations The host policy may equate case while preserving source spelling; literal indexed sources supply expected identities. pathsSourceKey participates in setup, so coherent key/lookup defects are not independently excluded.
+// @evidence contracts/testing.md#distinguishing-cases Owns four lookup forms under both case policies. The linked Program case owns propagation of its supplied FS policy; installation E2E owns agreement with a real volume, which this synthetic policy check does not prove.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestRewriterLookupSourceHonorsHostCaseSensitivity is selected from test/unit by the utility runner unit overlay. Runs pathsSourceKey and pathsLookupSource on synthetic maps in the Go process; strings.ToLower models the host policy without requiring a case-insensitive volume.
+func TestRewriterLookupSourceHonorsHostCaseSensitivity(t *testing.T) {
+  root := filepath.ToSlash(filepath.Join(t.TempDir(), "Repo"))
+  sources := []string{
+    root + "/src/exact.ts",
+    root + "/src/extensionless.tsx",
+    root + "/src/explicit.mts",
+    root + "/src/directory/index.cts",
+  }
+  insensitive := &pathsRewriter{
+    canonicalFileName: strings.ToLower,
+    sourceFiles:       map[string]string{},
+  }
+  sensitive := &pathsRewriter{sourceFiles: map[string]string{}}
+  for _, source := range sources {
+    insensitive.sourceFiles[pathsSourceKey(insensitive, source)] = source
+    sensitive.sourceFiles[pathsSourceKey(sensitive, source)] = source
+  }
+
+  cases := []struct {
+    candidate string
+    expected  string
+  }{
+    {root + "/SRC/EXACT.TS", sources[0]},
+    {root + "/SRC/EXTENSIONLESS", sources[1]},
+    {root + "/SRC/EXPLICIT.MTS", sources[2]},
+    {root + "/SRC/DIRECTORY", sources[3]},
+  }
+  for _, tc := range cases {
+    source, ok := pathsLookupSource(insensitive, tc.candidate)
+    if !ok || source != tc.expected {
+      t.Fatalf("case-insensitive lookup mismatch for %q: source=%q ok=%v", tc.candidate, source, ok)
+    }
+    if source, ok := pathsLookupSource(sensitive, tc.candidate); ok {
+      t.Fatalf("case-sensitive lookup unexpectedly resolved %q to %q", tc.candidate, source)
+    }
+  }
+}

@@ -116,14 +116,34 @@ func loadSwaggerInventories(
   // this every cycle, so an unchanged document is re-normalized on every
   // TypeScript keystroke that triggers a rebuild.
   digests := swaggerContentDigests(root, sources)
+  trace := newEvidenceBridgeTrace("swagger")
+  if trace != nil {
+    trace.nativeLookup = true
+    trace.record("bridge-lookup", os.Getpid(), map[string]any{
+      "bridge": "swagger", "root": root, "sources": sources,
+      "nativeDigests": digests, "nativeLookup": true,
+    })
+  }
   pending := []string{}
   problems := graphDiagnostics{}
   severity := artifactSeverity(config, artifactSwagger)
   for _, source := range sources {
     outcome, hit := lookupSwaggerDocument(source, digests[source])
     if !hit {
+      if trace != nil {
+        _, present := digests[source]
+        trace.record("bridge-cache-miss", os.Getpid(), map[string]any{
+          "bridge": "swagger", "source": source, "nativeDigest": digests[source], "nativeDigestPresent": present,
+        })
+      }
       pending = append(pending, source)
       continue
+    }
+    if trace != nil {
+      _, present := digests[source]
+      trace.record("bridge-cache-hit", os.Getpid(), map[string]any{
+        "bridge": "swagger", "source": source, "nativeDigest": digests[source], "nativeDigestPresent": present,
+      })
     }
     problems = problems.add(
       swaggerSeverity(config, source),
@@ -134,7 +154,7 @@ func loadSwaggerInventories(
     return inventories, problems
   }
 
-  result, err := normalizeSwaggerSources(root, pending)
+  result, err := normalizeSwaggerSources(root, pending, trace)
   if err != nil {
     message := "Evidence graph could not run its Swagger normalizer: " + causeText(err) + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
     for _, source := range pending {
@@ -230,22 +250,41 @@ func configuredSwaggerSources(config graphConfig) []string {
   return sources
 }
 
+// normalizeSwaggerSources retains the real Node request/Run/unmarshal boundary.
+// Optional private trace context pairs the caller's existing local digest map;
+// direct calls remain unpaired and do not invent native lookup values. Actual
+// pending source order, wire bytes, returned outcomes and cache keys are kept.
 func normalizeSwaggerSources(
   root string,
   sources []string,
+  traces ...*evidenceBridgeTrace,
 ) (swaggerNormalizationResult, error) {
+  var trace *evidenceBridgeTrace
+  if len(traces) != 0 {
+    trace = traces[0]
+  } else {
+    trace = newEvidenceBridgeTrace("swagger")
+  }
   request, err := json.Marshal(swaggerNormalizationRequest{
     Root:    root,
     Sources: sources,
   })
   if err != nil {
+    trace.preparationFailure(err)
     return swaggerNormalizationResult{}, err
+  }
+  if trace != nil {
+    trace.record("bridge-request", os.Getpid(), map[string]any{
+      "bridge": "swagger", "root": root, "sources": sources, "nativeLookup": trace.nativeLookup,
+    })
   }
   node := os.Getenv("TTSC_NODE_BINARY")
   if node == "" {
     node, err = exec.LookPath("node")
     if err != nil {
-      return swaggerNormalizationResult{}, errors.New("Node.js executable was not found")
+      failure := errors.New("Node.js executable was not found")
+      trace.preparationFailure(failure)
+      return swaggerNormalizationResult{}, failure
     }
   }
   ctx, cancel := context.WithTimeout(context.Background(), swaggerBridgeTimeout)
@@ -257,19 +296,42 @@ func normalizeSwaggerSources(
   stderr := &limitedBuffer{Limit: swaggerBridgeErrorLimit}
   command.Stdout = stdout
   command.Stderr = stderr
-  if err := command.Run(); err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
+  start := trace.attempt(command)
+  runErr := command.Run()
+  deadlineExceeded := false
+  if runErr != nil {
+    deadlineExceeded = ctx.Err() == context.DeadlineExceeded
+  }
+  end := time.Time{}
+  if trace != nil {
+    end = time.Now().UTC()
+  }
+  if runErr != nil {
+    trace.result(command, stdout, stderr, start, end, runErr, "not-attempted", nil, nil, nil)
+    if deadlineExceeded {
       return swaggerNormalizationResult{}, errors.New("Swagger normalizer exceeded its 60 second timeout")
     }
     detail := strings.TrimSpace(stderr.String())
     if detail == "" {
-      detail = err.Error()
+      detail = runErr.Error()
     }
     return swaggerNormalizationResult{}, errors.New(detail)
   }
   var result swaggerNormalizationResult
   if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+    trace.result(command, stdout, stderr, start, end, nil, "failed", err, nil, nil)
     return swaggerNormalizationResult{}, errors.New("Swagger normalizer returned invalid JSON: " + err.Error())
+  }
+  if trace != nil {
+    documents := make([]string, 0, len(result.Documents))
+    problems := make([]string, 0, len(result.Problems))
+    for _, document := range result.Documents {
+      documents = append(documents, document.Source)
+    }
+    for _, problem := range result.Problems {
+      problems = append(problems, problem.Source)
+    }
+    trace.result(command, stdout, stderr, start, end, nil, "succeeded", nil, documents, problems)
   }
   return result, nil
 }
@@ -333,10 +395,14 @@ func displaySwaggerSource(source string) string {
 type limitedBuffer struct {
   bytes.Buffer
   Limit int
+  // Exceeded observes the existing failure boundary without changing its bytes
+  // or return error. A captured prefix cannot be a complete wire observation.
+  Exceeded bool
 }
 
 func (buffer *limitedBuffer) Write(content []byte) (int, error) {
   if buffer.Len()+len(content) > buffer.Limit {
+    buffer.Exceeded = true
     remaining := buffer.Limit - buffer.Len()
     if remaining > 0 {
       _, _ = buffer.Buffer.Write(content[:remaining])

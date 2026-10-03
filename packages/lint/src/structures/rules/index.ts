@@ -1,6 +1,7 @@
 export * from "./ITtscLintBoundariesRuleOptions";
 export * from "./ITtscLintBoundariesRules";
 export * from "./ITtscLintContributorRules";
+export * from "./TtscLintContributorOverlay";
 export * from "./ITtscLintCoreRuleOptions";
 export * from "./ITtscLintCoreRules";
 export * from "./ITtscLintCypressRuleOptions";

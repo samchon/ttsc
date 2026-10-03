@@ -1,9 +1,10 @@
 import type { FlagSpec } from "./FlagSpec";
 
 /**
- * Single source of truth for every flag the ttsc / ttsx CLI accepts. New flags
- * are added here and only here; the generator rebuilds the parsers and the Go
- * allow-lists from this table.
+ * Shared routing schema for flags ttsc / ttsx consumes, classifies or shadows.
+ * Unknown compiler options can still be forwarded without a schema row.
+ * Runtime parsing reads this table; generation emits native allow-lists and
+ * documentation, while pinned native declarations supply compiler grammar.
  *
  * One declaration per flag, consumed by every layer that needs to know about
  * it:
@@ -28,9 +29,9 @@ import type { FlagSpec } from "./FlagSpec";
  * 2. A flag listed in `consumedBy: ["launcher"]` without a `forwardTo`
  *    consumes-not-forwards. The generator flags this in the docs and the Go
  *    allow-list so the boundary is explicit.
- * 3. A flag with `subcommands` covering `clean` or `prepare` is parsed by the
- *    project-args lane; the parsing engine accepts the same flag in build /
- *    check / fix / format without a separate parser.
+ * 3. The project-args and build lanes use the same parsing engine, but each
+ *    command accepts only rows whose `subcommands` include its identity and
+ *    whose `consumedBy` includes the launcher.
  */
 export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // -------------------------------------------------------------------------
@@ -59,14 +60,16 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // Solution build mode — declared so the launcher can refuse it in its own
   // voice instead of forwarding it.
   //
-  // `createTsgoBuildArgs` opens the forwarded argv with `-p <tsconfig>` because
+  // Project-dependent `createTsgoBuildArgs` opens forwarded argv with `-p`
+  // and the selected config because
   // ttsc resolves the project itself (extends chains, plugin config discovery,
-  // cache keys, resident session identity) and pins the result. A forwarded
-  // `--build` therefore always lands after `-p`, and tsgo answers with TS6369
+  // cache keys, resident session identity) and pins the result. In that lane,
+  // a forwarded `--build` lands after `-p`, and tsgo answers with TS6369
   // "Option '--build' must be the first command line argument" — a diagnostic
   // that contradicts the command line the user actually typed. ttsc's plugin,
   // cache, and emit architecture is built around one resolved project, so
-  // solution mode is unsupported rather than merely misordered.
+  // solution mode is unsupported rather than merely misordered. The separate
+  // project-free terminal branch does not first resolve or inject a project.
   // -------------------------------------------------------------------------
   {
     name: "--build",
@@ -133,7 +136,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     subcommands: ["ttsc", "build", "check"],
     consumedBy: ["launcher", "runBuild", "host", "lint"],
     internalShadow: true,
-    description: "Force analysis-only build with no file writes.",
+    description: "Force analysis-only build without emitted compiler outputs.",
   },
   {
     name: "--outDir",
@@ -368,8 +371,8 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
 
   // -------------------------------------------------------------------------
   // tsgo-internal flags ttsc adds itself; users may also forward them.
-  // Declaring them keeps the launcher's parser from treating them as
-  // unknown forwarded flags whose value token gets misclassified.
+  // Their schema identities support shadow/terminal classification; pinned
+  // native occurrence metadata owns forwarded value-token consumption.
   // -------------------------------------------------------------------------
   {
     name: "--listEmittedFiles",
@@ -382,12 +385,10 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded).",
   },
   {
-    // tsgo declares `--pretty` as `type: boolean`, so it occupies one argv
-    // token and consumes a following one only when that token is the literal
-    // `true` or `false` — the shape the engine's boolean branch implements.
-    // Declaring it `value` made the forwarding path swallow whatever followed,
-    // so `ttsc --pretty a.ts` lost its input file and silently switched to
-    // project mode.
+    // Pinned native occurrence metadata owns boolean lookahead, including a
+    // following literal `true`, `false` or `null`. The schema's kind must still
+    // agree with native declarations for generation checks and derived views;
+    // the current forwarding cursor does not infer native arity from this row.
     name: "--pretty",
     kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
@@ -472,16 +473,16 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
 
   // -------------------------------------------------------------------------
   // `--tsgo-args` — JSON-encoded passthrough envelope a native sidecar decodes
-  // back into the tsgo argv. Listed here so the schema describes every flag
-  // the Go layers accept, not just the user-facing ones.
+  // back into the tsgo argv. Public and shared transport fields appear here;
+  // native commands may additionally declare private protocol fields locally.
   //
-  // The launcher no longer emits it. A CLI flag is fatal to any host whose
-  // `flag.FlagSet` does not declare it, and this one was added to a plugin
-  // protocol third-party hosts had already frozen, so every forwarded compiler
-  // flag exited 2 on a typia/nestia-shaped sidecar (issue #1188). The payload
-  // now rides the `TTSC_TSGO_ARGS` environment variable, which an unaware host
-  // simply ignores. ttsc's own hosts still accept the flag so an older
-  // launcher, or an embedder that composes sidecar argv itself, keeps working.
+  // The launcher does not emit it. A CLI flag is fatal to any host whose
+  // `flag.FlagSet` does not declare it, and third-party hosts have a frozen
+  // plugin protocol, so forwarding compiler flags that way would exit 2 on a
+  // typia/nestia-shaped sidecar. The payload rides the
+  // `TTSC_TSGO_ARGS` environment variable, which an unaware host simply
+  // ignores. ttsc's own hosts still accept the flag so an older launcher, or an
+  // embedder that composes sidecar argv itself, keeps working.
   // -------------------------------------------------------------------------
   {
     name: "--tsgo-args",

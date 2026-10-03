@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/watchBrokerSource.mjs";
+import { watchBrokerSource } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/watchBrokerSource";
 import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBrokerProgram";
 
 /**
@@ -15,16 +15,20 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  * it: a delivery right after a synchronous edit settled a silent tracker and
  * served the old output, and a generation opened right after an edit heard that
  * edit as one of its own and compiled the project again. FSEvents preserves
- * order within one stream, so a probe heard on a stream proves every earlier
- * event of it has arrived, and nothing heard before the opening probe belongs
- * to the stream's own time.
+ * order within one stream, so a clean probe establishes its delivery frontier.
+ * A dropped flag independently withdraws authority even on that probe path;
+ * the flagged callback alone cannot establish opening or drain proof. The
+ * child discards callbacks before the clean opening frontier; this is not
+ * an atomic timestamp classification of writes.
  *
  * 1. Register a location with a probe below its root, and one without, on a
  *    stand-in binding; assert the probed stream opens at the probe's root, the
  *    other at its own directory, and that the registration is not ready until
- *    the opening probe is heard, discarding the events delivered before it.
+ *    a clean opening probe is heard, discarding earlier events. A dropped
+ *    matching probe first reports a gap without proving readiness.
  * 2. Ask for a drain, and assert the child writes one probe and does not answer
- *    while the probe has not been heard, even across turns of its loop.
+ *    while a clean probe has not been heard, even across turns of its loop or
+ *    after a matching dropped probe reports a gap.
  * 3. Deliver the probe's event, and assert the drain is answered naming only the
  *    unprobed watch as unproven, and the probe is removed; then register a
  *    second location below the same root, and assert one drain writes one probe
@@ -33,6 +37,11 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  *    it reaches its registration placed against the location; then ask for a
  *    drain and remove the registration before its probe is heard, and assert
  *    the drain is answered at once with the closed watch unproven.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs watchBrokerSource with a scripted FSEvents binding; asserts stream roots, opening readiness, old-event suppression, drain waiting, matching dropped opening/drain probes reporting gaps without establishing proof, unproven names, shared probes, exact event routing and removal-before-proof completion.
+ * @evidence contracts/testing.md#independent-expectations Ordered FSEvents probes establish a stream frontier; loop turns alone cannot. Explicit created/file/kernel-dropped flag values, event sequence and literal gap/drain messages provide an oracle independent of probe state tracking. A matching filename cannot erase the independent dropped-events warning.
+ * @evidence contracts/testing.md#distinguishing-cases Owns probed/unprobed streams, two streams sharing a probe directory, pre/post-opening events, matching clean versus dropped opening/drain probes and a closed pending stream. Clean callbacks retain positive proof after the flagged callback alone fails to qualify it. Mock streams and probe arrays have no native lifetime, so this test does not exercise the real fsevents binding's event ordering.
+ * @evidence contracts/testing.md#execution-ownership Unit test: runs the real broker child program text (watchBrokerSource) in this process through runWatchBrokerProgram, which evaluates it with new Function and a fake process whose send method records messages and whose registered message handlers receive test input; the fsevents binding is a stub whose watch() records each stream's root and handler, node:path is path.posix, and node:fs records written and removed probe files instead of touching disk. The test fires the stream events itself; no child process, real FSEventStream or macOS is involved.
  */
 export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Promise<void> {
   const streams: {
@@ -69,6 +78,7 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
   });
   const ITEM_CREATED = 0x100;
   const ITEM_IS_FILE = 0x10000;
+  const KERNEL_DROPPED = 0x4;
   const turns = () =>
     new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
   const probes = () => written.filter((file) => file.includes("/probes/"));
@@ -100,10 +110,22 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
   );
   // The past, delivered after the stream opened.
   streams[0]!.handler("/project/src/old.ts", ITEM_CREATED | ITEM_IS_FILE, 1);
+  streams[0]!.handler(probes()[0]!, ITEM_CREATED | ITEM_IS_FILE | KERNEL_DROPPED, 1);
+  await turns();
+  assert.deepEqual(
+    broker.sent.filter((message) => message.id === 1),
+    [{ gap: true, id: 1 }],
+    "a dropped matching opening probe withdraws authority without proving readiness",
+  );
+  assert.deepEqual(
+    removed,
+    [],
+    "a dropped opening callback alone does not complete its probe",
+  );
   streams[0]!.handler(probes()[0]!, ITEM_CREATED | ITEM_IS_FILE, 1);
   assert.deepEqual(
     broker.sent.filter((message) => message.id === 1),
-    [{ failed: false, id: 1, ready: true }],
+    [{ gap: true, id: 1 }, { failed: false, id: 1, ready: true }],
     "ready once the opening probe is heard, and the past discarded",
   );
   assert.deepEqual(removed, [probes()[0]], "the opening probe is removed");
@@ -135,6 +157,23 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     "the drain waits for the probe, however many turns pass",
   );
 
+  streams[0]!.handler(probes()[1]!, ITEM_CREATED | ITEM_IS_FILE | KERNEL_DROPPED, 1);
+  await turns();
+  assert.deepEqual(
+    broker.sent.filter((message) => message.gap === true),
+    [{ gap: true, id: 1 }, { gap: true, id: 1 }],
+    "matching dropped opening and drain callbacks each report their gap",
+  );
+  assert.equal(
+    broker.sent.some((message) => message.id === 100),
+    false,
+    "a dropped matching drain probe is not successful delivery proof",
+  );
+  assert.deepEqual(
+    removed,
+    [probes()[0]],
+    "the dropped drain callback leaves its probe pending",
+  );
   streams[0]!.handler(probes()[1]!, ITEM_CREATED | ITEM_IS_FILE, 1);
   await turns();
   const drained = broker.sent.find((message) => message.drained === true);

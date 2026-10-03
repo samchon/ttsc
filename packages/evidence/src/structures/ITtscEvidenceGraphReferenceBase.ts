@@ -28,6 +28,7 @@ import type { TtscLintSeverity } from "@ttsc/lint";
  * @evidence contracts/common.md#clear-and-simple-design One generic base owns shared acknowledgment policies while artifact-specific references own their populations and Markdown alone owns checklist semantics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts These explicit policies constrain real graph relations; requireReview documents its limited assurance instead of claiming a fingerprint proves review sincerity.
  * @evidence contracts/common.md#meaningful-documentation Property comments explain counting identities, aggregate scopes, expiry and the limitations of review fingerprints; separate paragraphs and member gaps keep distinct requirements readable.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation These shared fields are policies and selectors over evidence units and name no path, file, filesystem or process.
  */
 export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   /** Identifies the artifact kind this population materializes. */

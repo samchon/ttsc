@@ -6,7 +6,7 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  *
  * The host filesystem on every platform but Windows and macOS does, since those
  * two watch in the isolated broker instead. An embedder that supplies its own
- * `watch` observes another filesystem, and keeps it.
+ * `watch` retains that capability, including for a host-filesystem view.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A custom watcher keeps authority over its filesystem. Other native hosts
@@ -23,6 +23,9 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral callers retain injected filesystem behavior; explicit platform
  *   routing is confined to the native implementation boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Constant-time comparisons.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure predicate over the filesystem view and the platform.
  */
 export function usesLinuxWatchHelper(
   filesystem: TtscTransformFilesystemOperations,

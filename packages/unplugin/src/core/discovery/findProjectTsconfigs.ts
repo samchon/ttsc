@@ -38,20 +38,6 @@ const HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM: TtscProjectTreeDiscoveryFilesystem
  *   Links and junctions use observed target kinds and physical spelling;
  *   unresolved link identity marks incompleteness instead of guessing OS case.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Each reached lexical directory is enumerated once; a shared ancestor Set
- *   gives constant-time cycle checks without copying ancestry at every child.
- *   Entry/exit frames keep only active ancestry, and final sorting costs
- *   O(c log c) for c observed config candidates.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   This traversal observes one current project tree; cross-call reuse and
- *   proof of continued validity belong to its cache-key caller.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The returned map transfers to the caller. Pending frames and active
- *   ancestry are temporary computation state, with no retained native handle.
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Only package, VCS and host-cache directories are intentionally omitted;
  *   unreadable state cannot masquerade as a complete empty project map.
@@ -59,6 +45,21 @@ const HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM: TtscProjectTreeDiscoveryFilesystem
  * @evidence contracts/common.md#meaningful-documentation
  *   Documentation explains lexical aliases, physical cycle guards and the
  *   incomplete result, with reasons separated from the callback contract.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The returned map transfers to the caller. Pending frames and active
+ *   ancestry are temporary computation state, with no retained native handle.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each reached lexical directory is enumerated once; a shared ancestor Set
+ *   gives constant-time cycle checks without copying ancestry at every child.
+ *   Entry/exit frames keep only active ancestry, and final sorting costs
+ *   O(c log c) text comparisons for c candidates and a separate file sort.
+ *   Native directory listings, entry-name joins, candidate stat and optional
+ *   realpath/link-target stat contribute their entry/path/native costs. Pending
+ *   sibling frames and returned arrays grow with reached lexical populations;
+ *   aliases may enumerate one physical subtree at multiple lexical addresses.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This traversal observes one current project tree; cross-call reuse and
+ *   proof of continued validity belong to its cache-key caller.
  */
 export function findProjectTsconfigs(
   root: string,

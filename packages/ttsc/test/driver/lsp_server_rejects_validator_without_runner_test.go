@@ -10,16 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerRejectsValidatorWithoutRunner verifies that an invocation cannot
-// replace the production validator while retaining the production runner.
+// TestLSPServerRejectsValidatorWithoutRunner Verifies that RunLSPServer rejects a validator without its paired runner before invoking it.
 //
-// A validator describes the prerequisites of its paired runner. Accepting one
-// without the other would let a custom validator bypass the default runner's
-// absolute TsgoBinary contract.
+// Otherwise valid Cwd and the untouched called flag isolate the incomplete dependency pair.
 //
 // 1. Supply a custom Validator without a custom Runner.
 // 2. Call RunLSPServer with an otherwise valid Cwd.
 // 3. Assert the incomplete pair is rejected before the validator runs.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer rejects a validator without its paired runner before invoking it.
+// @evidence contracts/testing.md#independent-expectations Validator prerequisites must belong to their runner; a validator-only pair is invalid.
+// @evidence contracts/testing.md#distinguishing-cases Otherwise valid Cwd and the untouched called flag isolate the incomplete dependency pair.
+// @evidence contracts/testing.md#execution-ownership The direct Go server call exits at validation without launching a process. Go discovers TestLSPServerRejectsValidatorWithoutRunner under ./test/driver.
 func TestLSPServerRejectsValidatorWithoutRunner(t *testing.T) {
   validatorCalled := false
   err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{

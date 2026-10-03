@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { configEvaluatorFailureReason } from "../../../../../packages/lint/lib/internal/configEvaluatorFailure.js";
+import { configEvaluatorFailureReason } from "../../../../../packages/lint/src/internal/configEvaluatorFailure";
 
 /**
  * Verifies only a well-formed envelope becomes an evaluation's failure reason.
@@ -20,9 +20,13 @@ import { configEvaluatorFailureReason } from "../../../../../packages/lint/lib/i
  * 1. Point the reader at each shape the result file can hold.
  * 2. Assert only the envelope yields text, trimmed.
  * 3. Assert an absent file and every other shape yield the empty string.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The authored configEvaluatorFailureReason reads actual temporary result files and returns trimmed loader-error text only for a string envelope.
+ * @evidence contracts/testing.md#independent-expectations The result-file protocol reserves __ttscLoaderError for a textual failure; ordinary payloads, JSON primitives and malformed bytes cannot be failure explanations.
+ * @evidence contracts/testing.md#distinguishing-cases Absent, blank, nested nonstring, payload, array, scalar, null, half-written and empty files return no reason; a valid whitespace-padded message is trimmed.
+ * @evidence contracts/testing.md#execution-ownership This named source unit uses a disposable filesystem with finally cleanup, not a child evaluator. The real exit-without-envelope case remains an E2E transport owner.
  */
-export const test_config_evaluator_reason_honours_only_a_well_formed_envelope =
-  (): void => {
+export function test_config_evaluator_reason_honours_only_a_well_formed_envelope(): void {
     const root = TestProject.tmpdir("ttsc-lint-reason-");
     try {
       assert.equal(
@@ -57,4 +61,4 @@ export const test_config_evaluator_reason_honours_only_a_well_formed_envelope =
     } finally {
       fs.rmSync(root, { force: true, recursive: true });
     }
-  };
+  }

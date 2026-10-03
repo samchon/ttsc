@@ -22,10 +22,22 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral protocol transport uses child stdin and JSON framing rather
  *   than shell syntax, native separators or filesystem case assumptions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Serialization is call-local; submitted bytes transfer to the helper stdin queue, whose lifetime belongs to the process/stream owner. Request acknowledgment and cancellation belong to the caller, and this adapter retains no descriptor or history.
+ * @evidence contracts/performance.md#efficient-algorithms One JSON serialization and newline framing process the request's supplied path text and escaped output; stream encoding and submission follow serialized byte length. Temporary storage follows serialized/framed text. A queued backpressured write is not retried or reserialized here.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each write is a distinct protocol effect. Opening and sync owners await their replies; removal has no acknowledgment. No returned computation is cached or shared here.
  */
 export function sendLinuxWatchHelper(
   helper: LinuxWatchHelper,
-  request: { id: number; op: "add" | "remove" | "sync"; path?: string },
+  request: {
+    /** Subscription or ordered-sync identifier owned by the caller. */
+    id: number;
+
+    /** Native opening, removal or ordered queue barrier. */
+    op: "add" | "remove" | "sync";
+
+    /** Native directory spelling for add; absent for remove and sync. */
+    path?: string;
+  },
 ): boolean {
   const input = helper.child.stdin;
   if (input === null || input.destroyed || !input.writable) return false;

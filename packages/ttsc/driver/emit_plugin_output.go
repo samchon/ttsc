@@ -40,7 +40,7 @@ type PluginEmitError struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The real diagnostic slice is rendered without hiding findings behind a generic success or failure marker.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the error-only host use following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Shared diagnostic rendering owns filename presentation; this method owns no native operation.
-// @evidence contracts/performance.md#efficient-algorithms One builder accumulates the message and diagnostic output without repeatedly concatenating a growing string.
+// @evidence contracts/performance.md#efficient-algorithms One builder avoids repeated growing-string concatenation; delegated rendering partitions and copies diagnostic references, formats message/source context bytes and native filename presentation, then TrimSpace scans the returned text. Cost includes diagnostic count and rendered content, not only the fixed phase prefix.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each requested error string is rendered independently with no shared-work coordination.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The temporary builder is returned as a string and no resident buffer is retained.
 func (e *PluginEmitError) Error() string {

@@ -20,10 +20,16 @@ import (
 // 2. Construct NativePluginSource with both entries.
 // 3. Execute the command.
 // 4. Assert the first sidecar handles it and the duplicate is logged.
+//
+// @evidence contracts/testing.md#behavioral-verification Two fixture entries advertise ttsc.fake.fix; ExecuteCommand returns the first fixture edit and logs duplicate ownership.
+// @evidence contracts/testing.md#independent-expectations Command discovery is first-owner routing by the documented sidecar contract; first and second literal edit values provide independent oracles.
+// @evidence contracts/testing.md#distinguishing-cases Two owners are necessary to distinguish ordering; separate fixture programs remain in the same compiled batch and independent command processes.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceIgnoresDuplicateCommandID is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceIgnoresDuplicateCommandID(t *testing.T) {
-  dir := t.TempDir()
-  first := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceDuplicateCommandFirstSidecar)
-  second := buildNativePluginSourceTestSidecar(t, t.TempDir(), nativePluginSourceDuplicateCommandSecondSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  first := buildNativePluginSourceTestSidecar(t, nativePluginSourceDuplicateCommandFirstSidecar)
+  second := buildNativePluginSourceTestSidecar(t, nativePluginSourceDuplicateCommandSecondSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{
       {Binary: first, Name: "@ttsc/first"},
@@ -43,6 +49,7 @@ func TestLSPNativePluginSourceIgnoresDuplicateCommandID(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   edit, err := source.ExecuteCommand("ttsc.fake.fix", nil)
   if err != nil {
     t.Fatalf("ExecuteCommand failed: %v", err)

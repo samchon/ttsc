@@ -1,9 +1,9 @@
 // CI gate for the flag schema, in two phases.
 //
 // 1. Re-run gen-flags.mts and fail if any generated file changed on disk
-//    relative to the committed copy. Mirrors the pattern used by the gen_shims
-//    tool — committed output is the spec, drift means someone edited a
-//    generated file by hand without updating schema.ts.
+//    relative to the checked-out copy captured before generation. A difference
+//    detects disagreement with the current schema; this gate does not read Git
+//    history or require a clean working tree.
 // 2. Run check-flag-kinds.mts, which fails when a declared `kind` contradicts
 //    the arity the compiler ttsc forwards to implements. Phase 1 only proves
 //    the layers agree with the schema; phase 2 proves the schema agrees with
@@ -16,9 +16,14 @@ const child = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const {
-  STRIP_TYPES_NODE_ARGS,
-} = require("../../../scripts/node-strip-types.cjs");
+const { pathToFileURL } = require("node:url");
+
+const STRIP_TYPES_NODE_ARGS = [
+  "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+  "--experimental-strip-types",
+  "--import",
+  pathToFileURL(path.resolve(__dirname, "../../../config/register-typescript-loader.mjs")).href,
+];
 
 const here = __dirname;
 const ttscRoot = path.resolve(here, "..");
@@ -30,14 +35,22 @@ const targets = [
   path.join(repoRoot, "packages/lint/linthost/flags_gen.go"),
   path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
   path.join(ttscRoot, "src/flags/COMPILER_OPTION_KINDS.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_OPTIONS.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_ENUM_WHITESPACE.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_OPTION_ASCII_FOLDS.ts"),
 ];
 
 function main() {
-  const before = snapshot(targets);
+  const compilerOptionsOnly = process.argv.includes("--compiler-options-only");
+  const selectedTargets = compilerOptionsOnly
+    ? targets.filter(target => target.endsWith(".ts"))
+    : targets;
+  const before = snapshot(selectedTargets);
 
   const result = child.spawnSync(
     process.execPath,
-    [...STRIP_TYPES_NODE_ARGS, path.join(here, "gen-flags.mts")],
+    [...STRIP_TYPES_NODE_ARGS, path.join(here, "gen-flags.mts"),
+      ...(compilerOptionsOnly ? ["--compiler-options-only"] : [])],
     { stdio: "inherit" },
   );
   if (result.status !== 0) {
@@ -47,7 +60,7 @@ function main() {
   // gofmt the generated Go files so alignment matches the committed copy. The
   // generator emits raw key:value entries and gofmt aligns the `:` column;
   // skipping this step here would surface as drift on any local edit.
-  for (const target of targets) {
+  for (const target of selectedTargets) {
     if (!target.endsWith(".go")) continue;
     const script = path.join(repoRoot, ".vscode/gofmt-2spaces.sh");
     const gofmt = child.spawnSync(
@@ -64,11 +77,11 @@ function main() {
     }
   }
 
-  const after = snapshot(targets);
-  const drift = computeDrift(before, after, targets);
+  const after = snapshot(selectedTargets);
+  const drift = computeDrift(before, after, selectedTargets);
   if (drift.length !== 0) {
     process.stderr.write(
-      "ttsc flag schema: generated output drifted from src/flags/FLAG_SCHEMA.ts:\n",
+      "ttsc flag schema: generated output drifted from launcher schema or pinned native declarations:\n",
     );
     for (const file of drift) {
       process.stderr.write(`  ${path.relative(repoRoot, file)}\n`);
@@ -102,7 +115,7 @@ function snapshot(files) {
   return out;
 }
 
-// Compare the content Git treats as committed, not the raw bytes on disk. A
+// Compare normalized checkout content, not the raw line endings on disk. A
 // clean Windows checkout with core.autocrlf=true materializes the committed LF
 // generated files as CRLF, while the Node generator and gofmt always emit LF;
 // those two representations are the same committed content. Normalizing CRLF
@@ -114,10 +127,10 @@ function normalizeEol(text) {
   return text.replace(/\r\n?/g, "\n");
 }
 
-// Decide which targets genuinely drifted between the committed snapshot and the
+// Decide which targets genuinely drifted between the pre-generation snapshot and the
 // freshly regenerated one. Line terminators are folded first (see normalizeEol)
 // so a checkout's CRLF materialization is not mistaken for content drift, but
-// every other byte still counts. A target absent from `before` (never committed)
+// every other byte still counts. A target absent from `before` (missing on disk)
 // normalizes to "" and so drifts against any regenerated content.
 function computeDrift(before, after, files) {
   const keys = files ?? Object.keys(after);

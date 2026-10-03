@@ -1,0 +1,15 @@
+{
+  "files": [
+    "src/fix/**/*"
+  ],
+  "plugins": {
+    "demo": "lint-contributor-demo"
+  },
+  "rules": {
+    "eqeqeq": "warning",
+    "no-var": "error",
+    "prefer-const": "error",
+    "demo/capitalize-exports": "error",
+    "typescript/no-unnecessary-type-constraint": "error"
+  }
+}

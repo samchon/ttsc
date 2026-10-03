@@ -7,19 +7,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection pins
-// the inverse of the float→int normalization case. A regression that
-// re-introduced asymmetric formatting in only one of the two
-// `idKeyFromRaw` call sites (e.g. rememberCodeActionRequest using a
-// stale local helper while forgetCancelledRequest used the shared one)
-// would still pass the float→int test; this case catches the int→float
-// half by remembering the request as `1.0` and cancelling with `1`.
+// TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection Verifies that cancel ID 1 retires a request encoded as 1.0 so its later action response remains unchanged.
 //
-// 1. Configure a source that would normally augment the response.
-// 2. Send codeAction request id=1.0 and drain it upstream.
-// 3. Send $/cancelRequest id=1.
-// 4. Send the matching upstream response id=1.0.
-// 5. Assert the editor receives the response unmodified.
+// Fractional request and integer cancel cover the reverse normalization direction.
+//
+// 1. Configure a source that would normally add an action.
+// 2. Send request ID 1.0 and drain it upstream.
+// 3. Send cancel ID 1, drain it, and deliver the response for ID 1.0.
+// 4. Assert the editor receives the original response.
+//
+// @evidence contracts/testing.md#behavioral-verification Cancel ID 1 retires a request encoded as 1.0 so its later action response remains unchanged.
+// @evidence contracts/testing.md#independent-expectations These exact safe numeric forms identify the same JSON-RPC request; original response bytes define forwarding.
+// @evidence contracts/testing.md#distinguishing-cases Fractional request and integer cancel cover the reverse normalization direction.
+// @evidence contracts/testing.md#execution-ownership The Go proxy harness drains request and cancel forwards before the synthetic response. Go discovers TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection under ./test/driver.
 func TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection(t *testing.T) {
   source := &stubSource{actions: []driver.LSPCodeAction{{Title: "should-not-appear"}}}
   h := newProxyHarness(t, source)

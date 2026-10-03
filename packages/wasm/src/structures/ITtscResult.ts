@@ -15,6 +15,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate JSDoc paragraphs distinguish asynchronous envelopes from direct
  *   values; members explain channels, following the documentation skill's guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscResult {
   /** Exit code. 0 = success, 2 = compiler/config/usage error, 3 = runtime error. */

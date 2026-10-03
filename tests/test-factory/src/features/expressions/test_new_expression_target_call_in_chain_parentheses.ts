@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "@ttsc/factory";
+import factory, { type Expression } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 import { id, print, reparse } from "../../internal/helpers";
@@ -22,10 +22,15 @@ const construct = (target: Expression): Expression =>
  *
  * 1. Print `new` expressions whose targets are `f().bar` (call at the chain head),
  *    `a.b().c` (call mid-chain), and `f()[0]` (element access over a call).
- * 2. Assert every target is parenthesized, matching the legacy `ts.Printer`.
+ * 2. Assert every target is printed parenthesized, against literal expected text.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression` (the bug shape re-parses as a
  *    top-level `CallExpression` instead).
+ *
+ * @evidence contracts/testing.md#behavioral-verification A call anywhere on the new target spine is enclosed before the outer constructor arguments.
+ * @evidence contracts/testing.md#independent-expectations Explicit source expectations and TypeScript NewExpression reparsing independently detect calls consuming outer arguments.
+ * @evidence contracts/testing.md#distinguishing-cases Head, intermediate property and element chain call positions test spine traversal rather than only immediate node kind.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_call_in_chain_parentheses. Builds call/property/element chains under createNewExpression and runs print plus reparse.
  */
 export const test_new_expression_target_call_in_chain_parentheses =
   (): void => {

@@ -26,6 +26,11 @@ import (
 //  2. Build the graph.
 //  3. Assert each reports its resolved member values, and that the enum still
 //     has no member nodes so `literals` is genuinely the only carrier.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that an enum reports its member values, string-valued, numeric, and implicitly numbered alike, however the declaration is laid out.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: a multi-line string enum and its single-line twin must both report "a", "b", "c", and an implicitly numbered enum must report 0 and 1 (values only the checker knows). The closing check for member nodes only looks up the id Wrapped.A with kind method, so it would not catch an enum member recorded under another node kind.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a multi-line string enum, a single-line one, and an enum whose members are implicitly numbered; Build the graph; Assert each reports its resolved member values, and that the enum still has no member nodes so `literals` is genuinely the only carrier.
+// @evidence contracts/testing.md#execution-ownership TestLiteralsCoverEnumMembersTheGraphHasNoNodesFor is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestLiteralsCoverEnumMembersTheGraphHasNoNodesFor(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

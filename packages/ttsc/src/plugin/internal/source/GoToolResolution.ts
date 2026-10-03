@@ -1,19 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 
 /**
- * Which `go` executable a source-plugin build runs, resolved once per build.
+ * Select the `go` executable spelling a source-plugin build shares across its
+ * phases.
  *
  * On Windows, `PATH` and `PATHEXT` lookup and `.cmd`/`.bat` wrappers make a
  * bare `go` ambiguous: the answer can change between the cache-key probe and
- * the build if the environment is read twice. Resolving it once, the way the
- * platform would, and pinning that one target keeps the key and the build
- * talking about the same toolchain.
+ * the build if relative lookup is repeated. A successfully selected native
+ * path avoids reinterpreting that name against a later scratch cwd. The path
+ * is not a retained executable handle and cannot prevent replacement; an
+ * unresolved bare name can still be returned for normal spawn failure/search.
  *
  * POSIX PATH entries and qualified relative executables are also pinned before
  * the build moves into its scratch directory.
  *
- * @evidence contracts/common.md#principled-implementation Platform-specific executable lookup resolves one build-wide target; POSIX execute permission and Windows native/wrapper precedence determine usable candidates.
+ * @evidence contracts/common.md#principled-implementation Platform-specific candidate lookup supplies a selected spelling when found; POSIX execute access and Windows native-before-wrapper policy determine selection. Unresolved fallback is not a proved target, and returned paths do not pin executable content over time.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns search bases, executable probing and Windows environment spelling so key probes and actual spawns use one policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate selection follows native process rules rather than hardcoding a particular user's Go installation or mutating process.env.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain pinned tool identity, Windows wrapper precedence, search order and environment-case handling.
@@ -31,12 +34,12 @@ export namespace GoToolResolution {
   /**
    * Pin native PATH and command-wrapper lookup to one build-wide target.
    *
-   * @evidence contracts/common.md#principled-implementation Native search bases resolve against the module directory and POSIX X_OK rejects unusable PATH entries, preventing later scratch cwd from selecting another compiler.
+   * @evidence contracts/common.md#principled-implementation Native bases resolve against the module directory and POSIX X_OK rejects unusable candidates. A selected spelling avoids later relative cwd reinterpretation; unresolved bare fallback and subsequent replacement remain outside that selection guarantee.
    * @evidence contracts/common.md#clear-and-simple-design The build-facing resolver delegates Windows wrapper policy and otherwise performs one direct native candidate search.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Pinning corrects repeated relative lookup rather than compensating for a mismatched key after the build.
    * @evidence contracts/common.md#meaningful-documentation The comment identifies the build-wide pin and the owning namespace explains why cwd changes matter.
    * @evidence contracts/portability.md#os-neutral-implementation POSIX checks actual execute access while Windows uses its executable/wrapper rules; the returned native path is reused unchanged by build subprocesses.
-   * @evidence contracts/performance.md#efficient-algorithms At most P candidate bases are probed, with constant-sized native executable choices or bounded PATHEXT candidates on Windows.
+   * @evidence contracts/performance.md#efficient-algorithms Base construction processes complete PATH/binary/cwd text; POSIX selection performs native stat/access until a usable candidate. Windows adds fixed native suffixes followed by caller-sized PATHEXT wrapper candidates; extension/name/path bytes, environment lookup and native filesystem work are not bounded by P alone.
    * @evidence contracts/performance.md#reuse-equivalent-work The resolved target is shared by environment queries and the actual Go build so equivalent phases do not reinterpret relative lookup.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The resolver owns no retained memo or process; the caller keeps the resolved path for its build.
@@ -45,6 +48,7 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): string {
     if (process.platform !== "win32") {
       for (const candidate of executableSearchBases(binary, env, cwd)) {
@@ -60,7 +64,7 @@ export namespace GoToolResolution {
         ? binary
         : path.resolve(cwd, binary);
     }
-    return resolveWindowsGoTool(binary, env, cwd).location ?? binary;
+    return resolveWindowsGoTool(binary, env, cwd, witness).location ?? binary;
   }
 
   interface IWindowsGoToolResolution {
@@ -76,7 +80,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing wrappers are represented honestly instead of silently selecting another tool to evade spawn failure.
    * @evidence contracts/common.md#meaningful-documentation The native comment states native-before-wrapper precedence and the result fields name routing facts.
    * @evidence contracts/portability.md#os-neutral-implementation This isolates Windows native .com/.exe probing from shell-based .cmd/.bat execution and honors configured wrapper extensions.
-   * @evidence contracts/performance.md#efficient-algorithms Candidate bases are built once and searched in two linear passes, costing O(P times E) filesystem probes for PATH entries and extensions.
+   * @evidence contracts/performance.md#efficient-algorithms Candidate construction retains full path strings. Explicit wrappers use one first-match scan; other names scan direct/fixed .com/.exe choices before a caller-sized wrapper-extension pass. Environment/PATHEXT parsing, text comparisons/path construction and native probes contribute costs beyond P times E query count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The owning build resolver pins this result; this Windows search does not retain completed results itself.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No process or persistent handle is acquired during candidate probing.
@@ -85,8 +89,9 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): IWindowsGoToolResolution {
-    const candidates = executableSearchBases(binary, env, cwd);
+    const candidates = executableSearchBases(binary, env, cwd, witness);
     if (isWindowsCommandWrapper(binary)) {
       return {
         location: candidates.find(isExecutableFile) ?? null,
@@ -132,7 +137,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Search fallback uses the native POSIX default or Windows inherited PATH semantics, not a privileged compiler directory.
    * @evidence contracts/common.md#meaningful-documentation The prose states absolute/qualified handling, current-directory precedence and the disabling switch.
    * @evidence contracts/portability.md#os-neutral-implementation Node's delimiter and native paths govern POSIX search; Windows semicolon quoting and case-insensitive PATH retrieval are explicit boundaries.
-   * @evidence contracts/performance.md#efficient-algorithms One pass splits PATH and one maps P bases to candidate strings; temporary space is proportional to the search list's length.
+   * @evidence contracts/performance.md#efficient-algorithms Absolute/qualified inputs take native path checks; bare names split complete PATH text and map directories to full resolved strings. Windows also filters/unquotes entries, can enumerate/casefold environment names and witnesses the ambient cwd-search switch. Path/name/environment bytes and intermediate arrays contribute processing/storage beyond candidate count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructs bases from current arguments and owns no cross-request search cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned candidate array survives; no native resource is retained.
@@ -141,6 +146,7 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): string[] {
     if (path.isAbsolute(binary)) return [binary];
     if (hasPathQualifier(binary)) return [path.resolve(cwd, binary)];
@@ -160,6 +166,7 @@ export namespace GoToolResolution {
             "NoDefaultCurrentDirectoryInExePath",
           )
         : undefined;
+    if (process.platform === "win32") PluginBuildEnvironmentWitness.addEnvironment(witness, "NoDefaultCurrentDirectoryInExePath", noDefaultCurrentDirectory);
     if (
       process.platform === "win32" &&
       noDefaultCurrentDirectory === undefined
@@ -181,7 +188,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#meaningful-documentation The native paragraphs explicitly distinguish file kind from POSIX execute permission.
    * @evidence contracts/portability.md#os-neutral-implementation Node's native stat follows filesystem aliases; callers separately select OS-specific execution rules rather than guessing them from a filename.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms One stat and one kind check have no population-dependent traversal algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms One native stat query and regular-file predicate avoid directory enumeration/content reads, but path-component/link lookup and native errors still cost work; fixed query count is not a constant-byte filesystem bound.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh file state is probed rather than cached beyond its observation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous stat creates no lasting handle or retained state.
    */
@@ -245,7 +252,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The default extension list is Windows invocation vocabulary, not a test-specific compiler suffix list.
    * @evidence contracts/common.md#meaningful-documentation Native prose states lowercase/unquoted output and configured-versus-default precedence.
    * @evidence contracts/portability.md#os-neutral-implementation PATHEXT handling is isolated to the Windows lookup boundary rather than applied to POSIX filenames.
-   * @evidence contracts/performance.md#efficient-algorithms The configured extension text is traversed in linear passes and retains only its normalized nonempty entries.
+   * @evidence contracts/performance.md#efficient-algorithms Configured extension text is split/unquoted/lowercased/filtered in linear text passes after environment lookup, which can enumerate/casefold/sort name matches. Intermediate and returned extension arrays scale with full text and caller-supplied population; no independent extension-count bound is enforced.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reads current environment arguments; the owning resolver keeps any chosen executable.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned extension list has no external lifetime or handle ownership.
@@ -270,7 +277,7 @@ export namespace GoToolResolution {
   }
 
   /**
-   * Read an environment variable the way Windows does, case-insensitively. An
+   * Read an environment variable with lowercase-name matching. An
    * exact-case key wins; otherwise the first matching key in sorted order, so
    * the answer is deterministic when a caller supplied several spellings.
    *
@@ -279,7 +286,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper reads the supplied environment and does not patch process.env or rename keys to accommodate a consumer.
    * @evidence contracts/common.md#meaningful-documentation The native paragraph records exact-key precedence and sorted fallback when several aliases exist.
    * @evidence contracts/portability.md#os-neutral-implementation Case-insensitive environment names are a Windows process convention, distinct from filesystem path case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Exact lookup is constant-time; fallback scans N keys and sorts K matches, costing O(N plus K log K) rather than sorting unrelated environment keys.
+   * @evidence contracts/performance.md#efficient-algorithms Exact property lookup processes the supplied key without enumeration. Fallback allocates all N key names, lowercases/compares their bytes and sorts K matching strings with text-sensitive comparisons; it avoids sorting unrelated keys but counts alone do not capture name bytes or array storage.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup uses the supplied current environment and retains no normalized map across calls.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or native handle is owned.

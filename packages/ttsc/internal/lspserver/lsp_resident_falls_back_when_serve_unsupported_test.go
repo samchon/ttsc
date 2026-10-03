@@ -22,6 +22,11 @@ import (
 //  1. serveRun a read verb against a plugin whose binary cannot launch.
 //  2. Assert it reports served=false (the caller falls back to exec).
 //  3. Assert the binary is marked unsupported, and a second call short-circuits.
+//
+// @evidence contracts/testing.md#behavioral-verification serveRun reports served=false for a plugin whose binary cannot launch, marks the binary unsupported and short-circuits a second call.
+// @evidence contracts/testing.md#independent-expectations served=false and the unsupported mark are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases First and second calls differ in whether a spawn is attempted.
+// @evidence contracts/testing.md#execution-ownership TestResidentFallsBackWhenServeUnsupported is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestResidentFallsBackWhenServeUnsupported(t *testing.T) {
   source := &NativePluginSource{err: &bytes.Buffer{}}
   plugin := NativeLSPPluginEntry{Binary: "ttsc-no-such-serve-binary", Name: "@ttsc/legacy"}

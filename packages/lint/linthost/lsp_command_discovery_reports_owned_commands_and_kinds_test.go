@@ -1,0 +1,67 @@
+package linthost
+
+import (
+  "encoding/json"
+  "testing"
+)
+
+// TestLSPCommandDiscoveryReportsOwnedCommandsAndKinds verifies the LSP
+// discovery verbs expose lint's command surface.
+//
+// ttscserver decides which executeCommand requests are local only after asking
+// each sidecar for command ids and code-action kinds. A typo here would make
+// VSCode buttons disappear or forward lint commands to tsgo.
+//
+// 1. Run `lsp-command-ids` through the real lint dispatcher.
+// 2. Run `lsp-code-action-kinds` through the same dispatcher.
+// 3. Assert both JSON arrays match the command ids and kinds used by VSCode.
+//
+// @evidence contracts/testing.md#behavioral-verification The lsp-command-ids and lsp-code-action-kinds dispatchers emit the exact supported JSON lists, detecting omission, addition or misspelling at discovery.
+// @evidence contracts/testing.md#independent-expectations The expected action kinds are authored literals; the expected command ids are the production command constants in an authored order, so the test fixes membership and order of the discovery output but not the spelling of those constants.
+// @evidence contracts/testing.md#distinguishing-cases The two discovery verbs run through the dispatcher with no project, and each decoded JSON array must equal the ordered expected list. The command-id list is compared against the production command-id constants, so it pins the list's membership and order but not the constants' spelling; the code-action kinds are literal strings.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-command-ids and lsp-code-action-kinds in process with captured streams and decodes their JSON; no project or built host is involved.
+func TestLSPCommandDiscoveryReportsOwnedCommandsAndKinds(t *testing.T) {
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"lsp-command-ids"})
+  })
+  if code != 0 || stderr != "" {
+    t.Fatalf("lsp-command-ids mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  var commands []string
+  if err := json.Unmarshal([]byte(stdout), &commands); err != nil {
+    t.Fatalf("lsp-command-ids JSON: %v\n%s", err, stdout)
+  }
+  if got, want := commands, []string{
+    commandLintFixAll,
+    commandLintApplySuggestion,
+    commandFormatDocument,
+  }; !stringSlicesEqual(got, want) {
+    t.Fatalf("command ids mismatch: want %#v, got %#v", want, got)
+  }
+
+  code, stdout, stderr = captureCommandOutput(t, func() int {
+    return run([]string{"lsp-code-action-kinds"})
+  })
+  if code != 0 || stderr != "" {
+    t.Fatalf("lsp-code-action-kinds mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  var kinds []string
+  if err := json.Unmarshal([]byte(stdout), &kinds); err != nil {
+    t.Fatalf("lsp-code-action-kinds JSON: %v\n%s", err, stdout)
+  }
+  if got, want := kinds, []string{"quickfix.ttsc", "source.fixAll.ttsc", "source.format"}; !stringSlicesEqual(got, want) {
+    t.Fatalf("code action kinds mismatch: want %#v, got %#v", want, got)
+  }
+}
+
+func stringSlicesEqual(left []string, right []string) bool {
+  if len(left) != len(right) {
+    return false
+  }
+  for i := range left {
+    if left[i] != right[i] {
+      return false
+    }
+  }
+  return true
+}

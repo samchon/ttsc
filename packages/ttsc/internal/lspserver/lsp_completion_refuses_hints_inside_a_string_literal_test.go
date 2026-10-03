@@ -28,6 +28,11 @@ func (jsdocTagCompletionHintSource) CompletionHints() []LSPCompletionHint {
 //     JSDoc opener.
 //  2. Ask again at the same tag inside a real doc comment.
 //  3. Assert silence for the first and the published item for the second.
+//
+// @evidence contracts/testing.md#behavioral-verification Completion after '@par' inside a string literal that contains the JSDoc opener is silent, and the same tag in a real doc comment returns the published item.
+// @evidence contracts/testing.md#independent-expectations Silence and the single published item are literal expectations for the two literal documents.
+// @evidence contracts/testing.md#distinguishing-cases The string literal and the real block differ only in lexical scope, so a prefix-only scope decision fails the first.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionRefusesHintsInsideAStringLiteral is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionRefusesHintsInsideAStringLiteral(t *testing.T) {
   const literalURI = "file:///project/src/literal.ts"
   const blockURI = "file:///project/src/block.ts"

@@ -1,16 +1,12 @@
-// unicorn/prefer-negative-index: `arr.slice(arr.length - N)` is the
-// long-hand spelling of `arr.slice(-N)`. The subtraction repeats the
-// receiver, allocates an extra read, and obscures the intent. The same
-// idiom shows up across `slice`, `splice`, `toSpliced`, `at`, and
-// `lastIndexOf`; all five accept a negative index that means the same
-// thing the subtraction expresses, so the rule pushes authors there.
+// unicorn/prefer-negative-index prefers a tail-relative spelling for the first
+// index argument of slice/splice/toSpliced/at. The length must belong to the same
+// structural receiver; repeated calls are excluded. lastIndexOf's first argument
+// is a search value, so it is not an index candidate.
 //
-// AST-only: visit `KindCallExpression`. Fire when the callee is
-// `PropertyAccess(_, name)` for one of those five method names AND the
-// first argument is a `KindBinaryExpression` with operator `-`, LHS a
-// `PropertyAccess(_, length)`, and RHS a positive numeric literal.
-// Reports on the offending argument so the diagnostic anchors to the
-// expression the author would rewrite.
+// This is report-only style advice under ordinary built-in method semantics.
+// When N exceeds the receiver length, length - N and -N can select different
+// positions. Authors must check their intended bounds; the AST rule does not
+// establish array length or promise equivalent results for every positive N.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-negative-index.md
 package linthost
 
@@ -35,7 +31,7 @@ func (unicornPreferNegativeIndex) Check(ctx *Context, node *shimast.Node) {
     return
   }
   switch identifierText(access.Name()) {
-  case "slice", "splice", "toSpliced", "at", "lastIndexOf":
+  case "slice", "splice", "toSpliced", "at":
   default:
     return
   }
@@ -57,6 +53,9 @@ func (unicornPreferNegativeIndex) Check(ctx *Context, node *shimast.Node) {
   }
   prop := left.AsPropertyAccessExpression()
   if prop == nil || identifierText(prop.Name()) != "length" {
+    return
+  }
+  if !sameReferenceExpression(prop.Expression, access.Expression) {
     return
   }
   right := stripParens(bin.Right)

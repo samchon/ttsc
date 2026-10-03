@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc names the native printing API and flag provenance, following
  *   the documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscTypeInfo is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscTypeInfo is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscTypeInfo is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscTypeInfo {
   /** Printed type, equivalent to TypeScript's `TypeToString(t)`. */

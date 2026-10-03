@@ -9,8 +9,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
-// TestTransformSubcommandEmitsRelativeKeyedEnvelope guards regression #3 beyond
-// the single-file preamble case: a multi-source project must export *every*
+// TestTransformSubcommandEmitsRelativeKeyedEnvelope guards the keying of the
+// envelope beyond the single-file preamble case: a multi-source project must export *every*
 // in-project file under a cwd-relative slash key, and the returned typescript
 // map must be non-empty so the JS launcher never sees a "no output" envelope.
 //
@@ -29,6 +29,11 @@ import (
 //
 // No linked plugin is needed: the transform subcommand prints the project text
 // regardless, and that is exactly the path that must not collapse to empty.
+//
+// @evidence contracts/testing.md#behavioral-verification RunTransform exports every in-project file under a cwd-relative slash key, keeps the map non-empty, and keys a file outside the cwd by its slash-normalized absolute path.
+// @evidence contracts/testing.md#independent-expectations The expected keys are literals built from the authored layout (a.ts, b.ts and the parent ext.ts).
+// @evidence contracts/testing.md#distinguishing-cases In-project files and the outside-cwd file take different key forms, so a collapsed or '../' key fails.
+// @evidence contracts/testing.md#execution-ownership TestTransformSubcommandEmitsRelativeKeyedEnvelope is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformSubcommandEmitsRelativeKeyedEnvelope(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

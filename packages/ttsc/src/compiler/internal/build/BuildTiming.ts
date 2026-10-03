@@ -12,7 +12,7 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * either flag, phase recording and output appending are disabled. Ledger
  * creation still checks arguments and records the initial monotonic clock.
  *
- * @evidence contracts/common.md#principled-implementation The namespace groups monotonic per-build timing data and rendering operations; enabled state comes from effective compiler diagnostics flags.
+ * @evidence contracts/common.md#principled-implementation The namespace groups monotonic per-build timing data and rendering operations; enabled state comes from parsed diagnostics assignments in the forwarded, unexpanded argv frame.
  * @evidence contracts/common.md#clear-and-simple-design Ledger construction, phase recording and final stdout rendering share formatting while leaving phase selection to build orchestration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Timing uses the actual process clock and supported flags, with disabled-cost limitations documented instead of invented no-cost claims.
  * @evidence contracts/common.md#meaningful-documentation Namespace prose explains the compiler-visible versus host-only timing purpose and honestly distinguishes disabled recording from ledger creation.
@@ -20,6 +20,7 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace is an API grouping; its selected construction, recording and rendering functions own processing choices.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This namespace holds no shared computation or cache; each build owns its own ledger.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The grouping acquires no resource; mutable ledger lifetime belongs to its build and recording operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A namespace only groups the declarations inside it; each carries its own acknowledgments.
  */
 export namespace BuildTiming {
   /**
@@ -34,9 +35,10 @@ export namespace BuildTiming {
    * @evidenceExclude contracts/performance.md#efficient-algorithms This record describes timing data; recording and rendering functions select processing strategies.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The ledger does not decide reuse across requests; it belongs to one build.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The build owns ledger lifetime; the data type itself acquires no resource or retained history.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export type BuildTiming = {
-    /** An effective diagnostics flag enables collection and final rendering. */
+    /** A parsed enabled diagnostics assignment in the forwarded argv frame enables collection and final rendering. */
     enabled: boolean;
 
     /** Finished phase lines, in completion order, e.g. `plugin load: 0.12s`. */
@@ -48,17 +50,19 @@ export namespace BuildTiming {
 
   /**
    * Start a ledger for one build. Collection is enabled exactly when the
-   * forwarded arguments contain an enabled `--diagnostics` or
-   * `--extendedDiagnostics`, spelled however the compiler accepts it.
+   * forwarded, unexpanded argv frame contains a parsed enabled `--diagnostics`
+   * or `--extendedDiagnostics` assignment. Response-file/config assignments are
+   * not expanded by this selector.
    *
-   * @evidence contracts/common.md#principled-implementation Effective forwarded diagnostics flags determine collection, and a monotonic clock establishes the total-time origin even for disabled ledgers.
+   * @evidence contracts/common.md#principled-implementation Parsed diagnostics assignments in the unexpanded forwarded frame determine collection, and a monotonic clock establishes the total-time origin even for disabled ledgers.
    * @evidence contracts/common.md#clear-and-simple-design Construction returns a fresh three-field ledger while flag interpretation remains with PassthroughFlags.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Enabled state follows actual forwarded options; neither timing values nor flag behavior are patched for a measurement.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies selection flags and the per-build ownership of the returned ledger; the namespace documents disabled-operation costs honestly.
-   * @evidence contracts/performance.md#efficient-algorithms One argument scan and one monotonic clock read initialize the ledger; no timing output is prepared up front.
+   * @evidence contracts/performance.md#efficient-algorithms The delegated native-option projection scans arguments, including option-name/value and list-lookahead text costs, before one monotonic clock read initializes the ledger; no timing lines are prepared up front.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each build requires its own start time and mutable phase list, so separate builds cannot share this ledger.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Construction transfers a fresh ledger to the build owner without retaining it globally.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This ledger initialization uses parsed argv data and the supported monotonic clock; it owns no native path, file identity or process-launch boundary.
    */
   export function createBuildTiming(options: TtscCommonOptions): BuildTiming {
     return {
@@ -77,11 +81,12 @@ export namespace BuildTiming {
    * @evidence contracts/common.md#clear-and-simple-design One append operation owns phase-line formatting, leaving build orchestration to choose labels and start points.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Labels and measured durations come from the owning phase, with no predefined timing answers or substituted clock.
    * @evidence contracts/common.md#meaningful-documentation Native prose supplies timestamp premise, disabled behavior, ordering and rendered precision.
-   * @evidence contracts/performance.md#efficient-algorithms A disabled check exits immediately; enabled recording formats one scalar and appends one line without traversing earlier phases.
+   * @evidence contracts/performance.md#efficient-algorithms A disabled check exits immediately; enabled recording performs bigint elapsed-time conversion, scalar formatting and label-text construction, then appends one line without traversing earlier phases. Label bytes and bigint representation are inputs to that work.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A completed phase measurement is effectful and specific to its start time, not a reusable result across phases.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources The build-owned ledger retains one string per recorded phase until the build releases it; the configured phase population, not a historical cache, determines growth.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The implemented recorder formats monotonic duration data and supplied label text; it owns no native path, file identity or process boundary.
    */
   export function recordTiming(
     timing: BuildTiming,
@@ -101,10 +106,11 @@ export namespace BuildTiming {
    * @evidence contracts/common.md#clear-and-simple-design This final adapter changes only stdout and reuses formatting helpers without altering build status or diagnostic ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Timing is selected by the diagnostics ledger and actual clock, not benchmark-specific output or substituted build results.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state line placement and unchanged-result behavior for disabled collection.
-   * @evidence contracts/performance.md#efficient-algorithms One join constructs phase output, followed by one stdout append; work and temporary text scale with recorded/output bytes.
+   * @evidence contracts/performance.md#efficient-algorithms One phase-list copy and join construct output, followed by stdout concatenation and a shallow result-property copy. Work/storage follow phase count, label/stdout bytes and returned property population, including scalar total-time formatting.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The total depends on the current clock and output append point, so this operation establishes no cross-request reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output is returned to the caller and the adapter retains no ledger or native handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Formats elapsed time from process.hrtime values and appends text to stdout; it builds no path and calls no filesystem API.
    */
   export function appendTimingOutput(
     result: TtscBuildResult,

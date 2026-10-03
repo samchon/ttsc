@@ -9,11 +9,11 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
 
 /**
  * Read one config's root-file selection and `references`, reusing the memoized
- * entry while its resolved config graph and physical identities remain
- * unchanged.
+ * entry while its observed config graph and identity spellings remain
+ * unchanged. Failed realpath resolution can retain a lexical spelling.
  *
  * The stamp includes exact source content, the freshly resolved extends graph
- * and physical spelling. Metadata cannot detect same-stamp edits, and old
+ * and observed identity spelling. Metadata cannot detect same-stamp edits, and old
  * source paths alone cannot detect a package preset being installed or
  * redirected.
  *
@@ -39,25 +39,9 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Native resolve names the config and fresh graph reads observe real sources.
- *   Native realpath contributes physical spelling to validity, including link
- *   target changes, instead of assuming filename equality by OS case defaults.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Validation reads and hashes the current config graph rather than parsing
- *   every policy option again. A hit avoids policy extraction; a changed graph
- *   rereads once under the policy reader's transaction map. Exact bytes and
- *   fresh resolution are needed because metadata and old paths cannot prove it.
- *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   Delivered modules share a policy/reference entry only while a fresh extends
- *   graph, source contents and physical spelling match the proven stamp. Newly
- *   installed or redirected presets change that graph and force new extraction.
- *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   PROJECT_SELECTION_ENTRIES owns strong entries for distinct lexical configs
- *   throughout the process lifetime. There is no eviction or fixed byte bound;
- *   each entry retains a policy, reference list and stamp, not an open file handle.
- *
+ *   Native realpath contributes observed physical spelling to validity,
+ *   including link target changes; its lexical fallback on resolution failure
+ *   remains an unavailable-identity limitation, not a physical-name certificate.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Fresh graph stamps replace mtime/size and old-resolution guesses; a read
  *   is not made reusable merely because it resembles a cached answer.
@@ -65,6 +49,21 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain metadata and preset-resolution changes, unproven
  *   first reads and the non-atomic observation limit, with reasons for memo states.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   PROJECT_SELECTION_ENTRIES owns strong entries for distinct lexical configs
+ *   throughout the process lifetime. There is no eviction or fixed byte bound;
+ *   each entry retains a policy, reference list and stamp, not an open file handle.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A hit freshly traverses, reads, sorts and hashes the config graph, including
+ *   native resolution and source/path bytes, while avoiding policy extraction.
+ *   A miss adds the policy reader's locally shared parsing, a separate reference
+ *   read and another graph stamp; these phases do not share one transaction.
+ *   sameFiles also compares the ordered source list. Exact current bytes and
+ *   fresh resolution are needed because metadata and old paths cannot prove it.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Delivered modules share a policy/reference entry only while a fresh extends
+ *   graph, source contents and observed identity spelling match the proven stamp. Newly
+ *   installed or redirected presets change that graph and force new extraction.
  */
 export function readProjectSelectionEntry(tsconfig: string): {
   policy: ReturnType<typeof readProjectMembershipPolicy>;

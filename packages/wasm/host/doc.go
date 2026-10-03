@@ -19,7 +19,8 @@
 //  }
 //
 // Expose binds `globalThis[name]` to an object that exposes ttsc's base
-// project commands (build, check, transform, version) plus
+// project commands (build, check, transform, version), the retained-program
+// queries (snapshot and the get* verbs), `plugins()`, and
 // `plugin({ name, command, ...opts })`, which routes into a Plugin's
 // CLI-shaped Run callback. Every async endpoint returns the JS result envelope;
 // build/check/transform place JSON payloads in `result`, while plugin output

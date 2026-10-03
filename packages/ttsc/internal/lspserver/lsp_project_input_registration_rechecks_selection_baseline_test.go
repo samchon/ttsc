@@ -33,6 +33,11 @@ func (s *driftingProjectInputRegistrationSource) ProjectInputReloadFingerprintsA
 //  2. Leave the client registration request pending.
 //  3. Mark the selection baseline stale before accepting registration.
 //  4. Prove the proxy notifies the client and requests an expected restart.
+//
+// @evidence contracts/testing.md#behavioral-verification After the client confirms registration a stale selection baseline makes the proxy notify the client and request an expected restart.
+// @evidence contracts/testing.md#independent-expectations The notification and restart request are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases A baseline made stale during the pending interval is the case constructor validation misses.
+// @evidence contracts/testing.md#execution-ownership TestProjectInputRegistrationRechecksSelectionBaseline is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestProjectInputRegistrationRechecksSelectionBaseline(t *testing.T) {
   root := t.TempDir()
   source := &driftingProjectInputRegistrationSource{

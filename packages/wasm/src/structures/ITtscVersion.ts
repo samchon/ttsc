@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Members distinguish release metadata from Go runtime/target identity,
  *   following the documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscVersion is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscVersion is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscVersion is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscVersion {
   /** Linker-supplied release version, or the development placeholder. */
@@ -21,7 +24,10 @@ export interface ITtscVersion {
   /** Linker-supplied source revision, or the development placeholder. */
   commit: string;
 
-  /** Linker-supplied build date, or unknown for an unannotated build. */
+  /**
+   * Linker-supplied date, or unknown for an unannotated build. The base binary
+   * stamps the date of its source commit rather than the time it was built.
+   */
   date: string;
 
   /** Go runtime's toolchain version. */

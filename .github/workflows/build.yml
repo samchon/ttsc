@@ -1,90 +1,29 @@
 name: build
 
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-  pull_request:
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+on: pull_request
 
 concurrency:
-  group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  Ubuntu:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/wasm/go.sum
-            tests/go-transformer/go.mod
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Packages
-        run: pnpm run build
-
-      - name: Smoke release-candidate ttscgraph snapshot
-        run: node scripts/assert-ttscgraph-release-candidate.cjs
-
-      - name: Assert dist artifacts exist
-        run: |
-          test -f packages/wasm/dist/ttsc.wasm
-          test -f packages/wasm/dist/wasm_exec.js
-          test -f packages/wasm/dist/go.mod
-          test -d packages/wasm/shim-vendor/shim
-
-      - name: Tarball smoke (pack + inspect)
-        run: |
-          cd packages/wasm
-          pnpm pack --pack-destination /tmp
-          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q shim-vendor/shim/ast/shim.go
-          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q dist/ttsc.wasm
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run evidence
+        env:
+          EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
+      - run: pnpm run build

@@ -47,7 +47,7 @@ The empty pull request prevents overlapping contributor work before code is writ
 
 ## Implement And Write Tests
 
-Work through the DAG on the claimed topic branch. Map the full consequence and case surface across every issue through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis) before editing, then implement the complete cycle and its tests.
+Work through the DAG on the claimed topic branch. Map the full consequence and case surface across every issue through the development skill's [consequence analysis](../development/implementation.md#consequence-analysis) before editing, then implement the complete cycle and its tests.
 
 Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI gates the integrated head](#validate-with-ci-and-overall-self-review), not each commit.
 
@@ -61,7 +61,7 @@ Record each Individual Self-Review as one formal GitHub pull-request review with
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
-Follow the development skill for test shape and narrow-then-broad local evidence. Do not treat a local build or test result as a substitute for the pull request's ordinary CI acceptance gate. [Validation](#validate-with-ci-and-overall-self-review) owns the cycle's formatting pass.
+Follow the development skill for test shape and narrow-then-broad local evidence. Do not treat a local build or test result as a substitute for the pull request's ordinary CI acceptance gate. Apply its [final formatting](../development/implementation.md#final-formatting) at the cycle's final merge preparation.
 
 If implementation disproves, narrows, or externally blocks an issue, reopen the evidence and update the issue and campaign ledger before changing the claimed scope. Do not leave an orphan issue or pretend an unresolved accepted issue was completed.
 
@@ -81,7 +81,7 @@ CI and review are independent gates:
 When either gate produces defects, apply one correction for the whole set:
 
 1. Collect every finding of the complete Overall Self-Review round and every failed check of the settled head.
-2. Map the whole set through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis).
+2. Map the whole set through the development skill's [consequence analysis](../development/implementation.md#consequence-analysis).
 3. Correct the source and complete the regression coverage for every case in the resulting case matrix.
 4. Commit and push the correction to the same pull request.
 5. Perform and record the Individual Self-Review of that correction commit.
@@ -89,7 +89,7 @@ When either gate produces defects, apply one correction for the whole set:
 
 Fix every failed check in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
 
-After all known non-format implementation, CI, and review corrections, run `pnpm format` once for the final merge candidate. Commit and push its output, then collect every required check and complete a fresh Overall Self-Review on that head. If that validation finds another defect, correct it without a second `pnpm format` invocation and let CI's format check verify the correction.
+Follow [final formatting](../development/implementation.md#final-formatting) after the implementation and correction loop settles. Collect every required check and complete a fresh Overall Self-Review on the resulting head, including a formatting commit's Individual Self-Review when one was created.
 
 Do not merge a head whose green checks belong to an older SHA, whose clean Overall Self-Review predates a correction, or whose required Individual Self-Review result remains unrecorded. Continue the loop until the same immutable head has green required checks and a complete Overall Self-Review round with no sound improvement.
 

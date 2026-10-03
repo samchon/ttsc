@@ -21,6 +21,9 @@ import type { ITtscResult } from "./structures/ITtscResult";
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate JSDoc paragraphs explain the boundary and failure/schema limits,
  *   following the documentation skill's guidance to give each paragraph one role.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources parseResult retains nothing; the decoded value transfers to the caller.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms parseResult delegates to JSON.parse, linear in the string length, and chooses no algorithm of its own.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work parseResult decodes one string per call and coordinates no repeated or concurrent requests.
  */
 export function parseResult<T>(result: ITtscResult): T | null {
   if (!result.result) return null;

@@ -22,8 +22,9 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  * macOS, each registration's watches are streams of their own, started before
  * the child reports ready, and a dropped event reaches the sink as a gap
  * (samchon/ttsc#1425). A stream that can be probed reports ready only once its
- * opening probe came back through it, so nothing it delivers afterwards
- * predates that moment (samchon/ttsc#1454).
+ * opening probe came back through it; the child suppresses ordinary callbacks
+ * received before that probe. This is its backend protocol, not a guarantee
+ * that every native mutation has a distinct or timely event.
  *
  * The one registration path of the broker. A generation's tracker registers
  * through it with a sink that records witnesses (`brokeredTrackerSink`), and an
@@ -42,13 +43,16 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  *   may write probes that prove a location's stream delivered
  *   (samchon/ttsc#1453). A location outside it cannot be proven that way.
  * @param options.sink Where the registration's messages go.
- * @returns `ready`, which resolves once the watches hear, or once they are
- *   given up as unable to (the sink is then told they failed); `close`, which
+ * @returns `ready`, which ends the opening wait on acknowledgment, failed
+ *   timeout or explicit closure without itself certifying success; `close`, which
  *   removes the registration and retires the broker after its last one, and
  *   throws the first cleanup failure; and `drain`, the broker's barrier.
+ *
  * @evidence contracts/common.md#principled-implementation
- *   Canonical opening paths map back to owner spellings; readiness and native
- *   probes establish coverage while failure remains a sink verdict.
+ *   Opening paths map back to caller spellings, using native realpath or lexical
+ *   fallback; duplicate resolved directories keep the last caller spelling.
+ *   Readiness completes a wait, while native probe/failure authority stays with
+ *   the child and sink rather than being certified by Promise resolution.
  * @evidence contracts/common.md#clear-and-simple-design
  *   This single registration path serves trackers and forwarding observers;
  *   child routing and owner event interpretation remain separate.
@@ -59,19 +63,31 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  *   Native paragraphs, parameters and return comments explain isolation, probe
  *   eligibility, deadlines and cleanup failures under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral ownership uses filesystem realpaths and an explicit spelling map;
- *   optional IPC ref methods support runtimes without mutating their channel API.
+ *   Supplied realpath or native absolute fallback represents directories to the
+ *   child; callers must describe the same native view that child watches.
+ *   Fallback spelling is not physical proof. Optional IPC ref methods support
+ *   compatible runtimes without mutating their channel API.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Preparing n locations takes one pass and O(n) normalized records; routing
- *   uses registration maps instead of matching all consumers' path strings.
+ *   N locations are mapped with native realpath/fallback, spelling text and
+ *   optional root/probe eligibility work; repeated probe roots still resolve
+ *   before namespace memo lookup. Cold namespaces create cache parents and
+ *   sweep their entries/subtrees. Normalized locations/spelling maps and IPC
+ *   encoding grow with locations/names/text, while child startup and actual
+ *   backend watcher/probe work remain delegated costs.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   A process-wide broker serves independent sinks; prepared project probe
- *   directories share one process-owned namespace and drain sharing respects scope.
+ *   This loaded adapter's broker serves independent sinks. Exact lexical probe
+ *   roots share prepared namespace addresses, not proof of continued access or
+ *   successful native opening. Backend proof remains current, and drain sharing
+ *   uses each request's covered scope rather than registration existence alone.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The handle owns one registration and readiness timer; close removes it and
- *   the last owner disconnects and kills the broker, attempting all cleanup.
- *   Prepared probe namespaces remain until process exit and grow with distinct
- *   historical project-root spellings; no hard population cap currently exists.
+ *   A returned handle owns a registration/ready wait; completed acknowledgment,
+ *   timeout or close permits finally to clear the timer and pending reference.
+ *   Close removes registration then attempts send/disconnect/kill independently,
+ *   without certifying child exit. Synchronous setup/native or sink exceptions
+ *   can interrupt before a handle or settlement is returned; no rollback or
+ *   caller cancellation deadline is provided here. Namespace addresses persist
+ *   by distinct historical lexical roots until exit cleanup is attempted, with
+ *   no count/byte cap or guarantee under failed/abrupt native cleanup.
  */
 export function openBrokeredWatch(
   locations: readonly WatchBrokerLocation[],

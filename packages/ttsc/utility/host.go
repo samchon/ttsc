@@ -57,7 +57,7 @@ type hostOptions struct {
 // so cache layers can register every file whose content can influence a
 // transformed module without per-plugin reporting. SourceMaps carries, keyed
 // like TypeScript, a version 3 source map from each printed file whose text
-// differs from its source back to that source (samchon/ttsc#1392).
+// differs from its source back to that source.
 type transformResult struct {
   // Dependencies and DependenciesComplete carry what the linked plugins
   // declared about their own contribution to each file; the host prints the
@@ -112,18 +112,21 @@ func RunCheck(args []string) int {
 // Requested metadata publication failure adds a diagnostic and changes an
 // otherwise successful check to status 3; an existing check failure is retained.
 //
-// Requested metadata belongs to this exact check generation and is published on
-// both successful and failed checks. A missing generation is explicitly
-// incomplete. Input authority does not erase the command's status or diagnostics.
+// After successful flag admission, requested metadata is attempted on both
+// successful and failed checks and belongs to that check generation. A missing
+// generation is explicitly incomplete; rejected flag admission installs no
+// publication defer. Input authority does not erase status or diagnostics.
+// Callers own the metadata artifact's removal and supplied-stream lifetime.
+// Diagnostic/report writes are best-effort and are not delivery receipts.
 //
 // @evidence contracts/common.md#principled-implementation A no-emit generation validates linked configuration and hook failures; requested observation metadata comes from that generation even on diagnostics, and missing generation authority is explicitly incomplete.
 // @evidence contracts/common.md#clear-and-simple-design Parse, load, and apply are ordered phases with one deferred Program close.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A failed load or hook returns failure instead of manufacturing an empty successful program.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs identify caller-owned streams, failure statuses and the private observation artifact's generation and diagnostic meaning following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish flag admission from deferred metadata publication, describe statuses and missing-generation meaning, and state artifact/stream ownership and best-effort reporting.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd and config paths flow through driver loading; streams remain invocation-owned without globally swapping standard descriptors.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Compiler loading and plugin application owners select their algorithms; this entry orders those operations.
+// @evidence contracts/performance.md#efficient-algorithms One admitted invocation loads and diagnoses a no-emit program and applies its linked hooks; argument/manifest parsing and delegated native project work depend on reached inputs. Optional publication collects that generation's host observations and encodes/writes their JSON, adding input/path/hash bytes and reporting costs; orchestration is not fixed work merely because it calls each phase once.
 // @evidence contracts/performance.md#reuse-equivalent-work The loaded generation's latched hooks are used once instead of loading separate check and plugin programs.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One deferred owner publishes requested observations before closing the acquired Program on successful checks, compiler diagnostics or hook failure; no generation is retained after return.
+// @evidence contracts/performance.md#bound-retention-and-release-resources After flag admission one defer attempts requested observations before returning an acquired Program's checker lease on success, diagnostics or hook failure. Program graphs and temporary observation/JSON state lose local ownership after return; Close is not immediate destruction of all memory. Supplied streams and any written private artifact remain caller-owned, without an invocation-enforced byte cap.
 func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   opts, ok := parseHostOptions("check", args, stdout, stderr)
   if !ok {
@@ -159,12 +162,14 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   return 0
 }
 
-// RunBuild hosts linked transform packages inside one compiler emit.
+// RunBuild uses the linked-program build phases with process output streams.
+// The delegated operation invokes raw emit once on its emission path and
+// returns without emission for an admitted analysis-only invocation.
 //
 // @evidence contracts/common.md#principled-implementation Process-stream build delegates to the same linked-program emission owner as embedding callers.
 // @evidence contracts/common.md#clear-and-simple-design One delegation supplies the standard streams without duplicating build policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper adds no package-name or fixture-specific build path.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies one compiler emit following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies process streams and distinguishes the delegated single-emit path from analysis-only completion.
 // @evidence contracts/portability.md#os-neutral-implementation Standard streams come from os; the delegated build owns native project paths and writes.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The delegated build owns emit orchestration.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper owns no shared-work coordinator.
@@ -182,15 +187,18 @@ func RunBuild(args []string) int {
 // diagnostics. Analysis-only success writes an empty map. The original build
 // status remains authoritative; absent or invalid metadata supplies no ownership
 // proof. Callers own the artifact's removal.
+// Program.Close returns its checker lease; it does not remove emitted files or
+// private metadata. Summary and diagnostic stream writes are best-effort here,
+// so a zero status does not certify delivery to the supplied io.Writer values.
 //
 // @evidence contracts/common.md#principled-implementation Completed emission publishes the same generation's successful writer ownership even when another output failed; original emit diagnostics retain status two, failed metadata alone returns three, and successful noEmit publishes an empty map.
 // @evidence contracts/common.md#clear-and-simple-design One loaded program, one raw native emit, and shared diagnostic classification define the build phases.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
-// @evidence contracts/performance.md#efficient-algorithms The existing loaded program is emitted once, with native parallel work and serialized output callback ownership preserved.
+// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. The emission path invokes raw emit once, including linked hooks, input-dependent native generation and serialized writer/preamble-map work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
 // @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
-// @evidence contracts/performance.md#bound-retention-and-release-resources A deferred close releases the Program checker lease on noEmit, success, or emit failure; temporary write callbacks are invocation-owned.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
@@ -271,15 +279,20 @@ func RunTransform(args []string) int {
 // Failed projects retain diagnostics and recovery inputs but publish no partial
 // TypeScript. Encoding or response-write failure returns 3; project failure
 // returns 2.
+// Recovery envelopes require a loaded generation; flag admission or load failure
+// returns before response construction. A loaded generation's graph is captured
+// before linked program hooks mutate its ASTs. Diagnostic stream reporting is
+// best-effort; response encoding and returned write errors determine delivery
+// status. Callers own the supplied stream lifetimes.
 //
-// @evidence contracts/common.md#principled-implementation The original compiler graph is observed before AST mutation, failed transforms retain recovery inputs without partial output, and response encoding/write failures cannot report successful delivery.
+// @evidence contracts/common.md#principled-implementation After admission and loading, the current generation's graph is observed before linked program hooks mutate its ASTs; returned project diagnostics or hook failure leave TypeScript empty while preserving available recovery inputs. Response encoding or returned write errors cannot report successful delivery.
 // @evidence contracts/common.md#clear-and-simple-design Loading, pre-mutation graph capture, syntactic printing, and envelope encoding are distinct ordered phases.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Maps are omitted when exact correction fails; partial mutations are not published as successful TypeScript and missing dependencies are not guessed.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stream ownership, recovery output, and response failure status following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation All envelope sections share TransformOutputKey, actual compiler case policy, and native observed inputs; invocation streams need no global descriptor mutation.
-// @evidence contracts/performance.md#efficient-algorithms Each resident source is printed once, graph collection keeps direct adjacency, and final JSON is encoded once rather than per-file envelopes.
+// @evidence contracts/portability.md#os-neutral-implementation TypeScript, source-map, dependency and graph coordinates use their shared cwd-relative/absolute-fallback TransformOutputKey presentation; reported host-input hashes and realpaths retain their separate native path identities. Native compiler/observer owners supply case and filesystem semantics rather than one universal key policy for every envelope field; supplied streams require no global descriptor replacement.
+// @evidence contracts/performance.md#efficient-algorithms Admission/loading, pre-hook graph construction and linked mutation precede one text/map print per resident source on success. Costs include native resolution/proof collection and sorting, printer trivia/handlers, mapping/JSON serialization and authored-region correction, contributor/dependency aggregation, host-observation copies and diagnostic conversion. One final envelope encoding still adds output-sized bytes/string storage and stream work; neither a single encode nor direct adjacency bounds the whole invocation to one cheap pass.
 // @evidence contracts/performance.md#reuse-equivalent-work One compiler generation supplies original observations, transformed ASTs, host inputs, and latched plugin declarations, preserving their shared producer identity.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Program ownership closes on every exit after loading; graph, source text, and encoding buffers are local to one response.
+// @evidence contracts/performance.md#bound-retention-and-release-resources A loaded Program's checker lease is returned by defer on response success and failure. Recovery graph/proof maps, transformed strings, corrected maps and JSON bytes can overlap until local references leave scope; Close does not immediately destroy all Program or observer state. Caller streams can retain delivered output, and this response path enforces no source, graph or output-byte cap.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("transform", args, stdout, stderr)
   if !ok {

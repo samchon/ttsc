@@ -15,11 +15,11 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and crypto APIs inspect the actual candidate; no fixture identity, foreign mutation or metadata-only shortcut substitutes for content.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains absolute-path scope, failure meaning, hash freshness and the remaining concurrent-mutation limitation, with separate prose and tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node native realpath and bigint stat preserve link/target identity on supported hosts; absolute paths use native platform semantics, and unreadable or non-regular targets cannot be reused.
- * @evidence contracts/performance.md#efficient-algorithms A sequential read hashes B bytes in O(B) time with one 64 KiB buffer; stat comparisons use fixed-size metadata and no complete executable allocation.
+ * @evidence contracts/performance.md#efficient-algorithms A sequential read hashes B bytes with one 64 KiB buffer instead of a complete executable allocation. Native path/realpath/stat observations and serialized physical spelling/metadata add text/lookup costs; B and spelling lengths have no quota here. Returned identity storage includes the physical path as well as the fixed-length digest.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation establishes whether later work is equivalent; retaining a digest by metadata would reproduce the stale-byte defect it must prevent.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally closes the descriptor on every read or observation failure, and only the fixed-size identity escapes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally attempts closure after read/observation failures as well as success. A close failure returns no identity but cannot confirm native release. Returned path/metadata/digest text transfers to the caller and no helper history survives.
  */
 export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;

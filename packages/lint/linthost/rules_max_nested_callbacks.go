@@ -5,13 +5,16 @@
 // mirrors as the only built-in threshold (option-decoding is deferred).
 // https://eslint.org/docs/latest/rules/max-nested-callbacks
 //
-// A "callback" here is any function-expression or arrow-function node;
-// named FunctionDeclarations are excluded from the count because the
-// rule targets the anonymous-function nesting shape that produces
-// callback hell, matching ESLint's behavior. Depth counts the current
-// node plus every callback ancestor up to the enclosing source file;
-// FunctionDeclaration boundaries are transparent because ESLint never
-// pushes or pops the stack on them.
+// A "callback" here is a function-expression or arrow-function node
+// that is an operand of a call expression, as an argument or as the
+// callee of an immediately invoked function, looking through
+// parentheses. A function assigned to a variable, returned, or stored
+// in an object is not a callback and neither counts nor reports,
+// matching ESLint, which pushes its stack only when the function's
+// parent is a CallExpression. Depth counts the current callback plus
+// every callback ancestor up to the enclosing source file;
+// FunctionDeclaration, method and non-callback function boundaries are
+// transparent.
 package linthost
 
 import (
@@ -38,22 +41,35 @@ func (maxNestedCallbacks) Check(ctx *Context, node *shimast.Node) {
   if node == nil {
     return
   }
+  if !isCallbackFunction(node) {
+    return
+  }
   // Count this callback plus every callback ancestor up to the
-  // SourceFile. Only ArrowFunction and FunctionExpression
-  // contribute; FunctionDeclaration, methods, and accessors are
-  // transparent because ESLint never pushes or pops its callback
-  // stack on those node kinds.
+  // SourceFile. Functions that are not call operands, declarations,
+  // methods, and accessors are transparent.
   depth := 1
   for cur := node.Parent; cur != nil; cur = cur.Parent {
     switch cur.Kind {
     case shimast.KindArrowFunction, shimast.KindFunctionExpression:
-      depth++
+      if isCallbackFunction(cur) {
+        depth++
+      }
     }
   }
   if depth <= maxNestedCallbacksLimit {
     return
   }
   ctx.Report(node, fmt.Sprintf("Too many nested callbacks (%d). Maximum allowed is %d.", depth, maxNestedCallbacksLimit))
+}
+
+// isCallbackFunction reports whether the function node is an argument or
+// the callee of a call expression, looking through parentheses.
+func isCallbackFunction(fn *shimast.Node) bool {
+  parent := fn.Parent
+  for parent != nil && parent.Kind == shimast.KindParenthesizedExpression {
+    parent = parent.Parent
+  }
+  return parent != nil && parent.Kind == shimast.KindCallExpression
 }
 
 func init() {

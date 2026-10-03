@@ -18,6 +18,11 @@ import (
 //  3. Assert literals are escaped while portable wildcard segments survive.
 //  4. Assert reload-directory identity and immediate-child patterns both exist.
 //  5. Assert drive and UNC file URIs preserve their authority and escaping.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact paths and glob populations become deduplicated deterministic RelativePatterns with literal metacharacters escaped, wildcard segments preserved, reload-directory identity and child patterns both present, and drive and UNC URIs keeping authority and escaping.
+// @evidence contracts/testing.md#independent-expectations The expected patterns are literal strings.
+// @evidence contracts/testing.md#distinguishing-cases Duplicate files, portable globs and a reload directory produce different pattern shapes.
+// @evidence contracts/testing.md#execution-ownership TestProjectInputRegistrationShapesRelativePatterns is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
   root := t.TempDir()
   exact := filepath.Join(

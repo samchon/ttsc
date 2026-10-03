@@ -19,9 +19,15 @@ import (
 // 1. Build a fake sidecar with valid discovery verbs.
 // 2. Have `lsp-code-actions` write large stderr and exit non-zero.
 // 3. Assert no actions are returned and the log is truncated.
+//
+// @evidence contracts/testing.md#behavioral-verification A failing fixture writes 2 MiB stderr; CodeActions returns no actions, logs stderr truncated and stays below 1 MiB plus diagnostic overhead.
+// @evidence contracts/testing.md#independent-expectations The documented stderr cap and deliberate nonzero fixture exit provide independent failure expectations.
+// @evidence contracts/testing.md#distinguishing-cases Large stderr on failure differs from oversized successful stdout and exact-capacity valid JSON.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceTruncatesFailureStderr is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceTruncatesFailureStderr(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceOversizedStderrSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceOversizedStderrSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -38,6 +44,7 @@ func TestLSPNativePluginSourceTruncatesFailureStderr(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); len(actions) != 0 {
     t.Fatalf("stderr-failing sidecar returned actions: %#v", actions)
   }

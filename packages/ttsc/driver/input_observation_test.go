@@ -10,6 +10,11 @@ import (
   "testing"
 )
 
+//
+// @evidence contracts/testing.md#behavioral-verification The observing filesystem fails the proof with inputProofContentChanged after a file read as A is changed to B and then restored to A.
+// @evidence contracts/testing.md#independent-expectations The three contents A, B and A and the expected failure constant are written literally.
+// @evidence contracts/testing.md#distinguishing-cases A-B-A is the case a final-state comparison would accept; the second read of B makes the observation fail even though the bytes match again.
+// @evidence contracts/testing.md#execution-ownership TestInputObservationFSRejectsRestoredContent is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestInputObservationFSRejectsRestoredContent(t *testing.T) {
   root := t.TempDir()
   file := filepath.Join(root, "external.d.ts")
@@ -34,6 +39,11 @@ func TestInputObservationFSRejectsRestoredContent(t *testing.T) {
   }
 }
 
+//
+// @evidence contracts/testing.md#behavioral-verification The proof reports the SHA-256 of the bytes the compiler read, a realpath for the read file, an existence-only failure for an unread file and an observed-missing state for an absent candidate.
+// @evidence contracts/testing.md#independent-expectations The expected digest is computed independently from the literal file contents with crypto/sha256.
+// @evidence contracts/testing.md#distinguishing-cases An existence-only check, a read and a missing candidate are three distinct states with different proof outcomes.
+// @evidence contracts/testing.md#execution-ownership TestInputObservationFSProvesReadBytesAndMissingCandidates is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   root := t.TempDir()
   file := filepath.Join(root, "selected.ts")
@@ -75,6 +85,11 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   }
 }
 
+//
+// @evidence contracts/testing.md#behavioral-verification The observing filesystem keeps file and directory predicates independent, rejects every repeated predicate change, rejects impossible predicate sets and reports observed candidate failures and rich speculative proofs through the transform graph.
+// @evidence contracts/testing.md#independent-expectations Each subtest builds its own literal predicate observations and expected proof outcomes.
+// @evidence contracts/testing.md#distinguishing-cases The five named subtests cover compatible and conflicting predicate sets and graph-level reporting, so one decision difference fails one subtest.
+// @evidence contracts/testing.md#execution-ownership TestInputObservationFSPreservesPredicateSemantics is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestInputObservationFSPreservesPredicateSemantics(t *testing.T) {
   t.Run("compatible-file-and-directory-predicates", testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent)
   t.Run("every-repeated-predicate-change", testInputObservationFSRejectsEveryRepeatedPredicateChange)
@@ -278,6 +293,11 @@ func stringPointer(value string) *string {
   return &value
 }
 
+//
+// @evidence contracts/testing.md#behavioral-verification The proof hash covers the BOM-stripped text the compiler decoded rather than the raw bytes on disk.
+// @evidence contracts/testing.md#independent-expectations The expected digest is computed from the literal decoded text, and the file is written with an explicit UTF-8 BOM.
+// @evidence contracts/testing.md#distinguishing-cases A BOM-prefixed file distinguishes hashing the decoded text from hashing the raw bytes.
+// @evidence contracts/testing.md#execution-ownership TestInputObservationFSHashesCompilerDecodedText is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
   root := t.TempDir()
   file := filepath.Join(root, "bom.ts")
@@ -298,6 +318,11 @@ func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
   }
 }
 
+//
+// @evidence contracts/testing.md#behavioral-verification A probe through a lexical directory alias joins the physical read of the selected file so the proof reports the physical path.
+// @evidence contracts/testing.md#independent-expectations The expected physical path and bytes come from the test's own directory layout and literal file contents.
+// @evidence contracts/testing.md#distinguishing-cases The alias spelling and the physical spelling differ, so a proof keyed on the lexical path alone fails.
+// @evidence contracts/testing.md#execution-ownership TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead(t *testing.T) {
   root := t.TempDir()
   target := filepath.Join(root, "target")

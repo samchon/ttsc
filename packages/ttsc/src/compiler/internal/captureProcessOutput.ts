@@ -11,8 +11,11 @@ import type { CapturedProcessOutput } from "./CapturedProcessOutput";
  * exit still allocates complete output and is subject to filesystem, Buffer and
  * string limits; file capture does not make output unbounded.
  *
- * The directory is per-call, so two concurrent spawns cannot read each other's
- * bytes. Acquisition failures release resources already obtained. The caller
+ * The directory is per-call, so ordinary concurrent captures use separate
+ * destinations. This is not held-directory protection against namespace mutation.
+ * Descriptor acquisition failures attempt rollback; cleanup failures
+ * are suppressed, and the temp creator can leave an unclaimed postflight
+ * allocation. The caller
  * owns the returned capture and must dispose it after reading; read failures
  * propagate, while disposal is idempotent and cleanup is best effort.
  *
@@ -21,11 +24,11 @@ import type { CapturedProcessOutput } from "./CapturedProcessOutput";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling.
  * @evidence contracts/common.md#meaningful-documentation Separate purpose, limits and ownership paragraphs follow the documentation skill and explain actual failure effects rather than claiming unlimited output.
  * @evidence contracts/portability.md#os-neutral-implementation Canonical temporary-directory ownership and path.join represent native paths; Node manages native descriptors. Removal remains best effort because inherited Windows handles may keep files live.
- * @evidence contracts/performance.md#efficient-algorithms Acquisition performs constant filesystem work for two streams; reading B bytes costs O(B) time and storage without repeatedly copying a growing piped buffer in this process.
+ * @evidence contracts/performance.md#efficient-algorithms Two streams require a fixed number of filesystem calls, including delegated canonical-parent/child observations and native creation/open work. Parent/path text and native lookup are not constant-cost; reading B bytes and optional decoding allocate complete raw/output text in O(B) storage. No output-byte quota is imposed by this capture owner.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each child requires independent effectful output destinations; sharing prior captures would mix bytes and ownership rather than reuse equivalent work.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One directory and two descriptors belong to the capture until disposal. Acquisition rolls back earlier resources, and disposal closes once. File bytes grow with child output without a product ceiling; failed removal may leave temporary files.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One accepted directory and two descriptors transfer to the capture until disposal. Acquisition rollback/disposal attempt close/removal; errors are suppressed, so closure and file reclamation can remain unconfirmed. Disposal marks itself consumed before cleanup and does not retry; caller-reachable capture closures retain path/state references until discarded. Output bytes are uncapped here.
  */
 export function captureProcessOutput(): CapturedProcessOutput {
   const directory = createCanonicalTempDirectory("ttsc-spawn-");
@@ -43,7 +46,7 @@ export function captureProcessOutput(): CapturedProcessOutput {
     stderrFd = fs.openSync(stderrPath, "w+");
   } catch (error) {
     // The first descriptor and the directory are already live. Nothing else
-    // will ever hold them, so they are released here rather than left for a
+    // will receive a disposer, so cleanup is attempted here rather than left for a
     // caller that never received a handle to dispose.
     closeQuietly(stdoutFd);
     removeQuietly(directory);

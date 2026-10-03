@@ -33,7 +33,14 @@ export interface IPlaygroundDependencyInstallOptions {
   /** Package names to never install (preinstalled / built-in). */
   ignoredPackages?: Iterable<string>;
 
-  /** Safety cap: error out after installing this many packages. */
+  /**
+   * Maximum distinct package names completed in one install call (default: 48).
+   *
+   * Must be a nonnegative safe integer. Mounted packages revalidated and
+   * optional packages omitted count toward the cap; unrequested mounted state
+   * does not. Zero allows only calls with no queued packages. Invalid values
+   * reject before input iteration, progress callbacks or network requests.
+   */
   maxPackages?: number;
 
   /**

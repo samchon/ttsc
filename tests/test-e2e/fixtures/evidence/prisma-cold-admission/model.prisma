@@ -1,0 +1,3 @@
+model target {
+  id String @id
+}

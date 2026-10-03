@@ -22,8 +22,9 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  * (`createRollupCachedModuleProof`), and a host that restores nothing proves
  * none.
  *
- * It costs one proof per record, paid once per build start instead of once per
- * module. A tool directory with no records costs one failed listing.
+ * Each call enumerates the directory and refreshes each `.json` name once;
+ * host owners invoke it at their restore/start boundaries. An absent directory
+ * costs a failed listing, while an existing empty one returns an empty listing.
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param bridge The watching session's bridge, when the host has one.
@@ -42,8 +43,16 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  *   Native paragraphs explain complete inventory and per-build proof cost,
  *   with parameter/tag separation following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native host-directory enumeration selects persisted record files, while each delegated project proof receives the supplied filesystem view; absent or inaccessible record directories provide no restore inventory.
- * @evidence contracts/performance.md#efficient-algorithms One O(R) directory pass visits each record once and delegates its input-dependent proof; the full inventory is necessary because opaque host caches can restore projects beyond current options.
- * @evidence contracts/performance.md#reuse-equivalent-work Build-start restoration proves each persisted project once before host cache validation instead of repeating that proof for every restored module; the bridge takes over ongoing observation when present.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Native listing allocates N directory names; suffix tests scan their text
+ *   and selected .json names pay path joins and delegated record parse/replay,
+ *   clock/input/observer/walk/digest costs. The inventory includes non-record
+ *   entries and has no per-directory entry cap; opaque host caches require all
+ *   selected record names rather than only the current options' project.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Host restore/start owners coordinate project-granularity refresh rather
+ *   than per-module replay. This inventory has no cross-call verdict memo;
+ *   the supplied bridge owns later qualified observer sharing.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This synchronous inventory retains only a call-local name array; the bridge and per-record refresh own transferred registrations and record deletion.
  */
 export function refreshProjectRecordFiles(

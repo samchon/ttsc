@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentPluginDiagnostics verifies plugin
+// TestLSPProxySuppressesDirtyDocumentPluginDiagnostics Verifies plugin
 // diagnostics do not run against unsaved editor buffers.
 //
 // Native plugin sidecars currently reload files from disk. After a didChange,
@@ -22,6 +22,11 @@ import (
 // 2. Mark the document dirty with didChange.
 // 3. Publish upstream diagnostics for the dirty version.
 // 4. Assert no plugin follow-up frame is sent.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run clears saved findings at dirty version 2 then forwards upstream-only output without a follow-up in 150ms.
+// @evidence contracts/testing.md#independent-expectations Explicit didChange establishes live-buffer ownership over the authored saved-file diagnostic.
+// @evidence contracts/testing.md#distinguishing-cases Clean-to-dirty transition, versioned clear and later upstream publication are covered with bounded silence.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxySuppressesDirtyDocumentPluginDiagnostics in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxySuppressesDirtyDocumentPluginDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

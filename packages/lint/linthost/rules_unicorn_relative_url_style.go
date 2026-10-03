@@ -1,16 +1,8 @@
-// unicorn/relative-url-style: `new URL("./foo", base)` and
-// `new URL("foo", base)` resolve identically, so the leading `./` is
-// noise. The rule normalizes on the "never leading `./`" style and
-// fires whenever a `new URL(…)` literal first argument starts with
-// `./`.
-//
-// AST-only: visit `KindNewExpression`, accept when the callee is the
-// bare `URL` identifier, and inspect the first argument — when it's a
-// string-shaped literal whose text starts with `./`, report the
-// argument node. Absolute URLs (`http://…`), schemeless protocol
-// references, and paths starting with `/` or `../` are untouched; only
-// the explicit `./` prefix is the redundant case the rule targets.
-//
+// unicorn/relative-url-style reports a leading ./ only when its removal
+// retains a path reference. Scheme-like and network-path prefixes remain.
+// Empty, fragment and query references require a literal directory base,
+// because a file base changes the pathname when ./ is removed. The name-based
+// AST matcher does not resolve shadowed URL constructors. No fix is emitted.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/relative-url-style.md
 package linthost
 
@@ -39,9 +31,28 @@ func (unicornRelativeURLStyle) Check(ctx *Context, node *shimast.Node) {
   if text == "" {
     return
   }
-  if strings.HasPrefix(text, "./") {
+  if strings.HasPrefix(text, "./") && unicornRelativeURLPrefixIsRedundant(text[2:], expr.Arguments.Nodes) {
     ctx.Report(arg, "Drop the leading `./` from relative URLs passed to `new URL`.")
   }
+}
+
+// Removing ./ must leave a path reference, rather than create a scheme,
+// network-path reference or a base-dependent empty/query/fragment reference.
+func unicornRelativeURLPrefixIsRedundant(rest string, args []*shimast.Node) bool {
+  // Leading C0 bytes and space are trimmed by the URL parser. They were
+  // interior path content behind ./, so exposing them changes URL identity.
+  if len(rest) != 0 && rest[0] <= 0x20 { return false }
+  if strings.HasPrefix(rest, "/") || strings.HasPrefix(rest, "\\") { return false }
+  first := strings.SplitN(rest, "/", 2)[0]
+  if strings.Contains(first, ":") { return false }
+  if rest == "" || strings.HasPrefix(rest, "?") || strings.HasPrefix(rest, "#") {
+    if len(args) < 2 { return false }
+    base := stringLiteralText(stripParens(args[1]))
+    // A literal directory base is the only source-level proof this form
+    // retains the same pathname; a dynamic or file base supplies none.
+    return strings.HasSuffix(base, "/") && strings.Contains(base, "://") && !strings.ContainsAny(base, "?#")
+  }
+  return true
 }
 
 func init() {

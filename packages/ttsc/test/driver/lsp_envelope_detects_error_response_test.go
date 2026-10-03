@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeDetectsErrorResponse pins the IsErrorResponse predicate
+// TestLSPEnvelopeDetectsErrorResponse Verifies the IsErrorResponse predicate
 // the proxy uses to skip merging plugin contributions into upstream
 // failures. JSON-RPC §5.1 forbids both `result` and `error` on the
 // same frame; an unmerged forward keeps the editor's view consistent
@@ -15,6 +15,11 @@ import (
 // 1. Decode an error response. Assert IsErrorResponse is true.
 // 2. Decode a success response with null error. Assert it is false.
 // 3. Decode a notification. Assert IsErrorResponse is false.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IsErrorResponse distinguish an error response from a response with null error and a notification.
+// @evidence contracts/testing.md#independent-expectations JSON-RPC response shape and the literal null value establish which of the three envelopes denotes a failure.
+// @evidence contracts/testing.md#distinguishing-cases A real error object returns true; null error and no-response-id notification return false.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly calls the envelope decoder and predicate without a transport or native process.
 func TestLSPEnvelopeDetectsErrorResponse(t *testing.T) {
   errResp, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"2.0","id":9,"error":{"code":-1,"message":"boom"}}`))
   if err != nil {

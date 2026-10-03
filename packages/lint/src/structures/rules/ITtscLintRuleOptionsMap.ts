@@ -69,30 +69,24 @@ import type {
  *
  * Built-in rule families with one object option are listed here. Rules with
  * canonical positional lists expose dedicated setting types instead.
- * Contributor plugins extend the map by augmenting it from their own package:
- *
- * ```ts
- * declare module "@ttsc/lint" {
- *   interface ITtscLintRuleOptionsMap {
- *     "demo/no-marker-comment": { markers?: readonly string[] };
- *   }
- * }
- * ```
+ * Contributor plugins do not extend this map; they publish their own exported
+ * interface and the user passes it to `ITtscLintConfig` as its generic
+ * argument (see {@link TtscLintContributorOverlay}). Augmenting this interface
+ * from a contributor package still type-checks for existing packages.
  *
  * {@link TtscLintRuleOptionsOverlay} maps every entry to its strongly typed
  * severity tuple. {@link ITtscLintRules} intersects that overlay with the
- * built-in families and the open contributor fallback, so importing a plugin's
- * augmentation tightens its registered rule while unknown contributor names
- * retain the backward-compatible `unknown` options slot.
+ * built-in families and the open contributor fallback, so unknown contributor
+ * names retain the backward-compatible `unknown` options slot.
  *
  * `format/*` is **not** listed: formatter behavior is configured through the
  * top-level `format` block ({@link ITtscLintFormat}), not through the `rules`
  * surface.
  *
  * @evidence contracts/common.md#principled-implementation Each rule-name property selects its options object, and TypeScript declaration merging adds contributor entries to the same key space; positional settings remain outside this object-slot map.
- * @evidence contracts/common.md#clear-and-simple-design One augmentable index supplies the mapped settings overlay, so an extension defines its options shape once and the public intersection derives its severity tuple.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Module augmentation is the supported contributor extension boundary; explicit built-in mappings do not substitute an unknown payload for the declared options schema.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains object slots, positional exclusion, augmentation and formatter ownership; each member documents its policy role and blank paragraphs, member spacing and tag separation follow documentation guidance.
+ * @evidence contracts/common.md#clear-and-simple-design One index supplies the mapped settings overlay, so each built-in rule defines its options shape once and the public intersection derives its severity tuple.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contributors extend rule typing through their own exported interface and the config generic, not by editing this map; explicit built-in mappings do not substitute an unknown payload for the declared options schema.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains object slots, positional exclusion, the contributor generic and formatter ownership; each member documents its policy role and blank paragraphs, member spacing and tag separation follow documentation guidance.
  */
 export interface ITtscLintRuleOptionsMap {
   /** Exceptions to requiring a switch default clause. */
@@ -292,16 +286,16 @@ export interface ITtscLintRuleOptionsMap {
 }
 
 /**
- * Strongly typed rule settings derived from the augmentable options map.
+ * Strongly typed rule settings derived from the options map.
  *
  * This mapped overlay is consumed by {@link ITtscLintRules}; keeping the
- * derivation here makes module augmentation immediately affect the public
- * configuration type without a second per-plugin rule-name declaration.
+ * derivation here gives each rule listed in the map its typed setting
+ * without a second rule-name declaration.
  *
  * @evidence contracts/common.md#principled-implementation Mapping keyof the merged options interface preserves each rule's own options type, and optional mapped properties retain the ability to leave a rule unspecified.
- * @evidence contracts/common.md#clear-and-simple-design A single mapped alias derives severity-plus-options settings for every map entry, avoiding a second manually synchronized contributor rule list.
+ * @evidence contracts/common.md#clear-and-simple-design A single mapped alias derives severity-plus-options settings for every map entry, avoiding a second manually synchronized rule-name list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The overlay uses TypeScript's supported keyof and indexed-access semantics rather than casts or a widened unknown slot for known options.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains the overlay's public consumer and why augmentation flows into it automatically; description and acknowledgments are separated following documentation guidance.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the overlay's public consumer and which built-in rules it types; description and acknowledgments are separated following documentation guidance.
  */
 export type TtscLintRuleOptionsOverlay = {
   [TRuleName in keyof ITtscLintRuleOptionsMap]?: TtscLintRuleOptionsSetting<

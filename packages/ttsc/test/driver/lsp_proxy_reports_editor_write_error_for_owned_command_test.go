@@ -11,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyReportsEditorWriteErrorForOwnedCommand verifies locally-handled
+// TestLSPProxyReportsEditorWriteErrorForOwnedCommand Verifies locally-handled
 // executeCommand responses surface editor write failures.
 //
 // The proxy writes ttsc-owned command responses directly to the editor instead
@@ -23,6 +23,11 @@ import (
 // 2. Close the editor output reader before sending the command request.
 // 3. Close upstream output so the sibling pump can drain.
 // 4. Assert Proxy.Run returns a closed-pipe write error.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns an error wrapping io.ErrClosedPipe after an owned command response targets a closed editor output.
+// @evidence contracts/testing.md#independent-expectations The closed io.Pipe reader is an independent failing output device; a local response write must remain a reported error.
+// @evidence contracts/testing.md#distinguishing-cases An owned nil-edit command, preclosed editor output and closed sibling upstream stream own the local write-failure path.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the proxy directly with explicit pipe endpoints and stub command callback, without a native command.
 func TestLSPProxyReportsEditorWriteErrorForOwnedCommand(t *testing.T) {
   editorInR, editorInW := io.Pipe()
   editorOutR, editorOutW := io.Pipe()

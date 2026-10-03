@@ -19,9 +19,15 @@ import (
 // 1. Build a fake sidecar that returns a title-only code action.
 // 2. Ask NativePluginSource for code actions.
 // 3. Assert the action is dropped and logged.
+//
+// @evidence contracts/testing.md#behavioral-verification CodeActions drops a title-only action and logs commandless LSP action.
+// @evidence contracts/testing.md#independent-expectations The supported sidecar protocol requires a command-backed action and has no codeAction/resolve path.
+// @evidence contracts/testing.md#distinguishing-cases A commandless payload differs from owned-command, unowned-command and direct-edit payloads.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceDropsCommandlessCodeAction is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceDropsCommandlessCodeAction(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceCommandlessActionSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceCommandlessActionSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -38,6 +44,7 @@ func TestLSPNativePluginSourceDropsCommandlessCodeAction(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); len(actions) != 0 {
     t.Fatalf("commandless action was not dropped: %#v", actions)
   }

@@ -2,6 +2,7 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "../E2ETrace";
 import { parseWindowsDirectoryCaseSensitivity } from "../parseWindowsDirectoryCaseSensitivity";
 import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
 import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
@@ -12,23 +13,24 @@ import { resolveFilesystemPath } from "./resolveFilesystemPath";
 /**
  * Create one filesystem-identity resolver for a filesystem transaction.
  *
- * Existing segments use their physical spelling. A missing suffix preserves
- * spelling under sensitive or unknown policy; proved insensitive directories
- * permit ASCII case folding so those aliases converge before they exist.
+ * Successfully observed prefixes use their physical spelling. An unresolved
+ * suffix preserves spelling under sensitive or unknown policy; observed
+ * insensitivity permits ASCII case folding. In best-effort mode that suffix
+ * can include unreadable existing entries, so it is not proof of absence.
  *
  * Cached observations agree for the same queried key, not an atomic view of the
  * whole filesystem. An unavailable read-only case probe reports unknown and
- * preserves missing suffix spelling; only proved insensitivity permits
+ * preserves unresolved suffix spelling; only observed insensitivity permits
  * folding.
  *
- * @evidence contracts/common.md#principled-implementation Existing realpath spelling establishes physical aliases; missing segments fold only under proved insensitivity, while sensitive or unknown ancestors preserve spelling. Unknown may keep future aliases separate but cannot merge distinct missing names through an OS-default assumption.
+ * @evidence contracts/common.md#principled-implementation Successful realpath observations establish physical prefixes; unresolved segments fold only under observed insensitivity, while sensitive or unknown ancestors preserve spelling. Best-effort unavailability does not establish absence or complete alias resolution, and unknown policy is not replaced with an OS-default equivalence assumption.
  * @evidence contracts/common.md#clear-and-simple-design A transaction owns resolution and three memoized observation maps; native case probing, lexical normalization and key construction are separate helpers with one identity policy shared by all callers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported injected operations replace no foreign methods; strict unexpected realpath failures propagate. Best-effort realpath is explicit, while unavailable case evidence remains unknown rather than a fabricated OS-default capability.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain missing-suffix semantics, per-key rather than atomic consistency and unknown case evidence; helpers document native probing premises, with separate tag paragraphs.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath, alternate-name observations and read-only Windows fsutil obtain actual case evidence; native path APIs separate Windows and POSIX syntax. OS names select syntax or probe mechanisms, never an unmeasured directory policy.
- * @evidence contracts/performance.md#efficient-algorithms Physical resolution visits D missing ancestors and assembles suffixes with one reverse rather than repeated front insertion; lexical relations walk D components and case probes scan E entries. Native path assembly costs the visited spelling lengths, while transaction maps avoid repeated native observations.
- * @evidence contracts/performance.md#reuse-equivalent-work Each transaction memoizes resolved paths, realpath success or missing observations and case answers by their native keys; repeated questions reuse observations only within that unit of work, not across later filesystem generations.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Context-owned maps grow with queried paths and their visited ancestors and have no internal eviction; they are reclaimed when the caller ends its transaction, and no native descriptor is held between synchronous observations.
+ * @evidence contracts/performance.md#efficient-algorithms Construction allocates maps and closures without querying paths. Physical resolution visits missing ancestors and reverses the collected suffix once; lexical relations walk components. Default case probes enumerate uncapped immediate entries, inspect folded-name text and attempt native alternate names; Darwin can walk same-device ancestors, while Windows can synchronously launch directory and volume fsutil queries and parse returned bytes. Work includes visited path/name/output lengths and native metadata/process costs, not just depth or entry count.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each transaction memoizes resolved paths, realpath success or permitted-unavailable observations and case answers by their native keys; repeated questions reuse observations only within that unit of work, not across later filesystem generations. Best-effort cached unavailability is not an absence certificate.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Context-owned maps grow with queried paths and visited ancestors without internal eviction; reclamation requires the caller to release references to the context and its returned methods. Entry snapshots, decoded query text and synchronous fsutil results are transient rather than retained observers; no descriptor or child handle is held between completed observations. A Windows query supplies no explicit timeout, so active synchronous work has no deadline here. This boundary imposes no query-population quota or explicit dispose operation.
  */
 export function createFilesystemPathIdentityContext(
   operations: Partial<FilesystemPathIdentityOperations> = {},
@@ -375,11 +377,9 @@ function queryWindowsDirectoryCaseSensitivity(
 function queryWindowsDirectoryCaseSensitivityBytes(
   directory: string,
 ): Buffer | undefined {
-  const result = childProcess.spawnSync(
-    "fsutil.exe",
-    ["file", "queryCaseSensitiveInfo", directory],
-    { windowsHide: true },
-  );
+  const args = ["file", "queryCaseSensitiveInfo", directory];
+  const result = E2ETrace.synchronous("fsutil.exe", args, {}, "path-case-probe",
+    () => childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }));
   return result.error === undefined &&
     result.status === 0 &&
     Buffer.isBuffer(result.stdout)

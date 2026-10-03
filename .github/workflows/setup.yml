@@ -1,0 +1,38 @@
+name: setup
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: setup (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64, runner: ubuntu-24.04 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+          - { name: darwin-x64, runner: macos-15-intel }
+          - { name: darwin-arm64, runner: macos-15 }
+          - { name: win32-x64, runner: windows-2025 }
+          - { name: win32-arm64, runner: windows-11-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ttsc --filter ./packages/ttsc-${{ matrix.name }} build
+      - run: pnpm --filter @ttsc/test-e2e start --installation

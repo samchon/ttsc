@@ -2,8 +2,8 @@
 //
 // Completes every exposed enum family: re-exports each member not already
 // re-exported elsewhere in the shim package, so a plugin that can name the
-// enum type can name all of its values. Prevents the #230 class (a sibling
-// const silently missing). Regenerate after a typescript-go bump with
+// enum type can name all of its values. Prevents a partially re-exported
+// family (a sibling const silently missing). Regenerate after a typescript-go bump with
 // `pnpm --filter ttsc shim:audit -fix`.
 
 package core

@@ -33,6 +33,11 @@ func (*utilityApplyError) Error() string { return "utility apply boom" }
 // 1. Exercise malformed flags, manifests, cwd, and project config failures.
 // 2. Exercise linked-plugin application failure through RunCheck and RunBuild.
 // 3. Exercise disk emit failure through a blocked outDir path.
+//
+// @evidence contracts/testing.md#behavioral-verification RunCheck, RunBuild and RunTransform return command status 2 with the documented message for malformed flags, an invalid plugin manifest, a missing tsconfig and an invalid project configuration, and fail cleanly when a linked plugin fails or the output directory is blocked.
+// @evidence contracts/testing.md#independent-expectations Every status code and message fragment ('invalid --plugins-json', 'tsconfig not found') is a literal from the command contract.
+// @evidence contracts/testing.md#distinguishing-cases Each failure category is a separate input, so a host that panicked or returned success for one category would fail only that assertion.
+// @evidence contracts/testing.md#execution-ownership TestUtilityCommandFailuresCoverHostEdges is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
   code, _, _ := captureUtilityOutput(t, func() int {
     return utility.RunCheck([]string{"--cwd"})

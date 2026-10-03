@@ -417,6 +417,11 @@ func astSelectorIsExpression(node *shimast.Node) bool {
   if astSelectorIsLiteral(node) {
     return true
   }
+  switch node.Kind {
+  case shimast.KindTypeLiteral, shimast.KindJSDocTypeLiteral, shimast.KindJSDocTypeExpression:
+    // Type syntax shares the "Literal"/"Expression" spelling but is no value.
+    return false
+  }
   native := strings.TrimPrefix(node.Kind.String(), "Kind")
   if strings.HasSuffix(native, "Expression") || strings.HasSuffix(native, "Literal") {
     return true

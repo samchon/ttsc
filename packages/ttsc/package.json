@@ -69,10 +69,9 @@
   },
   "scripts": {
     "build": "rimraf lib && tsc && node -e \"require('node:fs').copyFileSync('../../README.md', 'README.md')\"",
-    "go:build": "node ../../scripts/go.cjs build-native",
-    "go:vet": "node ../../scripts/go.cjs vet ./...",
-    "shim:audit": "node ../../scripts/shim-audit.cjs",
-    "shim:audit:test": "node ../../scripts/shim-audit-test.cjs",
+    "go:vet": "go vet ./...",
+    "shim:audit": "go -C tools/shim_audit run -mod=readonly . -check -anchor ../../shim/ast -shim ../../shim",
+    "shim:audit:test": "go -C tools/shim_audit test -mod=readonly -count=1 ./...",
     "evidence": "evidence"
   },
   "repository": {

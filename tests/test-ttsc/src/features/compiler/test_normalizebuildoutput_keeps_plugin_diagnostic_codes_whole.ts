@@ -1,5 +1,5 @@
-import { normalizeBuildOutput } from "../../../../../packages/ttsc/lib/compiler/internal/build/normalizeBuildOutput.js";
-import { assert } from "../../internal/toolchain";
+import { normalizeBuildOutput } from "../../../../../packages/ttsc/src/compiler/internal/build/normalizeBuildOutput";
+import assert from "node:assert/strict";
 
 /**
  * Verifies structured diagnostics keep a plugin-defined code whole.
@@ -14,6 +14,11 @@ import { assert } from "../../internal/toolchain";
  * 2. Use TypeScript codes, bare digits, and plugin codes with letters, digits,
  *    underscores, hyphens, and a `TS` prefix not followed only by digits.
  * 3. Assert TypeScript codes become numbers and every other code stays whole.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls normalizeBuildOutput on global, colon-located and parenthesized diagnostic text and checks exact code values, distinguishing numeric TypeScript codes from truncated or misclassified plugin identifiers.
+ * @evidence contracts/testing.md#independent-expectations The public diagnostic contract represents TS digits and bare digits numerically while retaining plugin identifiers as strings. The literal token/expected table independently requires FOO123, MY_RULE, TS-RULE and TS12X to remain whole.
+ * @evidence contracts/testing.md#distinguishing-cases This entry owns nine token identities across all three line formats, including lowercase ts2322, bare 2322 and near-TypeScript TS12X. Each token labels its assertion failure; location metadata and diagnostic deduplication are outside this code-preservation case.
+ * @evidence contracts/testing.md#execution-ownership This exported source-unit entry owns all 27 line-format/token inputs and invokes the authored normalizer directly with captured-output records. It neither launches the producer nor builds a native plugin.
  */
 export const test_normalizebuildoutput_keeps_plugin_diagnostic_codes_whole =
   () => {

@@ -19,8 +19,10 @@ const compiled = new WeakMap<
  * wildcards never enter package folders or hidden paths, a `.min.js` file needs
  * a wildcard that spells `.min.`, and a JSON file needs a literal entry or a
  * spec ending in `.json`. A policy whose configuration could not be read stays
- * permissive. No filesystem existence probe is needed, so a newly created
- * directory receives the same answer as an existing one. An explicit
+ * permissive. Matching does not test the candidate's existence, so a newly
+ * created directory receives the same answer as an existing one. An absent
+ * reported case answer can still invoke the native cache-root approximation.
+ * An explicit
  * filesystem-view platform controls path grammar independently of the policy's
  * compiler comparison rule.
  *
@@ -32,24 +34,10 @@ const compiled = new WeakMap<
  * @evidence contracts/common.md#clear-and-simple-design
  *   One entry point chooses relevant patterns and equivalent root spellings;
  *   compile owns grammar and matches owns the state transition algorithm.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Pattern compilation happens once per policy object and view platform. Each spelling checks
- *   at most the configured pattern count; matching uses bounded component
- *   states per path part rather than recursive wildcard expansion.
- *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   The WeakMap shares compiled patterns across queries of the same immutable
- *   policy and filesystem-view platform. Producers replace policies when configuration or compiler case
- *   answers change; mutating a retained policy violates that representation.
- *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The WeakMap does not keep discarded policies alive. Compiled patterns are
- *   retained while a caller retains their policy, with bytes driven by its specs.
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Matching uses configured specs and the compiler's case answer, never a
- *   list of known application directories or filesystem-existence guesses.
+ *   Matching uses configured specs and the supplied or provisionally predicted
+ *   case answer, never a list of known application directories or a candidate
+ *   existence guess. A prediction is not the executable's reported rule.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish root discovery from dependencies and explain
@@ -59,7 +47,26 @@ const compiled = new WeakMap<
  *   The provided filesystem-view platform reaches compilation and root alias
  *   conversion together; native callers default to the host, while foreign
  *   views never resolve their roots through the host's path grammar. Compiler
- *   case sensitivity remains policy data independent of that grammar.
+ *   case sensitivity remains independent of that grammar. Without a supplied
+ *   flag, the native predictor's documented proxy limitations remain; selecting
+ *   a foreign grammar does not replace that predictor's filesystem view.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The WeakMap does not keep discarded policies alive. Compiled patterns are
+ *   retained while a caller retains their policy, with bytes driven by its specs
+ *   and queried platform variants. There is no eviction within a live policy;
+ *   replacing it permits reclamation when no caller keeps the old object.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Cold queries compile all configured specs and resolve the case rule,
+ *   retaining the predictor's native placement/probe cost when needed. JSON
+ *   queries filter the pattern list. Root-spelling conversion, path text and
+ *   each candidate's component-state/RegExp traversal remain per-query costs;
+ *   a bounded state count does not bound path bytes or RegExp matching time.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The WeakMap shares compiled patterns across queries of the same immutable
+ *   policy and filesystem-view platform. Producers replace policies when
+ *   configuration or compiler case answers change; mutating a retained policy
+ *   violates that representation. Queries reuse compiled grammar, not candidate
+ *   existence or notification authority.
  */
 export function matchesProjectRootFile(
   location: string,

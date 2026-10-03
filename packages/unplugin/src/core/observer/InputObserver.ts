@@ -8,6 +8,19 @@ import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
  * @evidence contracts/common.md#clear-and-simple-design Root, registration, and lifetime boundaries stay independent of consumer-specific reload and record-signaling APIs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Owners register actual delivery dependencies; observation cannot manufacture compiler proof or host success.
  * @evidence contracts/common.md#meaningful-documentation Method comments distinguish sequence capture, failed-delivery retention, and reusable lifetime after disposal.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Root and owner/input spellings form a native observation boundary. Native
+ *   sampling, alias/case authority and watch admission belong to the supplied
+ *   observer implementation; sequence tokens alone certify no native freshness.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   createInputObserver owns registration maps, condition proof and scope/poller
+ *   populations; this interface specifies their entry points, not algorithms.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The implementation owns qualified shared scopes and condition registrations;
+ *   method signatures alone grant no immutable or cached proof authority.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The returned observer implementation owns current scopes/timers/conditions;
+ *   this carrier specifies open/replacement/forget/disposal ownership operations.
  */
 export interface InputObserver {
   /**
@@ -18,17 +31,43 @@ export interface InputObserver {
    * @evidence contracts/common.md#clear-and-simple-design One number communicates ordering without copying observer history to every consumer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Capturing a token does not certify unchanged inputs; replacement still checks actual history.
    * @evidence contracts/common.md#meaningful-documentation The comment explains pre-compile capture and its later registration purpose.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of begin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
    */
   begin(): number;
 
   /**
-   * Close every scope, poller, and timer, and forget every owner. The observer
+   * Forget every owner and attempt closure of current scopes, poller and timer.
+   * Native or supplied close refusal need not mean a handle actually closed.
+   * The observer
    * stays open on its root, and observes owners again as they register.
    *
-   * @evidence contracts/common.md#principled-implementation Disposal ends current registrations and their resources while allowing later deliveries to register again on the root.
+   * @evidence contracts/common.md#principled-implementation Disposal clears current registration authority and attempts independent cleanup while allowing later deliveries to register again on the root; successful native release is not guaranteed.
    * @evidence contracts/common.md#clear-and-simple-design One lifecycle boundary releases observer-owned state rather than exposing every native watch to consumers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposal removes observation authority instead of transferring stale proof to new registrations.
    * @evidence contracts/common.md#meaningful-documentation The prose distinguishes releasing current owners from permanently closing the observer.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of dispose is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
    */
   dispose(): Promise<void>;
 
@@ -39,6 +78,18 @@ export interface InputObserver {
    * @evidence contracts/common.md#clear-and-simple-design Owner identity selects the existing registration set without exposing shared-entry reference counts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Owner removal cannot clear another owner's valid registration or alter its host methods.
    * @evidence contracts/common.md#meaningful-documentation The comment identifies the owner as the unit of removal rather than a file or the whole observer.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The owner is a native path spelling resolved by the observer, rather than
+   *   a URL or arbitrary numeric token; last-owner watch cleanup remains delegated.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
    */
   forget(owner: string): void;
 
@@ -52,19 +103,45 @@ export interface InputObserver {
    * @evidence contracts/common.md#clear-and-simple-design Root anchoring and watch policy share one operation before registration begins.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A polling declaration prevents native silence from being treated as freshness authority.
    * @evidence contracts/common.md#meaningful-documentation The comment explains root anchoring, polling, and the unobserved state before first open.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The root anchors native observation grammar and backend admission; polling
+   *   is an explicit host declaration, not an OS-name or case-policy inference.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of open is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of open is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of open is declared here; the cost belongs to its
+   *   implementation.
    */
   open(root: string, polling: boolean): void;
 
   /**
    * Replace one owner's inputs with a delivery's, keeping a failed delivery's
-   * previous spellings for recovery. Each input is proven against the disk now,
-   * or, given `startedAt`, only against changes since that sequence
+   * previous spellings for recovery. Current proof can use the `startedAt`
+   * observation window when history and scope authority permit; fallback,
+   * newly recorded conditions or unavailable history still require disk replay
    * (samchon/ttsc#1423).
    *
    * @evidence contracts/common.md#principled-implementation Replacement registers recorded conditions and checks the compile-to-subscribe window; failed delivery retains previous spellings that its exception may omit.
    * @evidence contracts/common.md#clear-and-simple-design One operation updates the owner's conditions instead of exposing separate add/remove steps that could lose shared ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A token narrows proof only through actual history, and failure cannot erase prior recovery dependencies.
    * @evidence contracts/common.md#meaningful-documentation The prose explains failed-delivery retention and why an optional pre-compile token affects validation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Owner and input files are native spellings paired with recorded identity
+   *   and codecs. The observer qualifies actual alias/case/watch authority;
+   *   optional sequence ordering supplies no new physical-identity assumption.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
    */
   replace(
     owner: string,

@@ -12,8 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRemovedValueUseKeepsItsImport pins the side of
-// import elision that decides where linked references are marked.
+// TestEmitWithPluginTransformerRemovedValueUseKeepsItsImport Verifies replacing the original
+// value use retains its dependency import in emitted output.
 //
 // The builtin chain is built from the parse tree, so the checker sees the value
 // use of `foo` that the source really contains, even after a transform replaced
@@ -28,6 +28,11 @@ import (
 //     value use.
 //  3. Assert the emitted JavaScript still requires `./dep`, and that the
 //     initializer really was rewritten.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual value-use replacement and requires retained ./dep require plus exports.a = 42.
+// @evidence contracts/testing.md#independent-expectations Authored original value import establishes retained side effects under the declared parse-tree elision contract; independent literal replacement 42 proves transformation.
+// @evidence contracts/testing.md#distinguishing-cases Removing the last original value use contrasts original-linked rebuilt references and injected-only type imports; replacement presence prevents plain output from passing.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes real visitor/compiler APIs on its disposable Program and captures output with deferred close rather than launching a host.
 func TestEmitWithPluginTransformerRemovedValueUseKeepsItsImport(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

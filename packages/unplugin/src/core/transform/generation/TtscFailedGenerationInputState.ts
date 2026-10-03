@@ -1,11 +1,20 @@
 /**
- * What a failed generation recorded about one input outside the project walk
- * (samchon/ttsc#1398).
+ * What a failed generation recorded about one input outside the project walk.
  *
  * @evidence contracts/common.md#principled-implementation The state is always present, and the discriminated alternatives forbid a single-path metadata signature on a plugin tree because that signature cannot establish its descendants' state.
  * @evidence contracts/common.md#clear-and-simple-design One small observation carrier distinguishes ordinary exact-path validation from whole-plugin-tree validation without owning either algorithm.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing metadata cannot masquerade as a valid signature, and a tree retains its source/build-environment state instead of an invented unchanged marker.
  * @evidence contracts/common.md#meaningful-documentation Separated property paragraphs explain signature timing, complete state composition and why tree observations carry no single-path signature; no property has acknowledgment tags.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The carrier holds opaque state and signature strings plus a tree discriminator; native addresses belong to the containing map, and filesystem observation semantics belong to the capture and comparison owners.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscFailedGenerationInputState only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscFailedGenerationInputState only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscFailedGenerationInputState only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type TtscFailedGenerationInputState = {
   /**

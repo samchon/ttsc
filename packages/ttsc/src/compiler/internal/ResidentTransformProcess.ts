@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
 
+import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentReplyKind } from "./ResidentReplyKind";
 import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
@@ -8,16 +9,16 @@ import type { ResidentTransformRequestOptions } from "./ResidentTransformRequest
 /**
  * Async client for the long-lived `utility-host serve` process.
  *
- * The host transforms the whole project once at startup, caches every file's
- * transformed TypeScript, then answers newline-delimited requests. This class
- * speaks that protocol: each {@link request} writes one JSON line and the host
+ * The serve host answers newline-delimited requests within one process; its
+ * producer owns project loading, transformed text and update semantics. This
+ * class speaks that protocol: each {@link request} writes one JSON line and the host
  * replies with one line, matched FIFO. A transform request (`{"file":...}`) is
  * answered with `{"typescript":...,"found":...}`, and an update request
  * (`{"update":...,"content":...}`) with `{"updated":...}`.
  *
  * One resident process answers every request from one service instead of
- * spawning a fresh `transform` subprocess per call, so a single process pays
- * the project compile once (samchon/ttsc#255).
+ * spawning a fresh `transform` subprocess per call. Client construction does
+ * not await startup compilation or certify a custom host's caching behavior.
  *
  * The caller owns disposal. Live requests have no deadline; queue population
  * and reply-line size depend on the caller and host, without a fixed cap.
@@ -27,8 +28,8 @@ import type { ResidentTransformRequestOptions } from "./ResidentTransformRequest
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing files and rejected edits remain legitimate negative replies; corrupt lines reject instead of becoming synthetic empty results or being rescued through foreign method replacement.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish operations, startup reuse, caller ownership and uncapped live requests, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node receives the executable, separate argv, native cwd and environment directly; supported pipe APIs carry protocol text without platform-specific shell quoting.
- * @evidence contracts/performance.md#efficient-algorithms A cursor advances through the FIFO with amortized constant settlement; consumed prefixes compact only when at least half the array has been consumed, and retirement drains outstanding calls once.
- * @evidence contracts/performance.md#reuse-equivalent-work One fixed-project host supplies its committed transformed-text cache across file requests; ordered updates replace that producer state, so the client does not memoize replies across edits.
+ * @evidence contracts/performance.md#efficient-algorithms A cursor advances through the FIFO with amortized constant queue settlement; consumed prefixes compact only when at least half the array has been consumed, and retirement drains outstanding calls once. Request serialization and reply parsing cost observed data/text volume, with caller serialization callbacks adding arbitrary work. Stderr conversion and concatenation scan each chunk plus the retained tail before truncation; native startup and host processing remain delegated.
+ * @evidence contracts/performance.md#reuse-equivalent-work One startup-selected host is shared across requests; the client does not memoize responses across edits. Transformed-text state and ordered update behavior belong to the serve producer, not a custom-host cache guarantee established by this client.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Consumed slots release callbacks, settlement removes abort listeners, and retirement clears outstanding state and closes pipes. Stderr has a fixed tail cap, but pending calls and line bytes are uncapped and OS signaling may fail to terminate the child.
  */
 export class ResidentTransformProcess {
@@ -43,11 +44,14 @@ export class ResidentTransformProcess {
     // Default stdio is "pipe" for stdin/stdout/stderr, which is exactly what the
     // line protocol needs; spelling it out as a string[] would not narrow to
     // StdioOptions, so it is left implicit.
-    this.child = spawn(options.binary, [...options.args], {
+    const nativeArgs = [...options.args];
+    const trace = E2ETrace.begin(options.binary, nativeArgs, options, "resident-transform");
+    this.child = spawn(options.binary, nativeArgs, {
       cwd: options.cwd,
       env: options.env,
       windowsHide: true,
     });
+    E2ETrace.asynchronous(trace, this.child);
     const stdout = this.child.stdout;
     const stdin = this.child.stdin;
     if (stdout === null || stdin === null) {
@@ -89,13 +93,15 @@ export class ResidentTransformProcess {
    * An abort before enqueueing affects only this call. Once enqueued, aborting
    * retires the whole FIFO because the reply stream has no request identifiers.
    * Serialization failure leaves the healthy host available for another call.
+   * Payload serialization can invoke caller-defined conversion; exceptional
+   * thrown values can also execute or fail conversion while being normalized.
    *
    * @evidence contracts/common.md#principled-implementation Each queued request carries its expected operation and resolves only from its own validated FIFO reply; cancellation after enqueueing retires the stream to prevent shifted reply ownership.
    * @evidence contracts/common.md#clear-and-simple-design Local serialization and pre-abort checks precede shared queue ownership; one settlement helper handles replies, cancellation and write failure with listener cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation does not remove a positional reply and continue under a false framing assumption; invalid replies cannot masquerade as missing files or rejected edits.
    * @evidence contracts/common.md#meaningful-documentation The separate lifecycle paragraph explains which failures affect one caller and which retire the shared host, applying the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Requests are JSON data written through the existing native pipe; filenames remain producer-owned values rather than command strings or assumed POSIX paths.
-   * @evidence contracts/performance.md#efficient-algorithms Serialization is linear in encoded payload size, FIFO insertion is constant time and ordered settlement is amortized constant queue work; reply validation adds a fixed field check after JSON parsing.
+   * @evidence contracts/performance.md#efficient-algorithms Serialization visits supplied properties and encoded data, with caller-defined conversion costs not bounded by final JSON size. FIFO insertion and ordered settlement have amortized constant queue work; reply text parsing precedes fixed field checks, and host execution is delegated.
    * @evidence contracts/performance.md#reuse-equivalent-work File requests share the existing producer's committed transformation; effectful updates keep distinct ordered slots, and the client caches no response across producer state transitions.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Each pending call owns resolver callbacks and at most one abort listener; settlement removes the listener and queue reference, while cancellation retires every outstanding call. Live uncancelled work has no implicit timeout or queue cap.
    */
@@ -166,12 +172,13 @@ export class ResidentTransformProcess {
   }
 
   /**
-   * Terminate the resident process and reject any in-flight requests. Safe to
-   * call more than once.
+   * Retire the client, reject in-flight requests and attempt child termination.
+   * Safe to call more than once; this void operation does not await child close
+   * or prove OS signaling succeeded.
    *
    * @evidence contracts/common.md#principled-implementation Failure becomes terminal before all queued callers are rejected, so buffered lines cannot settle new callers after disposal.
    * @evidence contracts/common.md#clear-and-simple-design Disposal reuses the transport retirement path and preserves the child's real exit error when it has already died.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Owned resources are closed rather than abandoned beneath a successful-looking return; cleanup uses supported child and stream APIs.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup uses supported child and stream APIs and rejects outstanding calls rather than synthesizing successful results. Destroy/signal attempts are not a child-close receipt or a guaranteed process-tree shutdown.
    * @evidence contracts/common.md#meaningful-documentation The native comment states caller-visible rejection and idempotence, following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node destroys its own pipes and performs child signaling with its supported platform behavior; no process-tree shell command or signal assumption is imposed on callers.
    * @evidence contracts/performance.md#efficient-algorithms The queue is detached once and each outstanding request is settled once, making shutdown linear in pending population.

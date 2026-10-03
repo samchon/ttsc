@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// formattingNoEditStubSource builds a stubSource that owns ttsc.format.document
+// formattingContentCapture builds a stubSource that owns ttsc.format.document
 // and records the content the formatting handler piped to the formatter, while
 // returning a nil WorkspaceEdit so the editor receives an empty TextEdit array.
 // The captured content is what the assertions below inspect.
@@ -43,17 +43,18 @@ func drainFormattingResponse(t *testing.T, h *proxyHarness, id int) {
   }
 }
 
-// TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange pins the two-save
-// regression. VS Code with tsgo uses incremental sync, so edits arrive as
-// ranged didChange notifications. The proxy must splice each ranged change into
-// the cached buffer so that, on save, textDocument/formatting formats the live
-// (patched) buffer rather than falling back to the previous save on disk.
+// TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange Verifies that formatting receives the patched buffer rather than disk or the original open buffer.
 //
-//  1. didOpen populates the cache with a buffer that differs from disk.
-//  2. A ranged didChange edits the buffer in place ("stale" -> "frag").
-//  3. The uri points at a real temp file with stale disk content.
-//  4. textDocument/formatting must feed the PATCHED live buffer to the
-//     formatter — not disk, and not the pre-edit buffer text.
+// Disk, open, and patched strings differ; the response must be an empty TextEdit array with ID 11.
+//
+// 1. Write disk content and open a different cached buffer.
+// 2. Replace stale with frag using a ranged didChange.
+// 3. Request formatting and assert the capture uses the patched buffer instead of disk or the original buffer.
+//
+// @evidence contracts/testing.md#behavioral-verification Formatting receives the patched buffer rather than disk or the original open buffer.
+// @evidence contracts/testing.md#independent-expectations Replacing authored columns 6 through 11 changes staleBuffer to fragBuffer independently of the patcher.
+// @evidence contracts/testing.md#distinguishing-cases Disk, open, and patched strings differ; the response must be an empty TextEdit array with ID 11.
+// @evidence contracts/testing.md#execution-ownership formattingContentCapture runs in the Go proxy harness and the disk file supplies only fallback input. Go discovers TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange under ./test/driver.
 func TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange(t *testing.T) {
   const diskContent = "const onDisk = 1;\n"
   // didOpen buffer; chars [6,11) on line 0 are "stale".
@@ -96,7 +97,7 @@ func TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange(t *testing.T) {
 
   drainFormattingResponse(t, h, 11)
   if gotContent == diskContent {
-    t.Fatalf("formatter received disk content %q; the live patched buffer must win (two-save bug regression)", gotContent)
+    t.Fatalf("formatter received disk content %q; the live patched buffer must win", gotContent)
   }
   if gotContent == openBuffer {
     t.Fatalf("formatter received the pre-edit buffer %q; the ranged change must be applied to the cache", gotContent)
@@ -106,10 +107,17 @@ func TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange(t *testing.T) {
   }
 }
 
-// TestLSPProxyFormatsDiskAfterRangedDidChangeWithoutBase pins the
-// cannot-patch-without-base fallback. A ranged didChange that arrives with no
-// cached base entry (no prior didOpen) cannot be applied reliably, so the proxy
-// drops any entry and the formatting handler falls back to reading disk.
+// TestLSPProxyFormatsDiskAfterRangedDidChangeWithoutBase Verifies that formatting reads disk after a ranged edit with no cached base.
+//
+// No didOpen precedes the change, contrasting the patched-buffer sibling.
+//
+// 1. Write a disk file and send a ranged didChange without a preceding didOpen.
+// 2. Request formatting and assert an empty TextEdit response and the captured disk content.
+//
+// @evidence contracts/testing.md#behavioral-verification Formatting reads disk after a ranged edit with no cached base.
+// @evidence contracts/testing.md#independent-expectations A ranged change cannot define a complete buffer without its base; literal disk text defines fallback.
+// @evidence contracts/testing.md#distinguishing-cases No didOpen precedes the change, contrasting the patched-buffer sibling.
+// @evidence contracts/testing.md#execution-ownership The Go proxy and capture callback use a temporary file as fallback input. Go discovers TestLSPProxyFormatsDiskAfterRangedDidChangeWithoutBase under ./test/driver.
 func TestLSPProxyFormatsDiskAfterRangedDidChangeWithoutBase(t *testing.T) {
   const diskContent = "const onDisk = 1;\n"
   uri := writeLSPDiskFile(t, diskContent)
@@ -147,13 +155,18 @@ func TestLSPProxyFormatsDiskAfterRangedDidChangeWithoutBase(t *testing.T) {
   }
 }
 
-// TestLSPProxyPatchesRangedDidChangeWithUTF16Offsets pins UTF-16 correctness.
-// LSP Position.character is a UTF-16 code-unit offset, not a byte or rune
-// offset. The buffer contains a non-BMP emoji (U+1F600, two UTF-16 code units,
-// four UTF-8 bytes) and a CJK char before the edit point, so a naive byte- or
-// rune-based splice would land at the wrong place and corrupt the buffer. The
-// ranged change targets the identifier after those characters; the splice must
-// land exactly on it.
+// TestLSPProxyPatchesRangedDidChangeWithUTF16Offsets Verifies that formatting receives the exact buffer with OLD replaced by NEW.
+//
+// Emoji and CJK characters before the edit distinguish byte, rune, and UTF-16 indexing.
+//
+// 1. Open a buffer with an emoji and CJK character before OLD.
+// 2. Replace UTF-16 columns 7 through 10 with NEW and request formatting.
+// 3. Assert the capture equals the complete authored patched buffer.
+//
+// @evidence contracts/testing.md#behavioral-verification Formatting receives the exact buffer with OLD replaced by NEW.
+// @evidence contracts/testing.md#independent-expectations The authored non-BMP character takes two UTF-16 units, defining columns 7 through 10 independently.
+// @evidence contracts/testing.md#distinguishing-cases Emoji and CJK characters before the edit distinguish byte, rune, and UTF-16 indexing.
+// @evidence contracts/testing.md#execution-ownership The Go pipe proxy patches the buffer and calls the in-process capture formatter. Go discovers TestLSPProxyPatchesRangedDidChangeWithUTF16Offsets under ./test/driver.
 func TestLSPProxyPatchesRangedDidChangeWithUTF16Offsets(t *testing.T) {
   const diskContent = "const onDisk = 1;\n"
   uri := writeLSPDiskFile(t, diskContent)
@@ -201,9 +214,17 @@ func TestLSPProxyPatchesRangedDidChangeWithUTF16Offsets(t *testing.T) {
   }
 }
 
-// TestLSPProxyFormatsDiskOnCacheMiss pins the cache-miss path. With no prior
-// didOpen the documentText cache has no entry, so cachedDocumentText returns
-// !ok and completeFormattingRequest reads the on-disk file.
+// TestLSPProxyFormatsDiskOnCacheMiss Verifies that formatting receives authored disk text when no buffer was opened.
+//
+// No open or change precedes formatting, isolating the cache-miss path.
+//
+// 1. Write a disk file without sending didOpen.
+// 2. Request formatting and assert the empty response and captured disk bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification Formatting receives authored disk text when no buffer was opened.
+// @evidence contracts/testing.md#independent-expectations The literal fromDisk source defines fallback independently of the cache.
+// @evidence contracts/testing.md#distinguishing-cases No open or change precedes formatting, isolating the cache-miss path.
+// @evidence contracts/testing.md#execution-ownership The Go proxy reads a private file and calls the local capture callback. Go discovers TestLSPProxyFormatsDiskOnCacheMiss under ./test/driver.
 func TestLSPProxyFormatsDiskOnCacheMiss(t *testing.T) {
   const diskContent = "const fromDisk = 3;\n"
   uri := writeLSPDiskFile(t, diskContent)
@@ -224,9 +245,17 @@ func TestLSPProxyFormatsDiskOnCacheMiss(t *testing.T) {
   }
 }
 
-// TestLSPProxyFormatsDiskAfterDidClose pins the didClose eviction path.
-// evictDocumentText drops the cached buffer on close, so a subsequent
-// formatting request falls back to the on-disk file.
+// TestLSPProxyFormatsDiskAfterDidClose Verifies that formatting uses disk after didClose evicts a different cached buffer.
+//
+// Open followed by close contrasts with the never-opened cache-miss case.
+//
+// 1. Open a buffer different from disk and then send didClose.
+// 2. Request formatting and assert the capture uses disk and returns an empty edit array.
+//
+// @evidence contracts/testing.md#behavioral-verification Formatting uses disk after didClose evicts a different cached buffer.
+// @evidence contracts/testing.md#independent-expectations Distinct disk and open strings make stale retention observable independently.
+// @evidence contracts/testing.md#distinguishing-cases Open followed by close contrasts with the never-opened cache-miss case.
+// @evidence contracts/testing.md#execution-ownership The Go proxy, private disk input, and capture callback execute within the test process. Go discovers TestLSPProxyFormatsDiskAfterDidClose under ./test/driver.
 func TestLSPProxyFormatsDiskAfterDidClose(t *testing.T) {
   const diskContent = "const reopened = 4;\n"
   uri := writeLSPDiskFile(t, diskContent)

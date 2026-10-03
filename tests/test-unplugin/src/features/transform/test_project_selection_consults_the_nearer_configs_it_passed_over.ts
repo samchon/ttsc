@@ -1,12 +1,12 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import { resolveProjectSelection } from "../../../../../packages/unplugin/lib/core/transform/tsconfig/resolveProjectSelection.mjs";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
-import { selectionInputs } from "../../../../../packages/unplugin/lib/core/transform/watch/selectionInputs.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { resolveProjectSelection } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveProjectSelection";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { selectionInputs } from "../../../../../packages/unplugin/src/core/transform/watch/selectionInputs";
 
 /**
  * Verifies project selection reports the nearer `tsconfig.json` candidates it
@@ -24,6 +24,10 @@ import { selectionInputs } from "../../../../../packages/unplugin/lib/core/trans
  * 3. Create the nearer config and select again: it is selected, only the one
  *    candidate still nearer is consulted, and the old evidence no longer
  *    holds.
+ * @evidence contracts/testing.md#behavioral-verification Actual project selection reports absent nearer configs and selectionInputs marks their missing evidence; creating the nearer config reroutes selection and changes the old absence reading.
+ * @evidence contracts/testing.md#independent-expectations Literal nearest/nearer/root config paths and [true,true] missing flags establish expected routing and evidence without copying the resolver answer.
+ * @evidence contracts/testing.md#distinguishing-cases Two absent candidates are consulted and the selected root config is not, then creating the nearer config selects it, shortens the consulted list to the one remaining candidate, and flips the old recorded absence evidence of that path from missing to present.
+ * @evidence contracts/testing.md#execution-ownership The named source unit calls authored selection and evidence readers on real fixture files. It starts no watcher or transform host to observe config routing.
  */
 export async function test_project_selection_consults_the_nearer_configs_it_passed_over(): Promise<void> {
   const root = fs.realpathSync.native(

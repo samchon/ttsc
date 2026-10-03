@@ -1,72 +1,26 @@
 name: benchmark
 
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/benchmark.yml"
-      - "benchmarks/**"
-      - "packages/ttsc/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-  pull_request:
-    paths:
-      - ".github/workflows/benchmark.yml"
-      - "benchmarks/**"
-      - "packages/ttsc/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+on: pull_request
 
 concurrency:
-  group: benchmark-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  program:
-    name: program
+  benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Types
-        run: |
-          pnpm --dir benchmarks/graph run check
-          pnpm --dir benchmarks/performance run check
-
-      - name: Check Entrypoints
-        run: |
-          pnpm --dir benchmarks/performance run start -- --list
-          pnpm --dir benchmarks/graph run start -- --list
-          pnpm --dir benchmarks/graph run index-time -- --list
-
-      - name: Check Prompt Manifest
-        run: |
-          pnpm --dir benchmarks/graph run manifest
-          git diff --exit-code -- benchmarks/graph/assets/questions/manifest.json
-
-      - name: Check Trace Audit
-        run: pnpm --dir benchmarks/graph run audit -- --self-test
-
-      - name: Check Structural Graph Benchmark
-        run: pnpm --dir benchmarks/graph run structural -- --runs=3
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "./benchmarks/*" -r --no-bail run check

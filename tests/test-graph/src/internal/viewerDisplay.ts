@@ -1,37 +1,10 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { repositoryRoot } from "./viewerReducers";
 
 export { repositoryRoot } from "./viewerReducers";
-
-/** Reads one repository file as UTF-8 text. */
-const read = (root: string, file: string): string =>
-  fs.readFileSync(path.join(root, file), "utf8");
-
-/**
- * A `export type NAME = | "a" | "b"` union, read from source.
- *
- * `TtscGraphDumpEdgeKind` is the authoritative list of edges a native dump can
- * carry, so a case that feeds every edge kind through the viewer reads the list
- * from there rather than keeping a hand-maintained copy.
- */
-export const dumpVocabulary = (
-  root: string,
-  file: string,
-  name: string,
-): string[] => {
-  const source = read(root, file);
-  const start = source.indexOf(`export type ${name}`);
-  assert.notEqual(start, -1, `${file} no longer declares ${name}`);
-  const kinds = [...source.slice(start).matchAll(/\|\s*"([a-z_]+)"/g)].map(
-    (match) => match[1]!,
-  );
-  assert.ok(kinds.length > 0, `${name} parsed as an empty union`);
-  return kinds;
-};
 
 /**
  * The slice of the DOM the bundled viewer's legend renders through.

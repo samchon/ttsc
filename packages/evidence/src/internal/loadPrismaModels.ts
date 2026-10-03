@@ -92,6 +92,10 @@ interface IReadSet {
  * relation identities with their doc comments and a digest of each
  * declaration's content.
  *
+ * Each local file is read from one handle with a 16MiB acquisition limit and
+ * one sentinel byte. The limit is per file, not per set or total process
+ * memory; the native cache digest and locator retain their own file reads.
+ *
  * One **set** is one request. A Prisma schema folder is several files that form
  * a single namespace — a model in one file may point at a model in another — so
  * a file cannot be parsed alone and the reuse key belongs to the ordered set.
@@ -193,16 +197,7 @@ const readSet = async (root: string, sources: string[]): Promise<IReadSet> => {
     // population resolves against the root its configuration declares rather
     // than against the project. The caller sends the paths its own walk
     // produced, so this side only resolves them the same way.
-    const location: string = path.resolve(root, source);
-    const stat: Awaited<ReturnType<typeof fs.stat>> = await fs.stat(location);
-    if (!stat.isFile())
-      throw new Error(`the Prisma schema source '${source}' is not a file`);
-    if (stat.size > MAX_SCHEMA_BYTES)
-      throw new Error(
-        `the Prisma schema '${source}' exceeds the ${MAX_SCHEMA_BYTES} byte limit`,
-      );
-
-    const content: Buffer = await fs.readFile(location);
+    const content: Buffer = await readSchema(root, source);
     files.push([source, decodeUtf8(content)]);
     composite.update(source, "utf8");
     composite.update(SEPARATOR);
@@ -210,6 +205,60 @@ const readSet = async (root: string, sources: string[]): Promise<IReadSet> => {
     composite.update("\n");
   }
   return { files, digest: composite.digest("hex") };
+};
+
+/**
+ * Reads one schema through one handle, including a sentinel beyond the limit.
+ *
+ * Stat is admission, not a bound on later bytes. Each short read fills its
+ * current chunk, so retained backing allocations grow with accepted bytes
+ * rather than with the number of reads. Each acquired-handle path awaits a
+ * close attempt. A close rejection becomes a set problem and may replace a
+ * prior read error; a rejected close does not certify resource release.
+ * This is a per-file acquisition bound; decoding, parser input and native
+ * digest/location reads have separate costs, not a whole-process memory quota.
+ */
+const readSchema = async (root: string, source: string): Promise<Buffer> => {
+  const handle = await fs.open(path.resolve(root, source), "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile())
+      throw new Error(`the Prisma schema source '${source}' is not a file`);
+    const sizeError = () =>
+      new Error(
+        `the Prisma schema '${source}' exceeds the ${MAX_SCHEMA_BYTES} byte limit`,
+      );
+    if (stat.size > MAX_SCHEMA_BYTES) throw sizeError();
+    const chunks: Buffer[] = [];
+    let length = 0;
+    let chunk = Buffer.allocUnsafe(64 * 1024);
+    let used = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(
+        chunk,
+        used,
+        Math.min(chunk.length - used, MAX_SCHEMA_BYTES - length + 1),
+        null,
+      );
+      if (bytesRead === 0) {
+        if (used > 0) chunks.push(chunk.subarray(0, used));
+        break;
+      }
+      length += bytesRead;
+      if (length > MAX_SCHEMA_BYTES) throw sizeError();
+      used += bytesRead;
+      if (used === chunk.length) {
+        chunks.push(chunk);
+        chunk = Buffer.allocUnsafe(
+          Math.min(64 * 1024, MAX_SCHEMA_BYTES - length + 1),
+        );
+        used = 0;
+      }
+    }
+    return Buffer.concat(chunks, length);
+  } finally {
+    await handle.close();
+  }
 };
 
 const decodeUtf8 = (content: Uint8Array): string =>

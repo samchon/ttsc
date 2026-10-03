@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { warmLinkedPlugin, workspace } from "./common.mjs";
 import { warmPredicateProbe } from "./predicates.mjs";
+import { runIndependent } from "./run-independent.cjs";
 
 // This inventory is checked against the installed package. Adding a public host
 // without a direct execution contract must fail the package rehearsal.
@@ -45,52 +46,56 @@ await warmPredicateProbe();
 await warmLinkedPlugin();
 // Every host runs to its own verdict, so one failing host does not hide the
 // verdicts of the hosts after it.
-const failures = [];
-for (const host of selected.length ? selected : Object.keys(hosts)) {
-  const start = Date.now();
-  const verdict = await new Promise((resolve, reject) => {
-    // A process boundary owns native host resources and proves clean shutdown.
-    // All hosts reuse the same install, source identity and native build cache.
-    const child = spawn(
-      process.execPath,
-      [fileURLToPath(new URL("./worker.mjs", import.meta.url)), host],
-      {
-        cwd: workspace,
-        stdio: "inherit",
-        env: process.env,
-        // The scenario matrix on two roots with two plugins, the restart
-        // contract, and the predicate matrix; Next's webpack stores its cache
-        // a minute after a rebuild, once per restart.
-        timeout: 1_800_000,
-        windowsHide: true,
-      },
-    );
-    child.on("error", reject);
-    child.on("exit", (code, signal) =>
-      code === 0 && !child.killed
-        ? resolve()
-        : reject(
-            new Error(
-              `${host} exited ${code ?? signal}${child.killed ? " after its deadline" : ""}`,
+const failures = await runIndependent(
+  selected.length ? selected : Object.keys(hosts),
+  async (host) => {
+    const start = Date.now();
+    const verdict = await new Promise((resolve, reject) => {
+      // A process boundary owns native host resources and proves clean shutdown.
+      // All hosts reuse the same install, source identity and native build cache.
+      const child = spawn(
+        process.execPath,
+        [fileURLToPath(new URL("./worker.mjs", import.meta.url)), host],
+        {
+          cwd: workspace,
+          stdio: "inherit",
+          env: process.env,
+          // The scenario matrix on two roots with two plugins, the restart
+          // contract, and the predicate matrix; Next's webpack stores its cache
+          // a minute after a rebuild, once per restart.
+          timeout: 1_800_000,
+          windowsHide: true,
+        },
+      );
+      child.on("error", reject);
+      child.on("exit", (code, signal) =>
+        code === 0 && !child.killed
+          ? resolve()
+          : reject(
+              new Error(
+                `${host} exited ${code ?? signal}${child.killed ? " after its deadline" : ""}`,
+              ),
             ),
-          ),
+      );
+    }).then(
+      () => undefined,
+      (error) => error,
     );
-  }).then(
-    () => undefined,
-    (error) => error,
-  );
-  if (verdict === undefined) {
-    console.log(
-      `  ${host}: dependency/lifecycle contract passed (${Date.now() - start} ms)`,
-    );
-  } else {
-    console.log(`  ${host}: dependency/lifecycle contract FAILED`);
-    failures.push(verdict);
-  }
-}
+    if (verdict === undefined) {
+      console.log(
+        `  ${host}: dependency/lifecycle contract passed (${Date.now() - start} ms)`,
+      );
+    } else {
+      console.log(`  ${host}: dependency/lifecycle contract FAILED`);
+      console.error(verdict);
+    }
+    return verdict === undefined ? 0 : 1;
+  },
+  Number(process.env.TTSC_HOST_WORKERS ?? 1),
+);
 if (failures.length !== 0) {
   throw new AggregateError(
-    failures,
-    failures.map((failure) => failure.message).join("; "),
+    failures.map((host) => new Error(`${host} contract failed`)),
+    `Failed host contracts: ${failures.join("; ")}`,
   );
 }

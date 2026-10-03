@@ -19,6 +19,15 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states ordering and invalid-shape handling, preserving the
  *   distinction between normalization and compiler diagnostics.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Normalizes the shape of an extends value into strings; it reads no filesystem and parses no path.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One array filter tests each element once and allocates at most one retained
+ *   slot per string; scalar and invalid-shape branches allocate a fixed-size list.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Shape normalization coordinates no completed or in-flight work across
+ *   requests; config readers own parsed-source sharing and native resolution.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function extendsSpecifiers(extended: unknown): string[] {
   if (typeof extended === "string") {

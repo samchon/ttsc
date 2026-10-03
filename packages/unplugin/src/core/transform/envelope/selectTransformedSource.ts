@@ -17,8 +17,8 @@ import { envelopeDerivation } from "./envelopeDerivation";
  *
  * Throws on compiler exception or hard failure so the bundler surfaces the
  * error to the user. On success, tries a fast exact-match lookup by
- * project-relative key first, then falls back to a resolve-based scan for the
- * rare case where the key in `result.typescript` uses an absolute or
+ * project-relative key first, then falls back to a lazy first-match identity
+ * index when the key in `result.typescript` uses an absolute or
  * differently-cased path. The map is read under the key the text was found
  * under, so the two always describe the same envelope entry
  * (samchon/ttsc#1392).
@@ -28,14 +28,25 @@ import { envelopeDerivation } from "./envelopeDerivation";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback supports real producer key spelling differences with first-match precedence; absent output is reported rather than synthesized from original source or a different module's map.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe source/map coupling, error behavior and exact versus identity lookup; the acknowledgment block follows the documentation skill's spacing guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Project key matching and alternate key identities use the envelope's filesystem context, so physical aliases and native case behavior are not guessed from lowercased strings.
- * @evidence contracts/performance.md#efficient-algorithms Exact record lookup is the common path; a miss builds the output-key index once in O(number of output keys), and subsequent misses use keyed identity access instead of rescanning every output.
- * @evidence contracts/performance.md#reuse-equivalent-work The output index is reused only for the same immutable generation and project root; text and maps remain coupled by the saved producer key, not by an inferred equality of their contents.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One key per physical output identity is retained in weakly owned envelope state; returned artifacts reference generation output, and this selector owns no independent handle or cross-generation history.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Successful lookup pays native project-key/path/identity work before an own
+ *   record probe. A first miss materializes output keys, key/value pairs and the
+ *   identity index, paying every key's text and uncached native observations;
+ *   later misses reuse it. Error routes format diagnostic/unknown-value text;
+ *   missing output also traverses reachable config references, reads their
+ *   selection data and constructs the path-list message. Costs follow those
+ *   populations, paths and content, not only the number of output keys.
+ * @evidence contracts/performance.md#reuse-equivalent-work The output index is reused only for the same immutable generation and project root; text and maps remain coupled by the saved producer key, not by an inferred equality of their contents.
  */
 export function selectTransformedSource(props: {
+  /** Absolute native module spelling whose producer output is requested. */
   file: string;
+  /** Stable generation root used by project keys and alternate producer spellings. */
   projectRoot: string;
+  /** Immutable compiler generation supplying coupled text and map records. */
   result: ITtscCompilerTransformation;
+  /** Selected config address used only when reporting missing program output. */
   tsconfig: string;
 }): TtscTransformedOutput {
   if (props.result.type === "exception") {

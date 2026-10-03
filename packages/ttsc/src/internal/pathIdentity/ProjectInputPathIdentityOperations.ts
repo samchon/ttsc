@@ -14,6 +14,9 @@ import type { FilesystemPathIdentityOperations } from "./FilesystemPathIdentityO
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The alias adds no special project path handling or foreign mutation, and does not turn successful identity resolution into proof of unchanged input contents.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs identify the alias, inherited override/error semantics and absence of project-only validation, with separated tags following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Project operations inherit native alias resolution, path grammar and directory case capability from the shared boundary instead of applying an OS-based project naming rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type ProjectInputPathIdentityOperations =
   FilesystemPathIdentityOperations;

@@ -21,6 +21,14 @@ import { pathIsWithin } from "./pathIsWithin";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Link-root aliases are not repaired with prefix substitution or a platform-specific temporary-directory exception.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain two-root containment, undefined, and the root's empty-string representation.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral containment uses native resolve/relative and root boundaries under both observed spellings, preserving cross-drive rejection without a fixed platform path policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Resolves the input once, then tries at most two captured roots using
+ *   lexical containment. Cost scales with input and root spelling lengths;
+ *   no native metadata or recursive directory observation is repeated.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function relativeToProject(
   file: string,

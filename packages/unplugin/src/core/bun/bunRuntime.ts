@@ -1,8 +1,8 @@
 import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
 
 /**
- * The Bun runtime global when the current process runs under Bun, detected by a
- * callable `Bun.plugin`.
+ * The exposed Bun registration capability, detected by a callable `Bun.plugin`.
+ * This structural check is not an independent runtime-identity certificate.
  *
  * @returns `undefined` off Bun, which lets the import-time registration stay a
  *   silent no-op under Node while an explicit `register` call throws.
@@ -17,6 +17,16 @@ import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains why absence is returned and how import-time and explicit
  *   callers differ, with native tag spacing following documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Performs fixed global/member checks without selecting an input-sized
+ *   processing strategy or invoking the plugin.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Reads the current capability each call; registration-state sharing belongs
+ *   to the runtime-keyed state owner rather than this detector.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function bunRuntime(): BunRuntimeGlobal | undefined {
   const runtime = (globalThis as { Bun?: BunRuntimeGlobal }).Bun;

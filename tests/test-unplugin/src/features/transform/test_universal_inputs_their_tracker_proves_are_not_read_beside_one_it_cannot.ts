@@ -1,35 +1,35 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/lib/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM.mjs";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/lib/core/transform/cache/TtscCachedProjectTransform.mjs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
-import { inputMetadataSignature } from "../../../../../packages/unplugin/lib/core/transform/inputs/inputMetadataSignature.mjs";
-import { pluginSourceState } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceState.mjs";
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import type { TtscHostInputValidation } from "../../../../../packages/unplugin/lib/core/transform/validation/TtscHostInputValidation.mjs";
-import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/lib/core/transform/validation/matchesUniversalHostInputs.mjs";
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { inputMetadataSignature } from "../../../../../packages/unplugin/src/core/transform/inputs/inputMetadataSignature";
+import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
+import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
 
 /**
- * Verifies each universal input is proven on its own, so one input its tracker
- * cannot vouch for sends no other back to the disk.
+ * Verifies one unproven universal source does not force neighboring proven
+ * files through filesystem operations, and a named change rechecks only itself.
  *
- * On macOS a plugin source outside the project root is watched by a stream no
- * probe can prove delivered (samchon/ttsc#1453), so its tracker never vouches
- * for it, and every delivery re-proved every universal input: the project's
- * `package.json`, its plugin descriptor, and its tsconfig, which the tracker
- * did vouch for, measured on the macOS lane as a read of each on every delivery
- * through a linked project. Only the plugin source needs its proof.
+ * The supplied tracker qualifies inputs individually. Six counted native
+ * operations record only package.json and plugin.cjs touches, so this case
+ * observes metadata/path/existence work as well as byte reads.
  *
- * 1. Give a generation two universal files and a plugin source, all covered by a
- *    tracker that vouches for the files and names the plugin source unproven,
- *    and assert the proof holds without touching either file.
- * 2. Name one file changed, and assert that file alone is read, and the proof
- *    still holds on its metadata.
- * 3. Prove the plugin source too, and assert nothing at all is touched.
+ * 1. Supply real metadata and source state with the source unproven; require
+ *    successful validation and no operation on either covered file.
+ * 2. Name package.json changed and require success with only that one touch.
+ * 3. Clear the change and unproven set and require success with no file touches.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls actual matchesUniversalHostInputs three times over authored tracker/manifest inputs. Exact touch lists empty/package.json/empty distinguish per-input qualification from an all-or-nothing recheck; existence, lstat, readFile, realpath, stat and statBigInt are counted on the two file spellings.
+ * @evidence contracts/testing.md#independent-expectations Qualified silence belongs to each covered input. Literal touch lists follow that supported policy, independent of validator loop structure or source-provider output. Actual inputMetadataSignature and pluginSourceState supply baseline setup only, not expected scan counts or independent digest encoding.
+ * @evidence contracts/testing.md#distinguishing-cases Two proven files beside one unproven tree contrast with a named changed manifest and finally all-proven coverage. Actual metadata/state must be available; the changed file remains unchanged on disk so its direct metadata proof succeeds. This case measures only the two file spellings, not tree/toolchain work or event transport.
+ * @evidence contracts/testing.md#execution-ownership This discoverable direct unit owns the original four literal fixture files, actual validation operations and native Go environment inputs. Authored tracker fields are supported comparator arguments, not native-watch certification. It builds no compiler/plugin artifact and starts no watcher, installed consumer or host; E2E donor and native broker connection remain preserved.
  */
 export async function test_universal_inputs_their_tracker_proves_are_not_read_beside_one_it_cannot(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -77,13 +77,13 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     hostInputMutationTracker: tracker,
     result,
   } as unknown as TtscCachedProjectTransform;
-  const entry = (file: string) => ({
-    path: file,
-    readable: true,
-    realpath: file,
-    signature: inputMetadataSignature(file),
-    strict: true as const,
-  });
+  const entry = (file: string) => {
+    const signature = inputMetadataSignature(file);
+    assert.ok(signature, "native entry metadata must be readable");
+    return { path: file, readable: true, realpath: file, signature, strict: true as const };
+  };
+  const sourceState = pluginSourceState(source);
+  assert.ok(sourceState, "native source and build environment must be readable");
   const validation: TtscHostInputValidation = {
     covered: new Set([manifest, descriptor, source]),
     entries: new Map([
@@ -91,7 +91,7 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
       [descriptor, entry(descriptor)],
     ]),
     missing: new Map(),
-    trees: new Map([[source, pluginSourceState(source)!]]),
+    trees: new Map([[source, sourceState]]),
   };
 
   // 1. The files the tracker vouches for are not read.
@@ -99,10 +99,10 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
   assert.deepEqual(touched, [], "the proven files are left alone");
 
   // 2. A file the tracker heard change is read, alone.
-  (tracker.changes as Set<string>).add(manifest);
+  tracker.changes.add(manifest);
   assert.equal(matchesUniversalHostInputs(cached, validation), true);
   assert.deepEqual(touched.splice(0), ["package.json"]);
-  (tracker.changes as Set<string>).clear();
+  tracker.changes.clear();
 
   // 3. Everything proven: nothing at all.
   delete tracker.unproven;

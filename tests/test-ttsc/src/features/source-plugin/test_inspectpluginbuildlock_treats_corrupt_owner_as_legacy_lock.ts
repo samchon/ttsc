@@ -1,0 +1,44 @@
+import { TestProject } from "../../../../utils/src/TestProject";
+
+import {
+  assert,
+  fs,
+  inspectPluginBuildLock,
+  path,
+} from "../../internal/source-build-unit";
+
+/**
+ * Verifies inspectPluginBuildLock treats a corrupt owner file as a legacy lock,
+ * not a released one.
+ *
+ * Pins the boundary of the #421 `released` state: `released` requires the lock
+ * DIRECTORY to be gone, not merely the owner metadata to be unreadable. A
+ * present directory with an unparsable `owner.json` (a torn write, a crash
+ * mid-write) must stay active even when old, so a still-held lock is never
+ * handed back to waiters as a free key.
+ *
+ * 1. Create a lock directory whose `owner.json` contains invalid JSON and backdate
+ *    the directory mtime by two minutes.
+ * 2. Inspect it.
+ * 3. Assert the state is active with unconfirmed ownership.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Inspects invalid owner JSON in an old existing directory and retains active unconfirmed legacy ownership.
+ * @evidence contracts/testing.md#independent-expectations Invalid metadata is not death evidence; literal active state and unconfirmed-owner label implement the fail-safe contract.
+ * @evidence contracts/testing.md#distinguishing-cases Combines torn JSON with stale mtime, ensuring neither authorizes abandonment or release.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling inspectPluginBuildLock directly on a lock directory whose owner.json holds invalid JSON and whose mtime is backdated in a private temp directory; it acquires no lease and starts no process, build or host.
+ */
+export const test_inspectpluginbuildlock_treats_corrupt_owner_as_legacy_lock =
+  () => {
+    const root = TestProject.tmpdir("ttsc-lock-observe-");
+    const lockDir = path.join(root, "entry.lock");
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, "owner.json"), "{not json", "utf8");
+    const old = new Date(Date.now() - 120_000);
+    fs.utimesSync(lockDir, old, old);
+
+    const observation = inspectPluginBuildLock(lockDir);
+
+    assert.equal(observation.state, "active");
+    const owner = observation.state === "active" ? observation.owner : "";
+    assert.match(owner, /legacy lock with unconfirmed owner\.json/);
+  };

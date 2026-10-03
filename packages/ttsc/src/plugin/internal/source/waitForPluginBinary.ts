@@ -6,7 +6,9 @@ import { formatDuration } from "./formatDuration";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 
 /**
- * Poll for the locked builder to publish its binary, up to `timeoutMs`.
+ * Poll for binary pathname publication using a monotonic admission budget.
+ * `timeoutMs` is checked between observations, not a hard wall-clock limit:
+ * the synchronous inspector can retry internally and native calls can block.
  *
  * Normal release requests reacquisition and an abandoned owner carries the
  * exact observed generation. Expiring the monotonic wait budget throws; it
@@ -18,10 +20,10 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Budget expiry throws instead of retiring a live-looking generation and compensating for concurrent callbacks; status output never substitutes for ownership evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe monotonic wait units, distinct results and timeout failure without retirement; owner-aware diagnostics identify the actual contended key.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem existence and the shared lock inspector implement native observations; waiting uses the platform-neutral lock sleep primitive.
- * @evidence contracts/performance.md#efficient-algorithms Each iteration performs a bounded set of publication/lock observations and sleeps between them, with diagnostic output throttled independently of polling.
+ * @evidence contracts/performance.md#efficient-algorithms Each outer iteration observes the binary pathname and delegates lock inspection, including its native path/record bytes, observer registration and possible internal retries. Sleeps separate active polls; diagnostic formatting/output is throttled independently and scales with supplied labels/paths. A clock sample taken before inspection is not a hard bound on its duration.
  * @evidence contracts/performance.md#reuse-equivalent-work The waiter adopts an already-published binary instead of compiling the same key again; only an observed released generation triggers ordinary reacquisition.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This function owns no builder process or persistent lease; publication, release, abandonment or timeout failure end its local wait without cancelling another owner's task.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The local wait controls no builder process or cancellation. Its inspector may register observer records retained until process absence is proven, with growth by distinct generations. Returned outcomes or observed budget expiry end the outer wait; internal inspection/native calls can delay that boundary without an overall deadline. No asynchronous timer is installed.
  */
 export function waitForPluginBinary(opts: {
   binaryPath: string;

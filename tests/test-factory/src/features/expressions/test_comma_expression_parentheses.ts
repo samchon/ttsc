@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags } from "@ttsc/factory";
+import factory, { NodeFlags } from "../../../../../packages/factory/src/index";
 
 import { id, print } from "../../internal/helpers";
 
@@ -7,9 +7,10 @@ import { id, print } from "../../internal/helpers";
  * Verifies comma expression parenthesizer: wraps comma operands in delimited
  * contexts.
  *
- * Comma expressions are valid expressions, but in arrays, arguments, element
- * access, template spans, object members, and initializers they otherwise look
- * like separators and change the generated program shape.
+ * Arrays, call arguments, object values and initializers must distinguish comma
+ * expressions from list separators. The printer also explicitly groups comma
+ * expressions in element access and template spans, where grouping is a text
+ * convention rather than a necessary change in meaning.
  *
  * The expectations spell the comma `a, b`, the way every other producer writes
  * it. They read `a , b` until #834: the printer surrounded the comma with a
@@ -19,6 +20,11 @@ import { id, print } from "../../internal/helpers";
  * 1. Build comma expressions in every delimited expression context.
  * 2. Build parameter, binding, and variable initializers with comma values.
  * 3. Assert each context emits parentheses around the comma expression.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A comma expression is printed in parentheses as an array element, call argument, concise arrow body, element-access index, template span, object property value, parameter initializer, binding-element initializer and variable initializer.
+ * @evidence contracts/testing.md#independent-expectations Exact source literals and contextual delimiters independently define which commas separate arguments versus belong to an expression.
+ * @evidence contracts/testing.md#distinguishing-cases Nine delimited consumers distinguish missed propagation in one position; bare comma output belongs to comma_operator_attaches_to_the_left_operand.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_comma_expression_parentheses. Constructs each labeled consumer around comma expression nodes and prints through the unit export.
  */
 export const test_comma_expression_parentheses = (): void => {
   const comma = () => factory.createComma(id("a"), id("b"));

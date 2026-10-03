@@ -1,10 +1,12 @@
 {
   "private": true,
+  "type": "module",
   "name": "test-evidence",
   "version": "0.30.4",
-  "description": "End-to-end feature tests for @ttsc/evidence, driving the real ttsc binary.",
+  "description": "Unit tests for @ttsc/evidence and shared Evidence fixture operations.",
   "scripts": {
-    "start": "node ../../packages/ttsc/lib/launcher/ttsx.js --no-plugins src/index.ts"
+    "start": "tsc --noEmit -p tsconfig.json && node --import ../../config/register-unit-loader.mjs src/index.ts",
+    "evidence": "evidence"
   },
   "devDependencies": {
     "@nestia/e2e": "catalog:utils",

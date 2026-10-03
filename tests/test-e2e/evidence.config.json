@@ -1,0 +1,21 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "TypeScript E2E experiments",
+      "type": "typescript",
+      "files": [
+        "src/features/**/test_*.ts",
+        "src/features/**/case_*.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md", "contracts/e2e.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
+    }
+  ]
+}

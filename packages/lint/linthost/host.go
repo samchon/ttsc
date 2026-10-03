@@ -6,7 +6,7 @@
 // dependency the public proxy cannot satisfy and that conflicts with
 // ttsc's runtime-generated go.work overlay. Instead, this file inlines a
 // minimal Program/Checker bootstrap (the same pattern documented in
-// 03-tsgo.md and used by every other source-plugin reference fixture).
+// website/src/content/docs/development/concepts/tsgo.mdx).
 package linthost
 
 import (
@@ -82,8 +82,8 @@ type loadProgramOptions struct {
 
 // loadProgram parses the given tsconfig and builds a Program. When
 // needsRuleChecker is set, it also creates a standalone checker for lint rules.
-// Mirrors the canonical bootstrap pattern from
-// `03-tsgo.md` — the only ttsc-specific bit is that `forceEmit`/
+// Mirrors the canonical bootstrap pattern documented in
+// website/src/content/docs/development/concepts/tsgo.mdx — the only ttsc-specific bit is that `forceEmit`/
 // `forceNoEmit`/`outDir` overrides are merged into the parsed config
 // before the program is created so `--noEmit` and friends behave like
 // they do in `ttsc check`.
@@ -297,10 +297,10 @@ func resolveProjectPathAncestor(target string) (string, bool) {
 // runProjectCycle evaluates the project rules alone and returns the cycle,
 // without walking a single file.
 //
-// A consumer wanting only what project rules produced — a hint corpus, say —
-// should not pay for the file walk that produces findings it will throw away.
-// The cycle is memoized on the program exactly as runLintCycle memoizes it, so
-// asking for hints and then linting the same program evaluates each rule once.
+// A consumer wanting only project-rule output, such as a hint corpus, should
+// not pay for a file walk whose findings it discards. Calls sharing the current
+// memo use the same evaluation cycle; resident acquire resets it before a new
+// request so that request evaluates its own engine settings.
 func (p *program) runProjectCycle(engine *Engine) *projectCycle {
   if p == nil || engine == nil {
     return nil
@@ -332,13 +332,13 @@ func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
 }
 
 // runCycleOver evaluates the project rules and the file rules over one file set,
-// memoizing the project cycle on the program so a second verb against the same
-// program does not re-evaluate a rule. The caller owns the scope decision.
+// memoizing the current project cycle on the program. Calls sharing that memo
+// do not re-evaluate a rule; resident acquire resets it before a new request.
+// The caller owns the scope decision.
 //
-// That memo makes the scope a property of the program, not of the call: the
-// first cycle fixes the population every later verb observes. One loaded
-// program therefore serves one scope, and a caller must not ask the same
-// program for both a lint cycle and a write-scoped one.
+// The first evaluation fixes the population for that memo. A caller must not
+// mix lint and write scopes while retaining it; a new resident request resets
+// the memo before selecting its scope over the reused Program.
 func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*Finding {
   if p == nil || engine == nil {
     return nil

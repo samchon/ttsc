@@ -1,194 +1,138 @@
 import assert from "node:assert/strict";
+import { TtscLintDaemonState } from "../../../../packages/graph/src/model/TtscLintDaemonState";
+import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/TtscGraphNativeArguments";
+import type { TtscGraphLinePeer } from "../../../../packages/graph/src/model/TtscGraphLinePeer";
 
-import {
-  createLintDaemonFixture,
-  readSidecarArguments,
-  readSidecarRequests,
-} from "../internal/lintDaemon";
+/** Declared port recordings only; input lines/events are supplied by each case. */
+const fixture = () => {
+  const ports: { events: TtscGraphLinePeer.Events; writes: { verb: string; invalidate: boolean }[]; closed: number }[] = [];
+  const daemon = new TtscLintDaemonState((events) => {
+    const port = { events, writes: [] as { verb: string; invalidate: boolean }[], closed: 0 };
+    ports.push(port);
+    return { stderr: "", alive: () => port.closed === 0, write: (line, done) => { port.writes.push(JSON.parse(line)); done(); }, close: () => { port.closed++; } };
+  });
+  return { daemon, ports };
+};
+
+const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: number) => {
+  for (let turn = 0; turn < 20; turn++) {
+    const port = ports[0];
+    if (port !== undefined && port.writes.length >= count) return port;
+    await Promise.resolve();
+  }
+  assert.fail("daemon queue did not admit request");
+};
 
 /**
- * Verifies the resident sidecar client answers from the sidecar it opened, and
- * says it cannot rather than answering nothing when it cannot.
+ * Verifies the lint daemon state returns supported replies, answers null when it cannot, and serializes concurrent asks.
  *
- * Every other case about the artifact channel would pass with this client
- * removed. A daemon that never answers falls back to one process per verb, and
- * the fallback returns the same bytes, so the only visible difference is cost.
- * That is the same shape as the defect this whole cycle came from: the channel
- * shipped publishing nothing for a full release because an empty answer is
- * indistinguishable from the correct answer for most projects. So this case
- * reads what the sidecar was spawned with and what it received, rather than
- * inferring either from a result that looks alike either way.
+ * A null answer means the caller must run the direct command; it must never be
+ * mistaken for an empty project. Replies carry no request id, so a second
+ * caller must wait until the first reply has been consumed.
  *
- * The `null` direction matters as much as the answering one. `null` from this
- * client has to mean "ask the sidecar directly", never "the project has none":
- * a client that returned an empty answer for a daemon that could not serve
- * would put the original defect back, one layer down.
+ * 1. Ask two supported verbs and check each reply's content, the invalidate flag
+ *    written for each, and the lint argv builder's flags.
+ * 2. Answer a verb with a nonzero code, and exit the transport before any reply;
+ *    require null for that ask and for every later ask, with no new port.
+ * 3. Ask two verbs at once and require the second request line to be written
+ *    only after the first reply arrives.
  *
- * 1. Ask two verbs of a sidecar that serves, and require the sidecar's own answers
- *    back, one spawn, and the invalidate control on the wire.
- * 2. Ask a sidecar that rejects a verb, and require `null` and no second spawn.
- * 3. Ask a sidecar built before `lsp-serve`, and require `null` rather than a
- *    throw.
- * 4. Ask two verbs at once and require each its own answer, in order.
+ * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask must return the parsed result text of a code-0 reply for "project-inputs" and "graph-nodes" and write [verb, invalidate] pairs [["project-inputs", true], ["graph-nodes", false]]; a code-1 reply must yield null, close the port once and make the next ask null; an exit event must yield null for the pending and later asks; and two simultaneous asks must be written one at a time in order. TtscGraphNativeArguments.lint must start with "lsp-serve" and carry --cwd=, --tsconfig=, --plugins-json= and --project-context-json=.
+ * @evidence contracts/testing.md#independent-expectations The verbs, the "servedBy" marker, the invalidate flags, the reply codes, the expected null outcomes, the port count of one and the close count of one are literals authored in the test; the replies are JSON lines written by the test through the port events, not produced by a daemon.
+ * @evidence contracts/testing.md#distinguishing-cases Five scenario families contrast a served reply, a declined reply (code 1), a transport exit with no reply, and concurrent asks; the concurrent scenario shows the second write absent after five microtask turns and present only after the first reply. Malformed JSON and a reply without a numeric code each return null, retire the port once and prevent another port. Write failure is not exercised.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscLintDaemonState and TtscGraphNativeArguments.lint in the test process against recorded line ports that the test feeds JSON lines and exit events through the declared events; no lint sidecar process, direct-command fallback or real transport is involved.
  */
-export const test_ttscgraph_lint_daemon_answers_or_says_it_cannot =
-  async (): Promise<void> => {
-    await verifyServes();
-    await verifyRejectedVerbFallsBack();
-    await verifyMissingServeFallsBack();
-    await verifyConcurrentAsksAreSerialized();
-  };
+export async function test_ttscgraph_lint_daemon_answers_or_says_it_cannot(): Promise<void> {
+  const errors: unknown[] = [];
+  for (const run of [verifyServes, verifyRejectedVerb, verifyMissingServe, verifyConcurrent, verifyMalformedReplies]) {
+    try { await run(); } catch (error) { errors.push(error); }
+  }
+  if (errors.length !== 0) throw new AggregateError(errors, "lint daemon state scenarios failed");
+}
 
-/** A sidecar that serves: its answers, its spawn, and its request stream. */
 async function verifyServes(): Promise<void> {
-  const fixture = createLintDaemonFixture({
-    mode: "serve",
-    projectContext: '{"physicalProjectRoot":"/fixture"}',
-  });
+  const { daemon, ports } = fixture();
   try {
-    const inputs = await fixture.daemon.ask("project-inputs", true);
-    const nodes = await fixture.daemon.ask("graph-nodes", false);
-
-    assert.notEqual(
-      inputs,
-      null,
-      "the daemon could not answer a verb its sidecar serves, so every republish would silently pay a process per verb",
-    );
-    assert.equal(
-      (JSON.parse(inputs!) as { servedBy?: string; verb?: string }).servedBy,
-      "daemon",
-      `the answer did not come from the open sidecar: ${String(inputs)}`,
-    );
-    assert.equal(
-      (JSON.parse(nodes!) as { verb?: string }).verb,
-      "graph-nodes",
-      `the second verb was answered with the first one's reply: ${String(nodes)}`,
-    );
-
-    const spawns = readSidecarArguments(fixture.root);
-    assert.equal(
-      spawns.length,
-      1,
-      `two verbs cost ${String(spawns.length)} spawns; the sidecar is not being held open at all`,
-    );
-    assert.equal(
-      spawns[0]![0],
-      "lsp-serve",
-      `the sidecar was not opened as a daemon: ${spawns[0]!.join(" ")}`,
-    );
-    // Without the project flag a rule resolves no root and answers with an
-    // empty set, which is the defect this cycle was about. The daemon carries
-    // it on its own argv, where a one-shot carries it per invocation.
-    for (const flag of [
-      "--cwd=",
-      "--tsconfig=",
-      "--plugins-json=",
-      "--project-context-json=",
-    ])
-      assert.equal(
-        spawns[0]!.some((argument) => argument.startsWith(flag)),
-        true,
-        `the daemon was opened without ${flag}: ${spawns[0]!.join(" ")}`,
-      );
-
-    const requests = readSidecarRequests(fixture.root);
-    assert.deepEqual(
-      requests.map((request) => [request.verb, request.invalidate]),
-      [
-        ["project-inputs", true],
-        ["graph-nodes", false],
-      ],
-      "the request stream is not what the client says it puts on the wire",
-    );
-  } finally {
-    fixture.daemon.close();
-  }
+    const first = daemon.ask("project-inputs", true);
+    const port = await admitted(ports, 1);
+    port.events.line(JSON.stringify({ code: 0, result: { servedBy: "daemon", verb: "project-inputs" } }));
+    const inputs = await first;
+    assert.notEqual(inputs, null);
+    assert.equal(JSON.parse(inputs!).servedBy, "daemon");
+    const second = daemon.ask("graph-nodes", false);
+    await admitted(ports, 2);
+    port.events.line(JSON.stringify({ code: 0, result: { servedBy: "daemon", verb: "graph-nodes" } }));
+    assert.equal(JSON.parse((await second)!).verb, "graph-nodes");
+    assert.equal(ports.length, 1);
+    const args = TtscGraphNativeArguments.lint("/fixture", "tsconfig.json", "[]", '{"physicalProjectRoot":"/fixture"}');
+    assert.equal(args[0], "lsp-serve");
+    for (const flag of ["--cwd=", "--tsconfig=", "--plugins-json=", "--project-context-json="]) assert.equal(args.some((arg) => arg.startsWith(flag)), true);
+    assert.deepEqual(port.writes.map((request) => [request.verb, request.invalidate]), [["project-inputs", true], ["graph-nodes", false]]);
+  } finally { await daemon.close(); }
 }
 
-/** A verb the sidecar rejects: `null`, and no retry through the daemon. */
-async function verifyRejectedVerbFallsBack(): Promise<void> {
-  const fixture = createLintDaemonFixture({
-    mode: "serve",
-    rejectVerb: "graph-nodes",
-  });
+async function verifyRejectedVerb(): Promise<void> {
+  const { daemon, ports } = fixture();
   try {
-    assert.notEqual(
-      await fixture.daemon.ask("project-inputs", true),
-      null,
-      "a served verb was refused, so the rejection below would prove nothing",
-    );
-    assert.equal(
-      await fixture.daemon.ask("graph-nodes", false),
-      null,
-      "a rejected verb was answered; the caller would read the sidecar's refusal as a project that publishes nothing",
-    );
-    // Closing rather than retrying is what sends the caller to the direct
-    // command, where a real rule failure surfaces the way it always did.
-    assert.equal(
-      await fixture.daemon.ask("project-inputs", true),
-      null,
-      "the daemon kept serving after refusing a verb; this client cannot tell an unknown verb from a failed rule, so it must stop asking",
-    );
-    assert.equal(
-      readSidecarArguments(fixture.root).length,
-      1,
-      "the daemon respawned its sidecar after closing it",
-    );
-  } finally {
-    fixture.daemon.close();
-  }
+    const initial = daemon.ask("project-inputs", true);
+    const port = await admitted(ports, 1);
+    port.events.line('{"code":0,"result":{"verb":"project-inputs"}}');
+    assert.notEqual(await initial, null);
+    const rejected = daemon.ask("graph-nodes", false);
+    await admitted(ports, 2);
+    port.events.line('{"code":1,"result":null}');
+    assert.equal(await rejected, null);
+    assert.equal(await daemon.ask("project-inputs", true), null);
+    assert.equal(ports.length, 1);
+    assert.equal(port.closed, 1);
+  } finally { await daemon.close(); }
 }
 
-/** A sidecar that predates `lsp-serve`: `null`, not an exception. */
-async function verifyMissingServeFallsBack(): Promise<void> {
-  const fixture = createLintDaemonFixture({ mode: "no-serve" });
+async function verifyMissingServe(): Promise<void> {
+  const { daemon, ports } = fixture();
   try {
-    assert.equal(
-      await fixture.daemon.ask("project-inputs", true),
-      null,
-      "a sidecar that does not know lsp-serve produced something other than null",
-    );
-    assert.equal(
-      await fixture.daemon.ask("graph-nodes", false),
-      null,
-      "the second verb did not also decline",
-    );
-  } finally {
-    fixture.daemon.close();
-  }
+    const first = daemon.ask("project-inputs", true);
+    const port = await admitted(ports, 1);
+    port.events.exit(2, null);
+    assert.equal(await first, null);
+    assert.equal(await daemon.ask("graph-nodes", false), null);
+    assert.equal(ports.length, 1);
+  } finally { await daemon.close(); }
 }
 
-/**
- * Two asks in flight at once.
- *
- * The reply carries nothing to address it by, so the client has to serialize: a
- * second request on the wire before the first is answered would be matched
- * against the first one's reply, and both callers would read the wrong verb's
- * result as their own.
- */
-async function verifyConcurrentAsksAreSerialized(): Promise<void> {
-  const fixture = createLintDaemonFixture({ mode: "serve" });
+async function verifyConcurrent(): Promise<void> {
+  const { daemon, ports } = fixture();
   try {
-    const [first, second] = await Promise.all([
-      fixture.daemon.ask("project-inputs", true),
-      fixture.daemon.ask("graph-nodes", false),
-    ]);
-    assert.equal(
-      (JSON.parse(first!) as { verb?: string }).verb,
-      "project-inputs",
-      "a concurrent ask was answered with the other request's reply",
-    );
-    assert.equal(
-      (JSON.parse(second!) as { verb?: string }).verb,
-      "graph-nodes",
-      "a concurrent ask was answered with the other request's reply",
-    );
-    assert.deepEqual(
-      readSidecarRequests(fixture.root).map((request) => request.verb),
-      ["project-inputs", "graph-nodes"],
-      "the two requests did not reach the sidecar one at a time",
-    );
-  } finally {
-    fixture.daemon.close();
+    const first = daemon.ask("project-inputs", true);
+    const second = daemon.ask("graph-nodes", false);
+    const port = await admitted(ports, 1);
+    for (let turn = 0; turn < 5; turn++) await Promise.resolve();
+    assert.equal(port.writes.length, 1, "second request was written before first reply");
+    port.events.line('{"code":0,"result":{"verb":"project-inputs"}}');
+    assert.equal(JSON.parse((await first)!).verb, "project-inputs");
+    await admitted(ports, 2);
+    port.events.line('{"code":0,"result":{"verb":"graph-nodes"}}');
+    assert.equal(JSON.parse((await second)!).verb, "graph-nodes");
+    assert.deepEqual(port.writes.map((request) => request.verb), ["project-inputs", "graph-nodes"]);
+    assert.equal(ports.length, 1);
+  } finally { await daemon.close(); }
+}
+
+/** Invalid JSON and absent reply codes retire ownership rather than succeed. */
+async function verifyMalformedReplies(): Promise<void> {
+  const errors: unknown[] = [];
+  for (const line of ["not JSON", '{"result":{}}']) {
+    const { daemon, ports } = fixture();
+    try {
+      const pending = daemon.ask("project-inputs", true);
+      const port = await admitted(ports, 1);
+      port.events.line(line);
+      assert.equal(await pending, null);
+      assert.equal(await daemon.ask("graph-nodes", false), null);
+      assert.equal(port.closed, 1);
+      assert.equal(ports.length, 1);
+    } catch (error) { errors.push(error); }
+    finally { await daemon.close(); }
   }
+  if (errors.length) throw new AggregateError(errors, "malformed daemon replies");
 }

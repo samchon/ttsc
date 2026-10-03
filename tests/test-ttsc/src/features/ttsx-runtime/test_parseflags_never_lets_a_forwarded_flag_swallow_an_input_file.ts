@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js";
+import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
 
 const isEntry = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
@@ -26,6 +26,11 @@ const isEntry = (token: string): boolean =>
  * 3. Assert the negative twin — the same flag followed by a non-file token — still
  *    forwards the pair adjacently, and a genuine launcher value flag still
  *    consumes its value.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseFlags keeps an entry after forwarded --out, consumes its non-entry bundle value, and retains the accepted --cwd value.
+ * @evidence contracts/testing.md#independent-expectations Literal arrays and the cwd map row specify which layer owns each adjacent token.
+ * @evidence contracts/testing.md#distinguishing-cases The same --out option followed by entry.ts versus bundle.js distinguishes forwarding ownership, while accepted cwd is a positive value-consumption control.
+ * @evidence contracts/testing.md#execution-ownership This direct parser unit uses in-memory argv and an explicit entry predicate; it does not build a compiler or launch the sidecar.
  */
 export const test_parseflags_never_lets_a_forwarded_flag_swallow_an_input_file =
   () => {

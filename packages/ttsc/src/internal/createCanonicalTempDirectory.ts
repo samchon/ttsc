@@ -5,7 +5,7 @@ import path from "node:path";
 import type { CanonicalTempDirectoryOperations } from "./CanonicalTempDirectoryOperations";
 
 /**
- * Create a unique temporary directory under a frozen physical parent.
+ * Create a unique temporary directory under an observed physical parent.
  *
  * Resolving the parent before creation removes the caller's TEMP/TMPDIR alias
  * from the returned path. The postflight accepts a directory only when its
@@ -23,7 +23,7 @@ import type { CanonicalTempDirectoryOperations } from "./CanonicalTempDirectoryO
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed observations propagate without substituting a guessed path or recursively deleting an entry whose ownership is unproven; injected primitives belong to this boundary rather than replacing foreign globals.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain prefix restrictions, alias removal, postflight rejection, possible unclaimed allocation and the lack of atomic or held-directory protection under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation node:path assembles and validates native names, os.tmpdir supplies the default parent, and native realpath expands aliases; no fixed temporary root, manual separator replacement or OS-wide case folding determines containment.
- * @evidence contracts/performance.md#efficient-algorithms A fixed number of native observations and one allocation operate on the supplied path lengths without traversing the parent's directory population; native alias resolution costs remain with the filesystem.
+ * @evidence contracts/performance.md#efficient-algorithms Prefix checks and native path assembly scan path text; a fixed number of realpath/stat observations and one unique allocation delegate alias resolution and filesystem lookup work. No explicit directory enumeration occurs here, but the fixed call count does not bound native lookup, alias depth or allocation costs. Temporary path strings grow with the observed native spellings.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call requires a unique allocation and current parent/child observations; reusing an earlier directory or postflight would violate that ownership boundary.
  *

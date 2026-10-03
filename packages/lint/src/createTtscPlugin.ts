@@ -11,6 +11,8 @@ import {
   configEvaluatorFailureReason,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
+import { beginLintTrace } from "./internal/lintTrace";
+import { normalizeContributors } from "./internal/normalizeContributors";
 import type { ITtscLintPluginConfig } from "./structures";
 
 /** A resolved contributor: Go sub-package name + absolute source directory. */
@@ -76,17 +78,6 @@ type TtscPluginFactoryContext<TConfig> = {
 // `goSubpackageName`); the user-facing prefix keeps the original form.
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
-/**
- * Map a user-facing namespace (`react-hooks`) to a Go-valid sub-package name
- * (`react_hooks`). Required because ttsc's plugin builder uses the `name` field
- * as a directory and import-path suffix, both of which must satisfy Go's
- * stricter `[a-z][a-z0-9_]*` identifier rules. The function is total over
- * namespaces that already passed `NAMESPACE_PATTERN`.
- */
-function goSubpackageName(namespace: string): string {
-  return namespace.replace(/-/g, "_");
-}
-
 const LINT_CONFIG_FILENAMES = [
   "lint.config.json",
   "lint.config.js",
@@ -132,15 +123,13 @@ const FRAMEWORK_KEYS = new Set<string>([
  * no evaluator. The extractor reads plugin maps from the resolved config and
  * its bases and forwards contributor Go sources to the descriptor's
  * `contributors` field.
+ * Its dependency envelope owns config observations; the child's bootstrap
+ * does not inherit the parent descriptor's observation channel.
  *
  * @evidence contracts/common.md#principled-implementation Entry validation and config-origin discovery resolve registered contributor sources and observed inputs before constructing the check-stage descriptor with supported capabilities.
  * @evidence contracts/common.md#clear-and-simple-design The exported factory composes validation, discovery and descriptor construction; helpers own module loading and dependency fingerprints separately.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Contributors use the supported Go-source extension boundary and config-file schema; no foreign method replacement or fixture-specific descriptor is installed.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config origins, evaluator formats and contributor forwarding; separated prose and tags follow documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native path and file-URL APIs separate discovery paths from import URLs; compiler and launcher resolution uses explicit platform executable names and argument arrays, and cross-volume evaluator storage is selected on the config volume. Case-alias equality requires matching filesystem device and inode identities, and package containment verifies the physical ancestor rather than trusting native lexical case folding.
- * @evidence contracts/performance.md#efficient-algorithms Discovery examines a fixed filename set at each ancestor; namespace collision checking is linear in entries plus deterministic sorting, while dependency hashing reads observed bytes and directory entries. Watch reachability builds adjacency once and advances a queue cursor, processing each reachable watched-state edge without repeatedly moving pending elements.
- * @evidence contracts/performance.md#reuse-equivalent-work The completed plugin-config cache is keyed by version, config origin, path and entry bytes, then validates every observed file, directory and realpath fingerprint before reuse. Config execution can depend on unobserved environment or network inputs, so the explicit cache-disable setting remains necessary for those effectful configurations; concurrent cold processes are not coalesced.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluator owns its temporary tree and removes it in finally without replacing the config result on cleanup failure; child output streams directly to stderr rather than retaining buffers. Completed cache files persist across processes and currently have no historical-entry reclamation policy, and failed best-effort cleanup can leave a temporary tree.
  */
 export default function createTtscPlugin(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
@@ -247,18 +236,7 @@ function resolveConfigFileContributors(
 
   const evaluation = readConfigPluginEntries(configPath, context);
   const entries = evaluation.entries;
-  assertContributorNamespacesDoNotCollide(entries, configPath);
-  // Dedup exact repeated namespaces on the Go-subpackage form. Config-array
-  // folding can surface the same namespace more than once; that existing
-  // behavior stays intact after distinct namespaces are rejected above.
-  const occupied = new Set<string>();
-  const out: TtscPluginContributor[] = [];
-  for (const entry of entries) {
-    const goName = goSubpackageName(entry.namespace);
-    if (occupied.has(goName)) continue;
-    occupied.add(goName);
-    out.push({ name: goName, source: entry.source });
-  }
+  const out = normalizeContributors(entries, configPath);
   const dependencyInputs = evaluation.dependencies
     .filter(
       (dependency) =>
@@ -433,37 +411,6 @@ function discoverLintConfigFile(
     }
   }
   return { hostInputHashes, hostInputRealpaths, hostInputs };
-}
-
-function assertContributorNamespacesDoNotCollide(
-  entries: ConfigPluginEntry[],
-  configPath: string,
-): void {
-  const namespacesByGoName = new Map<string, Set<string>>();
-  for (const entry of entries) {
-    const goName = goSubpackageName(entry.namespace);
-    let namespaces = namespacesByGoName.get(goName);
-    if (namespaces === undefined) {
-      namespaces = new Set<string>();
-      namespacesByGoName.set(goName, namespaces);
-    }
-    namespaces.add(entry.namespace);
-  }
-  const collisions = [...namespacesByGoName]
-    .map(([goName, namespaces]) => [goName, [...namespaces].sort()] as const)
-    .filter(([, namespaces]) => namespaces.length > 1)
-    .sort(([left], [right]) => left.localeCompare(right));
-  if (collisions.length === 0) return;
-
-  const details = collisions
-    .map(
-      ([goName, namespaces]) =>
-        `${namespaces.map((namespace) => JSON.stringify(namespace)).join(", ")} all normalize to ${JSON.stringify(goName)}`,
-    )
-    .join("; ");
-  throw new Error(
-    `@ttsc/lint: lint config ${configPath} contributor namespaces collide after Go normalization: ${details}`,
-  );
 }
 
 /**
@@ -647,7 +594,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const configUrl = %CONFIG_IMPORT%;
 const outputPath = %CONFIG_OUTPUT%;
 const resolutionRoot = path.resolve(%CONFIG_ROOT%);
-const requireFromConfig = createRequire(configUrl);
 const CONFIG_KEYS = new Set<string>([
   "files",
   "ignores",
@@ -693,6 +639,7 @@ const configUrlSpellings = [
     pathToFileURL(realConfigLocation()).href,
   ]),
 ];
+const configEntryUrls = new Set(configUrlSpellings);
 const moduleProbeExtensions = [
   ".ts",
   ".tsx",
@@ -752,13 +699,16 @@ const hooks = registerHooks({
     // recorded under — and the graph would collapse to the records made before
     // the first import. The request itself is unambiguous, so it decides.
     const entry =
-      specifier === configUrl ||
+      configEntryUrls.has(specifier) ||
       url === new URL(configUrl).href ||
       samePhysicalPath(location, configLocation);
     if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
     graphNodes.set(url, location);
+    if (entry && configEntryUrls.has(specifier) && specifier !== url) {
+      graphEdges.push({ child: url, packageBoundary: false, parent: specifier });
+    }
     if (parent !== undefined) {
       graphEdges.push({
         child: url,
@@ -802,19 +752,7 @@ const hooks = registerHooks({
       ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
       : await import(configUrl);
     const current = await resolveConfig(importedConfig, true);
-    const pluginMaps = collectPluginObjects(current);
-    const entries: Array<{ namespace: string; source: string }> = [];
-    for (const map of pluginMaps) {
-      for (const [namespace, value] of Object.entries(map)) {
-        const source = extractPluginSource(value);
-        if (source === undefined || source.length === 0) {
-          throw new Error(
-            \`contributor \${JSON.stringify(namespace)} must resolve to an object with a non-empty "source" string\`,
-          );
-        }
-        entries.push({ namespace, source });
-      }
-    }
+    const entries = await collectPluginEntries(current, configLocation, [configLocation]);
     fs.writeFileSync(outputPath, JSON.stringify({
       dependencies: finalizeDependencies(),
       entries,
@@ -1904,26 +1842,59 @@ function mergeConfigObjects(
   return out;
 }
 
-function collectPluginObjects(value: unknown): Array<Record<string, unknown>> {
-  const out: Array<Record<string, unknown>> = [];
-  visit(value);
-  return out;
-
-  function visit(node: unknown): void {
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item);
-      return;
+// Follow the same containing-file-relative, base-first extends chain as the
+// native config reader. Each explicit base is a watch input even when it lives
+// in node_modules; imports made by that base retain ordinary package boundaries.
+async function collectPluginEntries(
+  value: unknown,
+  location: string,
+  chain: readonly string[],
+): Promise<Array<{ namespace: string; source: string }>> {
+  const out: Array<{ namespace: string; source: string }> = [];
+  if (Array.isArray(value)) {
+    for (const item of value) out.push(...await collectPluginEntries(item, location, chain));
+    return out;
+  }
+  if (!isObject(value)) return out;
+  if (value.extends !== undefined && value.extends !== null) {
+    if (typeof value.extends !== "string" || value.extends.trim() === "") {
+      throw new Error("extends must be a non-empty string path to another config file");
     }
-    if (!isObject(node)) return;
-    if (hasOwn(node, "plugins") && isObject(node.plugins)) {
-      out.push(node.plugins as Record<string, unknown>);
+    const next = path.resolve(path.dirname(location), value.extends);
+    if (chain.includes(next)) {
+      throw new Error("extends cycle detected: " + [...chain, next].join(" -> "));
+    }
+    if (chain.length >= 32) {
+      throw new Error("extends chain exceeds the depth limit of 32: " + chain.join(" -> "));
+    }
+    const nextUrl = pathToFileURL(next).href;
+    const parentUrl = pathToFileURL(location).href;
+    configEntryUrls.add(nextUrl);
+    graphNodes.set(nextUrl, next);
+    graphEdges.push({ child: nextUrl, packageBoundary: false, parent: parentUrl });
+    recordDependency("file", next, createHash("sha256").update(fs.readFileSync(next)).digest("hex"), [nextUrl]);
+    recordPackageManifests(next, [nextUrl]);
+    const imported = next.toLowerCase().endsWith(".json")
+      ? JSON.parse(fs.readFileSync(next, "utf8").replace(/^\uFEFF/, ""))
+      : await import(nextUrl);
+    const base = await resolveConfig(imported, true);
+    out.push(...await collectPluginEntries(base, next, [...chain, next]));
+  }
+  if (hasOwn(value, "plugins") && isObject(value.plugins)) {
+    for (const [namespace, plugin] of Object.entries(value.plugins)) {
+      const source = extractPluginSource(plugin, location);
+      if (source === undefined || source.length === 0) {
+        throw new Error("contributor " + JSON.stringify(namespace) + " must resolve to an object with a non-empty source string");
+      }
+      out.push({ namespace, source });
     }
   }
+  return out;
 }
 
-function extractPluginSource(value: unknown): string | undefined {
+function extractPluginSource(value: unknown, location: string): string | undefined {
   if (typeof value === "string") {
-    value = requireFromConfig(value);
+    value = createRequire(pathToFileURL(location))(value);
   }
   if (!isObject(value)) return undefined;
   // ESM-from-CJS interop wraps CJS modules' \`exports.default\` so the
@@ -2116,17 +2087,62 @@ function evaluateTtsxConfigPlugins(
       ...nodeConfigLoaderEnv(configPath),
     };
     const command = ttsxThroughNodeIfNeeded(ttsxBinary);
-    const result = spawnSync(command.binary, [...command.prefix, ...args], {
+    const observation = beginLintTrace();
+    const lower = observation ? new Date().toISOString() : undefined;
+    observation?.record("process-attempt", {
+      pid: 0,
+      argv: [command.binary, ...command.prefix, ...args],
       cwd: tempDir,
-      env,
-      // Both child streams are human output, and they go straight to this
-      // process's stderr as they are written. Nothing is collected here: the
-      // parent's stdout is reserved for compiler JSON and LSP frames, and
-      // buffering the child only to replay it afterwards is what forced an
-      // invented output ceiling and made a long evaluation print nothing at all.
-      stdio: ["ignore", 2, 2],
-      windowsHide: true,
+      cwdInherited: false,
+      startLowerBound: lower,
+      owner: "lint-typescript-config-plugin-extractor",
     });
+    const result = (() => {
+      try {
+        const actual = spawnSync(command.binary, [...command.prefix, ...args], {
+          cwd: tempDir,
+          env,
+          // Both child streams are human output, and they go straight to this
+          // process's stderr as they are written. Nothing is collected here: the
+          // parent's stdout is reserved for compiler JSON and LSP frames, and
+          // buffering the child only to replay it afterwards is what forced an
+          // invented output ceiling and made a long evaluation print nothing at all.
+          stdio: ["ignore", 2, 2],
+          windowsHide: true,
+        });
+        observation?.record("process-result", {
+          pid: actual.pid > 0 ? actual.pid : 0,
+          started: actual.pid > 0,
+          exitObserved: actual.status !== null || actual.signal !== null,
+          status: actual.status,
+          signal: actual.signal,
+          error: actual.error?.message,
+          argv: [command.binary, ...command.prefix, ...args],
+          cwd: tempDir,
+          cwdInherited: false,
+          startLowerBound: lower,
+          startUpperBound: new Date().toISOString(),
+          owner: "lint-typescript-config-plugin-extractor",
+          method: "spawnSync",
+        });
+        return actual;
+      } catch (error) {
+        observation?.record("process-result", {
+          pid: 0,
+          started: false,
+          exitObserved: false,
+          error: error instanceof Error ? error.message : String(error),
+          argv: [command.binary, ...command.prefix, ...args],
+          cwd: tempDir,
+          cwdInherited: false,
+          startLowerBound: lower,
+          startUpperBound: new Date().toISOString(),
+          owner: "lint-typescript-config-plugin-extractor",
+          method: "spawnSync",
+        });
+        throw error;
+      }
+    })();
     const processFailure = configEvaluatorProcessFailure(result, configPath);
     if (processFailure) {
       // The evaluator's stack already reached the user's stderr as it ran. What
@@ -2240,7 +2256,7 @@ function createCanonicalTempDirectory(prefix: string, parent: string): string {
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the shape or evaluator semantics change.
  */
-const CONFIG_CACHE_VERSION = "v9";
+const CONFIG_CACHE_VERSION = "v11";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.
@@ -2684,6 +2700,10 @@ function loaderTempBase(configPath: string): string {
 
 function nodeConfigLoaderEnv(configPath: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
+  // This child reports the config's actual dependency graph through its own
+  // result envelope. An inherited descriptor channel would also record this
+  // evaluator's disposable bootstrap and its ambient package-scope probes.
+  env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "0";
   const parts: string[] = [];
   const nodeModules = findNearestNodeModules(path.dirname(configPath));
   if (nodeModules) parts.push(nodeModules);

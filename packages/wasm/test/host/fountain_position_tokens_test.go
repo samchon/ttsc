@@ -11,15 +11,13 @@ import (
   "syscall/js"
   "testing"
   "time"
-
-  "github.com/samchon/ttsc/packages/wasm/host"
 )
-
-const fountainPositionAPI = "ttscFountainPositionTest"
 
 type fountainNode struct {
   KindName string `json:"kindName"`
   Text     string `json:"text"`
+  Pos      int    `json:"pos"`
+  End      int    `json:"end"`
 }
 
 type fountainType struct {
@@ -27,18 +25,40 @@ type fountainType struct {
 }
 
 type fountainSymbol struct {
-  Name string `json:"name"`
+  Name         string `json:"name"`
+  Declarations []struct {
+    Pos int `json:"pos"`
+    End int `json:"end"`
+  } `json:"declarations"`
 }
 
-// TestFountainPositionVerbsResolveTouchingTokens exercises the public wasm
-// API against a real Program. It guards the token-level cursor contract from
-// declarations through references, literals, punctuation, trivia, UTF-8 byte
-// offsets, position errors, and release lifecycle errors.
+// TestFountainPositionVerbsResolveTouchingTokens verifies the wasm API's
+// token-level cursor contract against a real Program in the Go test process.
+//
+// The js/wasm target supplies the JavaScript values these owning operations
+// consume. The test binary calls Expose directly; it does not boot a shipped
+// binary, install a consumer or exercise the browser filesystem bridge.
+//
+// 1. Create an authored project at an absolute path in the target filesystem
+//    and acquire a snapshot through the directly exposed API.
+// 2. Query declarations, references, literals, punctuation, trivia and UTF-8
+//    byte offsets, asserting token spans, names and printed types.
+// 3. Reject out-of-range positions, release the snapshot and reject later use.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the public snapshot, getNodeAtPosition, getTypeAtPosition, getSymbolAtPosition and releaseSnapshot verbs of a real js/wasm Program and asserts kind, text, token span, symbol name, declaration start and printed type for each probed position, so a verb that returns a neighbouring token, a full start including trivia or no answer fails.
+// @evidence contracts/testing.md#independent-expectations The expected kinds, texts and offsets follow the authored source: strings.Index of each literal gives the byte offset the contract names, multi-byte cafe checks that offsets are bytes, and the printed types Point, number and "ok" are what TypeScript specifies for those expressions.
+// @evidence contracts/testing.md#distinguishing-cases Identifiers at a declaration and a reference, numeric and string literals, a semicolon, a keyword preceded by a JSDoc comment, whitespace, a trailing comment, offsets -1 and at or past the end of the file, and a released handle are separate cases. The semicolon remains a node with null type and symbol; trivia returns null for all three verbs, and bad offsets return code 2.
+// @evidence contracts/testing.md#execution-ownership The discoverable Test entry calls the owning host.Expose and its snapshot/query operations directly in one js/wasm Go test process. Node supplies the target language runtime and fixture filesystem; no installed consumer, shipped WASM artifact or separate product host is prepared. These units do not establish browser boot or filesystem-bridge assembly.
 func TestFountainPositionVerbsResolveTouchingTokens(t *testing.T) {
-  api := startFountainAPI(t)
+  api := startSharedAPI(t)
+  // A host whose temporary directory is not a usable wasm path (a Windows
+  // drive path, for one) names the project root itself.
   root := os.Getenv("TTSC_WASM_TEST_ROOT")
-  if root == "" || !filepath.IsAbs(root) {
-    t.Fatalf("TTSC_WASM_TEST_ROOT must be an absolute wasm path, got %q", root)
+  if root == "" {
+    root = t.TempDir()
+  }
+  if !filepath.IsAbs(root) {
+    t.Fatalf("the project root must be an absolute wasm path, got %q", root)
   }
   if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
     t.Fatal(err)
@@ -51,6 +71,7 @@ const recordValue: Point = { x: 1 };
 const copy = recordValue;
 const text = "ok";
 const café = recordValue; // trailing comment
+/** lead */ type Alias = Point;
 `
   if err := os.WriteFile(filepath.Join(root, "src", "index.ts"), []byte(source), 0o644); err != nil {
     t.Fatal(err)
@@ -93,6 +114,17 @@ const café = recordValue; // trailing comment
   assertNode(t, query("getNodeAtPosition", nthIndex(t, source, "Point", 2)), "KindIdentifier", "Point")
   assertSymbol(t, query("getSymbolAtPosition", nthIndex(t, source, "Point", 2)), "Point")
   assertType(t, query("getTypeAtPosition", nthIndex(t, source, "Point", 2)), "Point")
+
+  // pos is the token start, not the full start that includes leading trivia.
+  recordValue := nthIndex(t, source, "recordValue", 1)
+  assertSpan(t, query("getNodeAtPosition", recordValue), recordValue, recordValue+len("recordValue"))
+  literal := strings.Index(source, "\"ok\"")
+  assertSpan(t, query("getNodeAtPosition", literal), literal, literal+len("\"ok\""))
+  typeKeyword := strings.Index(source, "type Alias")
+  assertNode(t, query("getNodeAtPosition", typeKeyword), "KindTypeKeyword", "type")
+  assertSpan(t, query("getNodeAtPosition", typeKeyword), typeKeyword, typeKeyword+len("type"))
+  alias := strings.Index(source, "Alias")
+  assertDeclarationStart(t, query("getSymbolAtPosition", alias), "Alias", typeKeyword)
 
   assertNode(t, query("getNodeAtPosition", strings.Index(source, "1 }")), "KindNumericLiteral", "1")
   assertType(t, query("getTypeAtPosition", strings.Index(source, "1 }")), "number")
@@ -143,21 +175,6 @@ const café = recordValue; // trailing comment
   if code != 2 {
     t.Fatalf("released snapshot query returned code %d: %s", code, result)
   }
-}
-
-func startFountainAPI(t *testing.T) js.Value {
-  t.Helper()
-  go host.Expose(fountainPositionAPI, host.Config{})
-  deadline := time.Now().Add(30 * time.Second)
-  for time.Now().Before(deadline) {
-    api := js.Global().Get(fountainPositionAPI)
-    if api.Type() == js.TypeObject {
-      return api
-    }
-    time.Sleep(time.Millisecond)
-  }
-  t.Fatalf("%s did not become available", fountainPositionAPI)
-  return js.Undefined()
 }
 
 func callFountain(t *testing.T, api js.Value, verb string, opts map[string]any) (int, string) {
@@ -228,6 +245,38 @@ func assertNode(t *testing.T, result json.RawMessage, kind, text string) {
   }
   if payload.Node.KindName != kind || payload.Node.Text != text {
     t.Fatalf("node = %#v, want kind=%q text=%q", payload.Node, kind, text)
+  }
+}
+
+func assertSpan(t *testing.T, result json.RawMessage, pos, end int) {
+  t.Helper()
+  var payload struct {
+    Node *fountainNode `json:"node"`
+  }
+  if err := json.Unmarshal(result, &payload); err != nil {
+    t.Fatal(err)
+  }
+  if payload.Node == nil {
+    t.Fatal("node is null")
+  }
+  if payload.Node.Pos != pos || payload.Node.End != end {
+    t.Fatalf("node span = [%d,%d), want [%d,%d)", payload.Node.Pos, payload.Node.End, pos, end)
+  }
+}
+
+func assertDeclarationStart(t *testing.T, result json.RawMessage, name string, pos int) {
+  t.Helper()
+  var payload struct {
+    Symbol *fountainSymbol `json:"symbol"`
+  }
+  if err := json.Unmarshal(result, &payload); err != nil {
+    t.Fatal(err)
+  }
+  if payload.Symbol == nil || payload.Symbol.Name != name || len(payload.Symbol.Declarations) != 1 {
+    t.Fatalf("symbol = %#v, want one declaration of %q", payload.Symbol, name)
+  }
+  if got := payload.Symbol.Declarations[0].Pos; got != pos {
+    t.Fatalf("declaration starts at %d, want the declaration keyword at %d", got, pos)
   }
 }
 

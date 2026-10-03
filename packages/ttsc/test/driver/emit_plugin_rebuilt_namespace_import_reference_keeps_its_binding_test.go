@@ -13,8 +13,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding
-// covers the third and last binding shape an import clause can take.
+// TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding Verifies a
+// rebuilt namespace-import reference retains its emitted member alias and dependency require.
 //
 // Elision tests the clause's bindings rather than the ImportDeclaration, so a
 // named specifier, a default binding, and a namespace import arrive at the
@@ -28,6 +28,11 @@ import (
 //     SetOriginal-linked back to the parse-tree one.
 //  3. Assert the emitted file aliases the read and declares the binding that
 //     alias names.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual original-linked namespace-reference rebuilding, requires occurrence and checks exported foo access, its matching generated namespace declaration and ./dep require.
+// @evidence contracts/testing.md#independent-expectations Authored ./dep/foo relationship independently specifies import linkage; captured generated name ties declaration and exported reference.
+// @evidence contracts/testing.md#distinguishing-cases Namespace import reconstruction differs from named/default clauses; reconstruction control rejects a skipped visitor, and binding plus target checks reject a dangling use.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes an actual synthetic visitor/compiler and captures writes on a private Program with deferred close; it makes no runtime-evaluation claim.
 func TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -47,6 +52,7 @@ func TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding
   }
   defer prog.Close()
 
+  rebuilt := false
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -55,6 +61,7 @@ func TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding
       }
       if node.Kind == shimast.KindIdentifier && node.Text() == "ns" &&
         node.Parent != nil && node.Parent.Kind == shimast.KindPropertyAccessExpression {
+        rebuilt = true
         syn := ec.Factory.NewIdentifier("ns")
         ec.SetOriginal(syn, node)
         return syn
@@ -71,6 +78,9 @@ func TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding
     return nil
   }); err != nil {
     t.Fatal(err)
+  }
+  if !rebuilt {
+    t.Fatal("plugin never rebuilt the authored reference")
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)

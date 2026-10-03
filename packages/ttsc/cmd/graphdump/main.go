@@ -21,8 +21,7 @@ import (
 
 // Package-level streams so command tests can capture I/O without patching the
 // os globals, and argv arrives as a parameter for the same reason. Both mirror
-// the shipped sibling in cmd/ttscgraph, whose capability claim is tested the
-// same way; this command's claim went undefended because it had neither seam.
+// the shipped sibling in cmd/ttscgraph.
 var (
   stdout io.Writer = os.Stdout
   stderr io.Writer = os.Stderr
@@ -32,7 +31,30 @@ func main() {
   os.Exit(run(os.Args[1:]))
 }
 
+// preparedCommand owns one loaded Program and the sibling command's deliberately
+// limited producer claims. Ignore acquisition remains at the default adapter.
+type preparedCommand struct {
+  program *driver.Program
+  built *graph.Graph
+  root string
+  tsconfig string
+  texts map[string]string
+  origin graph.DumpOrigin
+  pretty bool
+}
+
+// run joins actual Git membership with this command's prepared graph and owns
+// its Program until streaming serialization has completed or failed.
 func run(args []string) int {
+  prepared, code := prepareCommand(args)
+  if prepared == nil { return code }
+  defer func() { _ = prepared.program.Close() }()
+  return prepared.encode(graph.GitIgnoredFiles(prepared.root, prepared.built))
+}
+
+// prepareCommand parses the real grammar and constructs the capability origin
+// from this actual compiler consumer. Successful callers own the Program close.
+func prepareCommand(args []string) (*preparedCommand, int) {
   fs := flag.NewFlagSet("graphdump", flag.ContinueOnError)
   fs.SetOutput(stderr)
   cwd := fs.String("cwd", ".", "project root")
@@ -40,12 +62,11 @@ func run(args []string) int {
   pretty := fs.Bool("pretty", false, "indent the JSON output")
   if err := fs.Parse(args); err != nil {
     // `-h` asks for the usage this just printed, so it is a request that
-    // succeeded rather than an argument that failed. Under the global flag set
-    // this command used to read, `ExitOnError` already exited 0 for it.
+    // succeeded rather than an argument that failed.
     if errors.Is(err, flag.ErrHelp) {
-      return 0
+      return nil, 0
     }
-    return 2
+    return nil, 2
   }
 
   // Resolve the project root the same way LoadProgram does (absolute, then
@@ -60,16 +81,14 @@ func run(args []string) int {
   prog, _, err := driver.LoadProgram(root, *tsconfig, driver.LoadProgramOptions{})
   if err != nil {
     fmt.Fprintf(stderr, "graphdump: could not load %s/%s: %v\n", root, *tsconfig, err)
-    return 1
+    return nil, 1
   }
   if prog == nil {
     fmt.Fprintf(stderr, "graphdump: could not load %s/%s\n", root, *tsconfig)
-    return 1
+    return nil, 1
   }
-  defer func() { _ = prog.Close() }()
 
   g := graph.Build(prog)
-  ignored := graph.GitIgnoredFiles(root, g)
   texts := graph.SourceTexts(prog)
   // The viewer pipeline reduces nodes and edges and never asks whether the build
   // universe moved or whether the disk still matches, so this tool pays for
@@ -78,7 +97,7 @@ func run(args []string) int {
   // digests are absent, rather than reading an empty universe as "nothing
   // changed" or an empty diskDigest as "the file could not be read". The shipped
   // `ttscgraph dump` is the one that proves the whole contract.
-  err = graph.EncodeDump(stdout, g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
+  origin := graph.DumpOrigin{
     Provenance: graph.NewProvenance(
       // No version: this tool is built from the tree on demand and never
       // stamped, and an invented one would be worse than an absent one.
@@ -93,8 +112,14 @@ func run(args []string) int {
       texts,
       nil,
     ),
-  }, *pretty)
-  if err != nil {
+  }
+  return &preparedCommand{program: prog, built: g, root: root, tsconfig: *tsconfig, texts: texts, origin: origin, pretty: *pretty}, 0
+}
+
+// encode consumes evaluated membership while preserving this command's actual
+// producer capability authority and streaming serialization diagnostics.
+func (prepared *preparedCommand) encode(ignored map[string]bool) int {
+  if err := graph.EncodeDump(stdout, prepared.built, prepared.root, prepared.tsconfig, ignored, prepared.texts, prepared.origin, prepared.pretty); err != nil {
     fmt.Fprintf(stderr, "graphdump: %v\n", err)
     return 1
   }

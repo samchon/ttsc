@@ -7,6 +7,10 @@ import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
  * @evidence contracts/common.md#clear-and-simple-design Each tour facet has one collection; shared coordinates avoid embedding source bodies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Truncation reports omitted extras rather than hiding a cutoff to improve tool-call metrics.
  * @evidence contracts/common.md#meaningful-documentation Native comments distinguish flow facts, nearby/test anchors and citation-only answer anchors.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphTour {
   /** Discriminator for code-tour indexing. */
@@ -42,6 +46,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design Caller-supplied symbol guesses remain distinct from the outer question rather than being merged into another prose query.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An empty guess list is supported; unknown or ambiguous guesses do not fabricate seeds.
    * @evidence contracts/common.md#meaningful-documentation Separate member paragraphs explain guesses, empty input, seed allocation and defaults rather than requiring repository reconnaissance.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRequest {
     /** Discriminator for code-tour indexing. */
@@ -75,8 +83,9 @@ export namespace ITtscGraphTour {
     reinterpretations: string[];
 
     /**
-     * Central entrypoints to seed the tour. Raise only when the question names
-     * several public paths that must all appear in one answer.
+     * Central entrypoints to seed the tour, from 1 to 5. The default is the
+     * maximum, so a larger value changes nothing and a smaller one narrows the
+     * tour.
      *
      * @default 5
      */
@@ -97,6 +106,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design One compact node is reused by entrypoints and flow starts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional documentation remains a declaration fact rather than an inferred purpose from naming.
    * @evidence contracts/common.md#meaningful-documentation Member comments explain one-based coordinates, declaration heads and the first doc sentence's role.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INode {
     /** Stable node id for later graph calls. */
@@ -138,6 +151,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design Prose steps serve display while reached records supply actionable identities without parsing that prose.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A truncation flag reports omitted steps; summaries cannot invent bridges between unrelated seeds.
    * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain why reached handles accompany step text and what truncation means.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IFlow {
     /** Flow start node. */
@@ -173,6 +190,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design The reached record omits coordinates already carried in the id instead of copying the full tour node.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compacting retains the actual node id rather than substituting abbreviated names.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain id grammar and one-based line units, separated from acknowledgments.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IReached {
     /** Stable node id for later graph calls: `file#Qualified.Name:kind`. */
@@ -192,6 +213,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design Reason and coordinates are sufficient to present an anchor without carrying the referenced body.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing node identity is represented as optional rather than fabricated for non-node citations.
    * @evidence contracts/common.md#meaningful-documentation Member comments explain node-dependent optional fields, citation purpose and one-based endpoints.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IAnchor {
     /** Why this anchor matters in the tour. */
@@ -223,6 +248,10 @@ export namespace ITtscGraphTour {
    * @evidence contracts/common.md#clear-and-simple-design Three fields carry only the citation range needed by tour nodes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown end lines stay absent instead of being guessed from another declaration.
    * @evidence contracts/common.md#meaningful-documentation Native comments state project-relative file spelling and optional endpoint meaning.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface ISpan {
     /** Project-relative file. */

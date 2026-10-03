@@ -15,6 +15,11 @@ import (
 //  1. Commit a project where one source has a dependent and an unrelated peer.
 //  2. Change only the source's private function body and request another shard snapshot.
 //  3. Require one extracted source and no dependent or unrelated shard replacement.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a private body edit advances only the changed content-addressed source shard. TypeScript's forced declaration output proves the public shape stayed fixed, so neither the dependent nor unrelated source is re-extracted or retransmitted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over value.ts, a dependent consumer.ts and an unrelated peer: a private body edit must give mode incremental with BaseSequence and BaseGeneration equal to the initial snapshot, a new key for value.ts whose old key is in Deletes, unchanged keys for the other two, exactly one extracted file (value.ts), preserved wire provenance for the unrelated source, and no upsert of the dependent or unrelated key. The test overwrites the unrelated source's physical provenance path with a foreign-looking path to prove the wire path is carried rather than recomputed.
+// @evidence contracts/testing.md#distinguishing-cases Commit a project where one source has a dependent and an unrelated peer; Change only the source's private function body and request another shard snapshot; Require one extracted source and no dependent or unrelated shard replacement.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsReuseUnaffectedSources is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -30,7 +35,7 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  initial, mode, changed, err := session.SnapshotShards()
+  initial, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -74,7 +79,7 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   if err := os.WriteFile(valueFile, []byte("export function value(): number { return 2; }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  delta, mode, changed, err := session.SnapshotShards()
+  delta, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

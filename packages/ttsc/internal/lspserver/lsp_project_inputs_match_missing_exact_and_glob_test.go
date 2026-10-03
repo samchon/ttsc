@@ -21,6 +21,11 @@ import (
 //  3. Match only exact files, directory identity, or immediate topology
 //     entries as executable-selection input scope.
 //  4. Reject an unrelated Markdown file and an HTTPS resource.
+//
+// @evidence contracts/testing.md#behavioral-verification URI matching consumes the declaration snapshot: future files match a missing exact path and zero-match globs, reload scope matches only exact files, directory identity and immediate entries, and unrelated Markdown or an HTTPS resource do not match.
+// @evidence contracts/testing.md#independent-expectations Expected matches are literal booleans per URI.
+// @evidence contracts/testing.md#distinguishing-cases Matching and non-matching URI spellings sit side by side.
+// @evidence contracts/testing.md#execution-ownership TestProjectInputsMatchMissingExactAndGlob is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
   root := t.TempDir()
   publishedPath := func(location string) string {

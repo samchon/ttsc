@@ -19,9 +19,15 @@ import (
 // 1. Build a fake sidecar with valid command discovery.
 // 2. Have `lsp-code-actions` write more than the bridge stdout limit.
 // 3. Assert no actions are returned and the log names the stdout limit failure.
+//
+// @evidence contracts/testing.md#behavioral-verification CodeActions returns no actions and logs produced more than when the fixture writes 6 MiB stdout.
+// @evidence contracts/testing.md#independent-expectations The independent fixture exceeds the documented 4 MiB cap before JSON decoding; a bounded failure must replace arbitrary buffering.
+// @evidence contracts/testing.md#distinguishing-cases Overflow is rejected while the separate exactly-at-limit diagnostics payload is accepted.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceRejectsOversizedStdout is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceRejectsOversizedStdout(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceOversizedStdoutSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceOversizedStdoutSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -38,6 +44,7 @@ func TestLSPNativePluginSourceRejectsOversizedStdout(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); len(actions) != 0 {
     t.Fatalf("oversized sidecar returned actions: %#v", actions)
   }

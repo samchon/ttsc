@@ -20,6 +20,11 @@ import (
 //  1. Load a session whose root imports `helper.ts`.
 //  2. Delete `helper.ts` before capturing the freshness state.
 //  3. Assert the next snapshot reloads and drops the deleted declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a program source that vanishes between compiler load and state capture is still detected.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: a source deleted after the compiler session loaded but before state capture must make the next snapshot mode reload, changed, with a dump that no longer contains the helper node. The fixture deletes helper.ts between driver.NewSession and captureState to inject the race.
+// @evidence contracts/testing.md#distinguishing-cases Load a session whose root imports `helper.ts`; Delete `helper.ts` before capturing the freshness state; Assert the next snapshot reloads and drops the deleted declaration.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsSourceDeletedDuringLoad is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsSourceDeletedDuringLoad(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -50,7 +55,7 @@ func TestServeSessionReloadsSourceDeletedDuringLoad(t *testing.T) {
     t.Fatal(err)
   }
 
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

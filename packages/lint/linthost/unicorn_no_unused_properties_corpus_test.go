@@ -1,0 +1,81 @@
+package linthost
+
+import (
+  "testing"
+
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
+
+// TestRuleCorpusUnicornNoUnusedProperties verifies the lint rule corpus
+// fixture unicorn-no-unused-properties.ts through the type-aware engine path.
+//
+// The rule resolves references with the TypeScript checker, so a parser-only
+// engine run can never see its findings. This twin runs the corpus source (also
+// executed by TestLintFixtureCorpus) through the real Program/checker
+// lifecycle and pins the three diagnostics: an unused object property, an unused property of a nested
+// object, and an unused member of an inline parameter type literal.
+//
+//  1. Materialize the corpus fixture source in a strict project.
+//  2. Run unicorn/no-unused-properties through loadProgram + runLintCycle.
+//  3. Assert the reported lines match the fixture's `// expect:` targets.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot uses the real Program/checker path and compares exact rule/severity/line findings, detecting missed unused properties when the checker is absent.
+// @evidence contracts/testing.md#independent-expectations The supported unused-property policy and authored retries/breadth/ignored positions establish literal expected lines 6,10,31 independently of findings.
+// @evidence contracts/testing.md#distinguishing-cases Used properties, a dynamic key and whole-object escape stay clean beside unused root/nested/type-member positives.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoUnusedProperties owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
+func TestRuleCorpusUnicornNoUnusedProperties(t *testing.T) {
+  engine := NewEngine(RuleConfig{"unicorn/no-unused-properties": SeverityError})
+  if !engine.NeedsTypeChecker() {
+    t.Fatal("unicorn/no-unused-properties did not request a type checker")
+  }
+
+  source := `export {};
+
+const settings = {
+  timeout: 1_000,
+  // expect: unicorn/no-unused-properties error
+  retries: 3,
+  limits: {
+    depth: 4,
+    // expect: unicorn/no-unused-properties error
+    breadth: 5,
+  },
+};
+console.log(settings.timeout, settings.limits.depth);
+
+// Negative twin: every property is read, so nothing is reported.
+const used = { first: 1, second: 2 };
+console.log(used.first, used["second"]);
+
+// Negative: a dynamic key access can reach any property.
+declare const anyKey: keyof { alpha: 1; beta: 2 };
+const dynamic = { alpha: 1, beta: 2 };
+console.log(dynamic[anyKey]);
+
+// Negative: the object escapes as a call argument.
+const escaped = { gamma: 1, delta: 2 };
+console.log(escaped);
+
+function report(args: {
+  wanted: number;
+  // expect: unicorn/no-unused-properties error
+  ignored: number;
+}): number {
+  return args.wanted;
+}
+void report({ wanted: 1, ignored: 2 });
+`
+
+  _, _, findings := runRuleFindingsSnapshot(t, "unicorn/no-unused-properties", source, nil)
+  expectedLines := []int{6, 10, 31}
+  if len(findings) != len(expectedLines) {
+    t.Fatalf("want %d findings, got %d: %+v", len(expectedLines), len(findings), findings)
+  }
+  for index, finding := range findings {
+    line := shimscanner.GetECMALineOfPosition(finding.File, finding.Pos) + 1
+    if finding.Rule != "unicorn/no-unused-properties" || finding.Severity != SeverityError ||
+      line != expectedLines[index] {
+      t.Fatalf("finding %d: want line %d, got line %d (%+v)", index, expectedLines[index], line, finding)
+    }
+  }
+}

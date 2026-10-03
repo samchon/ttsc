@@ -9,15 +9,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyExecutesOwnedCommandWithNullEdit covers the "command ran
-// but had nothing to apply" path: the proxy responds with result=null
-// instead of a WorkspaceEdit, so the editor knows the command was
-// handled even though no edit is required.
+// TestLSPProxyExecutesOwnedCommandWithNullEdit Verifies that an owned no-op command returns null with the request ID and no upstream frame.
+//
+// Owned no-op handling contrasts with unowned forwarding and owned failures in other entries.
 //
 // 1. Configure a source that owns the command and returns (nil, nil).
 // 2. Send an executeCommand request.
 // 3. Assert the editor sees a null result tied to the request id.
 // 4. Assert upstream sees no frame.
+//
+// @evidence contracts/testing.md#behavioral-verification An owned no-op command returns null with the request ID and no upstream frame.
+// @evidence contracts/testing.md#independent-expectations A handled command with no edit has a successful null JSON-RPC result.
+// @evidence contracts/testing.md#distinguishing-cases Owned no-op handling contrasts with unowned forwarding and owned failures in other entries.
+// @evidence contracts/testing.md#execution-ownership The Go proxy invokes its stub callback through private harness pipes. Go discovers TestLSPProxyExecutesOwnedCommandWithNullEdit under ./test/driver.
 func TestLSPProxyExecutesOwnedCommandWithNullEdit(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.noop"},

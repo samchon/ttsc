@@ -1,10 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 
-import {
-  PROJECT_OPTIONS,
-  parseLauncherOptions,
-  projectOptions,
-} from "./launcherArgs";
+import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { ensureExecutable } from "./nativeExecutable";
 import { resolveGraphBinary } from "./resolveGraphBinary";
@@ -14,13 +10,6 @@ import { runView } from "./view";
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })
   .version;
-
-const DUMP_OPTIONS = [
-  { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
-  { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
-  { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },
-  { key: "help", flags: ["--help", "-help", "-h"], kind: "flag" },
-] as const;
 
 /**
  * Run the `@ttsc/graph` launcher.
@@ -38,6 +27,9 @@ const DUMP_OPTIONS = [
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing dump binary exposes only an explicitly qualified help summary; execution failures retain nonzero outcomes instead of fake graph answers.
  * @evidence contracts/common.md#meaningful-documentation Native lane bullets explain observable CLI behavior and resident refresh ownership with a blank line before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native lanes resolve the selected project's platform package and pass argv directly; stdio MCP uses Node transport APIs without shell path construction.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources starts the stdio server (owned by startServer), runs a synchronous dump child to completion or hands over to runView, and keeps no handle itself.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms dispatches on the first argv token to one lane and the lanes own the work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work runs one launcher lane per process invocation, so there is nothing to share.
  */
 export function runGraph(
   argv: readonly string[] = process.argv.slice(2),
@@ -45,9 +37,7 @@ export function runGraph(
   if (argv[0] === "view") return runView(argv.slice(1));
   if (argv[0] === "dump") return runDump(argv.slice(1));
 
-  const { cwd, tsconfig } = projectOptions(
-    parseLauncherOptions(argv, PROJECT_OPTIONS),
-  );
+  const { cwd, tsconfig } = TtscGraphLauncherArguments.project(argv);
   void startServer({ cwd, tsconfig, version: VERSION }).catch(
     (error: unknown) => {
       process.stderr.write(
@@ -58,37 +48,6 @@ export function runGraph(
   );
 }
 
-/** The help spellings `ttscgraph` itself accepts, mirrored for the fallback. */
-const DUMP_HELP_FLAGS = new Set(["--help", "-help", "-h"]);
-
-/**
- * Print a `dump` usage summary when the native binary cannot be resolved.
- *
- * This is a fallback, not a second contract: `cmd/ttscgraph/main.go` owns these
- * flags and answers whenever it is installed. Keep this short and point at that
- * authority, so a drift degrades to a stale summary rather than a wrong
- * answer.
- */
-function printDumpHelp(): void {
-  process.stdout.write(
-    [
-      "Usage: ttsc-graph dump [options]",
-      "",
-      "Write the whole compiler graph as JSON to stdout: every node and edge,",
-      "none of the MCP response caps.",
-      "",
-      "Options:",
-      "  --cwd <dir>        Project root (default: current directory).",
-      "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
-      "  --pretty           Indent the JSON output.",
-      "",
-      "The native `ttscgraph` binary owns these flags and is not installed here,",
-      "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
-      "",
-    ].join("\n"),
-  );
-}
-
 /**
  * Pass `dump` through to the native binary, inheriting stdio so the JSON lands
  * on this process's stdout. Returns the child's exit code.
@@ -96,9 +55,7 @@ function printDumpHelp(): void {
 function runDump(argv: readonly string[]): number {
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
-  const { cwd, tsconfig } = projectOptions(
-    parseLauncherOptions(argv, DUMP_OPTIONS),
-  );
+  const { cwd, tsconfig, artifactsSpecified } = TtscGraphLauncherArguments.dump(argv);
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     // `ttscgraph` owns the flag contract, so a resolvable binary always answers
@@ -106,39 +63,28 @@ function runDump(argv: readonly string[]): number {
     // when it is absent, and that is exactly when a caller is most likely to be
     // asking what the command needs — so fall back to a summary that names the
     // authority rather than making usage unreachable behind an install error.
-    if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument))) {
-      printDumpHelp();
-      return 0;
-    }
-    process.stderr.write(
-      "@ttsc/graph: could not resolve the ttscgraph binary. " +
-        "Install `ttsc` so its platform package is present, " +
-        "or set TTSC_GRAPH_BINARY to an absolute path.\n",
-    );
-    return 1;
+    const fallback = TtscGraphLauncherArguments.missingDump(argv);
+    if (fallback.stdout !== undefined) process.stdout.write(fallback.stdout);
+    if (fallback.stderr !== undefined) process.stderr.write(fallback.stderr);
+    return fallback.code;
   }
   ensureExecutable(binary);
   // The same artifacts `loadGraph` and the resident session ask for, so the
   // three ways to reach a dump answer a citation the same way. A caller that
   // named `--artifacts` itself owns the answer and is not overridden.
-  const published = argv.includes("--artifacts")
+  const published = artifactsSpecified
     ? null
     : publishArtifacts({ cwd, tsconfig });
-  const result = spawnSync(
+  const result = GraphProcessTrace.spawnSync(
     binary,
-    [
-      "dump",
-      ...argv,
-      ...(published?.file == null ? [] : ["--artifacts", published.file]),
-    ],
+    TtscGraphLauncherArguments.dumpVector(argv, published?.file ?? null),
     {
       stdio: "inherit",
       windowsHide: true,
     },
   );
-  if (result.error) {
-    process.stderr.write(`@ttsc/graph: ${result.error.message}\n`);
-    return 1;
-  }
-  return result.status ?? 1;
+  const completion = TtscGraphLauncherArguments.dumpCompletion(result);
+  if (completion.diagnostic !== undefined)
+    process.stderr.write(completion.diagnostic);
+  return completion.code;
 }

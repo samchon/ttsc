@@ -1,0 +1,70 @@
+package linthost
+
+import (
+  "regexp"
+  "strings"
+  "testing"
+)
+
+// TestNoArrayDeleteAsksTheTypeNotTheSubscript verifies the rule reports a
+// delete on an array and leaves a keyed object alone.
+//
+// `delete target[key]` is spelled identically for both, so the target's type is
+// the only thing that separates them: on an array it leaves a sparse hole, on a
+// `Record` or an index signature it is the correct way to remove an entry. The
+// rule used to decide from the subscript's syntax — a numeric literal or an
+// identifier — which reported every `delete record[key]` and missed
+// `delete array[next()]`. Reported externally as #795.
+//
+//  1. Delete from a Record, an index-signature object, an array by literal, an
+//     array by call result, and a tuple by literal.
+//  2. Run the rule.
+//  3. Assert only the three array deletes report.
+//
+// @evidence contracts/testing.md#behavioral-verification Array deletion must report by receiver type rather than key spelling.
+// @evidence contracts/testing.md#independent-expectations Authored array/tuple deletion lines 9,10,11 fix three rule/error diagnostics with the literal ordinary unsafe-array message; record and index-signature lines 7,8 must stay clean, and recovered execution failures cannot satisfy the message oracle.
+// @evidence contracts/testing.md#distinguishing-cases Literal and call-result array keys contrast with object identifier keys, exposing both old missed and false-positive boundaries.
+// @evidence contracts/testing.md#execution-ownership TestNoArrayDeleteAsksTheTypeNotTheSubscript invokes the real Program/Checker through in-process check in one shared Go unit process; all original inputs/assertions remain and no child compiler, native build or installed consumer runs.
+func TestNoArrayDeleteAsksTheTypeNotTheSubscript(t *testing.T) {
+  source := `declare const rec: Record<string, number>;
+declare const map: { [k: string]: number };
+declare const arr: number[];
+declare const pair: [number, number];
+declare function next(): number;
+declare const k: string;
+delete rec[k];
+delete map[k];
+delete arr[0];
+delete arr[next()];
+delete pair[1];
+`
+  root := seedLintProject(t, source)
+  seedLintConfig(t, root, map[string]any{
+    "rules": map[string]any{"typescript/no-array-delete": "error"},
+  })
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"check", "--cwd", root, "--plugins-json", lintManifest(t)})
+  })
+  if code != 2 || stdout != "" {
+    t.Fatalf("run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  if got := strings.Count(stderr, "[typescript/no-array-delete]"); got != 3 {
+    t.Fatalf("expected 3 findings, got %d:\n%s", got, stderr)
+  }
+  for _, line := range []string{"main.ts:9:", "main.ts:10:", "main.ts:11:"} {
+    if !diagnosticOutputContains(stderr, line) {
+      t.Fatalf("missing array delete at %s\n%s", line, stderr)
+    }
+  }
+  for _, line := range []string{"main.ts:7:", "main.ts:8:"} {
+    if diagnosticOutputContains(stderr, line) {
+      t.Fatalf("keyed object reported at %s\n%s", line, stderr)
+    }
+  }
+  assertTypedRuleRenderedErrors(t, "typescript/no-array-delete", stderr, 9, 10, 11)
+  rendered := noMisusedPromisesANSI.ReplaceAllString(stderr, "")
+  ordinary := regexp.MustCompile(`(?m)main\.ts:\d+:\d+\s+-\s+error\s+TS\d+:\s*\[typescript/no-array-delete\] Using delete with an array expression is unsafe\.\s*$`)
+  if got := len(ordinary.FindAllString(rendered, -1)); got != 3 {
+    t.Fatalf("want three ordinary array-delete messages, got %d:\n%s", got, stderr)
+  }
+}

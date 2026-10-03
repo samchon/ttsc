@@ -8,7 +8,7 @@ import {
  *
  * What the descriptor's resolutions read is recorded by the resolution input
  * recorder (`RESOLUTION_INPUT_RECORDER_PATH`), bracketing every resolution the
- * hooks see (samchon/ttsc#1501). The process starts with ttsx's runtime hooks
+ * hooks see. The process starts with ttsx's runtime hooks
  * preloaded and recording descriptor inputs, so a `require` of the recorder
  * would be recorded as one of them. The recorder is read and evaluated as a
  * module of its own instead, as a Go config loader evaluates the copy it
@@ -19,7 +19,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const Module = require("node:module");`,
   `const path = require("node:path");`,
   `const vm = require("node:vm");`,
-  `const { PluginDescriptorInputObservation } = require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
+  `const { PluginDescriptorInputObservation } = require.cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}]?.exports ?? require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   `const { fileURLToPath } = require("node:url");`,
   `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,

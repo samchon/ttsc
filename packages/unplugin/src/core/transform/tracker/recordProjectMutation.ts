@@ -20,14 +20,15 @@ import { recordProjectChange } from "./recordProjectChange";
  *   Native paragraphs explain the operation and why membership invalidation
  *   remains monotone, following the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms
- *   One boolean assignment and the bounded Set helper use expected constant
- *   work and no event-stream allocation.
+ *   One boolean assignment delegates bounded Set work, including path-string
+ *   hashing/comparison cost. It allocates no independent event stream.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Repeated structural events reuse the existing invalidation bit and exact
  *   path entries; generations remain isolated by tracker ownership.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Only the caller's bounded tracker sample and boolean survive the call;
  *   no independent event history or native resource is allocated.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Sets a flag and delegates to recordProjectChange; no path is parsed or compared.
  */
 export function recordProjectMutation(
   tracker: TtscProjectMutationTracker,

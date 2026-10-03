@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
  * Verifies a malformed preset manifest is reported instead of silently ignored.
@@ -19,6 +19,11 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 2. Write a project tsconfig that extends the bare `"example-preset"`.
  * 3. Assert the throw names that manifest in ttsc's own voice, and not the
  *    misleading `example-preset.json` fallback.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Invokes package preset resolution on malformed package JSON and checks the thrown error names the manifest without the misleading example-preset.json fallback name.
+ * @evidence contracts/testing.md#independent-expectations The fixture deliberately leaves its manifest object unterminated; the offending manifest path is known before the reader runs.
+ * @evidence contracts/testing.md#distinguishing-cases A valid child and preset config isolate the broken package manifest; resolves_package_tsconfig_extends_via_manifest owns the healthy manifest-selected twin.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending a bare preset package whose package.json is unterminated in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_names_a_malformed_package_tsconfig_manifest =
   () => {

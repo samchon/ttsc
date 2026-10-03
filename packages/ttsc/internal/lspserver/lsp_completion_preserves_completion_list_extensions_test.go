@@ -14,7 +14,15 @@ import (
 //
 //  1. Build an upstream CompletionList with itemDefaults, applyKind, and a future field.
 //  2. Merge one plugin completion.
-//  3. Assert every upstream list field and both items survive.
+//  3. Assert itemDefaults, the future field, and isIncomplete survive verbatim,
+//     the upstream item receives the defaults it relied on, and applyKind is
+//     rewritten to replace (1) because those defaults are now materialized into
+//     each item and must not merge a second time.
+//
+// @evidence contracts/testing.md#behavioral-verification Merging one plugin completion keeps itemDefaults, a future list-level field and isIncomplete verbatim, gives the upstream item the defaults it relied on and rewrites applyKind to replace (1).
+// @evidence contracts/testing.md#independent-expectations The expected JSON members are literals written from the upstream CompletionList body.
+// @evidence contracts/testing.md#distinguishing-cases A closed local struct would drop the future field; the defaults-materialization and applyKind rewrite are separate assertions.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionPreservesCompletionListExtensions is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionPreservesCompletionListExtensions(t *testing.T) {
   body := []byte(`{
     "jsonrpc":"2.0",

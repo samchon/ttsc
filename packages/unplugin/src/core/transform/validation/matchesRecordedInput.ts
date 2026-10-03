@@ -23,13 +23,21 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  * @evidence contracts/common.md#clear-and-simple-design One recorded-state comparison owns precedence and codec selection, shared by complete and narrow validators.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing snapshot is not replaced by a current hash; byte equality cannot override a recorded graph realpath mismatch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain predicate precedence, legacy graph codec, host state and absence of authority before tags.
- * @evidence contracts/performance.md#efficient-algorithms Identity lookups select one required codec; dominant work is that input's bytes or predicate enumeration, without a project scan.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work matchesProvenInput and complete admission decide when this comparison can be shared or omitted; this primitive establishes one requested verdict.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison borrows snapshots and retains no result history or native resource.
  * @evidence contracts/portability.md#os-neutral-implementation Generation identity keys and native filesystem operations distinguish lexical aliases, compiler text semantics and actual case policy across hosts.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison borrows snapshots and retains no result history or native resource.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Fixed manifest probes follow project/native identity resolution, whose
+ *   uncached work includes ancestor/case observations and path text. Predicate
+ *   replay collects its failures and may read bytes or enumerate entries;
+ *   legacy graph inputs additionally prove recorded realpath before decoding
+ *   and hashing text. Host inputs hash raw bytes with kind fallback after a
+ *   failed read. No branch enumerates the whole project here.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work matchesProvenInput and complete admission decide when this comparison can be shared or omitted; this primitive establishes one requested verdict.
  */
 export function matchesRecordedInput(
+  /** Generation owning the distinct predicate, graph-text and host-byte snapshots. */
   cached: TtscCachedProjectTransform,
+  /** Native spelling replayed against its owning recorded authority. */
   input: string,
 ): boolean {
   const state = envelopeDerivation(cached);

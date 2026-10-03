@@ -1,27 +1,48 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  type IRecordedWatcher,
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
+const subscriptions = new WeakMap<WatchTopology, IRecordedWatcher[]>();
+const membership = new Map<string, string[]>();
 
 /**
- * Verifies project-mode output suppression follows the pinned tsgo semantics
- * for outputs whose names are not implied by their nearest input spelling.
+ * Verifies output inference and notification decisions in the owning source.
  *
- * 1. Derive the implicit build-info file from the config, not `outFile`.
- * 2. Do not infer declarations from standalone `emitDeclarationOnly`.
- * 3. Infer declarations when `declaration` is also enabled.
- * 4. Map an emitted JavaScript `.jsx` input to `.js` outside preserve mode.
+ * Actual config parsing and output inference consume authored compiler members
+ * and recorded directory registrations. Changed paths are explicit stimuli;
+ * output and non-output twins retain their independent literal expectations.
+ *
+ * 1. Author build-info, declaration-only and JSX compiler membership matrices.
+ * 2. Contrast independently named output products with non-output twins.
+ * 3. Deliver each authored attention and preserve the original report and quiet
+ *    assertions.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Drives the real WatchTopology: with outFile and incremental, the implicit tsbuildinfo beside the config is a quiet product while bundle.tsbuildinfo next to the outFile is a reported project input; declaration output next to the source reports under -EMITDECLARATIONONLY alone but is quiet under -d with -emitDeclarationOnly; a .js beside an allowJs .jsx input is quiet outside preserve mode.
+ * @evidence contracts/testing.md#independent-expectations Authored compiler options, passthrough spellings and file names decide which paths are products: the quiet and reported outcomes are literal and follow the pinned tsgo output naming (build info next to the config rather than the outFile, declarations only when declaration is on, jsx mapped to js outside preserve), not values read back from the topology.
+ * @evidence contracts/testing.md#distinguishing-cases Each product is paired with a twin that must report: the outFile build-info twin, standalone emitDeclarationOnly versus declaration plus emitDeclarationOnly, and the jsx-to-js mapping. The twins differ by one option or file name, so an inference that ignored that property would flip an outcome.
+ * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology runs config/argument/output decisions with supplied absolute compiler membership and recorded source-adapter subscriptions. No compiler child or native observer runs; retained E2E owns native population and delivery. Every original output and quiet-twin assertion is preserved.
  */
 export const test_watch_topology_matches_remaining_tsgo_output_semantics =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-tsgo-output-semantics-");
+    const failures: unknown[] = [];
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-tsgo-output-semantics-"),
+    );
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
+    membership.set(root, [source]);
 
     writeConfig(root, {
       incremental: true,
@@ -39,6 +60,7 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
         globs: [],
       });
       fs.writeFileSync(buildInfo, "{}\n", "utf8");
+      notify(outFileIncremental, buildInfo);
       await expectProjectQuiet(outFileIncrementalChanges);
 
       const outFileTwin = path.join(root, "dist", "bundle.tsbuildinfo");
@@ -50,7 +72,13 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       fs.mkdirSync(path.dirname(outFileTwin), { recursive: true });
       const previous = projectChangeCount(outFileIncrementalChanges);
       fs.writeFileSync(outFileTwin, "{}\n", "utf8");
+      notify(outFileIncremental, outFileTwin);
       await waitForProjectChange(outFileIncrementalChanges, previous);
+      assert.deepEqual(outFileIncrementalChanges, [
+        { kind: "project", path: outFileTwin },
+      ]);
+    } catch (error) {
+      failures.push(new Error("outFile/incremental", { cause: error }));
     } finally {
       outFileIncremental.close();
     }
@@ -74,7 +102,13 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
         "export declare const declarationOnly = 1;\n",
         "utf8",
       );
+      notify(declarationOnly, declarationOutput);
       await waitForProjectChange(declarationOnlyChanges, previous);
+      assert.deepEqual(declarationOnlyChanges, [
+        { kind: "project", invalidate: true, path: declarationOutput },
+      ]);
+    } catch (error) {
+      failures.push(new Error("standalone declaration-only", { cause: error }));
     } finally {
       declarationOnly.close();
     }
@@ -98,7 +132,10 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
         "export declare const explicitDeclarationOnly = 1;\n",
         "utf8",
       );
+      notify(explicitDeclarationOnly, declarationOutput);
       await expectProjectQuiet(explicitDeclarationOnlyChanges);
+    } catch (error) {
+      failures.push(new Error("explicit declaration-only", { cause: error }));
     } finally {
       explicitDeclarationOnly.close();
     }
@@ -113,6 +150,7 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       }),
       "utf8",
     );
+    membership.set(root, [jsxJavaScript]);
     const jsxJavaScriptChanges: WatchInputChange[] = [];
     const jsxJavaScriptTopology = topology(root, jsxJavaScriptChanges);
     try {
@@ -128,10 +166,33 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
         "export const input = React.createElement('div');\n",
         "utf8",
       );
+      notify(jsxJavaScriptTopology, javascriptOutput);
       await expectProjectQuiet(jsxJavaScriptChanges);
+    } catch (error) {
+      failures.push(new Error("JSX react", { cause: error }));
     } finally {
       jsxJavaScriptTopology.close();
     }
+    const preservedChanges: WatchInputChange[] = [];
+    const preserved = topology(root, preservedChanges, ["--jsx", "preserve"]);
+    try {
+      preserved.refresh(false);
+      const javascriptTwin = path.join(root, "src", "input.js");
+      preserved.setProjectInputs({ root, files: [javascriptTwin], globs: [] });
+      const previous = projectChangeCount(preservedChanges);
+      fs.writeFileSync(javascriptTwin, "export const twin = 2;\n", "utf8");
+      notify(preserved, javascriptTwin);
+      await waitForProjectChange(preservedChanges, previous);
+      assert.deepEqual(preservedChanges, [
+        { kind: "project", path: javascriptTwin },
+      ]);
+    } catch (error) {
+      failures.push(new Error("JSX preserve", { cause: error }));
+    } finally {
+      preserved.close();
+    }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "output-semantics scenarios failed");
   };
 
 function topology(
@@ -139,7 +200,8 @@ function topology(
   changes: WatchInputChange[],
   passthrough?: string[],
 ): WatchTopology {
-  return new WatchTopology(
+  const observed = recordWatchers(watchDirectoryThroughFsWatch);
+  const instance = new WatchTopology(
     {
       cwd: root,
       emit: true,
@@ -155,7 +217,17 @@ function topology(
       onInputChange: (change) => changes.push(change),
       onTopologyChange: () => undefined,
     },
+    observed.openDirectoryWatch,
+    observed.openFileWatch,
+    fs.readdirSync,
+    () => {
+      const inputs = membership.get(root);
+      assert.ok(inputs);
+      return inputs;
+    },
   );
+  subscriptions.set(instance, observed.watchers);
+  return instance;
 }
 
 function writeConfig(
@@ -178,6 +250,7 @@ async function expectProjectQuiet(
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
+  assert.deepEqual(changes, [], "output attention reported a synchronous change");
 }
 
 async function waitForProjectChange(
@@ -199,4 +272,29 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 
 function delay(milliseconds = 350): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+/** Deliver the changed entry, or creation of its not-yet-subscribed ancestor. */
+function notify(topology: WatchTopology, changed: string): void {
+  const watchers = subscriptions.get(topology);
+  assert.ok(watchers);
+  let entry = TestProject.physicalPath(changed);
+  while (
+    !watchers.some((watcher) => {
+      if (!watcher.active) return false;
+      const relative = path.relative(watcher.location, entry);
+      return (
+        relative === "" ||
+        relative === path.basename(entry) ||
+        (watcher.recursive &&
+          !relative.startsWith("..") &&
+          !path.isAbsolute(relative))
+      );
+    })
+  ) {
+    const parent = path.dirname(entry);
+    assert.notEqual(parent, entry, `no subscription covers ${changed}`);
+    entry = parent;
+  }
+  deliverWatchEvent(watchers, entry, "rename");
 }

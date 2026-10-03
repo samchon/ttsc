@@ -1,27 +1,36 @@
-import { SOURCE, assert, runLint } from "../../internal/config-file";
+import assert from "node:assert/strict";
+
+import { TestLintPlugin } from "../internal/TestLintPlugin";
 
 /**
- * Verifies the `@ttsc/lint` tsconfig plugin entry rejects any key other than
- * the host framework keys and `configFile`.
+ * Verifies stale inline lint options on the tsconfig plugin entry are rejected.
  *
- * Pins the migration guard added when inline tsconfig options were withdrawn:
- * rule, format, and plugin settings now live only in a `lint.config.*` file. A
- * stale inline `rules` key left in `tsconfig.json` must fail loudly — silently
- * ignoring it would drop the project's lint policy with no signal. Mirrors the
- * equivalent guard in `@ttsc/banner` and `@ttsc/strip`.
+ * The descriptor factory rejects any plugin-entry key other than the framework
+ * keys and configFile, so a legacy rules, format, extends, config or plugins key
+ * cannot be silently ignored. This case does not observe whether the rejection
+ * precedes configuration-file discovery.
  *
- * 1. Materialize a fixture whose plugin entry still carries an inline `rules` key.
- * 2. Run ttsc.
- * 3. Assert a non-zero exit and an "unsupported key" error that names `rules`.
+ * 1. Call the factory with each stale key in a plugin entry and require an
+ *    unsupported-key error naming that key.
+ * 2. Call it with a host switch and an explicit configFile that does not exist and
+ *    require that it does not throw.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The authored factory is called with the original inline rules value and must throw an unsupported-key error naming rules; format, extends, config and plugins keys are each rejected the same way, while an entry with only transform, enabled and configFile is accepted.
+ * @evidence contracts/testing.md#independent-expectations The lint plugin-entry contract permits host transform/enabled and configFile only; literal obsolete option names and the migration diagnostic come from that contract.
+ * @evidence contracts/testing.md#distinguishing-cases The original rules object remains the negative case, supplemented by format, extends, config, plugins and an arbitrary futureOption key. That arbitrary key distinguishes an allowlist from a legacy-key denylist. A supported disabled entry with explicit missing configFile is the adjacent accepted control.
+ * @evidence contracts/testing.md#execution-ownership This named source unit reaches rejectUnsupportedEntryKeys through the authored factory without starting the launcher or building Go. Real descriptor-load failures in the existing evaluator E2E population retain host error propagation.
  */
-export const test_lint_config_rejects_unknown_tsconfig_plugin_entry_key =
-  () => {
-    const result = runLint({
-      name: "config-rejects-unknown-tsconfig-key",
-      source: SOURCE,
-      pluginConfig: { rules: { "no-console": "error" } },
-    });
-
-    assert.notEqual(result.status, 0, result.stderr);
-    assert.match(result.stderr, /unsupported key "rules"/);
-  };
+export function test_lint_config_rejects_unknown_tsconfig_plugin_entry_key(): void {
+  const factory = TestLintPlugin.loadFactory();
+  for (const [key, value] of [
+    ["rules", { "no-console": "error" }],
+    ["format", {}],
+    ["extends", "./legacy.json"],
+    ["config", {}],
+    ["plugins", {}],
+    ["futureOption", true],
+  ] as const) {
+    assert.throws(() => factory(TestLintPlugin.factoryContext({ transform: "@ttsc/lint", [key]: value })), new RegExp('unsupported key "' + key + '"'));
+  }
+  assert.doesNotThrow(() => factory(TestLintPlugin.factoryContext({ transform: "@ttsc/lint", enabled: false, configFile: "./missing.config.json" })));
+}

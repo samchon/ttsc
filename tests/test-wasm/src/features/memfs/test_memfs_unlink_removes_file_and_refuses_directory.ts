@@ -19,6 +19,11 @@ import { callMutation, expectFsError } from "../../internal/callbackFs";
  *    path.
  * 3. Assert the file is gone, the directory rejects EISDIR with its descendant
  *    intact, and the missing path is ENOENT.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.unlink removes a regular-file name but refuses a directory and missing path. Directory/descendant preservation detects false unlink success that would bypass rmdir emptiness validation.
+ * @evidence contracts/testing.md#independent-expectations POSIX-style unlink removes file names and does not remove directories. Literal EISDIR/ENOENT and seeded child bytes establish the negative outcomes independently; file absence establishes the successful transformation.
+ * @evidence contracts/testing.md#distinguishing-cases Regular-file success, nonempty-directory refusal and missing-name refusal cover the target distinction. Open-node survival after unlink and rmdir behavior have separate entries.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_unlink_removes_file_and_refuses_directory directly calls fs.unlink through callMutation/expectFsError over createMemFS and checks exists/readFileText. It exercises callback semantics in memory rather than Go os.Remove transport.
  */
 export const test_memfs_unlink_removes_file_and_refuses_directory =
   async (): Promise<void> => {

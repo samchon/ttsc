@@ -19,11 +19,11 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reclamation uses the caller's observed token rather than refreshing it to a successor or deleting current recursively; the legacy cooperation limitation remains explicit.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the two protocol paths, race result, invalid fences, error propagation and the legacy limit before the tags.
  * @evidence contracts/portability.md#os-neutral-implementation path.join and retireLockDirectory own native rename differences; Windows sharing refusals use its capability probe instead of weakening retirement to unlinking.
- * @evidence contracts/performance.md#efficient-algorithms Retirement addresses one deterministic generation destination rather than scanning historical owners; transient peer reads can require repeated bounded metadata attempts.
+ * @evidence contracts/performance.md#efficient-algorithms Retirement addresses one deterministic destination rather than scanning historical owners; costs include native path resolution and legacy fence JSON bytes. Eligible Windows refusals add sibling capability probes and synchronous poll waits, without a retry-count or elapsed-time bound; the probe does not establish a peer read as the refusal's cause.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes ownership and cannot be reused as a cached boolean; repeated callers must attempt the generation's atomic destination themselves.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Retirement transfers current ownership into a tombstone without deleting fence history; v3 collection waits for the holder and all recorded observers to be provably gone.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Retirement transfers ownership into history; cooperating v3 collectors require holder/observer absence before removing it. Eligible native retries can block indefinitely, and best-effort probe removal may leave empty siblings. Legacy clients retain their documented cross-path cooperation limit.
  */
 export function reclaimPluginBuildLock(
   lockDir: string,

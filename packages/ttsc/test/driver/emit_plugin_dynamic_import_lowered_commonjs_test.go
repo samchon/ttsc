@@ -12,17 +12,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerDynamicImportLoweredCommonJS guards the emit
-// contract for a dynamic `import("./dep")` expression that coexists with a
-// plugin transform. Under the commonjs module target tsgo lowers a dynamic
-// import to `Promise.resolve().then(() => require("./dep"))`. The regression
-// this pins: when the plugin rebuilds the SourceFile (to rewrite a sibling
-// statement) the dynamic-import call must still be recognized by tsgo's
-// module-transform and lowered, not left as a raw `import(...)` call that would
-// throw at runtime under commonjs.
+// TestEmitWithPluginTransformerDynamicImportLoweredCommonJS Verifies CommonJS emission lowers
+// a dynamic import beside a transformed sibling value.
 //
+// CommonJS module transformation must still lower the untouched dynamic import
+// to a Promise continuation containing the dependency require.
 // The plugin only mutates the sibling `const flag = 0` initializer to `1`; it
 // never touches the dynamic import.
+//
+// 1. Emit the dynamic-import fixture after rewriting the sibling flag to 1.
+// 2. Require Promise/then/require lowering and the flag replacement while rejecting the retained dynamic import.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the actual plugin transformer and requires sibling exports.flag = 1 plus Promise/then/require lowering while rejecting retained import(./dep).
+// @evidence contracts/testing.md#independent-expectations Literal replacement one and authored ./dep specify independent emitter expectations; generated text does not provide its own reference answer.
+// @evidence contracts/testing.md#distinguishing-cases Sibling-only mutation tests coexistence of plugin visitor and CommonJS import lowering, with raw import retention as the negative output boundary.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes in-process compiler/visitor APIs with a private Program and captured writes and deferred close; runtime resolution is not claimed.
 func TestEmitWithPluginTransformerDynamicImportLoweredCommonJS(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

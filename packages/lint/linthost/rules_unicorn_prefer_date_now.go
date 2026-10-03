@@ -1,19 +1,9 @@
-// unicorn/prefer-date-now: three idioms compute the current epoch
-// milliseconds at runtime — `new Date().getTime()`, `new Date().valueOf()`,
-// and `+new Date()`. All three allocate a Date instance only to throw
-// it away. `Date.now()` does the same thing with no allocation and
-// reads as exactly what it means; the rule asks authors to switch.
+// unicorn/prefer-date-now prefers Date.now() for a zero-argument Date
+// construction used only to read its timestamp. Explicit constructor arguments
+// select another instant and are retained, including spread arguments.
 //
-// AST-only: visit `KindCallExpression` (the `.getTime()` / `.valueOf()`
-// callers) and `KindPrefixUnaryExpression` (the `+new Date()` form).
-// Fire on:
-//
-//   - `(new Date()).getTime()` / `(new Date()).valueOf()` — a call
-//     with no arguments whose callee is a PropertyAccessExpression
-//     on a NewExpression with callee `Date`.
-//   - `+new Date()` — a `+` prefix whose operand is a NewExpression
-//     with callee `Date`.
-//
+// This AST baseline assumes the ordinary built-in Date API. It matches
+// getTime/valueOf calls without arguments and unary + on new Date().
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-date-now.md
 package linthost
 
@@ -52,7 +42,7 @@ func (unicornPreferDateNow) Check(ctx *Context, node *shimast.Node) {
       return
     }
     ne := receiver.AsNewExpression()
-    if ne == nil || identifierText(ne.Expression) != "Date" {
+    if ne == nil || identifierText(ne.Expression) != "Date" || (ne.Arguments != nil && len(ne.Arguments.Nodes) != 0) {
       return
     }
     ctx.Report(node, "Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.")
@@ -66,7 +56,7 @@ func (unicornPreferDateNow) Check(ctx *Context, node *shimast.Node) {
       return
     }
     ne := operand.AsNewExpression()
-    if ne == nil || identifierText(ne.Expression) != "Date" {
+    if ne == nil || identifierText(ne.Expression) != "Date" || (ne.Arguments != nil && len(ne.Arguments.Nodes) != 0) {
       return
     }
     ctx.Report(node, "Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.")

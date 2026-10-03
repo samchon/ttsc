@@ -6,24 +6,32 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop verifies that
+// TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop Verifies that
 // dropping a preamble-region segment that shares a generated line with a kept
 // segment does not corrupt the kept segment's generated column or source column.
 //
 // genCol is a per-generated-line delta; when an earlier segment on the same line
 // is dropped, the re-encoder must NOT advance its output genCol cumulant over the
-// drop, or the surviving segment's genCol delta is wrong. Earlier fixtures only
-// dropped whole generated lines, never a mid-line sibling, so this branch was
-// unproven.
+// drop, or the surviving segment's genCol delta is wrong. Only a mid-line
+// dropped sibling reaches this branch; whole dropped generated lines do not.
 //
 //  1. Build a map whose generated line 0 has two segments: the first inside the
 //     preamble region (dropped), the second real code.
 //  2. Run AdjustSourceMapForPreamble with dropLines 3.
 //  3. Assert the survivor keeps genCol 10 and srcCol 8 and shifts to source line 2.
+//
+// The dropped segment sits at genCol 3, not 0, so a re-encoder that advanced its
+// output genCol cumulant over the drop would encode the survivor's genCol delta
+// as 7 instead of 10.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble drops one segment and keeps generated column 10, source column 8 and shifted line 2.
+// @evidence contracts/testing.md#independent-expectations The separate test VLQ codec decodes authored absolute coordinates; three-line subtraction establishes line 2.
+// @evidence contracts/testing.md#distinguishing-cases Dropped column 3 and kept column 10 share a generated line, exposing incorrect column accumulation.
+// @evidence contracts/testing.md#execution-ownership Go unit TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop(t *testing.T) {
   const dropLines = 3
   input := makeMapJSON([]string{"src/a.ts"}, buildMappings([]absSeg{
-    {genLine: 0, genCol: 0, srcIdx: 0, srcLine: 1, srcCol: 4},  // preamble region -> dropped
+    {genLine: 0, genCol: 3, srcIdx: 0, srcLine: 1, srcCol: 4},  // preamble region -> dropped
     {genLine: 0, genCol: 10, srcIdx: 0, srcLine: 5, srcCol: 8}, // real code -> kept, srcLine 2
   }))
 

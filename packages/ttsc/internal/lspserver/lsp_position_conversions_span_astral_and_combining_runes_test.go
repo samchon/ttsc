@@ -18,6 +18,11 @@ import "testing"
 //     CJK, an astral rune, and a combining sequence.
 //  2. Assert both converters return the same byte offset for each.
 //  3. Assert the line walk, the end-of-line column, and an out-of-range column.
+//
+// @evidence contracts/testing.md#behavioral-verification Both position converters return the same byte offset for the column after an identifier on ASCII, CJK, astral and combining-sequence lines, and handle line walks, end-of-line columns and out-of-range columns.
+// @evidence contracts/testing.md#independent-expectations Expected offsets are literal byte counts from the UTF-16 definition.
+// @evidence contracts/testing.md#distinguishing-cases Astral and combining characters separate byte, rune and UTF-16 counting at once.
+// @evidence contracts/testing.md#execution-ownership TestLSPPositionConversionsSpanAstralAndCombiningRunes is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
   cases := []struct {
     name      string
@@ -78,6 +83,12 @@ func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
       wantOK:    true,
     },
   }
+
+  cases = append(cases, struct { name string; text string; line int; character int; want int; wantOK bool }{
+    "bare CR reaches target line", "a\rconst \U0001D499 = 1;", 1, 8, 12, true,
+  }, struct { name string; text string; line int; character int; want int; wantOK bool }{
+    "CRLF is one line boundary", "a\r\nconst \U0001D499 = 1;", 1, 8, 13, true,
+  })
 
   for _, testCase := range cases {
     t.Run(testCase.name, func(t *testing.T) {

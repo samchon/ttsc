@@ -10,11 +10,11 @@ import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unconditional recursive deletion or timeout-only removal substitutes for generation-fenced retirement.
  * @evidence contracts/common.md#meaningful-documentation Native prose states exact-generation recovery and the false result when ownership changed.
  * @evidence contracts/portability.md#os-neutral-implementation Native rename behavior and contention handling remain in the shared retirement owner; the adapter preserves the caller's native lock path.
- * @evidence contracts/performance.md#efficient-algorithms The adapter adds constant work to one generation-retirement operation and does not scan holders or tombstones.
+ * @evidence contracts/performance.md#efficient-algorithms The field projection adds constant adapter work to actual generation/path text and native retirement/probe/retry/yield cost. It does not scan holder or tombstone history; delegated contention can still grow total call work.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reclaim is an ownership-changing effect; a prior result cannot authorize another generation's recovery.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Retirement transfers the held directory into its generation tombstone; historical tombstones remain necessary for stale fences until the owning lock container is removed.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Successful retirement transfers current into its tombstone; false or native failure does not certify recovery. Historical tombstones remain until container removal, and native peer-handle waiting/probe cleanup have no independent bounded completion here.
  */
 export function reclaimDependencyBuildLock(
   lockDir: string,

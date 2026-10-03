@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";
+import factory, { SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
 import { kw, print, ref } from "../../internal/helpers";
 
@@ -14,6 +14,11 @@ import { kw, print, ref } from "../../internal/helpers";
  * 1. Print nested union and intersection operands, including a forced break.
  * 2. Print union-in-intersection and intersection-in-union operands.
  * 3. Assert the emitted source preserves the requested type tree.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Same-operator union/intersection nests flatten while mixed/nonassociative operands retain grouping, including broken intersection layout.
+ * @evidence contracts/testing.md#independent-expectations Explicit inline and 40-column broken type literals independently fix grouping and leading-operator policy.
+ * @evidence contracts/testing.md#distinguishing-cases Nested same-kind versus mixed operators and forced long-name break catch dangling operators and unwanted flattening.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_binary_type_parentheses. Calls createUnionTypeNode/createIntersectionTypeNode and TsPrinter.print using default and narrow printers.
  */
 export const test_binary_type_parentheses = (): void => {
   TestValidator.equals(

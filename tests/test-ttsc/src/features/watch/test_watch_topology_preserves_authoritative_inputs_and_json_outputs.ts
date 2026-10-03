@@ -1,42 +1,66 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  type IRecordedWatcher,
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
+const subscriptions = new WeakMap<WatchTopology, IRecordedWatcher[]>();
+const membership = new Map<string, string[]>();
 
 /**
  * Verifies predicted products never erase authoritative compiler inputs and
  * every copied compiler product remains excluded from the project-input lane.
  *
- * 1. Keep an explicit declaration input that collides with a predicted output
- *    while the compiler reports its overwrite diagnostic.
- * 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an
- *    incorrectly changed extension.
- * 3. Suppress nested products emitted above the project without `rootDir`.
- * 4. Treat removed `outFile` as a diagnostic, not an output-layout contract.
- * 5. Resolve launcher-owned output paths from the execution cwd and passthrough
- *    paths from the compiler's project cwd.
- * 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while
- *    retaining an adjacent JSON negative twin.
- * 7. Classify a source-overlapping output once per identity transaction rather
- *    than rescanning every compiler input for every declared project input.
+ * 1. Preserve declaration and JavaScript inputs despite predicted collisions.
+ * 2. Contrast copied products, removed `outFile`, and execution-root outputs
+ *    with independently authored non-product twins.
+ * 3. Suppress out-of-root TS/JS recovery products while retaining adjacent JSON.
+ * 4. Keep the last of 1,000 compiler inputs selectable for 1,000 declared JSON
+ *    paths, then distinguish product-only and adjacent-input controls.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology consumes authored compiler membership and inferred output paths. 1. Preserve declaration and JavaScript input collisions. 2. Contrast copied products, removed outFile and execution-root outputs with non-product twins. 3. Exclude out-of-root recovery products while retaining adjacent JSON. 4. Contrast 1,000-member compiler overlap, product-only and adjacent-input declarations through public operations. No private containment counter or complexity bound is asserted.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, authored compiler membership and declared input paths establish which files are authoritative compiler inputs and which are predicted products; literal reported-versus-quiet outcomes, including the adjacent JSON negative twin, enforce those roles rather than snapshotting topology output.
+ * @evidence contracts/testing.md#distinguishing-cases Each predicted product is paired with a non-product twin that must wake: foo.d.ts declared as an input versus compiler products, module.js/common.js inputs versus module.mjs/common.cjs products, outDir-relative main.js and data.json versus a nearby external.json, a removed outFile bundle versus the real per-source output, launcher-relative and passthrough-relative products versus cache/external.json, out-of-root recovery .js/.js.map/.d.ts/.d.ts.map versus external.json, and a generated/ output prefix versus the adjacent generated-other/ input; the 1,000-member case contrasts a compiler member inside the output directory with the same directory once the member leaves.
+ * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology consumes independently authored absolute compiler membership and actual config, output and physical-path decisions through recorded source-adapter subscriptions. No compiler child or native observer runs. The retained E2E owns compiler population and native delivery until its replacement corpus is verified.
  */
 export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs =
   async (): Promise<void> => {
-    await verifyDeclarationInputCollision();
-    await verifyJavaScriptExtensionInputs();
-    await verifyJsonCopyIsProduct();
-    await verifyRemovedOutFileLayout();
-    await verifyCompilerFacingPathsUseTheirExecutionRoots();
-    await verifyOutOfRootDiagnosticRecoveryOutputs();
-    verifyOutputOverlapClassificationIsBounded();
+    const failures: unknown[] = [];
+    for (const verify of [
+      verifyDeclarationInputCollision,
+      verifyJavaScriptExtensionInputs,
+      verifyJsonCopyIsProduct,
+      verifyRemovedOutFileLayout,
+      verifyCompilerFacingPathsUseTheirExecutionRoots,
+      verifyOutOfRootDiagnosticRecoveryOutputs,
+      verifyOutputOverlapThroughPublicDeclarations,
+    ]) {
+      try {
+        await verify();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        "authoritative input/output decision matrix failed",
+      );
   };
 
 async function verifyDeclarationInputCollision(): Promise<void> {
-  const root = TestProject.tmpdir("ttsc-authoritative-declaration-input-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-authoritative-declaration-input-"),
+  );
   const source = path.join(root, "src", "foo.ts");
   const declaration = path.join(root, "src", "foo.d.ts");
   fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -51,11 +75,13 @@ async function verifyDeclarationInputCollision(): Promise<void> {
     files: ["src/foo.ts", "src/foo.d.ts"],
   });
 
+  membership.set(root, [source, declaration]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
     topology.refresh(false);
     fs.writeFileSync(declaration, "export declare const external: 2;\n");
+    notify(topology, declaration);
     await waitForCompilerChange(changes, 0, "declaration input collision");
   } finally {
     topology.close();
@@ -63,7 +89,9 @@ async function verifyDeclarationInputCollision(): Promise<void> {
 }
 
 async function verifyJavaScriptExtensionInputs(): Promise<void> {
-  const root = TestProject.tmpdir("ttsc-authoritative-javascript-input-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-authoritative-javascript-input-"),
+  );
   const moduleSource = path.join(root, "src", "module.mjs");
   const commonSource = path.join(root, "src", "common.cjs");
   const moduleInput = path.join(root, "dist", "src", "module.js");
@@ -87,14 +115,17 @@ async function verifyJavaScriptExtensionInputs(): Promise<void> {
     ],
   });
 
+  membership.set(root, [moduleSource, commonSource, moduleInput, commonInput]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
     topology.refresh(false);
     fs.writeFileSync(moduleInput, "export const value = 2;\n");
+    notify(topology, moduleInput);
     await waitForCompilerChange(changes, 0, ".mjs output extension");
     const previous = compilerChangeCount(changes);
     fs.writeFileSync(commonInput, "export const value = 2;\n");
+    notify(topology, commonInput);
     await waitForCompilerChange(changes, previous, ".cjs output extension");
 
     for (const output of [
@@ -104,6 +135,7 @@ async function verifyJavaScriptExtensionInputs(): Promise<void> {
       topology.setProjectInputs({ root, files: [output], globs: [] });
       const projectChanges = projectChangeCount(changes);
       fs.writeFileSync(output, "export const value = 2;\n");
+      notify(topology, output, false);
       await delay();
       assert.equal(
         projectChangeCount(changes),
@@ -117,7 +149,9 @@ async function verifyJavaScriptExtensionInputs(): Promise<void> {
 }
 
 async function verifyJsonCopyIsProduct(): Promise<void> {
-  const container = TestProject.tmpdir("ttsc-json-copy-product-");
+  const container = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-json-copy-product-"),
+  );
   const root = path.join(container, "project");
   const source = path.join(root, "src", "main.ts");
   const json = path.join(root, "src", "data.json");
@@ -136,6 +170,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
     files: ["src/main.ts", "src/data.json"],
   });
 
+  membership.set(root, [source, json]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
@@ -144,6 +179,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
       topology.setProjectInputs({ root, files: [output], globs: [] });
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
+      notify(topology, output, false);
       await expectProjectQuiet(
         changes,
         `${path.basename(output)} retriggered the project-input lane`,
@@ -157,6 +193,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
     });
     const previous = projectChangeCount(changes);
     fs.writeFileSync(nearbyNonProduct, "external data\n");
+    notify(topology, nearbyNonProduct);
     await waitForProjectChange(
       changes,
       previous,
@@ -168,7 +205,9 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
 }
 
 async function verifyRemovedOutFileLayout(): Promise<void> {
-  const root = TestProject.tmpdir("ttsc-removed-outfile-layout-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-removed-outfile-layout-"),
+  );
   const source = path.join(root, "src", "main.ts");
   const configuredBundle = path.join(root, "dist", "bundle.js");
   const actualOutput = path.join(root, "src", "main.js");
@@ -182,6 +221,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     files: ["src/main.ts"],
   });
 
+  membership.set(root, [source]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
@@ -193,6 +233,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     });
     fs.mkdirSync(path.dirname(configuredBundle), { recursive: true });
     fs.writeFileSync(configuredBundle, "external bundle\n");
+    notify(topology, configuredBundle);
     await waitForProjectChange(
       changes,
       0,
@@ -201,9 +242,11 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
 
     topology.setProjectInputs({ root, files: [actualOutput], globs: [] });
     fs.writeFileSync(actualOutput, "export const value = 1;\n");
+    notify(topology, actualOutput, false);
     await expectProjectQuiet(
       changes,
       "actual per-source output retriggered the project-input lane",
+      1,
     );
   } finally {
     topology.close();
@@ -211,13 +254,16 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
 }
 
 async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> {
-  const container = TestProject.tmpdir("ttsc-passthrough-output-base-");
+  const container = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-passthrough-output-base-"),
+  );
   const root = path.join(container, "project");
   const source = path.join(root, "src", "main.ts");
   fs.mkdirSync(path.dirname(source), { recursive: true });
   fs.writeFileSync(source, "export const value = 1;\n");
   writeConfig(root, { files: ["src/main.ts"] });
 
+  membership.set(root, [source]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes, {
     cwd: container,
@@ -243,6 +289,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
       topology.setProjectInputs({ root, files: [output], globs: [] });
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
+      notify(topology, output, false);
       await expectProjectQuiet(
         changes,
         `${output} used the wrong compiler execution root`,
@@ -253,6 +300,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
     topology.setProjectInputs({ root, files: [nearby], globs: [] });
     const nearbyChanges = projectChangeCount(changes);
     fs.writeFileSync(nearby, '{"external":true}\n');
+    notify(topology, nearby);
     await waitForProjectChange(
       changes,
       nearbyChanges,
@@ -263,63 +311,171 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
   }
 }
 
-function verifyOutputOverlapClassificationIsBounded(): void {
-  const root = path.resolve("synthetic-watch-overlap");
-  const output = path.join(root, "generated");
-  const topology = createTopology(root, []);
-  const classifier = topology as unknown as {
-    files: Map<string, string>;
-    outputs: Map<string, string>;
-    projectInputs: { root: string };
-    isProjectInputCompilerOutputDirectory(
-      location: string,
-      identities: { isWithin(root: string, candidate: string): boolean },
-    ): boolean;
-  };
-  classifier.projectInputs = { root: path.join(root, "source") };
-  classifier.outputs = new Map([[output, output]]);
-  classifier.files = new Map(
-    Array.from({ length: 1_000 }, (_, index) => {
-      const input =
-        index === 999
-          ? path.join(output, "compiler.ts")
-          : path.join(root, "source", `${index}.ts`);
-      return [input, input];
-    }),
+async function verifyOutputOverlapThroughPublicDeclarations(): Promise<void> {
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-watch-overlap-source-"),
   );
-  let containmentChecks = 0;
-  const identities = {
-    isWithin: (parent: string, candidate: string): boolean => {
-      containmentChecks++;
-      return (
-        candidate === parent ||
-        candidate.startsWith(
-          parent.endsWith(path.sep) ? parent : `${parent}${path.sep}`,
-        )
-      );
+  const sourceRoot = path.join(root, "source");
+  const output = path.join(root, "generated");
+  fs.mkdirSync(sourceRoot);
+  fs.mkdirSync(output);
+  const inputs = Array.from({ length: 1_000 }, (_, index) =>
+    index === 999
+      ? path.join(output, "compiler.ts")
+      : path.join(sourceRoot, `${index}.ts`),
+  );
+  for (const input of inputs)
+    fs.writeFileSync(input, "export const value = 1;\n");
+  const configure = (): void => {
+    writeConfig(root, {
+      compilerOptions: { rootDir: ".", outDir: "generated" },
+      files: inputs.map((input) => path.relative(root, input)),
+    });
+    membership.set(root, [...inputs]);
+  };
+  configure();
+  const declared = Array.from({ length: 1_000 }, (_, index) =>
+    path.join(output, `plugin-${index}.json`),
+  );
+  const observed = recordWatchers(watchDirectoryThroughFsWatch);
+  const changes: WatchInputChange[] = [];
+  let liveRoots: readonly string[] = [];
+  const topology = new WatchTopology(
+    {
+      cwd: root,
+      emit: true,
+      files: [],
+      projectRoot: root,
+      tsconfig: path.join(root, "tsconfig.json"),
     },
+    {
+      onError: (location, error) => {
+        throw new Error(`watch error on ${location}`, { cause: error });
+      },
+      onInputChange: (change) => changes.push(change),
+      onProjectInputWatchRoots: (roots) => {
+        liveRoots = [...roots];
+      },
+      onTopologyChange: () => undefined,
+    },
+    observed.openDirectoryWatch,
+    observed.openFileWatch,
+    fs.readdirSync,
+    () => [...inputs],
+  );
+  subscriptions.set(topology, observed.watchers);
+  const failures: unknown[] = [];
+  const verify = async (
+    name: string,
+    run: () => Promise<void>,
+  ): Promise<void> => {
+    try {
+      await run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
   try {
-    for (let index = 0; index < 1_000; index++) {
-      assert.equal(
-        classifier.isProjectInputCompilerOutputDirectory(
-          path.join(output, `plugin-${index}.json`),
-          identities,
-        ),
-        false,
-      );
-    }
-    assert.ok(
-      containmentChecks < 5_000,
-      `source-overlap classification repeated ${containmentChecks} containment checks`,
+    topology.refresh(false);
+    await verify(
+      "last compiler member keeps every declaration selectable",
+      async () => {
+        topology.setProjectInputs({
+          root: sourceRoot,
+          files: declared,
+          globs: [],
+        });
+        for (const candidate of declared)
+          assert.ok(
+            liveRoots.some((anchor) => {
+              const relative = path.relative(anchor, candidate);
+              return (
+                relative !== ".." &&
+                !relative.startsWith(`..${path.sep}`) &&
+                !path.isAbsolute(relative)
+              );
+            }),
+            `no project anchor covers ${candidate}`,
+          );
+        for (const candidate of [declared[0]!, declared[999]!]) {
+          const before = changes.length;
+          fs.writeFileSync(candidate, '{"input":true}\n');
+          notify(topology, candidate);
+          await waitForProjectChange(
+            changes,
+            projectChangeCount(changes.slice(0, before)),
+            `overlapping output suppressed ${candidate}`,
+          );
+          assert.ok(
+            changes
+              .slice(before)
+              .some(
+                (change) =>
+                  change.kind === "project" && change.path === candidate,
+              ),
+          );
+        }
+      },
     );
+    await verify(
+      "same directory becomes product-only without the compiler member",
+      async () => {
+        const moved = path.join(sourceRoot, "999.ts");
+        fs.renameSync(inputs[999]!, moved);
+        inputs[999] = moved;
+        configure();
+        topology.refresh(false);
+        topology.setProjectInputs({
+          root: sourceRoot,
+          files: declared,
+          globs: [],
+        });
+        assert.deepEqual(liveRoots, []);
+        const previous = projectChangeCount(changes);
+        fs.writeFileSync(declared[0]!, '{"product":true}\n');
+        notify(topology, declared[0]!, false);
+        await delay();
+        assert.equal(projectChangeCount(changes), previous);
+      },
+    );
+    await verify("adjacent directory remains a project input", async () => {
+      const adjacent = path.join(root, "generated-other", "plugin.json");
+      fs.mkdirSync(path.dirname(adjacent));
+      topology.setProjectInputs({
+        root: sourceRoot,
+        files: [adjacent],
+        globs: [],
+      });
+      const before = changes.length;
+      fs.writeFileSync(adjacent, '{"adjacent":true}\n');
+      notify(topology, adjacent);
+      await waitForProjectChange(
+        changes,
+        projectChangeCount(changes.slice(0, before)),
+        "output prefix suppressed adjacent input",
+      );
+      assert.ok(
+        changes
+          .slice(before)
+          .some(
+            (change) => change.kind === "project" && change.path === adjacent,
+          ),
+      );
+    });
   } finally {
     topology.close();
   }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "public output-overlap decisions failed",
+    );
 }
 
 async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
-  const container = TestProject.tmpdir("ttsc-out-of-root-recovery-");
+  const container = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-out-of-root-recovery-"),
+  );
   const root = path.join(container, "project");
   const source = path.join(root, "src", "main.ts");
   const externalRoot = path.join(container, "external");
@@ -340,6 +496,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
     files: ["src/main.ts", "../external/external.ts"],
   });
 
+  membership.set(root, [source, external]);
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
@@ -352,6 +509,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
     ]) {
       topology.setProjectInputs({ root, files: [output], globs: [] });
       fs.writeFileSync(output, "compiler recovery product\n");
+      notify(topology, output, false);
       await expectProjectQuiet(
         changes,
         `${path.basename(output)} diagnostic-recovery emit was not excluded`,
@@ -362,6 +520,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
     topology.setProjectInputs({ root, files: [externalJson], globs: [] });
     const externalJsonChanges = projectChangeCount(changes);
     fs.writeFileSync(externalJson, '{"external":true}\n');
+    notify(topology, externalJson);
     await waitForProjectChange(
       changes,
       externalJsonChanges,
@@ -381,7 +540,8 @@ function createTopology(
     passthrough?: string[];
   } = {},
 ): WatchTopology {
-  return new WatchTopology(
+  const observed = recordWatchers(watchDirectoryThroughFsWatch);
+  const instance = new WatchTopology(
     {
       cwd: overrides.cwd ?? root,
       emit: true,
@@ -398,7 +558,17 @@ function createTopology(
       onInputChange: (change) => changes.push(change),
       onTopologyChange: () => undefined,
     },
+    observed.openDirectoryWatch,
+    observed.openFileWatch,
+    fs.readdirSync,
+    () => {
+      const inputs = membership.get(root);
+      assert.ok(inputs, "compiler membership must be explicitly authored");
+      return inputs;
+    },
   );
+  subscriptions.set(instance, observed.watchers);
+  return instance;
 }
 
 function writeConfig(root: string, config: Record<string, unknown>): void {
@@ -449,12 +619,54 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 async function expectProjectQuiet(
   changes: readonly WatchInputChange[],
   message: string,
+  expectedProjectChanges = 0,
 ): Promise<void> {
   const previous = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), previous, message);
+  assert.equal(projectChangeCount(changes), expectedProjectChanges, message);
 }
 
 function delay(milliseconds = 500): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * Deliver attention only through a recorded subscription covering the entry.
+ * Positive input mutations require a subscription. Products can have none:
+ * their omitted registration itself keeps that path outside observer delivery.
+ */
+function notify(
+  topology: WatchTopology,
+  changed: string,
+  requireSubscription = true,
+): void {
+  const watchers = subscriptions.get(topology);
+  assert.ok(watchers);
+  let entry = TestProject.physicalPath(changed);
+  while (
+    !watchers.some((watcher) => {
+      if (!watcher.active) return false;
+      const relative = path.relative(watcher.location, entry);
+      return (
+        relative === "" ||
+        relative === path.basename(entry) ||
+        (watcher.recursive &&
+          !relative.startsWith("..") &&
+          !path.isAbsolute(relative))
+      );
+    })
+  ) {
+    const parent = path.dirname(entry);
+    if (parent === entry) {
+      assert.equal(
+        requireSubscription,
+        false,
+        `no subscription covers ${changed}`,
+      );
+      return;
+    }
+    entry = parent;
+  }
+  deliverWatchEvent(watchers, entry, "rename");
 }

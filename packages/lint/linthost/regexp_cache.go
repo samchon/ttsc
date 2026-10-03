@@ -9,18 +9,17 @@ import (
 //
 // Several rules accept a custom regex option — no-fallthrough's and
 // default-case's `commentPattern`, functional's identifier patterns,
-// no-param-reassign's `ignorePropertyModificationsForRegex` — and compile it
-// inside Check. That recompiles the same immutable, config-derived automaton on
-// every invocation: once per visited node, or once per candidate name in an
-// inner loop. The pattern is invariant for a whole run, so compiling it once and
-// reusing the result collapses the per-node cost to a single compile. Distinct
-// option patterns come from configuration and are therefore few and bounded, so
-// the cache cannot grow without bound.
+// no-param-reassign's `ignorePropertyModificationsForRegex` — and request their
+// config-derived patterns during dispatch. Equal pattern strings reuse a
+// published regexp or error across requests. Each miss compiles before
+// LoadOrStore, so concurrent cold misses can compile more than once while
+// returning the same winning result. The process-wide map retains every
+// distinct requested pattern without eviction or a size bound.
 //
 // The engine walks files in parallel, so access is synchronized. Both the
 // compiled regexp and a compile error are cached so every caller keeps its
 // existing success/failure handling — an invalid custom pattern still surfaces
-// its error, just without recompiling on each visit.
+// its error, and subsequent cache hits avoid recompilation.
 var userPatternCache sync.Map // map[string]userPatternResult
 
 type userPatternResult struct {

@@ -8,17 +8,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyAugmentsCodeActionResponse verifies the bookkeeping that
+// TestLSPProxyAugmentsCodeActionResponse Verifies the bookkeeping that
 // pairs an editor codeAction request with the upstream response so ttsc
 // can append plugin-owned actions. The proxy must remember the request
 // uri/range/context when forwarding and then attach actions when the
 // matching response arrives.
 //
-// 1. Configure a source that contributes one code action.
-// 2. Send a codeAction request from the editor.
-// 3. Drain the forwarded request from upstream.
-// 4. Reply from upstream with a single existing action.
-// 5. Assert the editor sees a merged array containing both actions.
+// 1. Configure a plugin action and require its request to reach upstream unchanged.
+// 2. Return the upstream action for the same request id.
+// 3. Require two actions retaining both authored titles.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards the request unchanged and returns a two-element result containing the upstream and plugin action titles.
+// @evidence contracts/testing.md#independent-expectations Both action providers contribute independently authored titles; augmentation must preserve Add import while adding Apply ttsc lint fix.
+// @evidence contracts/testing.md#distinguishing-cases A correlated nonempty upstream array and nonempty plugin result are covered; null and unaugmentable result shapes are separate cases.
+// @evidence contracts/testing.md#execution-ownership Go test/driver runs the real proxy using the pipe harness and stub actions, without an upstream server or installed plugin.
 func TestLSPProxyAugmentsCodeActionResponse(t *testing.T) {
   source := &stubSource{
     actions: []driver.LSPCodeAction{

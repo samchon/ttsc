@@ -1,0 +1,37 @@
+package linthost
+
+import "testing"
+
+// TestFixNoVarSkipsBlockScopeEscape verifies no-var reports but does not
+// rewrite a `var` declared inside a block and referenced after the block.
+//
+// `var` hoists to the enclosing function/global scope, so a read after the
+// declaring block sees the binding; `let` is block-scoped, so the same read
+// stops compiling (TS2304 / ReferenceError). The safety gate declines when any
+// value reference lies outside the declaring statement's enclosing block-scope
+// node's span (issue #364: this shape used to be rewritten and broke the
+// compile).
+//
+//  1. Parse a file declaring `var x` inside an if-block and reading `x` after it.
+//  2. Run the no-var fixer through the disk-backed applier.
+//  3. Assert at least one finding fired but zero fixes were applied.
+//
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var still diagnoses block-local x but declines rewriting it when x is read after the block.
+// @evidence contracts/testing.md#independent-expectations The original full source and zero applied fixes preserve var visibility; runFixSnapshot requires a finding so silence cannot pass.
+// @evidence contracts/testing.md#distinguishing-cases The outside read contrasts with the same-block and nested-block positive cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsBlockScopeEscape calls assertNoFixSnapshot for the if-block/external-read fixture.
+func TestFixNoVarSkipsBlockScopeEscape(t *testing.T) {
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "if (Math.random() > 0.5) {\n  var x = 1;\n}\nJSON.stringify(x);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nif (Math.random() > 0.5) {\n  var x = 1;\n}\nJSON.stringify(x);\n}\n",
+  )
+}

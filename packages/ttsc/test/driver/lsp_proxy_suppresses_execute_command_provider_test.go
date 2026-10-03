@@ -7,17 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesExecuteCommandProvider verifies client-owned command
-// registration can opt out of server-advertised ttsc command ids.
+// TestLSPProxySuppressesExecuteCommandProvider Verifies that initialize enables code actions while omitting executeCommandProvider when suppression is requested.
 //
-// The VS Code extension contributes wrapper commands itself so command palette
-// routing stays stable even when the server also supports executeCommand. The
-// proxy must still advertise code actions, but skip executeCommandProvider when
-// the extension asks for command suppression.
+// Upstream false codeActionProvider becomes true, and the command-provider field stays absent.
 //
 // 1. Start a proxy with SuppressExecuteCommandProvider enabled.
 // 2. Forward initialize and return an upstream response without code actions.
 // 3. Assert codeActionProvider is enabled and executeCommandProvider is absent.
+//
+// @evidence contracts/testing.md#behavioral-verification Initialize enables code actions while omitting executeCommandProvider when suppression is requested.
+// @evidence contracts/testing.md#independent-expectations Explicit provider suppression must hide command registration while retaining actions.
+// @evidence contracts/testing.md#distinguishing-cases Upstream false codeActionProvider becomes true, and the command-provider field stays absent.
+// @evidence contracts/testing.md#execution-ownership The synthetic initialize exchange executes actual Go capability augmentation. Go discovers TestLSPProxySuppressesExecuteCommandProvider under ./test/driver.
 func TestLSPProxySuppressesExecuteCommandProvider(t *testing.T) {
   h := newProxyHarnessWithOptions(
     t,

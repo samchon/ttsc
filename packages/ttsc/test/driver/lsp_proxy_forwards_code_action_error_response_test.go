@@ -7,17 +7,24 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsCodeActionErrorResponse pins the safety guard in
+// TestLSPProxyForwardsCodeActionErrorResponse Verifies the safety guard in
 // appendCodeActions: when upstream returns an `error` response for a
 // remembered codeAction id, the proxy must NOT splice ttsc actions
 // into the result field. JSON-RPC §5.1 forbids both `result` and
 // `error` on the same frame and well-behaved editors reject such
 // hybrid responses.
 //
+// JSON-RPC forbids result alongside error; the authored envelope supplies exact expected bytes.
+//
 // 1. Configure a source that would otherwise contribute an action.
 // 2. Send a codeAction request and drain it upstream.
 // 3. Reply from upstream with an error envelope for the same id.
 // 4. Assert the editor receives the original error response verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards an upstream action error byte-for-byte.
+// @evidence contracts/testing.md#independent-expectations JSON-RPC forbids result alongside error; the authored envelope supplies exact expected bytes.
+// @evidence contracts/testing.md#distinguishing-cases Remembered id and contributing source must still preserve the error response.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyForwardsCodeActionErrorResponse in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyForwardsCodeActionErrorResponse(t *testing.T) {
   source := &stubSource{
     actions: []driver.LSPCodeAction{{Title: "should-not-appear"}},

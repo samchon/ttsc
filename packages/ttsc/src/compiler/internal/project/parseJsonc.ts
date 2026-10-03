@@ -2,24 +2,29 @@
  * Parse the text of a JSONC configuration file, a `tsconfig.json` or a
  * `jsconfig.json`, by the grammar TypeScript-Go reads one with.
  *
- * The compiler parses a config with its own scanner and accepts every literal
- * form its JSON conversion takes without a diagnostic: comments that end at any
- * ECMAScript line terminator (`\n`, `\r`, U+2028, U+2029), every character it
+ * This parser models the compiler's config literal grammar: comments that end
+ * at any ECMAScript line terminator (`\n`, `\r`, U+2028, U+2029), every character it
  * counts as whitespace (a byte-order mark, a no-break space, the Unicode space
  * separators), trailing commas, hexadecimal, octal, binary, fractional and
- * separated numbers, the full string escape set, and a file holding no value at
- * all, which reads as an empty object. It rejects what its conversion reports:
+ * separated numbers, valid string escapes, and a file holding no value at
+ * all, which reads as an empty object. It rejects:
  * a key or string that is not double-quoted (TS1327), a value that is not a
  * literal (TS1328), a legacy octal number (TS1121), a missing comma, and text
- * after the root value. Layering comment stripping over `JSON.parse` left a
- * narrower grammar that refused CR-only line comments and every form above.
+ * after the root value. Legacy octal and decimal string escapes and malformed
+ * hexadecimal or Unicode escapes are rejected because the compiler scanner
+ * reports them, even when it constructs a recovery string. Raw U+2028/U+2029
+ * remain string data; escaped line terminators continue the string. Returned
+ * objects preserve their authored keys, including an empty key and `__proto__`;
+ * this is not a reproduction of the compiler's recovery AST projection or
+ * diagnostic messages. Comment stripping over `JSON.parse` would reject the
+ * supported non-JSON literal forms.
  *
  * The one reading of that grammar in the workspace. ttsc's own project reader
  * reads every config through it (`readJsoncFile`), and `@ttsc/unplugin` reads
  * the configs it builds its membership policy and alias overlay from through
  * the `ttsc/tsconfig` entry, so the two cannot disagree about what a config
- * says (samchon/ttsc#1489). A failure names the line and column of the original
- * text, counting lines the way the compiler does.
+ * says. A failure names the line and UTF-16 column of the original text,
+ * treating CRLF as one line end and recognizing U+2028/U+2029 line ends.
  *
  * @param input The file's text as read.
  *
@@ -35,6 +40,7 @@
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call returns a fresh mutable object/array tree; sharing a previous parse would expose one caller's mutations to another. This pure parser owns no immutable-result cache or coordinated config lifecycle.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The reader and lexical span arrays are invocation-local, and the parsed value transfers to its caller; no historical config tree, descriptor or task is retained in the module.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation parseJsonc computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function parseJsonc(input: string): unknown {
   const reader = new JsoncReader(input);
@@ -171,7 +177,11 @@ class JsoncReader {
     let start = this.pos;
     const spans: string[] = [];
     for (;;) {
-      if (this.done() || isLineBreak(this.text.charCodeAt(this.pos)))
+      if (
+        this.done() ||
+        this.text[this.pos] === "\r" ||
+        this.text[this.pos] === "\n"
+      )
         this.fail("Unterminated string literal");
       const current = this.text[this.pos]!;
       if (current === '"') {
@@ -198,23 +208,14 @@ class JsoncReader {
     if (simple !== undefined) return simple;
     if (current === "0" && !/[0-9]/.test(this.text[this.pos] ?? ""))
       return "\0";
-    if (/[0-7]/.test(current)) {
-      // A legacy octal escape: up to three digits, below 0o400.
-      let digits = current;
-      while (
-        digits.length < (current <= "3" ? 3 : 2) &&
-        /[0-7]/.test(this.text[this.pos] ?? "")
-      ) {
-        digits += this.text[this.pos];
-        this.pos += 1;
-      }
-      return String.fromCharCode(parseInt(digits, 8));
-    }
+    if (/[0-9]/.test(current))
+      this.fail("Octal and decimal escape sequences are not allowed");
     if (current === "x") return this.readHexEscape(2);
     if (current === "u") {
       if (this.text[this.pos] !== "{") return this.readHexEscape(4);
       const hex = this.matchToken(UNICODE_CODE_POINT_ESCAPE);
-      if (hex === null || parseInt(hex[1]!, 16) > 0x10ffff) return "\\u";
+      if (hex === null || parseInt(hex[1]!, 16) > 0x10ffff)
+        this.fail("Invalid Unicode escape sequence");
       this.pos += hex[0].length;
       return String.fromCodePoint(parseInt(hex[1]!, 16));
     }
@@ -227,8 +228,8 @@ class JsoncReader {
   }
 
   /**
-   * Read the digits of a `\x` or `\u` escape. An escape without its full digit
-   * count stays in the string as written, as the compiler keeps it.
+   * Read the exact digit count of a `\x` or `\u` escape. Compiler scanner
+   * diagnostics make an incomplete escape invalid configuration text.
    */
   private readHexEscape(length: number): string {
     const start = this.pos - 2;
@@ -238,9 +239,8 @@ class JsoncReader {
     )
       this.pos += 1;
     const hex = this.text.slice(start + 2, this.pos);
-    return hex.length === length
-      ? String.fromCharCode(parseInt(hex, 16))
-      : this.text.slice(start, this.pos);
+    if (hex.length !== length) this.fail("Hexadecimal digit expected");
+    return String.fromCharCode(parseInt(hex, 16));
   }
 
   private readNumber(): number {

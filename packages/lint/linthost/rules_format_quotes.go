@@ -18,9 +18,9 @@ import (
 //
 // JSX attribute initializers (`<div className="foo" />`) are skipped on
 // purpose. Prettier exposes a separate `jsxSingleQuote` option for that
-// surface and never rewrites JSX attributes via `singleQuote`; the
-// JSX-grammar-canonical form is double quotes and rewriting to single
-// quotes corrupts working code. Template literals, no-substitution
+// surface and never rewrites JSX attributes via `singleQuote`. Both quote
+// delimiters are valid JSX; this rule does not own that separate option.
+// Template literals, no-substitution
 // template literals, and JSX text nodes use distinct AST kinds and are
 // also intentionally out of scope.
 type formatQuotes struct{ optionsRule }
@@ -43,9 +43,8 @@ func (formatQuotes) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil || ctx.File == nil || node == nil {
     return
   }
-  // JSX attribute initializers parse as plain StringLiteral but are
-  // grammatically required to use double quotes in the standard JSX
-  // form. Prettier mirrors that and never touches them via singleQuote.
+  // JSX attribute initializers parse as plain StringLiteral, but their
+  // delimiter style belongs to jsxSingleQuote rather than singleQuote.
   if parent := node.Parent; parent != nil && parent.Kind == shimast.KindJsxAttribute {
     return
   }

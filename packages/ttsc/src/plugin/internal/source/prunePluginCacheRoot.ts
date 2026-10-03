@@ -3,9 +3,10 @@ import path from "node:path";
 
 import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
+import { PluginBinaryUse } from "./PluginBinaryUse";
+import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
-import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
@@ -13,21 +14,27 @@ import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "./releasePluginBuildLock";
 
 /**
- * Opportunistically bound the plugin binary cache.
+ * Attempt age/size-based eviction in the plugin binary cache.
  *
- * Normally once a day (unless `force`), entries unused for 30 days are evicted
- * and, past a 2 GiB ceiling, the least-recently used down to 80% of it
+ * Normally once a day (unless `force`), entries unused for 30 days are eligible
+ * for removal and, past a 2 GiB threshold, oldest eligible entries are removed
+ * toward 80% of it
  * (`CachePrunePolicy`). A target-sized cohort of recently used entries, active
  * builds and entries named in `protectedEntries` survive. When the protected
  * set alone keeps the root over the ceiling, the daily marker is backdated so
- * another pass runs soon instead of a day later. Failures are swallowed:
- * pruning must never fail a build.
+ * a later invocation becomes eligible after the protection window instead of
+ * a day later. Failed removals, protected/live/unknown owners and incomplete
+ * accounting can leave the cache above its thresholds indefinitely. Exceptions
+ * are swallowed; native calls and delegated retries can still block a build.
  *
  * Payload deletion acquires the same v3 per-key lease as a builder. A task
  * retired while it was still running remains protected until its exact
  * release-owned completion or proven process absence. Old v2 clients use an
  * independent namespace, so their liveness check is conservative observation
- * rather than atomic cross-version serialization.
+ * rather than atomic cross-version serialization. Returned binaries have
+ * independent process-reader reservations. Deletion inspects them under its key
+ * lease and preserves live or unknown consumers, including after a producer has
+ * completed and released its build lease.
  *
  * Binary eviction preserves coordination roots. A v3 retired generation is
  * reclaimed only after its holder and every registered observer are provably
@@ -35,16 +42,16 @@ import { releasePluginBuildLock } from "./releasePluginBuildLock";
  * generations have no observer registry and remain untouched. Persistent roots
  * therefore still grow with historical keys even after binaries are evicted.
  *
- * @evidence contracts/common.md#principled-implementation Binary deletion holds a nonblocking v3 lease and rechecks old v2 plus unfinished retired-task ownership; completed payload work and reusable fence history have distinct proofs.
+ * @evidence contracts/common.md#principled-implementation Binary deletion acquires a v3 per-key lease and rechecks old v2 plus unfinished retired-task ownership; completed payload work and reusable fence history have distinct proofs, under the cooperating protocol's lifetime premises.
  * @evidence contracts/common.md#clear-and-simple-design Binary accounting and generation-history reclamation remain separate phases because their ownership lifetimes differ.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Old v2 capabilities are not assumed expired; unknown ownership defers reclamation instead of hiding protocol uncertainty under a timeout.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish target-sized recent protection, retry behavior and persistent coordination-root growth.
- * @evidence contracts/portability.md#os-neutral-implementation Root/child lstat and physical parent checks avoid link traversal; native deletion tolerates sharing restrictions without assuming volume case policy.
- * @evidence contracts/performance.md#efficient-algorithms Binary scans visit retained files and sorts cost O(entries log entries); per-key unfinished-task checks and history collection add generation/observer metadata reads without reading binary contents.
+ * @evidence contracts/portability.md#os-neutral-implementation Root and history-child lstat/realpath checks and payload Dirent selection use observed native kinds and spelling; these sequential observations do not pin pathnames against replacement. Native deletion failures defer eviction without assuming volume case policy.
+ * @evidence contracts/performance.md#efficient-algorithms Age and size phases take two recursive payload metadata snapshots; two entry sorts add O(E log E) comparisons. Work includes entry/path text, native size/timestamp observations, explicit exclusions and repeated per-key owner/generation/observer/reader JSON and liveness scans, plus recursive deletion contents. Binary bytes are not read, but inaccessible size observations can undercount. Delegated lock inspection/retirement can retry without a deadline.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Producers and build locks establish valid binary reuse; this operation selects reclamation candidates.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Binary eviction owns and finally retires one nonblocking lease; failed release can defer future coordination. Dead v3 history is reclaimed, while old v2 history and persistent per-key roots remain unbounded.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each deletion attempt owns one v3 lease with finally release/reporting; cleanup failure may retain ownership, and eligible native retries can block indefinitely. Inspection can publish process-lifetime observer records. Removal of payload/history is attempted, not guaranteed: live/unknown readers, protected entries, failures, old v2 history and persistent roots can retain bytes or historical keys without a finite bound. Backdated markers only enable a later invocation.
  */
 export function prunePluginCacheRoot(
   root: string,
@@ -385,7 +392,8 @@ function removeCacheEntry(entry: PluginCacheEntry): boolean {
     if (
       lease === null ||
       pluginCacheEntryHasLiveV2Build(entry) ||
-      pluginCacheEntryHasUnfinishedRetiredTask(lockDir)
+      pluginCacheEntryHasUnfinishedRetiredTask(lockDir) ||
+      PluginBinaryUse.hasLiveOwners(entry.dir)
     ) {
       return false;
     }

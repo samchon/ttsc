@@ -55,7 +55,7 @@ Both shell commands use the `code` CLI. If it isn't on your `PATH`, run **Shell 
 
 ### `lint.config.ts`
 
-At the project root, this drives both the lint rules and the formatter. Without it the extension still type-checks, but `@ttsc/lint` diagnostics and formatting do nothing:
+At the project root, this drives both the lint rules and the formatter. Without it the extension still type-checks and reports no lint diagnostics, and formatting uses the default format rules instead of your `format` block:
 
 ```ts
 // lint.config.ts

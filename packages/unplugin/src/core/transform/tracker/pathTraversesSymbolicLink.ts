@@ -5,7 +5,7 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
 
 /**
  * Whether a lexical component between an input and the directory watched for it
- * is a symbolic link or junction.
+ * is a symbolic link or junction, or could not be proven link-free.
  *
  * A recursive observer follows the component to its current physical target.
  * Retargeting it can therefore move the input without producing an event on the
@@ -16,24 +16,29 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  * The watched directory itself and its ancestors are not components of this
  * kind: a delivery re-checks the watched directory's identity before it reads
  * the tracker (`verifyLocations`), so retargeting a link at or above it
- * withdraws the tracker rather than moving an input silently. Every macOS
- * temporary directory lies below such a link (`/var/…` to `/private/var/…`),
- * and a linked workspace is one anywhere; examined all the way up, no input of
- * such a project was ever covered, and every delivery proved each of them by
- * reading (samchon/ttsc#1459).
+ * withdraws the tracker rather than moving an input silently. A macOS temporary
+ * directory may lie below a `/var` to `/private/var` alias, and a workspace can
+ * be linked on any platform. Inspecting those root aliases as interior links
+ * would unnecessarily exclude the entire project's notification coverage
+ * (samchon/ttsc#1459).
+ *
+ * Only native ENOENT or ENOTDIR allows an unobserved component to be skipped.
+ * Permission, I/O or unclassified failure withdraws link-free authority.
  *
  * @param root The watched directory the input lies below, when it does; the
  *   walk stops before it. Absent, or with an input outside it, every component
  *   up to the volume root is examined.
  * @evidence contracts/common.md#principled-implementation
  *   Lexical lstat detects components whose retargeting escapes the watched
- *   physical target; the watched root itself is verified by native identity.
+ *   physical target; unavailable topology also refuses link-free authority.
+ *   The watched root itself is verified by native identity.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One ancestor walk separates component-link risk from root replacement;
  *   tracker construction owns the memo and watched-root choice.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Linked components stay on metadata validation instead of being certified
- *   from quiet old targets; workspace-root aliases are not blanket exclusions.
+ *   Linked or unobserved components stay on metadata validation instead of
+ *   being certified from quiet old targets; only actual missing-path errors
+ *   allow traversal to continue. Workspace-root aliases are not blanket exclusions.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and the root parameter explain the boundary distinction
  *   and memo reason under the documentation skill.
@@ -42,8 +47,9 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  *   native symbolic
  *   links and junctions are observations, not OS-wide casing assumptions.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Ancestor work is linear in newly inspected components; memoized suffixes
- *   avoid repeated traversal for inputs sharing ancestors.
+ *   Ancestor work visits newly inspected components until a qualified memo,
+ *   root or refusal; native resolution and repeated parent-string operations
+ *   retain their path-length costs. Memoized suffixes avoid shared lstat work.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The generation constructor shares component verdicts under its watched-root
  *   boundary: internal inputs share one root, while existing external inputs
@@ -83,9 +89,18 @@ export function pathTraversesSymbolicLink(
         linked = true;
         break;
       }
-    } catch {
-      // A missing component is not a link. Its nearest existing ancestor will
-      // still be inspected before the walk reaches the volume root.
+    } catch (error) {
+      let missing = false;
+      try {
+        const code = (error as NodeJS.ErrnoException | undefined)?.code;
+        missing = code === "ENOENT" || code === "ENOTDIR";
+      } catch {}
+      if (!missing) {
+        linked = true;
+        break;
+      }
+      // Native absence permits inspecting the nearest existing ancestor;
+      // unavailable topology cannot establish a link-free component.
     }
     const parent = paths.dirname(current);
     if (parent === current) break;

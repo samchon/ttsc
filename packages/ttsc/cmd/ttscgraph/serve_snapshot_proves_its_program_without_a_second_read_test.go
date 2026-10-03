@@ -15,9 +15,9 @@ import (
 // TestServeSnapshotProvesItsProgramWithoutASecondRead verifies a single serve
 // response carries everything needed to prove which program produced it.
 //
-// This is the contract the envelope exists for. A consumer used to be handed
-// paths and nothing else, so proving that the nodes, edges, and the file bytes
-// it was about to read all belonged to one Program meant re-reading the disk
+// This is the contract the envelope exists for. A consumer handed paths and
+// nothing else could only prove that the nodes, edges, and the file bytes it
+// was about to read all belonged to one Program by re-reading the disk
 // afterwards and asking the server a second time whether anything had moved —
 // which narrows the race without closing it, and never proves the bytes read are
 // the bytes the checker resolved against. Everything below has to come out of
@@ -27,10 +27,15 @@ import (
 //  2. Assert the envelope names its protocol, mode, and capabilities.
 //  3. Assert every file the dump names carries a digest, and that hashing the
 //     file off the disk independently reproduces it.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a single serve response carries everything needed to prove which program produced it.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal contract values plus an independent hash: the envelope must carry serveProtocolVersion, mode initial, a non-empty capability list and a dump whose provenance names producer ttscgraph, a TypeScript version, at least one config and one root; every non-external node's file must appear in the digest manifest; and, for every manifest entry with a disk digest, SHA-256 of the file read from disk by the test must equal it (at least one must be reproduced). A manifest that omitted files or carried digests the bytes do not reproduce fails.
+// @evidence contracts/testing.md#distinguishing-cases Take one snapshot of a fixture project; Assert the envelope names its protocol, mode, and capabilities; Assert every file the dump names carries a digest, and that hashing the file off the disk independently reproduces it.
+// @evidence contracts/testing.md#execution-ownership TestServeSnapshotProvesItsProgramWithoutASecondRead is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
   root := graphSessionFixture(t)
   var output bytes.Buffer
-  if code := serveSnapshots(strings.NewReader("{\"id\":1}\n"), &output, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(strings.NewReader("{\"id\":1}\n"), &output, root, "tsconfig.json"); code != 0 {
     t.Fatalf("serveSnapshots exited %d", code)
   }
 

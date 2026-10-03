@@ -8,6 +8,7 @@ import { typescriptTransformBunLoader } from "../source/typescriptTransformBunLo
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
+import { withdrawTtscTransformGenerations } from "../transform/cache/withdrawTtscTransformGenerations";
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { BunLikeBuild } from "./BunLikeBuild";
@@ -65,16 +66,24 @@ function resolveBunOptions(
  *   component case and relative spelling rather than treating keys as disk paths.
  * @evidence contracts/performance.md#efficient-algorithms
  *   A Set indexes F in-memory keys once at setup; a delivery performs a path-length
- *   lookup and reads S source bytes only for its disk input. Shared transform
- *   cache handling prevents a whole-program compile for every delivered module.
+ *   lookup and reads S source bytes only for its disk input. First included
+ *   loads also normalize the option overlay. Delegated transform work includes
+ *   cache identity/validation, input/directory/byte proofs, misses' native compile
+ *   and source-map encoding; source-file length alone does not bound it.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The first included load resolves options once. One cache shares a validated
+ *   The first included transformable load resolves options once. One cache shares a validated
  *   project generation across deliveries; bundler start/end boundaries reset
  *   delivery proof, while a runtime retains its immutable module-load session.
+ *   An incomplete observation withdraws the adapter's entire generation cache;
+ *   only the newly compiled delivery is returned within this nonwatching session.
+ *   Setup snapshots the in-memory key population; changing host files/options
+ *   is not authorized merely by an unchanged path or previously quiet callback.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Setup owns the F-key matcher and project cache. Bundler end resets cached
- *   generations; runtime retention ends with the process because Bun exposes no
- *   teardown hook. Retained project bytes have no package-wide fixed cap.
+ *   Setup owns the F-key matcher, resolved options and project cache. Bundler
+ *   end withdraws cached generations; it does not promise cancellation of an
+ *   already running native compile, and the host still owns setup closures.
+ *   Runtime retention is intended for the process session because this branch
+ *   has no teardown hook. Key/option/project bytes have no fixed package-wide cap.
  */
 export function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
@@ -92,8 +101,9 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
       const ownsInMemoryFile = createBunInMemoryFileMatcher(build);
       // Bun.plugin() has no onStart callback, but one setup invocation belongs
       // to exactly one runtime process and module-loading session. Mark that
-      // session up front so first delivery of every emitted project module is
-      // constant-time instead of re-reading the whole project. Bun.build()
+      // session up front so later first module deliveries can share a settled
+      // generation proof, retaining source comparison rather than repeating
+      // the complete snapshot validation. Bun.build()
       // immediately starts the same initial scope again through onStart and
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
@@ -117,14 +127,22 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
           const loader = bunLoaderFor(args.path);
           const transformOptions = getOptions();
           const source = await fs.readFile(args.path, "utf8");
-          // Bun has no dependency subscription API. Omitting watch hooks also
-          // avoids deriving a filesystem watch graph that this host cannot use.
+          // Bun has no dependency subscription API or reusable build result
+          // cache. Builds are one-shot; runtime registration owns one immutable
+          // module-load session. Withdraw our owned generation cache when a
+          // fresh delivery cannot qualify reuse, without inventing watch inputs.
           const result = await transformTtsc(
             args.path,
             source,
             transformOptions,
             undefined,
             cache,
+            {
+              // The path this loader just read from disk is the file's own.
+              exactPath: true,
+              watching: false,
+              markVolatile: () => withdrawTtscTransformGenerations(cache),
+            },
           );
           if (result !== undefined) {
             return { contents: inlineSourceMap(result), loader };

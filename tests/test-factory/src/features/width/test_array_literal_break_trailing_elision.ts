@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, TsPrinter } from "@ttsc/factory";
+import factory, { type Expression, TsPrinter } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 import { str } from "../../internal/helpers";
@@ -42,6 +42,11 @@ const arity = (text: string): number => {
  *    for the same tree, and means the same thing structurally.
  * 3. Assert the boundary cases — a lone hole and an interior hole — behave the
  *    same way.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Trailing literal-array holes retain three elements across flat, broken and forced multiline layouts.
+ * @evidence contracts/testing.md#independent-expectations Separately built ts-legacy arrays provide the oracle, with explicit arities 3 and lone-hole 1 preventing circular width-only comparisons.
+ * @evidence contracts/testing.md#distinguishing-cases Trailing, lone and interior holes plus forced layout distinguish meaningful elision commas from cosmetic trailing commas.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_array_literal_break_trailing_elision. Calls wide/tiny printers, printLegacy, structure and arity; this export owns each named layout/hole row.
  */
 export const test_array_literal_break_trailing_elision = (): void => {
   const trailing = (multiLine?: boolean): Expression =>

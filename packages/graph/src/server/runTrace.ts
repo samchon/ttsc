@@ -52,13 +52,14 @@ const DISPATCH_HUB = 12;
  * reverse and impact walk callers. Impact additionally tags each reached node's
  * role so the blast radius on the public surface is legible.
  *
- * @evidence contracts/common.md#principled-implementation Breadth-first traversal preserves shortest reached depth and original edge direction; path search distinguishes found, bounded and exhausted outcomes before considering shared junctions.
+ * @evidence contracts/common.md#principled-implementation Breadth-first traversal preserves shortest reached depth and original edge direction; path search distinguishes found, depth-bounded, dispatch-fanout-withheld and exhausted outcomes before considering shared junctions, so neither bound is reported as an absence.
  * @evidence contracts/common.md#clear-and-simple-design Handle resolution, eligible edges, dispatch, path search and coordinate summaries have helper owners; this function assembles open or requested-path results.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguity remains candidates and dispatch follows checker implementation relations; shared references are never inserted as guessed execution edges.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains direction, structural exclusion and impact roles; request documentation states bounds and focus meanings.
- * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap.
+ * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap and path mode expands every node within its depth bound, O(V + E) in the worst case, because only open traces have a node cap.
  * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers; completed trace memoization is not implemented because each request currently creates a mutable result.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected, and path mode has no node cap, so its visited set and parent map grow with the nodes reachable within its 12-hop depth bound until the call returns.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation walks in-memory edges; no file, path or process.
  */
 export function runTrace(
   graph: TtscGraphMemory,
@@ -174,7 +175,7 @@ export function runTrace(
     // presenting a shared symbol as "the seam" when a direct call path may run
     // past the bound sends the caller to a seam that is not there.
     const junctions =
-      hasPath || search.bounded
+      hasPath || search.bounded || search.withheld
         ? []
         : junctionsBetween(graph, start.node.id, target.node.id, focus);
     return {
@@ -204,16 +205,18 @@ export function runTrace(
         ? pathNext
         : search.bounded
           ? resultNext("inspect", boundedPathReason(pathDepth), "trace")
-          : junctions.length > 0
-            ? resultNext(
-                "inspect",
-                "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
-                "trace",
-              )
-            : resultNext(
-                "outside",
-                "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
-              ),
+          : search.withheld
+            ? resultNext("inspect", withheldPathReason(), "details")
+            : junctions.length > 0
+              ? resultNext(
+                  "inspect",
+                  "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
+                  "trace",
+                )
+              : resultNext(
+                  "outside",
+                  "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
+                ),
     };
   }
 
@@ -530,6 +533,23 @@ function boundedPathReason(depth: number): string {
 }
 
 /**
+ * What to say when a dispatch fanout past the hub cut, not the graph, ended a
+ * path search.
+ *
+ * A declaration with this many implementations stays a leaf in a trace, so the
+ * walk never entered them. Telling the caller the ends touch nothing in common
+ * would turn that policy into a claim about the codebase, and the caller would
+ * stop asking while the connection ran through one of those implementations.
+ */
+function withheldPathReason(): string {
+  return (
+    `No path was found, but the walk did not follow a dispatch fanout of ${DISPATCH_HUB} or more implementations, so it did not exhaust the graph. ` +
+    `This is a boundary of the walk, not an absence: the ends may connect through one of those implementations. ` +
+    `Ask \`details\` for the declaration's \`implementedBy\`, then request the path from the implementation that the question means.`
+  );
+}
+
+/**
  * What a bounded shortest-path walk learned: the path when it found one, and
  * otherwise whether the walk was stopped by the caller's depth bound or ran the
  * eligible graph out. The two are not the same answer and the caller must not
@@ -544,6 +564,13 @@ interface IPathSearch {
    * still ahead of it, so nothing was proven about the two ends.
    */
   bounded: boolean;
+
+  /**
+   * True when no path was found and the walk left a dispatch fanout past the
+   * hub cut unfollowed, reaching an implementation no other route visited, so
+   * the walk exhausted only the graph it was willing to follow.
+   */
+  withheld: boolean;
 }
 
 /**
@@ -566,9 +593,13 @@ function findPath(
   includeExternal: boolean,
 ): IPathSearch {
   const startNode = graph.node(startId);
-  if (startNode === undefined) return { bounded: false };
+  if (startNode === undefined) return { bounded: false, withheld: false };
   if (startId === targetId)
-    return { found: { path: [startNode], hops: [] }, bounded: false };
+    return {
+      found: { path: [startNode], hops: [] },
+      bounded: false,
+      withheld: false,
+    };
   const parent = new Map<
     string,
     {
@@ -579,13 +610,28 @@ function findPath(
   >();
   const visited = new Set<string>([startId]);
   let bounded = false;
+  const withheld = new Set<string>();
   let queue: Array<{ id: string; depth: number }> = [{ id: startId, depth: 0 }];
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
       // The forward step the open trace would take, built in one place so the
       // two walks cannot disagree about what a step follows.
-      const { edges: candidates } = traceEdges(graph, id, false, focus);
+      const { edges: candidates, omitted } = traceEdges(graph, id, false, focus);
+      // A dispatch fanout past the hub cut is not walked, but each hop in it is
+      // a real, eligible continuation. Leaving it out of the search while still
+      // reporting "no path" would claim an absence the walk never established,
+      // unless the walk reaches that implementation some other way.
+      for (const edge of omitted) {
+        const endpoint = eligibleTraceEndpoint(
+          graph,
+          edge,
+          false,
+          focus,
+          includeExternal,
+        );
+        if (endpoint !== undefined) withheld.add(endpoint.otherId);
+      }
       if (depth >= maxDepth) {
         if (
           candidates.some(
@@ -642,14 +688,14 @@ function findPath(
               hop.evidence = { ...parentEdge.evidence };
             hops.push(hop);
           }
-          return { found: { path, hops }, bounded };
+          return { found: { path, hops }, bounded, withheld: false };
         }
         next.push({ id: otherId, depth: depth + 1 });
       }
     }
     queue = next;
   }
-  return { bounded };
+  return { bounded, withheld: [...withheld].some((id) => !visited.has(id)) };
 }
 
 /**
@@ -911,6 +957,7 @@ function reverseDispatchEdges(
  * @evidence contracts/performance.md#efficient-algorithms Kind and modifier checks are constant or modifier-count work, followed by indexed containing-owner traversal rather than a graph-wide scan.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This shared declaration predicate coordinates no completed or in-flight work; trace and centrality own their producer reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows graph facts and acquires no handle, task or retained cache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation reads kind, modifier and ownership facts of in-memory nodes; no file, path or process.
  */
 export function hasDeclarationBody(
   graph: TtscGraphMemory,
@@ -931,7 +978,8 @@ function hasBodylessModifier(node: ITtscGraphNode): boolean {
  * Whether an owner up the `contains` tree makes this declaration bodyless: an
  * interface, or an ambient container. A member writes no keyword of its own —
  * `declare` on a class or namespace is not repeated on what it holds — so the
- * fact lives on the owner and the walk has to go get it.
+ * fact lives on the owner and the walk has to go get it. An abstract class can
+ * contain concrete bodies; its abstract modifier applies only to itself.
  */
 function inBodylessContainer(
   graph: TtscGraphMemory,
@@ -944,7 +992,7 @@ function inBodylessContainer(
     if (container === undefined || container.kind === "file") return false;
     if (seen.has(container.id)) return false;
     seen.add(container.id);
-    if (container.kind === "interface" || hasBodylessModifier(container))
+    if (container.kind === "interface" || container.modifiers?.includes("declare"))
       return true;
     current = container;
   }

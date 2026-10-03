@@ -1,0 +1,214 @@
+name: e2e
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
+      - uses: oven-sh/setup-bun@v2
+      - run: npm install --global yarn
+      - run: pnpm run build
+        id: build
+      - run: pnpm run test:e2e
+      - name: Prepare compiler subset measurement inputs
+        id: compiler-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          E2E_MEASUREMENT_FAMILY: compiler
+        run: &prepare-measurement-input |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = process.cwd();
+          const traceRoot = process.env.TTSC_E2E_TRACE;
+          const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
+          const family = process.env.E2E_MEASUREMENT_FAMILY;
+          assert.ok(['compiler', 'runtime'].includes(family));
+          assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
+          fs.mkdirSync(traceRoot);
+          fs.mkdirSync(cacheRoot);
+          const { resolveBinary } = require('./packages/ttsc/lib/internal/nativeBinary.js');
+          const { resolveTsgo } = require('./packages/ttsc/lib/compiler/internal/resolveTsgo.js');
+          const native = resolveBinary();
+          assert.ok(native && path.isAbsolute(native));
+          const tsgo = resolveTsgo({ cwd: path.join(root, 'packages/ttsc') }).binary;
+          assert.equal(fs.realpathSync.native(tsgo),
+            fs.realpathSync.native(resolveTsgo({ cwd: root }).binary));
+          const assets = [
+            { label: 'prepared-node', role: 'executable', file: process.execPath },
+            { label: 'prepared-native-host', role: 'executable', file: native },
+            { label: 'prepared-native-typescript', role: 'executable', file: tsgo },
+          ];
+          const files = [
+            'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+            'config/register-typescript-loader.mjs', 'config/typescript-loader.mjs',
+            'tests/utils/src/internal/E2eProcessTraceRuntime.cjs',
+            'tests/utils/src/E2eProcessTrace.ts', 'tests/utils/src/TestExecutor.ts',
+            'tests/utils/src/TestProject.ts',
+            'tests/test-e2e/src/measureLegacyE2e.ts',
+            'tests/test-e2e/src/legacyE2eTraceEntry.ts',
+            'tests/test-e2e/src/index.ts', 'tests/test-e2e/src/consolidatedE2eIndex.ts',
+            'tests/test-e2e/src/features/test_e2e_' + family + '.ts',
+            ...(family === 'compiler' ? [
+              'tests/test-e2e/src/features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts',
+              'tests/test-e2e/src/features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts',
+              'tests/test-e2e/src/features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts',
+              'tests/test-e2e/src/features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts',
+            ] : process.env.TTSC_TEST_DIRS.split(',').map(file => 'tests/test-e2e/src/' + file)),
+            'packages/ttsc/driver/program.go', 'packages/ttsc/internal/e2etrace/e2etrace.go',
+          ];
+          function selectTree(relative) {
+            for (const entry of fs.readdirSync(path.join(root, relative), { withFileTypes: true })) {
+              const child = relative + '/' + entry.name;
+              if (entry.isDirectory()) selectTree(child);
+              else if (entry.isFile()) files.push(child);
+              else throw new Error('Non-regular selected producer input: ' + child);
+            }
+          }
+          for (const directory of [
+            'packages/ttsc/lib',
+            'tests/test-e2e/src/internal/ttsc/internal',
+            ...(family === 'compiler' ? [
+              'packages/factory/src',
+              'tests/test-e2e/fixtures/ttsc/api',
+              'tests/test-e2e/fixtures/ttsc/compiler/corpus',
+              'tests/test-e2e/fixtures/ttsc/compiler/watch',
+              'tests/test-e2e/fixtures/ttsc/compiler/subprojects',
+              'tests/test-e2e/fixtures/ttsc/compiler/negative',
+            ] : [
+              'tests/test-e2e/fixtures/ttsc/runtime-commonjs-corpus',
+              ...JSON.parse(process.env.E2E_RUNTIME_FIXTURE_ROOTS).map(directory =>
+                'tests/test-e2e/fixtures/' + directory),
+            ]),
+          ]) selectTree(directory);
+          for (const file of [...new Set(files)].sort())
+            assets.push({ label: file, role: file.includes('/fixtures/') ? 'fixture' :
+              file.endsWith('.yaml') ? 'configuration' : 'loaded-module', file: path.join(root, file) });
+          const input = {
+            assets, cacheRoots: [cacheRoot],
+            producerLabels: Object.fromEntries(assets.map(asset => [asset.label, asset.label])),
+            boundaries: [
+              { boundary: 'selected-runner', writerPid: 'runner', event: 'runner-admission',
+                data: { runner: 'legacy-index' },
+                producerAssets: ['prepared-node', 'tests/utils/src/internal/E2eProcessTraceRuntime.cjs'] },
+              ...(family === 'compiler' ? [{ boundary: 'native-driver-create', writerPid: 'observed', event: 'program-construction',
+                data: { origin: 'driver-create', outcome: 'constructor-returned' },
+                producerAssets: ['prepared-native-host', 'packages/ttsc/driver/program.go',
+                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : [{
+                boundary: 'runtime-native-wrapper', writerPid: 'observed', event: 'process-attempt',
+                data: { origin: 'spawnSyncResilient' },
+                producerAssets: ['prepared-native-typescript', 'packages/ttsc/lib/internal/E2ETrace.js',
+                  'packages/ttsc/lib/internal/spawnSyncResilient.js',
+                  'packages/ttsc/lib/launcher/internal/runtime/installRuntimeHooks.js'],
+              }]),
+            ],
+            commandFiles: [
+              { boundary: 'actual-node-command', event: 'selected-file-observation',
+                producerAsset: 'prepared-node', minimumCalls: 1 },
+            ],
+          };
+          fs.writeFileSync(path.join(traceRoot, 'measurement-input.json'),
+            JSON.stringify(input, null, 2) + '\n', { flag: 'wx' });
+          NODE
+      - name: Measure retained legacy compiler owners
+        id: compiler-baseline
+        if: ${{ !cancelled() && steps.compiler-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts,features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual retained baseline report
+        id: compiler-baseline-report
+        if: ${{ !cancelled() && steps.compiler-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+        run: &bind-measurement-baseline |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = process.env.TTSC_E2E_TRACE;
+          const reports = fs.readdirSync(root).filter(name => /^legacy-report-[1-9][0-9]*\.json$/.test(name));
+          assert.equal(reports.length, 1, 'Exactly one actual baseline report is required');
+          const inputFile = path.join(root, 'measurement-input.json');
+          fs.copyFileSync(inputFile, path.join(root, 'legacy-measurement-input.json'), fs.constants.COPYFILE_EXCL);
+          const input = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+          input.baselineReport = path.join(root, reports[0]);
+          input.boundaries.find(boundary => boundary.boundary === 'selected-runner').data.runner = 'consolidated-index';
+          fs.writeFileSync(inputFile, JSON.stringify(input, null, 2) + '\n');
+          NODE
+      - name: Measure consolidated compiler subset
+        if: ${{ !cancelled() && steps.compiler-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts,features/ttsc/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts,features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=compiler
+      - name: Retain actual compiler comparison observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-compiler-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-compiler-comparison
+          if-no-files-found: error
+      - name: Prepare Runtime subset measurement inputs
+        id: runtime-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &runtime-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-runtime-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-runtime-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-runtime-cache
+          E2E_MEASUREMENT_FAMILY: runtime
+          E2E_RUNTIME_FIXTURE_ROOTS: '["ttsc/runner_corpus_invalid_tsconfig_prevents_entry_execution/inputs-1","ttsc/ttsx_checks_a_typescript_file_the_program_generates_before_running_it/inputs-1","ttsc/ttsx_classifies_a_node_modules_package_type_over_the_project_module_option/inputs-1","ttsc/ttsx_classifies_module_preserve_as_ecmascript_modules/inputs-1","ttsc/ttsx_classifies_the_entry_by_a_forwarded_module_flag/inputs-1","ttsc/ttsx_compiles_a_required_source_whose_project_lists_no_files/inputs-1","ttsc/ttsx_register_stops_diagnostics_before_entry_effects/inputs-1","ttsc/ttsx_rejects_a_require_without_a_value/inputs-1","ttsc/ttsx_resolves_config_dir_paths_for_an_installed_package_root/inputs-1","ttsc/ttsx_runs_a_source_file_the_entry_generates_at_runtime/inputs-1","ttsc/ttsx_runs_the_entry_as_the_main_module/inputs-1","ttsc/ttsx_selects_the_project_through_the_legacy_uppercase_p_flag/inputs-1","ttsc/ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error/inputs-1","ttsc/ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error/inputs-1"]'
+          TTSC_TEST_DIRS: features/ttsc/ttsx-runtime/test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles.ts,features/ttsc/ttsx-runtime/test_ttsx_standard_decorators_honor_response_file_options.ts,features/ttsc/ttsx-runtime/test_ttsx_executes_standard_decorators_at_esnext.ts,features/ttsc/ttsx-runtime/test_ttsx_standard_decorators_preserve_member_initialization.ts,features/ttsc/ttsx-runtime/test_ttsx_runs_preserved_jsx_through_the_automatic_runtime.ts,features/ttsc/ttsx-runtime/test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime.ts,features/ttsc/ttsx-runtime/test_ttsx_standard_decorators_reject_invalid_programs_before_effects.ts,features/ttsc/ttsx-runtime/test_ttsx_standard_decorators_preserve_cli_and_library_options.ts,features/ttsc/ttsx-runtime/test_ttsx_decorator_export_discovery_never_removes_runtime_values.ts,features/ttsc/ttsx-runtime/test_ttsx_register_executes_excluded_standard_decorators.ts,features/ttsc/ttsx-runtime/test_ttsx_register_stops_diagnostics_before_entry_effects.ts,features/ttsc/ttsx-runtime/test_ttsx_rejects_a_require_without_a_value.ts,features/ttsc/ttsx-runtime/test_ttsx_classifies_module_preserve_as_ecmascript_modules.ts,features/ttsc/ttsx-runtime/test_ttsx_classifies_the_entry_by_a_forwarded_module_flag.ts,features/ttsc/ttsx-runtime/test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option.ts,features/ttsc/ttsx-runtime/test_runner_corpus_invalid_tsconfig_prevents_entry_execution.ts,features/ttsc/ttsx-runtime/test_ttsx_compiles_a_required_source_whose_project_lists_no_files.ts,features/ttsc/ttsx-runtime/test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error.ts,features/ttsc/ttsx-runtime/test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error.ts,features/ttsc/ttsx-runtime/test_ttsx_follows_directory_references_nested_solutions_and_cycles.ts,features/ttsc/ttsx-runtime/test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag.ts,features/ttsc/ttsx-runtime/test_ttsx_resolves_config_dir_paths_for_an_installed_package_root.ts,features/ttsc/ttsx-runtime/node-compatibility/test_ttsx_runs_the_entry_as_the_main_module.ts,features/ttsc/ttsx-runtime/test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan.ts,features/ttsc/ttsx-runtime/test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it.ts,features/ttsc/ttsx-runtime/test_ttsx_runs_a_source_file_the_entry_generates_at_runtime.ts,features/ttsc/ttsx-runtime/test_ttsx_preserves_custom_node_builtin_remaps.ts,features/ttsc/ttsx-runtime/test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options.ts
+        run: *prepare-measurement-input
+      - name: Measure retained legacy Runtime owners
+        id: runtime-baseline
+        if: ${{ !cancelled() && steps.runtime-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *runtime-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual retained Runtime baseline report
+        id: runtime-baseline-report
+        if: ${{ !cancelled() && steps.runtime-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-runtime-comparison
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Runtime subset
+        if: ${{ !cancelled() && steps.runtime-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *runtime-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=runtime
+      - name: Retain actual Runtime comparison observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-runtime-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-runtime-comparison
+          if-no-files-found: error

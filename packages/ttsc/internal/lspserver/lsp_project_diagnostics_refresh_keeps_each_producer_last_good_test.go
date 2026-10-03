@@ -14,6 +14,11 @@ import "testing"
 //  2. Refresh only the first and assert the second producer's last-good remains.
 //  3. Clear the second with a successful empty publication.
 //  4. Recover the second and assert manifest-order aggregation is restored.
+//
+// @evidence contracts/testing.md#behavioral-verification A partial refresh updates only the producers that answered; a failed producer's prior findings stay, a successful empty answer clears its producer, and recovery restores manifest-order aggregation.
+// @evidence contracts/testing.md#independent-expectations The expected merged publication is a literal per stage.
+// @evidence contracts/testing.md#distinguishing-cases Failure, empty success and recovery are different outcomes for the same producer.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsRefreshKeepsEachProducerLastGood is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectDiagnosticsRefreshKeepsEachProducerLastGood(t *testing.T) {
   first := NativeLSPPluginEntry{Binary: "first", Name: "@ttsc/first"}
   second := NativeLSPPluginEntry{Binary: "second", Name: "@ttsc/second"}

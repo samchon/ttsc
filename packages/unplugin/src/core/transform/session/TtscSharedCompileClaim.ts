@@ -15,6 +15,19 @@ import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublicatio
  * @evidence contracts/common.md#clear-and-simple-design Each branch exposes only the operations its owner needs, without an optional lock field that callers could confuse with an adopted result.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Possession of a publication is not presented as proof; the documented caller obligations remain independent of the store's lock ownership.
  * @evidence contracts/common.md#meaningful-documentation The branch descriptions state adoption proof and lock release obligations, and the method comments describe their failure and repeat-call behavior.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Distinguishes transferred native-store publication from an owned publisher
+ *   and lock releaser. Those capabilities hide store paths and process tokens;
+ *   adoption still requires the caller's actual filesystem proof.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscSharedCompileClaim only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscSharedCompileClaim only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscSharedCompileClaim only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type TtscSharedCompileClaim =
   | {

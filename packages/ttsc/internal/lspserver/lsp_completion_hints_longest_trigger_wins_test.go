@@ -16,6 +16,11 @@ import "testing"
 //  2. Ask at a cursor inside the narrowest.
 //  3. Assert only the narrowest answers, and that the filter is the text after
 //     it rather than the whole line.
+//
+// @evidence contracts/testing.md#behavioral-verification At a cursor inside the narrowest of three nested triggers only the narrowest hint answers, and its filter is the text after that trigger.
+// @evidence contracts/testing.md#independent-expectations The expected items and filter are literals for the published nested triggers.
+// @evidence contracts/testing.md#distinguishing-cases Broad, middle and narrow triggers all match the same line, so a matcher that merged them would offer all three.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionHintsLongestTriggerWins is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
@@ -61,6 +66,11 @@ func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
 //  1. Ask the same line outside a JSDoc block.
 //  2. Ask with a scope this host does not know.
 //  3. Assert silence in both.
+//
+// @evidence contracts/testing.md#behavioral-verification A hint is silent in a decorator position outside a JSDoc block and when its scope is one this host does not know.
+// @evidence contracts/testing.md#independent-expectations Empty item lists are the contract for a wrong or unknown scope.
+// @evidence contracts/testing.md#distinguishing-cases The same trigger character in a JSDoc block is offered elsewhere, so scope is the only property that changes the result.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionHintsRefuseOutsideScope is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
@@ -94,6 +104,11 @@ func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
 //  1. A cursor inside an open block is in scope.
 //  2. A cursor after the block closed is not.
 //  3. A line comment is never a doc comment.
+//
+// @evidence contracts/testing.md#behavioral-verification cursorInJSDoc is true inside an open doc block, including a second block after a closed one, and false after the block closed, in a line comment and in ordinary code.
+// @evidence contracts/testing.md#independent-expectations Each source string carries its expected boolean written literally.
+// @evidence contracts/testing.md#distinguishing-cases Cases where a naive search for '/**' would be wrong, a closed block and a line comment, sit beside the open blocks.
+// @evidence contracts/testing.md#execution-ownership TestCursorInJSDocTracksTheBlock is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestCursorInJSDocTracksTheBlock(t *testing.T) {
   cases := []struct {
     text string
@@ -118,6 +133,11 @@ func TestCursorInJSDocTracksTheBlock(t *testing.T) {
 //
 // A trigger matched against the whole document would let a `@evidence` three
 // lines up offer anchors on an unrelated line.
+//
+// @evidence contracts/testing.md#behavioral-verification linePrefixAt returns only the text of the cursor's own line, and the whole text when it has no newline.
+// @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings.
+// @evidence contracts/testing.md#distinguishing-cases A multi-line text and a single line distinguish line-local from document-wide matching.
+// @evidence contracts/testing.md#execution-ownership TestLinePrefixStopsAtTheLine is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLinePrefixStopsAtTheLine(t *testing.T) {
   text := "/**\n * @evidence docs/spec.md#pri"
   if got, want := linePrefixAt(text, len(text)), " * @evidence docs/spec.md#pri"; got != want {

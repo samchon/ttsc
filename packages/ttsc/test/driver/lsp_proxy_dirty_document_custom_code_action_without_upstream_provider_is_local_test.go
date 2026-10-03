@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal verifies
+// TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal Verifies
 // dirty-document action suppression honors upstream capability state.
 //
 // When upstream advertised `codeActionProvider: false`, even a non-ttsc custom
@@ -19,6 +19,11 @@ import (
 // 2. Mark a document dirty.
 // 3. Request a custom source action.
 // 4. Assert the result is empty and no upstream frame is sent.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run answers dirty custom actions locally with no upstream frame in 150ms.
+// @evidence contracts/testing.md#independent-expectations Disabled upstream provider and unsaved disk-backed work cannot serve the request.
+// @evidence contracts/testing.md#distinguishing-cases Dirty custom action with disabled provider is covered; the bounded window cannot prove permanent silence.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal(t *testing.T) {
   h := newProxyHarness(t, &stubSource{})
   h.sendEditor([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}`))

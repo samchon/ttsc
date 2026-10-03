@@ -16,17 +16,18 @@ import (
 const bundledScheme = "bundled:///"
 
 // TransformGraph is the host-owned reference-graph section of a transform
-// envelope (`graph` in the stdout JSON). It carries the language-semantic
-// input set of a transform under `tsc --incremental` semantics, so cache
-// layers (bundler filesystem caches, watch graphs) can register every file
-// whose content can influence a transformed module's output:
+// envelope (`graph` in the stdout JSON). It reports the loaded compiler
+// program's references, global contributors, configuration ancestry and
+// resolver observations. Consumers choose graph inputs alongside independent
+// plugin and host inputs; this graph alone does not certify every dependency
+// of an arbitrary plugin's transformed output or continued filesystem freshness:
 //
 //   - Edges maps each file to its direct resolved references — imports,
 //     re-exports, `/// <reference>` targets, type reference directives, and
 //     ambient-module declaration files, type-only edges included. A leaf file
 //     has an empty list so the node and its compiler-time input proof remain
-//     explicit. Direct edges are the minimal sufficient statistic; consumers
-//     that need a flat per-file list compute the reachability closure themselves.
+//     explicit. Consumers that need a flat per-file graph list compute the
+//     reachability closure themselves.
 //   - Globals lists the files that contribute to the global scope (ambient
 //     declaration files, script files, global augmentations, `typeRoots`
 //     entries). A change to any of them can affect every file.
@@ -46,7 +47,7 @@ const bundledScheme = "bundled:///"
 //   - UseCaseSensitiveFileNames is the case policy the compiler matched the
 //     project's root specs and compared paths with, so a host deciding the
 //     same membership uses the compiler's policy rather than a guess from the
-//     platform (samchon/ttsc#1545).
+//     platform.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
@@ -56,7 +57,7 @@ const bundledScheme = "bundled:///"
 // @evidence contracts/common.md#clear-and-simple-design Each field carries one input class or observation projection under the shared key convention.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler observations and explicit failures replace guessed dependencies or assumed validity.
 // @evidence contracts/common.md#meaningful-documentation Native prose defines the input classes, leaf semantics, case policy, and key convention following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Actual compiler case policy and slash keys prevent consumers from inferring path semantics from the OS name.
+// @evidence contracts/portability.md#os-neutral-implementation The reported compiler case policy is distinct from slash-normalized protocol keys and reported native realpaths carried by observations/InputRealpaths. Native VFS realpath errors can retain lexical spelling, so presence alone does not certify physical alias resolution. TransformOutputKey preserves cwd-relative or outside-root/cross-volume absolute coordinates; neither protocol spelling nor absent proof establishes capabilities from an OS name.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Graph construction owns traversal; this type describes the result.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This schema carries proof without coordinating artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned value owns no resident cache or resource.
@@ -83,10 +84,10 @@ type TransformGraph struct {
 // @evidence contracts/common.md#clear-and-simple-design Reference collection, resolution replay, and proof attachment share one output-key owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unobserved or contradictory inputs remain failures rather than later filesystem snapshots substituted for compiler reads.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies envelope integration and unloaded-program behavior following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Keys use native filepath conversion and compiler case policy; physical identity comes from observed realpaths.
-// @evidence contracts/performance.md#efficient-algorithms Direct adjacency avoids every transitive closure; an input set attaches each path's proof once.
-// @evidence contracts/performance.md#reuse-equivalent-work The existing compiler observer supplies proof without a later dependency reread recreating evaluation-time state.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned graph is caller-owned rather than retained in a resident cache.
+// @evidence contracts/portability.md#os-neutral-implementation Keys use native filepath conversion and compiler case policy; identity metadata comes from reported adapter realpaths, whose native VFS error fallback can retain lexical spelling rather than certifying physical resolution.
+// @evidence contracts/performance.md#efficient-algorithms Direct adjacency avoids computing every transitive closure. Construction scans resident sources/references, converts path text and sorts per-source targets, globals and resolver inputs; a distinct-input set selects proof attachment, whose rich and legacy projections can perform two observer lookups. Resolver task sorting, native replay reads/metadata/enumeration and observation merging remain part of this call's delegated cost; no work or byte ceiling is imposed here.
+// @evidence contracts/performance.md#reuse-equivalent-work Final proof projection reuses the current Program observer, including its exact physical-target read for a lexical alias; it does not replace missing compiler evidence with a new read. Resolver replay separately performs native queries and merges contradictions into that generation. No prior graph or later filesystem generation is reused by this constructor.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary adjacency/input/proof maps grow with resident references, distinct paths and reported predicate bytes. Graph arrays/maps transfer to the caller, while replay observations merge into the caller-owned current Program observer. This call owns no resident historical graph cache or native handle, and supplies no population/byte ceiling or caller-lifetime disposal policy.
 func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   if prog == nil || prog.TSProgram == nil {
     return nil
@@ -260,7 +261,7 @@ func configChain(prog *Program, cwd string) []string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Structural traversal and cross-volume checks replace guessed string-prefix roots.
 // @evidence contracts/common.md#meaningful-documentation Native prose states absolute input and outside-root behavior following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Rel handles volumes and separators; ToSlash supplies envelope spelling.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Standard-library path arithmetic owns the conversion; this function selects no collection algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Native filepath.Rel normalization, volume/segment comparisons, escape-prefix checks and ToSlash output copying scale with cwd/fileName/relative path text. Delegation does not make this conversion constant work; the relative result is preferred when structurally within cwd, with no filesystem traversal or repeated collection scan.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This conversion owns no repeated-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller-owned result is retained.
 func TransformOutputKey(cwd, fileName string) string {

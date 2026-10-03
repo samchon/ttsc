@@ -1,6 +1,9 @@
 package linthost
 
 import (
+  "strings"
+  "unicode"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -80,22 +83,19 @@ func (formatBracketSpacing) Check(ctx *Context, node *shimast.Node) {
     return // empty `{}`, nothing to pad
   }
   // Multi-line: the interior belongs to the indentation rules.
-  for i := 0; i < len(inner); i++ {
-    if inner[i] == '\n' || inner[i] == '\r' {
+  for _, character := range inner {
+    if character == '\n' || character == '\r' || character == '\u2028' || character == '\u2029' {
       return
     }
   }
   // Only-whitespace interior (`{   }`) is treated as empty: collapse to the
   // canonical empty form rather than padding nothing.
-  trimmed := trimASCIISpace(inner)
-  if len(trimmed) == 0 {
-    return
-  }
+  trimmed := trimBracketSpacingWhitespace(inner)
 
   // Compute the desired interior: exactly one leading+trailing space when
-  // spacing is on, none when off.
+  // spacing is on, none when off or when the container is empty.
   var want string
-  if spacing {
+  if spacing && len(trimmed) != 0 {
     want = " " + trimmed + " "
   } else {
     want = trimmed
@@ -111,17 +111,12 @@ func (formatBracketSpacing) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// trimASCIISpace strips leading and trailing spaces and tabs from s.
-func trimASCIISpace(s string) string {
-  i := 0
-  for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-    i++
-  }
-  j := len(s)
-  for j > i && (s[j-1] == ' ' || s[j-1] == '\t') {
-    j--
-  }
-  return s[i:j]
+// Trim ECMAScript horizontal trivia after excluding every line terminator.
+func trimBracketSpacingWhitespace(s string) string {
+  return strings.TrimFunc(s, func(character rune) bool {
+    return unicode.Is(unicode.Zs, character) || character == '\t' ||
+      character == '\v' || character == '\f' || character == '\uFEFF'
+  })
 }
 
 func init() {

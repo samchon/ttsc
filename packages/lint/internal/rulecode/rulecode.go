@@ -21,6 +21,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One hashing helper owns the legacy preference independently from collision allocation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Hash constants and the reserved code interval define the algorithm and protocol, not fixture answers.
 // @evidence contracts/common.md#meaningful-documentation The native comment distinguishes preference from unique assignment; the tag boundary follows documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Legacy hashes a rule name into an integer and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One FNV-1a pass over the name bytes, O(len(name)) time and O(1) space.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Legacy computes one hash per call; the callers that need reuse own it.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Legacy keeps no state and acquires no handle or task.
 func Legacy(name string) int32 {
   const prime = 16777619
   var hash uint32 = 2166136261
@@ -42,6 +46,10 @@ func Legacy(name string) int32 {
 // @evidence contracts/common.md#clear-and-simple-design Separate frozen validation, preference reservation and collision probing keep the allocation policy visible.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The same allocation procedure applies to all names; frozen assignments are supported compatibility data rather than guessed expected results.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains removed-rule reservations and order independence; paragraphs and tag separation follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Allocate maps rule names to integer codes and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms With f frozen entries, n requested names and p examined probe slots, allocation validates f entries, sorts n names and reserves preferences before probing, O(f+n log n+p) map/comparison operations plus name hashing bytes. Collision probing may examine up to band-width minus one slots per missing name, not a guaranteed constant count. Temporary maps/slices and the returned assignment occupy O(f+n) entries.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Allocate returns a fresh assignment on every call; its caller owns any caching of the result.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The assigned and used maps are local to the call; only the returned assignment is handed to the caller.
 func Allocate(frozen map[string]int32, names []string) (map[string]int32, error) {
   assigned := make(map[string]int32, len(frozen)+len(names))
   used := make(map[int32]string, len(frozen)+len(names))

@@ -19,6 +19,11 @@ import (
 //  4. Remove the receiver root and confirm its result no longer counts.
 //  5. Restore it explicitly, then prove a rootless self-cycle still fails.
 //  6. Prove reachable receivers do not legitimize argument/result cycles.
+//
+// @evidence contracts/testing.md#behavioral-verification Producer closure includes exported methods and canonical aliases: removing the producer makes the consumer a gap, an alias and a canonical producer close the same edge, and a rootless self-cycle still fails.
+// @evidence contracts/testing.md#independent-expectations The expected gaps are literal type and symbol names in the synthetic fixture package.
+// @evidence contracts/testing.md#distinguishing-cases Each of the six steps toggles one input, so each assertion fails for a different regression.
+// @evidence contracts/testing.md#execution-ownership TestProducerSurfaceIncludesExposedMethods is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestProducerSurfaceIncludesExposedMethods(t *testing.T) {
   build := func(includeProducer bool) (reachable, map[string]*packages.Package) {
     pkg := types.NewPackage(internalPrefix+"fixture", "fixture")

@@ -8,11 +8,14 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Build walks the program's workspace source files and records a node for
-// each top-level declaration. The checker can load a dependency's raw `.ts`
+// Build walks the program's workspace source files and records modeled
+// declarations, members and nested closures. The checker can load a dependency's raw `.ts`
 // entry, so IsWorkspaceSourceFile owns the declaration boundary instead of
 // assuming every non-declaration source is authored here. External boundary
 // leaves enter the graph only as the resolved target of an edge (see Resolve).
+// A loaded non-nil Program is required and its generation must remain stable
+// during the build. SourceFiles may first apply pending linked hooks; their
+// latched failure remains in Program diagnostics rather than this return value.
 //
 // @evidence contracts/common.md#principled-implementation Declarations are indexed before checker-resolved relations, so every workspace endpoint uses one Program's symbols and identities.
 // @evidence contracts/common.md#clear-and-simple-design The complete build delegates to BuildFiles with nil selection and releases scratch state at one completion boundary.
@@ -20,7 +23,8 @@ import (
 // @evidence contracts/common.md#meaningful-documentation The native comment identifies the producing Program and complete-build responsibility; separated tags follow the documentation skill.
 // @evidence contracts/performance.md#efficient-algorithms Work scales with resident source ASTs, emitted facts and repeated enclosing-container traversals; memoized resolution avoids repeating checker lookups.
 // @evidence contracts/performance.md#reuse-equivalent-work Per-build AST resolution, doc-host and edge identity maps share equivalent work only within this immutable Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned graph owns its facts; releaseBuildState drops AST-keyed and base-node scratch maps before the completed generation escapes.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned graph retains emitted facts without a population cap; releaseBuildState drops the explicitly build-only AST-keyed and endpoint scratch fields, while the caller owns the graph and Program lifetimes and other aliases.
+// @evidence contracts/portability.md#os-neutral-implementation Build delegates native source-name classification and the compiler-reported case policy to BuildFiles. Program.SourceFiles may execute pending linked hooks, whose native effects belong to that owner; this wrapper does not prove per-directory physical identity.
 func Build(prog *driver.Program) *Graph {
   return BuildFiles(prog, nil, nil)
 }
@@ -34,14 +38,20 @@ func Build(prog *driver.Program) *Graph {
 // asks the new checker only about its invalidated closure instead of walking
 // every declaration again, while cross-file targets retain the exact stable IDs
 // established by the preceding committed generation.
+// The caller supplies a loaded non-nil Program and serializes mutation of its
+// generation and the borrowed base index during the build. Selection uses exact
+// compiler FileName strings, not native alias discovery or case-normalization of
+// the supplied selection. Even a partial build enumerates all resident source
+// files in both passes before limiting declaration and relation work.
 //
 // @evidence contracts/common.md#principled-implementation Selected workspace files supply replacement facts while committed base nodes resolve unchanged cross-file endpoints without mutating the previous generation.
 // @evidence contracts/common.md#clear-and-simple-design Selection and base-node context extend the same build pipeline instead of a second graph implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The invalidation owner supplies selected paths; no heuristic file quota, cooldown or fixture exception weakens the replacement set.
 // @evidence contracts/common.md#meaningful-documentation The native comment states partial ownership and committed endpoint reuse, applying documentation-skill spacing to these acknowledgments.
-// @evidence contracts/performance.md#efficient-algorithms File selection is indexed once; declaration and relation walks cover only selected files while base endpoint lookup is constant expected time.
+// @evidence contracts/performance.md#efficient-algorithms Selection indexing and both resident-file enumerations include filename hashing and text classification. Selected files receive declaration and multiple relation traversals, checker resolution and enclosing-container work; endpoint lookup includes key bytes rather than population-only constant cost.
 // @evidence contracts/performance.md#reuse-equivalent-work The supplied committed map reuses unchanged endpoints and build-local memoization reuses checker answers within the replacement Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Base nodes are borrowed during the transaction and released from scratch at completion; only emitted replacement facts remain owned by the returned graph.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Source-list copies, selection and build maps scale with resident/selected populations without a cap. releaseBuildState drops borrowed base-node and explicit scratch fields; emitted facts, ExportedTargets and ImplementationSources remain caller-owned in the returned graph.
+// @evidence contracts/portability.md#os-neutral-implementation Native filename classification and the compiler's reported UseCaseSensitiveFileNames policy are retained, without certifying physical per-directory equivalence. Exact FileName selection is caller-supplied; pending linked-hook native effects remain with Program.SourceFiles.
 func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*Node) *Graph {
   selectedFiles := map[string]bool{}
   if selected != nil {
@@ -80,13 +90,13 @@ func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*N
 // finished with it.
 //
 // Every map cleared here is documented build-only, and each holds pointers into
-// the compiler AST or into the preceding generation”'s nodes: resolved is keyed
+// the compiler AST or into the preceding generation's nodes: resolved is keyed
 // by *shimast.Node, docHosts holds one per documented declaration, and baseNodes
 // is the whole prior endpoint index. A consumer that retains the returned Graph
-// therefore pinned all of it for as long as it held the graph — and
+// would otherwise pin all of it for as long as it held the graph —
 // internal/graphsymbols retains one for the lifetime of an editor session
 // between invalidations, closing the Program while the maps that reference its
-// AST live on. Clearing them here rather than at that consumer is what keeps the
+// AST live on. Clearing them here rather than at that consumer keeps the
 // decision with the producer, which is the only side that knows which fields are
 // scratch.
 //
@@ -107,15 +117,16 @@ func (g *Graph) releaseBuildState() {
 
 // SourceTexts maps every program source to the resident checker text.
 // Declaration and virtual bundled files are included because external graph
-// leaves still carry facts and spans the source manifest must attest to.
+// leaves still carry facts and spans. A pending linked-plugin dispatch runs first; its error is latched by Program and not returned through this text-only API.
 //
 // @evidence contracts/common.md#principled-implementation Text comes from resident SourceFiles, including dependencies needed to ground external evidence, rather than a later disk snapshot.
 // @evidence contracts/common.md#clear-and-simple-design One map exposes Program-owned text without reimplementing file loading.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No filesystem reread or consumer-specific source substitution can mix source generations.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Text extraction does not reread disk or substitute fixture sources. Pending linked hooks can run first and change the Program; returned text alone does not certify their success or a concurrently stable generation.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes resident-source completeness and ownership, separated from tags under the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms One pass over loaded files builds a path map; source strings are shared rather than recopied by content.
+// @evidence contracts/performance.md#efficient-algorithms After any first linked-hook dispatch and its callback/context costs, one loaded-file pass builds a map with filename hashing. Source text strings are shared, not recopied by content; delegated hook work is not bounded by file count.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This extraction does not coordinate repeated requests; its Program owner decides when a generation's text map can be reused.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller receives the map and owns its lifetime; this function retains no Program reference after return.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The uncapped returned map and shared source/filename strings transfer to the caller; no Program pointer is stored in the map. Program owns linked state and callbacks, whose independently retained references are not released by this extraction.
+// @evidence contracts/portability.md#os-neutral-implementation Reported compiler filenames are preserved without native alias resolution. Pending linked callbacks can perform native work; this adapter does not certify path identity or hook effects.
 func SourceTexts(prog *driver.Program) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
@@ -139,13 +150,14 @@ func SourceTexts(prog *driver.Program) map[string]string {
 // shards still receive exact evidence and signatures, without walking or
 // retaining every unchanged source body again.
 //
-// @evidence contracts/common.md#principled-implementation The selected path set filters resident compiler text, preserving the replacement generation's evidence source without touching disk.
+// @evidence contracts/common.md#principled-implementation Exact selected filename strings filter resident compiler text after pending linked-hook dispatch. No disk reread occurs in extraction, but callbacks and concurrent caller mutation are not certified by the returned map.
 // @evidence contracts/common.md#clear-and-simple-design A selection map adapts SourceTexts' ownership rule for shard producers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Caller-selected paths determine inclusion; no source content heuristic or diagnostic expectation affects the text.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains selected-source coverage and snapshot ownership with documentation-skill paragraph and tag spacing.
-// @evidence contracts/performance.md#efficient-algorithms A set costs O(selected paths) and one resident-file pass costs O(loaded files), without repeated selected-path scans.
+// @evidence contracts/performance.md#efficient-algorithms A selection set and one whole resident-file pass include filename hashing/comparison bytes and output growth, plus any first linked-hook callback/context work. Selection does not bound delegated work or avoid enumeration of unchanged sources.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This function extracts a caller-owned generation view and does not own reuse across requests.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned strings and map transfer to the caller; no native handle or retained cache is acquired.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The uncapped selection set is call-local and output map/shared strings transfer to the caller. Program owns linked state and independently retained callbacks; output selection is not their reclamation policy.
+// @evidence contracts/portability.md#os-neutral-implementation Selection uses exact reported filename spelling, not physical alias or per-directory case equivalence. Pending linked callbacks retain their own native boundary responsibilities.
 func SourceTextsForFiles(prog *driver.Program, files []string) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
@@ -187,20 +199,11 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
     case shimast.KindFunctionDeclaration:
       addNode(g, path, statement, NodeFunction)
       // A function declared inside a function is still a name the runtime calls.
-      // This was off for a while on the theory that a closure is implementation,
-      // and implementation is read from the file — but Vue's renderer chain lives
-      // inside `baseCreateRenderer`, so `patch`, `mountElement` and
-      // `setupRenderEffect` were not implementation detail the index could skip;
-      // they were the flow the index exists to describe, and the graph had a blank
-      // where they belong. Asked how a state change reaches the DOM, a model spent
-      // three calls hunting for a name the graph did not hold.
-      //
-      // The cost is small and the answer is not bigger: the graph grows 3% in
-      // nodes on Vue and 5% on VS Code, and the tour payload does not change by a
-      // byte, because a closure ranks below the surface it hangs under and never
-      // takes a seed. It answers when asked for by name. Measured on the
-      // specific-flow lane: 59% of baseline tokens saved to 82%, and the calls
-      // halve — TypeORM 5 to 1, VS Code 8 to 2, Vue 6 to 2.
+      // Much of the ecosystem writes its engine as closures inside a factory
+      // (Vue's renderer chain lives inside `baseCreateRenderer`), so skipping
+      // them would leave a blank where the flow the index exists to describe
+      // sits. A closure ranks below the surface it hangs under and never takes a
+      // tour seed; it answers when asked for by name.
       //
       // The bodies stay out. A closure is a node with edges, not source text.
       collectClosures(g, path, statement)
@@ -251,9 +254,8 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
 // the ecosystem writes its engine: Vue's `patch`, `mountElement`, and
 // `setupRenderEffect` are locals of `baseCreateRenderer`; a curried validator's
 // real parse is a local of the function that binds its error class. Recording only
-// what a file declares at its top level left that code out of the graph entirely —
-// a model asking how a state change reaches the DOM found the factory, nothing
-// under it, and went to read the files.
+// what a file declares at its top level would leave that code out of the graph
+// entirely.
 //
 // Only functions are recorded. A local `const i = 0` is a value, not a place code
 // runs, and the graph would drown in them.
@@ -282,16 +284,18 @@ func collectClosures(g *Graph, path string, declaration *shimast.Node) {
 // It reports false when any enclosing function is anonymous. An `inner` declared
 // inside two different callbacks of one file would otherwise key the same id and
 // merge into a node that is neither, fabricating edges between unrelated scopes.
-// Such a closure stays out of the graph, exactly as every body-scoped declaration
-// did before.
+// Such a closure stays out of the graph.
+// The supplied closure must be non-nil and belong to a stable compiler AST;
+// this helper does not validate or freeze its symbols and parent links.
 //
 // @evidence contracts/common.md#principled-implementation Lexical binding and enclosing callable identity distinguish local closures without source offsets or unstable counters.
 // @evidence contracts/common.md#clear-and-simple-design Owner and binding helpers compose one declaration identity, returning presence separately from the resulting string.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler AST binding determines supported closures; unnamed callbacks are not fabricated from fixture text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states named-local scope and positional stability, following the documentation skill's prose/tag separation.
-// @evidence contracts/performance.md#efficient-algorithms Cost follows the enclosing callable chain and constructed name length, not the whole source file.
+// @evidence contracts/performance.md#efficient-algorithms Cost includes AST ancestor and binding-wrapper walks, qualified symbol-container recursion and text checks. Each enclosing owner prefixes the accumulated string again, so allocation/copy work includes intermediate names rather than only the final length.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This identity helper does not coordinate consumers; callers reuse indexed closure nodes within the graph generation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a result string is returned; no AST or cache is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ClosureName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ClosureName(closure *shimast.Node) (string, bool) {
   symbol := closure.Symbol()
   if symbol == nil {
@@ -383,14 +387,19 @@ func bindingOf(fn *shimast.Node) *shimast.Node {
 //
 // A binding that holds no function is not one. A local `const i = 0` is a value,
 // not a place code runs.
+// This returns syntactic candidates; ClosureName separately admits their symbol
+// and enclosing-owner names. Unrecognized anonymous callable nodes do not stop
+// this walk. The caller supplies a non-nil declaration and stable AST and owns
+// the returned slice and its borrowed AST references.
 //
-// @evidence contracts/common.md#principled-implementation The AST walk selects named function-like declarations inside the owning body and stops at each selected closure's boundary.
+// @evidence contracts/common.md#principled-implementation The AST walk selects supported closure syntax inside the owning body and stops at each selected candidate; symbol and enclosing-name admission remain with ClosureName.
 // @evidence contracts/common.md#clear-and-simple-design One local collector supplies both declaration indexing and relation attribution with the same closure membership.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native AST kinds and binding syntax determine selection without parsed-text approximations.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains body scope and nested-closure ownership, with tags separated under the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Each AST node in the current owner's body is visited once until a selected closure boundary; output space follows selected closures.
+// @evidence contracts/performance.md#efficient-algorithms The recursive child walk stops at selected closure candidates; callable-variable classification additionally unwraps initializer expressions. Work and stack/slice allocation include visited AST depth, wrapper checks and selected population, not a constant traversal bound.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This collection does not own cross-phase caching; Build's immutable AST and indexed nodes establish generation-level reuse.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result borrows AST pointers and transfers its slice to the caller without retaining a Program.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Recursion depth and the returned candidate slice have no explicit cap. The caller owns the slice and borrowed AST references, keeps their generation valid while using them and releases them when no longer needed; this helper retains no separate cache or native handle.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ClosuresIn computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
   body := functionBody(declaration)
   if body == nil {
@@ -422,6 +431,7 @@ func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
 // @evidence contracts/performance.md#efficient-algorithms Kind dispatch is constant time; a variable's initializer unwrap follows only its local wrapper depth with constant temporary space.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate does not coordinate repeated operations or retain a classification cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No state or native resource is acquired.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsClosure computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsClosure(node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindFunctionDeclaration:
@@ -701,15 +711,15 @@ func simpleName(symbol *shimast.Symbol) string {
 //
 // A `#field` is bound under a mangled name — `__#41@#field` — whose number comes
 // from a counter that advances as the program is bound, so the same field is
-// `__#41@#field` in one run and `__#38@#field` in the next. That counter reached
-// the node id, and with it the wire: on VS Code, 661 nodes and 661 edges changed
-// identity between two dumps of the *same unedited source*. A handle the model
-// was given could name nothing after a restart, and no dump could be compared to
-// another to prove a change had left the facts alone.
+// `__#41@#field` in one run and `__#38@#field` in the next. Left in the node id
+// that counter would reach the wire: the same unedited source would produce
+// different identities in two dumps, a handle given out in one session would
+// name nothing after a restart, and no two dumps could be compared to prove a
+// change had left the facts alone.
 //
 // The number identifies nothing a reader can use — the class already
 // distinguishes the field, and `#field` is what the source calls it. Dropping it
-// makes the id a function of the code again.
+// keeps the id a function of the code.
 func stripPrivateMangling(name string) string {
   const prefix = "__#"
   start := strings.Index(name, prefix)

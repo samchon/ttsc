@@ -1,0 +1,38 @@
+package linthost
+
+import "testing"
+
+// TestFixNoVarSkipsMixedDestructureRedeclaration verifies no-var reports but
+// does not rewrite a mixed declaration list whose destructured sibling is
+// redeclared elsewhere.
+//
+// `var a = 1, { b } = o;` binds both a plain `a` and a destructured `b` under
+// one `var` keyword. The list contains two VariableDeclaration nodes, so the
+// single-declarator precondition declines before the name census. The keyword
+// also governs b: a later `var b = 2;` shares its binding, so rewriting both
+// declarations would create a lexical collision. Both diagnostics remain.
+//
+//  1. Parse a file with a mixed plain+destructure list and a later `var b`.
+//  2. Run the no-var fixer through the disk-backed applier.
+//  3. Assert at least one finding fired but zero fixes were applied.
+//
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var preserves the mixed a/{b} declaration and later b redeclaration.
+// @evidence contracts/testing.md#independent-expectations The original source and zero edits prevent rewriting the shared keyword into a b lexical collision. Two exact full-statement spans additionally require both distinct diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases A destructured sibling can be unsafe even if plain a is unique; the mixed declaration must be declined as a whole.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsMixedDestructureRedeclaration invokes assertNoFixSnapshot for both original var lists. Its assertRuleFindingRanges call owns both declaration identities.
+func TestFixNoVarSkipsMixedDestructureRedeclaration(t *testing.T) {
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "var a = 1, { b } = o;\nvar b = 2;\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nvar a = 1, { b } = o;\nvar b = 2;\n}\n",
+  )
+  assertRuleFindingRanges(t, "no-var", "var a = 1, { b } = o;\nvar b = 2;\n", "var a = 1, { b } = o;", "var b = 2;")
+}

@@ -3,7 +3,8 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
 
 /**
  * The compiler arguments of a runtime build: the caller's own, plus whatever
- * makes the emit something Node can execute. The project's config, source, and
+ * requests decorator/JSX lowering and JavaScript emission for Node. This is not
+ * certification of every runtime API or syntax feature. The config, source, and
  * ordinary `ttsc` output never change.
  *
  * Two settings hand syntax Node cannot parse to a later tool, and each is
@@ -12,10 +13,10 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  *
  * - `target: ESNext` preserves proposal decorators. The build lowers to ES2025,
  *   TypeScript-Go's latest standard target, which runs the upstream decorator
- *   transform and keeps native class-field semantics, without changing the
+ *   lowering policy while retaining the standard class-field target, without changing the
  *   implied library or module kind.
  * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it with
- *   the JSX runtime the type-check already reads (samchon/ttsc#1408).
+ *   the JSX runtime the type-check already reads.
  *
  * A forwarded `--noEmit` or `--emitDeclarationOnly` is switched back off as
  * well. ttsx forwards the flags before the entry to its type-check, and the
@@ -31,6 +32,9 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * @evidence contracts/common.md#prohibited-implementation-shortcuts ES2025 and JSX discriminants reflect supported compiler transforms; no source-text patch or consumer-specific override substitutes for emission.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain decorator, JSX, library and no-emit decisions and their runtime-only scope without changing the user's project.
  * @evidence contracts/portability.md#os-neutral-implementation Effective-option resolution delegates response-file parsing to the compiler owner and returns argument tokens rather than shell text or platform-specific paths.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned copied argv array belongs to the caller. An internally prepared effective reader is call-local; a supplied reader and its captured config/assignment records remain caller-owned. Delegated response inspection and native showConfig/capture own cleanup attempts; this adapter retains no history or process handle.
+ * @evidence contracts/performance.md#efficient-algorithms Copying A forwarded argument references and text/value queries precedes fixed policy additions. Without a supplied reader, delegated argv/response inspection, native showConfig, full output decoding and JSON parsing are additional input/native costs; the returned argv need not be short.
+ * @evidence contracts/performance.md#reuse-equivalent-work One effective reader serves this call's policy queries, and an actual reader supplied for the same project/arguments avoids preparation repeated across coordinated build adapters. The caller owns that equivalence premise; this adapter caches no historical argv result.
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,
@@ -87,7 +91,7 @@ export function runtimeCompilerArgs(
     }
   }
   // Unconditional, after every forwarded token: a response file can carry the
-  // flag too, and a bare boolean flag reads as whatever token follows it.
+  // flag too. Explicit false operands clear the two native boolean assignments.
   args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
   return args;
 }

@@ -21,6 +21,11 @@ const O_DIRECTORY = 65536;
  * 2. `fstat` the read-only descriptor.
  * 3. Assert both opens succeeded, the descriptor stats as a directory, and
  *    `readdir` lists the child.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.open still permits read-only directory handles whose fstat/stat and readdir agree. A blanket directory rejection or a descriptor misclassified as file fails the literal successful results.
+ * @evidence contracts/testing.md#independent-expectations Go-style directory traversal opens read-only then stats and lists. The seeded child.ts and literal true directory classifications are independent input/oracles; a successful handle must be allocated rather than fd -1.
+ * @evidence contracts/testing.md#distinguishing-cases Default read-only and O_DIRECTORY both open the same one-child directory. Write and truncate directory refusals are covered by the access-mode and open-trunc siblings.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_open_directory_read_only_still_stats_and_lists invokes createMemFS, openResult, direct fs.fstat and stat/readdir adapters. This unit owns both opens and the exact child list without executing Go traversal or a Wasm host.
  */
 export const test_memfs_open_directory_read_only_still_stats_and_lists =
   async (): Promise<void> => {

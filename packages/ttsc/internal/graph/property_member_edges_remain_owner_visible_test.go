@@ -19,6 +19,11 @@ import (
 //  2. Build the graph.
 //  3. Assert both the owner node and the property node expose the same
 //     dependency evidence.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies property-member nodes are additive rather than replacing class/interface owner-level edges.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Service.dep and Contract.dep: the property nodes must exist and carry type-ref edges to Dep (and Service.dep a value-call edge to makeDep), and the owners Service and Contract must carry the same type-ref edges and Service the value-call edge, so adding property nodes does not remove owner-level edges.
+// @evidence contracts/testing.md#distinguishing-cases Compile a class property with both a type reference and initializer call, plus an interface property signature; Build the graph; Assert both the owner node and the property node expose the same dependency evidence.
+// @evidence contracts/testing.md#execution-ownership TestPropertyMemberEdgesRemainOwnerVisible is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestPropertyMemberEdgesRemainOwnerVisible(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

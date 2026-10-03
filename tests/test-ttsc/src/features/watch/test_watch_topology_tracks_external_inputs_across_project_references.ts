@@ -1,33 +1,40 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  type IRecordedWatcher,
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
 
 /**
- * Verifies a referenced-project build-info output stays quiet while absolute
- * inputs outside the logical project remain live.
+ * Verifies per-reference products and manually declared external project
+ * inputs.
  *
- * A solution watch owns every referenced compiler configuration, but project
- * rules may also depend on a sibling documentation checkout. Output filtering
- * must therefore retain per-reference exact products without constraining
- * declared inputs to the TypeScript solution root.
+ * 1. Author the actual solution/reference configs and literal source membership.
+ * 2. Deliver a referenced build-info write and retain its quiet product outcome.
+ * 3. Create an external exact input and a referenced glob member and observe both.
  *
- * TypeScript-Go 7 removed `outFile`, so a configured JSON bundle is not a
- * product and must not be used as the quiet twin. The referenced project's
- * explicit `tsBuildInfoFile` remains a real exact JSON product.
- *
- * 1. Build a solution with one referenced project and one JSON build-info file.
- * 2. Declare a referenced-project JSON glob and a missing external exact file.
- * 3. Prove the build-info product is quiet and both legitimate inputs wake.
+ * @evidence contracts/testing.md#behavioral-verification Actual source config/reference traversal, output inference and project classification retain every original quiet and positive assertion through recorded subscriptions.
+ * @evidence contracts/testing.md#independent-expectations Authored root/reference configs, separately literal source membership and exact build-info/input paths establish all expectations independently of topology output.
+ * @evidence contracts/testing.md#distinguishing-cases A referenced exact JSON compiler product stays quiet while a same-directory glob member and missing external exact input produce project changes.
+ * @evidence contracts/testing.md#execution-ownership This source unit owns manual project declarations and actual reference/output decisions with recorded observers. Native compiler population and OS delivery remain in the canonical configured CLI boundary.
  */
 export const test_watch_topology_tracks_external_inputs_across_project_references =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-solution-");
-    const external = TestProject.tmpdir("ttsc-project-input-external-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-solution-"),
+    );
+    const external = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-external-"),
+    );
     const referenced = path.join(root, "packages", "contract");
     fs.mkdirSync(path.join(referenced, "src"), { recursive: true });
     fs.writeFileSync(
@@ -56,6 +63,9 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
     );
     fs.mkdirSync(path.join(referenced, "api"), { recursive: true });
 
+    const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(
+      watchDirectoryThroughFsWatch,
+    );
     const changes: WatchInputChange[] = [];
     const topology = new WatchTopology(
       {
@@ -71,7 +81,16 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => {},
       },
+      openDirectoryWatch,
+      openFileWatch,
+      fs.readdirSync,
+      (project) => {
+        if (project.root === root) return [];
+        assert.equal(project.root, referenced);
+        return [path.join(referenced, "src", "index.ts")];
+      },
     );
+    subscriptions.set(topology, watchers);
     try {
       topology.refresh(false);
       topology.setProjectInputs({
@@ -81,6 +100,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       });
 
       fs.writeFileSync(path.join(referenced, "api", "state.json"), "{}\n");
+      notify(topology, path.join(referenced, "api", "state.json"), false);
       await quiet(changes);
 
       fs.mkdirSync(path.join(external, "docs"), { recursive: true });
@@ -90,6 +110,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         "# External\n",
         "utf8",
       );
+      notify(topology, path.join(external, "docs", "spec.md"));
       await nextProjectChange(changes, previous);
 
       previous = projectChanges(changes);
@@ -98,9 +119,11 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         "{}\n",
         "utf8",
       );
+      notify(topology, path.join(referenced, "api", "openapi.json"));
       await nextProjectChange(changes, previous);
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };
 
@@ -112,7 +135,7 @@ async function nextProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  const deadline = Date.now() + 30_000;
   while (projectChanges(changes) <= previous) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a project change after ${previous}`);
@@ -126,8 +149,44 @@ async function quiet(changes: readonly WatchInputChange[]): Promise<void> {
   const count = changes.length;
   await delay();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+  assert.deepEqual(changes, []);
 }
 
 function delay(milliseconds = 250): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function notify(
+  topology: WatchTopology,
+  changed: string,
+  requireSubscription = true,
+): void {
+  const watchers = subscriptions.get(topology);
+  assert.ok(watchers);
+  let entry = TestProject.physicalPath(changed);
+  while (
+    !watchers.some((watcher) => {
+      if (!watcher.active) return false;
+      const relative = path.relative(watcher.location, entry);
+      return (
+        relative === "" ||
+        relative === path.basename(entry) ||
+        (watcher.recursive &&
+          !relative.startsWith("..") &&
+          !path.isAbsolute(relative))
+      );
+    })
+  ) {
+    const parent = path.dirname(entry);
+    if (parent === entry) {
+      assert.equal(
+        requireSubscription,
+        false,
+        `no subscription covers ${changed}`,
+      );
+      return;
+    }
+    entry = parent;
+  }
+  deliverWatchEvent(watchers, entry, "rename");
 }

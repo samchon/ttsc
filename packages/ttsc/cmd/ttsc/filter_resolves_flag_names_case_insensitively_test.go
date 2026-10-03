@@ -5,21 +5,18 @@ import (
   "testing"
 )
 
-// TestFilterHostArgsResolvesFlagNamesCaseInsensitively verifies the host
-// allow-list lookup applies the same flag-name normalization the schema uses
-// when it generates that allow-list.
+// TestFilterHostArgsResolvesFlagNamesCaseInsensitively verifies case-insensitive host filtering preserves known argv and removes unknown values.
 //
-// TypeScript's option parser matches option names case-insensitively, and
-// `normalizeFlagToken` in `packages/ttsc/src/flags/normalizeFlagToken.ts` is the one
-// normalization every layer keys off — including `buildGoAllowList`, whose
-// output is `flags_gen.go`. Keying this lookup on the exact spelling while the
-// generated keys are normalized would recreate the split-brain one layer
-// further down: a flag the launcher and the compiler both resolve would be
-// dropped here, silently taking the following token with it.
+// The filter looks up lower-case generated option names but deliberately preserves original token spelling. Exact output argv assertions observe filtering only; they do not prove that the subsequent Go FlagSet accepts an upper-case spelling.
 //
-//  1. A case-variant known flag survives with its value.
-//  2. A case-variant boolean known flag survives and does not eat the next token.
-//  3. An unknown flag is still dropped in every casing, with its value.
+// 1. Filter case-variant value and boolean options.
+// 2. Compare surviving token arrays with literal expectations.
+// 3. Filter an unknown mixed-case option together with its separate value.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct filterHostArgs returns exactly the literal retained argv for upper-case value/boolean keys and removes a mixed-case unknown option plus its value.
+// @evidence contracts/testing.md#independent-expectations Authored input/output arrays distinguish known-name normalization, boolean operand ownership and unknown stripping without generating expected argv from the filter or its allow-list.
+// @evidence contracts/testing.md#distinguishing-cases Known case-variant value, known case-variant boolean and unknown mixed-case value cases contrast preservation and removal; the companion filter test owns inline values and double-dash boundaries.
+// @evidence contracts/testing.md#execution-ownership This portable same-process Go unit calls the actual private argv filter with no fixture, compiler load, installed host or process. Named table subtests retain each input and failure identity; subsequent FlagSet parsing is outside the asserted operation.
 func TestFilterHostArgsResolvesFlagNamesCaseInsensitively(t *testing.T) {
   cases := []struct {
     name string

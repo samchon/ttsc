@@ -18,6 +18,11 @@ import (
 // 1. Create a valid project with an outDir.
 // 2. Run utility build with `--noEmit`.
 // 3. Assert the command succeeds without writing JavaScript output.
+//
+// @evidence contracts/testing.md#behavioral-verification RunBuild with --noEmit succeeds and writes no JavaScript into the configured outDir.
+// @evidence contracts/testing.md#independent-expectations The project would emit into bin/ without the flag, so the absence of any output file is the literal oracle.
+// @evidence contracts/testing.md#distinguishing-cases The same project with emit enabled is covered by sibling build tests; this case is the suppressed side.
+// @evidence contracts/testing.md#execution-ownership TestUtilityNoEmitSuppressesOutput is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityNoEmitSuppressesOutput(t *testing.T) {
   root := t.TempDir()
 

@@ -1,0 +1,84 @@
+package linthost
+
+import (
+  "encoding/json"
+  "path/filepath"
+  "testing"
+)
+
+// TestLSPDiagnosticsLinkRuleCodesToDocumentation verifies lsp-diagnostics
+// publishes a codeDescription href for built-in rules, derived per family.
+//
+// The wire field landed empty in #745, so the editor rendered the rule id as
+// plain text. This pins the producer end to end through the real subcommand:
+// an unprefixed core rule must resolve against eslint.org while a prefixed
+// family resolves against its own upstream reference, proving the family
+// dispatch runs on the finding's rule name rather than one hardcoded base.
+//
+//  1. Seed a project violating no-alert (core) and unicorn/no-null (unicorn).
+//  2. Run lsp-diagnostics against the file URI.
+//  3. Assert each diagnostic carries the documentation URL for its family.
+//
+// @evidence contracts/testing.md#behavioral-verification lsp-diagnostics must attach the exact independently authored documentation URLs to ordinary error findings with the literal no-alert and unicorn/no-null messages, rejecting recovered-failure diagnostics.
+// @evidence contracts/testing.md#independent-expectations Literal ESLint and Unicorn documentation URLs express the per-family mapping contract, independent of ruleDocumentationURL output.
+// @evidence contracts/testing.md#distinguishing-cases One project violates a core rule (no-alert) and a unicorn rule (unicorn/no-null); the lsp-diagnostics output must carry the eslint.org URL on the first and the eslint-plugin-unicorn repository URL on the second, so a single hardcoded base URL fails. Other rule families are not covered.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-diagnostics in process over a temporary project and decodes the JSON result, so the documentation mapping is exercised only through that verb; no editor or built host is started.
+func TestLSPDiagnosticsLinkRuleCodesToDocumentation(t *testing.T) {
+  root := seedLintProject(t, `declare function alert(message: string): void;
+alert("boom");
+export const empty = null;
+`)
+  seedLintRules(t, root, map[string]string{
+    "no-alert":        "error",
+    "unicorn/no-null": "error",
+  })
+
+  uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "lsp-diagnostics",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+      "--uri", uri,
+    })
+  })
+  if code != 0 || stderr != "" {
+    t.Fatalf("lsp-diagnostics mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  var result lspDiagnosticsResult
+  if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+    t.Fatalf("lsp-diagnostics JSON: %v\n%s", err, stdout)
+  }
+
+  want := map[string]string{
+    "no-alert":        "https://eslint.org/docs/latest/rules/no-alert",
+    "unicorn/no-null": "https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-null.md",
+  }
+  wantMessages := map[string]string{
+    "no-alert":        "Unexpected alert.",
+    "unicorn/no-null": "Use `undefined` instead of `null`.",
+  }
+  seen := make(map[string]bool, len(want))
+  for _, diagnostic := range result.Document {
+    href, relevant := want[diagnostic.Code]
+    if !relevant {
+      continue
+    }
+    if diagnostic.Severity != 1 || diagnostic.Message != wantMessages[diagnostic.Code] {
+      t.Fatalf("rule %q did not publish its authored ordinary error: %#v", diagnostic.Code, diagnostic)
+    }
+    if diagnostic.CodeDescription == nil {
+      t.Fatalf("rule %q published no codeDescription: %#v", diagnostic.Code, diagnostic)
+    }
+    if diagnostic.CodeDescription.Href != href {
+      t.Fatalf("rule %q codeDescription.href = %q, want %q",
+        diagnostic.Code, diagnostic.CodeDescription.Href, href)
+    }
+    seen[diagnostic.Code] = true
+  }
+  for rule := range want {
+    if !seen[rule] {
+      t.Fatalf("lsp-diagnostics missing rule %q: %#v", rule, result.Document)
+    }
+  }
+}

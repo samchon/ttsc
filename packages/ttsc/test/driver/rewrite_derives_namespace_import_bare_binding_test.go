@@ -2,7 +2,6 @@ package driver_test
 
 import (
   "fmt"
-  "os/exec"
   "path/filepath"
   "regexp"
   "strings"
@@ -11,17 +10,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteDerivesNamespaceImportBareBinding verifies a namespace
-// import uses the emitter-owned bare binding recovered from its declaration.
+// TestDriverRewriteDerivesNamespaceImportBareBinding Verifies the namespace rewrite follows its emitter-owned bare binding.
 //
 // Namespace calls omit `.default`, so default-import coverage alone could hide
 // a repair that derives the declaration but still constructs the wrong call
 // head. The same declaration-derived identity must serve both import forms,
 // including the unsuffixed namespace form TypeScript-Go deliberately retains.
 //
-// 1. Place fifteen generated-looking locals before a namespace import.
-// 2. Rewrite its call through public `EmitAll` and inspect the bare binding.
-// 3. Execute the emitted CommonJS file and assert the replacement value.
+// 1. Place fifteen generated-looking locals before the namespace import.
+// 2. Emit its public driver rewrite and inspect the bare namespace binding.
+// 3. Require the literal exported replacement; runtime loading belongs to TestDriverRewriteRuntimeBatch.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual LoadProgram and EmitAll, requiring the unsuffixed __importStar binding and literal rewritten export.
+// @evidence contracts/testing.md#independent-expectations Authored namespace import and literal rewritten-namespace independently define binding shape and replacement.
+// @evidence contracts/testing.md#distinguishing-cases Fifteen suffixed locals coexist with the intentionally bare namespace binding; default imports are covered by the suffix unit.
+// @evidence contracts/testing.md#execution-ownership The Go driver unit directly emits and inspects its private Program output; Node consumption moved to the separately selected runtime batch.
 func TestDriverRewriteDerivesNamespaceImportBareBinding(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -80,13 +83,7 @@ export const value = plugin.make("input");
   if len(binding) != 2 || binding[1] != "plugin" {
     t.Fatalf("emitted namespace binding mismatch: %v\n%s", binding, js)
   }
-  command := exec.Command("node", "-e", `process.stdout.write(String(require("./index.js").value))`)
-  command.Dir = filepath.Dir(jsPath)
-  output, err := command.CombinedOutput()
-  if err != nil {
-    t.Fatalf("rewritten JavaScript failed: %v\n%s", err, output)
-  }
-  if string(output) != "rewritten-namespace" {
-    t.Fatalf("runtime value = %q\n%s", output, js)
+  if !strings.Contains(js, `exports.value = "rewritten-namespace";`) {
+    t.Fatalf("rewritten namespace export missing:\n%s", js)
   }
 }

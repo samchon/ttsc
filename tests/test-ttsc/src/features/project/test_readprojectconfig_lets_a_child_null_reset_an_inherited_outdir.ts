@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
  * Verifies a child tsconfig's `outDir: null` resets an inherited output
@@ -17,6 +17,11 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  *    omits it.
  * 2. Create an array-extends child whose later entry resets the value.
  * 3. Assert the resets read as unset and the omission inherits the base value.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Reads child null, child omission and a later array null reset, distinguishing explicit unset from accidental inheritance.
+ * @evidence contracts/testing.md#independent-expectations Null reset and omission have different tsconfig meanings: the authored base-output directory is inherited only when the child omits outDir.
+ * @evidence contracts/testing.md#distinguishing-cases Direct null and later-array null yield undefined; an otherwise equivalent omitted child retains the physical base-output path.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on configs where a child declares outDir null, omits it, or extends an array whose later entry resets it in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_lets_a_child_null_reset_an_inherited_outdir =
   () => {

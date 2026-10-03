@@ -7,10 +7,16 @@ import { failedGenerationEnvironmentChanged } from "../generation/failedGenerati
 /**
  * Whether a terminal verdict still answers for this delivery.
  *
- * Inside the pass that produced or confirmed it, it is replayed without
- * re-probing anything: the pass settles every delivery against the state it
- * started from, so re-walking the project once per module would spend exactly
- * the cost this gate exists to remove.
+ * A pass verdict is replayed without re-probing anything inside the pass that
+ * produced it: the pass settles every delivery against the state it started
+ * from, so re-walking the project once per module would spend exactly the cost
+ * this gate exists to remove.
+ *
+ * An unstable generation has a recorded environment, and it is confirmed
+ * against the disk on every delivery (`failedGenerationEnvironmentChanged`,
+ * which shares one project walk per event-loop turn). The pass does not cache
+ * that answer. Inside a pass, only a verdict captured in that pass is replayed;
+ * one captured in an earlier pass grants a fresh attempt.
  *
  * Across passes the two kinds part company. A pass verdict is dropped, because
  * a new pass is the first boundary at which the host itself claims something
@@ -23,6 +29,10 @@ import { failedGenerationEnvironmentChanged } from "../generation/failedGenerati
  * @evidence contracts/common.md#clear-and-simple-design Explicit error-kind branches preserve their different evidence instead of applying one blanket retry policy to every terminal error.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown error kinds are not authorized for replay, and epoch equality cannot replace an unstable generation's environment proof.
  * @evidence contracts/common.md#meaningful-documentation The paragraphs and branch comments explain why pass failures and recorded instability have different replay boundaries.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the verdict objects belong to the cache entry.
+ * @evidence contracts/performance.md#efficient-algorithms Error-kind and epoch guards avoid unnecessary re-probing; unstable verdicts delegate delivered-text hashing and a turn-shared project/exact-input comparison whose work follows text bytes, project population and changed input states.
+ * @evidence contracts/performance.md#reuse-equivalent-work It decides whether a failed verdict is replayed instead of repeating a whole-project compile: a pass verdict by its epoch, an unstable one by its recorded environment.
+ * @evidence contracts/portability.md#os-neutral-implementation Unstable replay uses the supplied native source path and filesystem operations through the captured identity and environment comparator; pass-only replay requires no filesystem observation.
  */
 export function replaysTerminalGeneration(
   terminal: TtscTerminalGenerationError,

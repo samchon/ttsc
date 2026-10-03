@@ -17,8 +17,9 @@ import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPa
  * `project-inputs`) and receives the project, the plugin list, and the compiler
  * flags as separate arguments rather than one tsgo command line. Optional
  * capabilities a host declares (threading, diagnostics timing) decide which of
- * ttsc's arguments it can accept, so an older host is never handed a flag it
- * would reject.
+ * ttsc's optional arguments are sent. This negotiation avoids sending those
+ * extensions to undeclared hosts; it does not certify every host's acceptance
+ * of the core protocol or the truth of its capability declaration.
  *
  * @evidence contracts/common.md#principled-implementation The namespace separates the host subcommand protocol from compiler forwarding and uses declared capabilities for optional host fields.
  * @evidence contracts/common.md#clear-and-simple-design Build, check and input-query composers share descriptor serialization while preserving each command's own supported modifiers.
@@ -44,7 +45,7 @@ export namespace NativePluginArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability checks and omission of build-only modifiers protect actual strict-host protocol differences without recognizing plugin names or altering foreign flag parsers.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain shared-host selection, no-emit compatibility modifiers and the optional private provenance path's capability/absolute-path premise.
    * @evidence contracts/portability.md#os-neutral-implementation Native output paths resolve against execution cwd and remain individual argv elements; JSON serialization preserves plugin payload without shell escaping.
-   * @evidence contracts/performance.md#efficient-algorithms Plugin payload serialization is linear in selected configuration bytes; argument composition appends each field once.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin projection/JSON encoding follows plugin count, name/stage text and configuration serialization work. Selected-host capability lookups may each scan the plugin list; optional project-context serialization and native output-path resolution add payload/path-text costs. Returned argv storage follows composed bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure argv composition coordinates no shared producer or retained cross-request result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Arguments are returned to the process owner and no process or persistent buffer is acquired here.
@@ -111,7 +112,7 @@ export namespace NativePluginArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional flags use descriptor capabilities rather than special plugin names or monkey-patched foreign flag sets.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains command effects, full configuration delivery and capability-dependent fields.
    * @evidence contracts/portability.md#os-neutral-implementation cwd and output locations retain native path semantics; each protocol flag is a separate argv element and plugin configuration is JSON, not shell text.
-   * @evidence contracts/performance.md#efficient-algorithms Composition traverses configuration for serialization and forwarded flags for effective timing selection, with output storage proportional to argv bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Composition serializes plugin count/name/stage/config fields; capability-gated timing selection projects the unexpanded forwarded argv frame with token/name/value costs. Optional project-context encoding and native output-path resolution add text work; returned storage follows argv bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Building one command does not coordinate completed or in-flight execution across consumers.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No sidecar or persistent argument cache is owned by this composer.
@@ -160,7 +161,7 @@ export namespace NativePluginArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit project-inputs protocol queries declared dependencies instead of guessing files from plugin names or dropping unsupported inputs.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains non-TypeScript dependencies, invalidation purpose and the caller's capability premise.
    * @evidence contracts/portability.md#os-neutral-implementation Selected tsconfig/cwd spellings travel as separate native argv fields; no slash rewriting or shell construction is applied to paths.
-   * @evidence contracts/performance.md#efficient-algorithms Configuration is serialized once for this command and a fixed set of protocol fields is appended.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin descriptors are projected and JSON-encoded once, with plugin count, name/stage/config serialization costs. Optional project-context encoding and composed native path-field text add work/storage; fixed field count does not make payload cost constant.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Query composition establishes no cross-request reuse of host dependency discovery.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned argv has caller ownership; this function acquires no native resource or retained snapshot.
@@ -245,7 +246,7 @@ export namespace NativePluginArguments {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Formatting participant names touches no native path, filesystem or process boundary.
    *
-   * @evidence contracts/performance.md#efficient-algorithms One projection and join cost O(total participant-name bytes), with no repeated string-prefix rebuilding.
+   * @evidence contracts/performance.md#efficient-algorithms One projection and join cost O(P plus participant-name/output bytes) for P plugins, with no repeated string-prefix rebuilding.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A label formatter coordinates no shared computation beyond the supplied participant list.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The formatter returns text without retaining selection history or handles.
@@ -282,7 +283,7 @@ export namespace NativePluginArguments {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation JSON descriptor serialization accesses no native filesystem or process and applies no path normalization.
    *
-   * @evidence contracts/performance.md#efficient-algorithms One projection and serialization cost O(configuration bytes); only required descriptor fields are copied.
+   * @evidence contracts/performance.md#efficient-algorithms One projection visits P plugins and standard JSON serialization traverses config/name/stage values into returned bytes. Custom getters/toJSON and exceptional or cyclic config values follow ordinary JSON semantics and can add work or throw; no serialization work ceiling is supplied here. Only required descriptor fields are explicitly projected.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable plugin configuration is serialized for the current invocation without establishing cross-request equivalence.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Local projections become returned text; no persistent descriptor cache or handle is retained.

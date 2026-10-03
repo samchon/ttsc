@@ -25,6 +25,11 @@ import (
 //  2. Build the graph.
 //  3. Assert heritage edges Derived->Base and Impl->Base exist, and that
 //     Unrelated->Base is a type-ref edge but not a heritage edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that collectHeritage spans both heritage-bearing declaration kinds and both clause keywords: an interface `extends` and a class `implements` each yield a heritage edge to the same base, while a class that only mentions the base in a parameter type position yields a type-ref edge, never a heritage edge.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Base, Derived, Impl and Unrelated: heritage edges Derived to Base and Impl to Base must exist, no heritage edge may leave Unrelated or Unrelated.greet to Base, and a type-ref edge must run from Unrelated.greet to Base.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with `interface Derived extends Base`, `class Impl implements Base`, and `class Unrelated` whose only Base reference is the parameter type of a method; Build the graph; Assert heritage edges Derived->Base and Impl->Base exist, and that Unrelated->Base is a type-ref edge but not a heritage edge.
+// @evidence contracts/testing.md#execution-ownership TestHeritageEdgesCoverImplementsAndInterfaceExtends is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestHeritageEdgesCoverImplementsAndInterfaceExtends(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

@@ -27,6 +27,11 @@ import (
 //     cannot hide an immediate topology change in the child.
 //  8. Rediscover project inputs after topology drift and prove refresh retains
 //     the selection-time baseline until the server restarts.
+//
+// @evidence contracts/testing.md#behavioral-verification A reload directory's digest stays stable for child-content and nested-descendant edits and changes for immediate creation, deletion, deletion of the directory itself, symlink retargeting and replacement with the same topology.
+// @evidence contracts/testing.md#independent-expectations The expected stable-or-changed decision is a literal per edit.
+// @evidence contracts/testing.md#distinguishing-cases Edits that must not restart and edits that must restart are paired.
+// @evidence contracts/testing.md#execution-ownership TestLSPReloadDirectoriesCompareImmediateTopology is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   root := t.TempDir()
   reloadDirectory := filepath.Join(root, "config-deps")

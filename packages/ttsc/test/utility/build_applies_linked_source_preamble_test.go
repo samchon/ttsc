@@ -11,7 +11,7 @@ import (
 )
 
 // TestUtilityBuildAppliesLinkedSourcePreamble verifies linked source-preamble
-// plugins affect emitted JavaScript during utility build.
+// plugins affect emitted JavaScript and declaration files during utility build.
 //
 // Declaration files may not carry the original parsed source text, so the
 // utility host wraps tsgo's write callback and applies the preamble to
@@ -19,7 +19,12 @@ import (
 //
 // 1. Register a linked source-preamble plugin.
 // 2. Run utility build with emit enabled and one manifest entry.
-// 3. Assert the generated JavaScript contains the preamble text.
+// 3. Assert the generated JavaScript and declaration file contain the preamble text.
+//
+// @evidence contracts/testing.md#behavioral-verification RunBuild with a linked source-preamble plugin writes both the JavaScript and the declaration output, and the assertions require the preamble text in each emitted file kind.
+// @evidence contracts/testing.md#independent-expectations The expected preamble text is the literal string the test's own plugin injects, not text derived from the emitted files.
+// @evidence contracts/testing.md#distinguishing-cases Declaration output is the neighbor that would miss the preamble if only the parsed-source path applied it; both file kinds are checked.
+// @evidence contracts/testing.md#execution-ownership TestUtilityBuildAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(utilityPreamblePlugin{})
@@ -53,5 +58,12 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   }
   if !strings.Contains(string(js), "utility linked preamble") {
     t.Fatalf("preamble missing from JavaScript:\n%s", js)
+  }
+  declaration, err := os.ReadFile(filepath.Join(root, "bin", "index.d.ts"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !strings.Contains(string(declaration), "utility linked preamble") {
+    t.Fatalf("preamble missing from declaration file:\n%s", declaration)
   }
 }

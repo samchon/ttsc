@@ -12,16 +12,20 @@ import {
  * without orphaning descendants.
  *
  * The pre-fix `rmdir` delegated straight to `unlink`, which deleted the named
- * node with no type, emptiness, or root check — a non-empty rmdir "succeeded"
- * while leaving every descendant stranded at its old path. RA-13 requires rmdir
- * to enforce POSIX semantics: empty directory succeeds, non-empty is ENOTEMPTY
- * (tree untouched), a file is ENOTDIR, root is EBUSY, and a missing path is
- * ENOENT.
+ * node with no type, emptiness, or root check. A non-empty rmdir "succeeded"
+ * while leaving every descendant stranded at its old path. rmdir must enforce
+ * POSIX semantics: empty directory succeeds, non-empty is ENOTEMPTY (tree
+ * untouched), a file is ENOTDIR, root is EBUSY, and a missing path is ENOENT.
  *
  * 1. Seed an empty `/empty`, a non-empty `/full/child.txt`, and a file `/f.txt`.
  * 2. Rmdir the empty directory, then attempt each invalid target.
  * 3. Assert the empty one is gone, each rejection code, and the non-empty
  *    directory still holds its descendant.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rmdir removes an empty directory and rejects nonempty/file/root/missing paths without losing descendants. Exact errors, surviving bytes and child list detect unlink-like false directory deletion.
+ * @evidence contracts/testing.md#independent-expectations POSIX empty-directory removal and ENOTEMPTY/ENOTDIR/EBUSY/ENOENT establish outcomes. Independently seeded child bytes and literal child.txt listing prove the refused nonempty directory stays reachable.
+ * @evidence contracts/testing.md#distinguishing-cases Empty-directory success contrasts with all four invalid target kinds. The unlink sibling owns regular-file removal and directory refusal before Go-style fallback.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_rmdir_enforces_empty_directory calls fs.rmdir via callMutation/expectFsError and observes exists/readFileText/readdir on createMemFS. Its source-unit entry owns each named rejection and surviving descendant.
  */
 export const test_memfs_rmdir_enforces_empty_directory =
   async (): Promise<void> => {

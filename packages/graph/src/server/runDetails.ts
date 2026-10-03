@@ -49,6 +49,7 @@ const CONTAINER_KINDS = new Set<ITtscGraphNode["kind"]>([
  * @evidence contracts/performance.md#efficient-algorithms Each handle uses the shared resolver, whose dotted-suffix fallback may scan V nodes; resolved relationships inspect D incident edges and retain only K ranked references in O(DK) time and O(K) temporary space, where K is at most four, while member/literal output scales with the declaration's own members.
  * @evidence contracts/performance.md#reuse-equivalent-work The graph shares generation indexes and source-line adjudications across handles and requests; this call builds fresh caller-owned projections because request limits and selected handles differ.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Detail, ambiguity and unknown arrays live for this request and transfer to its caller; no query history or native handle is retained by this operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation reads in-memory facts; source lines arrive through graph.source, the reader that owns file access.
  */
 export function runDetails(
   graph: TtscGraphMemory,
@@ -521,6 +522,7 @@ function edgeKindRank(kind: string): number {
  * @evidence contracts/performance.md#efficient-algorithms One pass copies each decorator and its arguments, costing their total population without scanning unrelated graph nodes.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This caller-owned projection performs no cross-request coordination; the graph owns the shared source facts.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned array transfers to its caller and this helper retains no state or handle.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation copies in-memory node fields; no file, path or process.
  */
 export function decoratorsOf(
   node: ITtscGraphNode,
@@ -553,6 +555,7 @@ export function decoratorsOf(
  * @evidence contracts/performance.md#efficient-algorithms Filtering and mapping visit the node's tags once each; elision examines the leading address and copies at most the needed display prefix.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection depends on a caller predicate and returns a fresh mutable projection; this helper coordinates no reusable result.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selected and returned arrays are request-local and no historical tags are retained here.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation copies and elides in-memory tag text; no file, path or process.
  */
 export function docTagsOf(
   node: ITtscGraphNode,
@@ -599,6 +602,7 @@ function elideTagText(text: string): string {
  * @evidenceExclude contracts/performance.md#efficient-algorithms Copying a fixed set of optional coordinates chooses no input-dependent processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fixed-size projection coordinates no cross-request computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned value transfers to its caller without a retained handle or cache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation copies span coordinates of an in-memory edge; no file, path or process.
  */
 export function edgeEvidenceOf(
   edge: ITtscGraphEdge,
@@ -638,6 +642,7 @@ function evidenceCoordinatesOf(
  * @evidence contracts/performance.md#efficient-algorithms The source reader supplies indexed, cached lines; this helper scans only the adjacent comment and joins its prose, costing the comment's lines and characters.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Source-byte validation and line splitting are shared by the reader; this pure projection does not coordinate a separate result cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Comment and prose arrays are local to this call and no history or handle is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation reads lines through graph.source, the reader that owns file access, and adds none of its own.
  */
 export function docOf(
   graph: TtscGraphMemory,
@@ -693,6 +698,7 @@ export function docOf(
  * @evidence contracts/performance.md#efficient-algorithms Splitting the producer head and selecting its first display lines costs the supplied signature's length; no source file or graph traversal occurs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The producer head is already shared on the graph node, while this display projection coordinates no repeated work.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The capped text is caller-owned and this helper retains no cache or native resource.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation cuts the producer's signature text to a few lines; no file, path or process.
  */
 export function signatureOf(
   _graph: TtscGraphMemory,

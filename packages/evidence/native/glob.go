@@ -49,7 +49,10 @@ func compileGlob(raw string) (globPattern, error) {
     value = strings.TrimPrefix(value, "./")
   }
   if value == "" {
-    return globPattern{}, errors.New("the exclusion marker '!' must be followed by a glob")
+    if exclude && strings.TrimPrefix(raw, "!") == "" {
+      return globPattern{}, errors.New("the exclusion marker '!' must be followed by a glob")
+    }
+    return globPattern{}, errors.New("glob '" + raw + "' names no path below the project root")
   }
   if filepath.IsAbs(value) ||
     hasWindowsDrivePrefix(value) ||

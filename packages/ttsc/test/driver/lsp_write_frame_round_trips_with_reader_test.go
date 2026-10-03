@@ -7,15 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPWriteFrameRoundTripsWithReader pins the framing contract by
-// piping a write through the matching reader and asserting bit-for-bit
-// equivalence. This is the single sanity check that the proxy's outgoing
-// writes will be parsed by any compliant LSP client (and by the matching
-// FrameReader inside ttscserver).
+// TestLSPWriteFrameRoundTripsWithReader Verifies that WriteFrame and FrameReader round-trip the body and retain Content-Length.
+//
+// One JSON body is round-tripped; literal-frame reader tests supply independent framing inputs.
 //
 // 1. Write a JSON body through WriteFrame.
 // 2. Read it back via FrameReader.
 // 3. Assert the bodies match and the header block carries Content-Length.
+//
+// @evidence contracts/testing.md#behavioral-verification WriteFrame and FrameReader round-trip the body and retain Content-Length.
+// @evidence contracts/testing.md#independent-expectations The authored payload independently specifies the body, but the same implementation pair can share a framing error; exact wire length is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases One JSON body is round-tripped; literal-frame reader tests supply independent framing inputs.
+// @evidence contracts/testing.md#execution-ownership Both public Go operations use one bytes.Buffer without stdio peers. Go discovers TestLSPWriteFrameRoundTripsWithReader under ./test/driver.
 func TestLSPWriteFrameRoundTripsWithReader(t *testing.T) {
   var buf bytes.Buffer
   payload := []byte(`{"jsonrpc":"2.0","method":"ping"}`)

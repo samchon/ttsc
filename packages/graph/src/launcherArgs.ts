@@ -1,3 +1,7 @@
+import type { ILauncherOption } from "./ILauncherOption";
+import type { IProjectOptions } from "./IProjectOptions";
+import type { ParsedLauncherOptions } from "./ParsedLauncherOptions";
+
 import path from "node:path";
 
 /**
@@ -8,62 +12,15 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No global Error behavior is patched to classify launcher failures.
  * @evidence contracts/common.md#meaningful-documentation The native headline identifies the two supported causes without restating the class name.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Argument failure representation has no filesystem or process boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources an Error subclass retains only its message and stack for the catcher.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms an Error subclass that only sets its name, so it runs no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work an Error subclass holds no computation that could be shared.
  */
 export class GraphArgumentError extends Error {
   public constructor(message: string) {
     super(message);
     this.name = "GraphArgumentError";
   }
-}
-
-type OptionKind = "value" | "flag" | "boolean";
-
-/**
- * One recognized launcher option and its accepted flag aliases.
- *
- * @evidence contracts/common.md#principled-implementation Key identifies the parsed value while aliases and kind determine accepted syntax.
- * @evidence contracts/common.md#clear-and-simple-design One definition owns aliases and parsing mode so launchers share the same parser.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted tokens are explicit launcher grammar, not special cases for expected command output.
- * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish result key, accepted tokens and value/flag/boolean parsing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Option descriptors define token grammar; projectOptions owns native path resolution.
- */
-export interface ILauncherOption {
-  /** Canonical map key shared by every alias. */
-  key: string;
-
-  /** Accepted complete option tokens, including their leading hyphens. */
-  flags: readonly string[];
-
-  /** Value requires text, flag accepts no value, boolean also accepts =value. */
-  kind: OptionKind;
-}
-
-/**
- * Parsed canonical option keys with textual or boolean values.
- *
- * @evidence contracts/common.md#principled-implementation ReadonlyMap represents absent options distinctly from false and empty text, with value kinds preserved.
- * @evidence contracts/common.md#clear-and-simple-design One map avoids separate alias-indexed result objects.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The public view is readonly rather than mutating consumer options during later validation.
- * @evidence contracts/common.md#meaningful-documentation The native headline explains canonical keys and the two stored value categories.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This readonly token map carries text and flags without native path interpretation.
- */
-export type ParsedLauncherOptions = ReadonlyMap<string, string | boolean>;
-
-/**
- * Project coordinates passed to the native graph producer.
- *
- * @evidence contracts/common.md#principled-implementation Absolute working directory and configuration locator determine which project the producer loads.
- * @evidence contracts/common.md#clear-and-simple-design Two shared coordinates prevent launcher lanes from owning competing project defaults.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration remains caller-selected rather than pinned to a named repository.
- * @evidence contracts/common.md#meaningful-documentation Native member comments identify directory absoluteness and configuration relativity.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This result shape carries coordinates; projectOptions owns their native resolution.
- */
-export interface IProjectOptions {
-  /** Absolute project working directory. */
-  cwd: string;
-
-  /** Configuration path, relative to cwd unless already absolute. */
-  tsconfig: string;
 }
 
 export const PROJECT_OPTIONS: readonly ILauncherOption[] = [
@@ -82,6 +39,9 @@ export const PROJECT_OPTIONS: readonly ILauncherOption[] = [
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Every token must match a configured option; unknown input is not silently accepted for a known fixture.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains repeated options and argument failures, with tags separated by a blank comment line.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Token parsing interprets no path and invokes no native process; projectOptions handles path-bearing options later.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources builds a local Map that it returns and keeps no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one pass over argv with a Map of flag aliases, linear in the argument count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses one argv per launch and caches nothing.
  */
 export function parseLauncherOptions(
   argv: readonly string[],
@@ -97,12 +57,12 @@ export function parseLauncherOptions(
     const arg = argv[i]!;
     const exact = flags.get(arg);
     if (exact !== undefined) {
-      if (exact.kind === "value") {
+      if (exact.kind === "value" || exact.kind === "string") {
         const value = argv[++i];
-        if (value === undefined || value.startsWith("-")) {
+        if (value === undefined || (exact.kind === "value" && value.startsWith("-"))) {
           throw new GraphArgumentError(`${arg} requires a non-empty value`);
         }
-        parsed.set(exact.key, requireValue(arg, value));
+        parsed.set(exact.key, exact.kind === "string" ? value : requireValue(arg, value));
       } else {
         parsed.set(exact.key, true);
       }
@@ -120,7 +80,7 @@ export function parseLauncherOptions(
     if (definition.kind === "boolean") {
       parsed.set(definition.key, parseBoolean(flag, value));
     } else {
-      parsed.set(definition.key, requireValue(flag, value));
+      parsed.set(definition.key, definition.kind === "string" ? value : requireValue(flag, value));
     }
   }
   return parsed;
@@ -137,6 +97,9 @@ export function parseLauncherOptions(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are public launcher conventions rather than named-repository exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose documents defaults and resolution timing instead of only listing returned keys.
  * @evidence contracts/portability.md#os-neutral-implementation Node path.resolve applies the host's native path rules without manually concatenating separators.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolves two values in constant time.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work two lookups per call, nothing worth sharing.
  */
 export function projectOptions(values: ParsedLauncherOptions): IProjectOptions {
   return {
@@ -157,6 +120,9 @@ export function projectOptions(values: ParsedLauncherOptions): IProjectOptions {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounds are supplied by the option contract rather than expected fixture values.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains numeric domain and the distinction between missing state and invalid input.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Numeric option validation has no native filesystem or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a number and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one digit-pattern test and one Number conversion of a single option value.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work validates one option value per call.
  */
 export function nonNegativeIntegerOption(
   values: ParsedLauncherOptions,
@@ -189,6 +155,9 @@ export function nonNegativeIntegerOption(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Zero rejection follows the option domain, not a special expected command case.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the additional restriction and identifies the shared validator.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation The positivity restriction is a platform-independent numeric predicate.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a number and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms delegates to nonNegativeIntegerOption and compares the result with zero.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work validates one option value per call.
  */
 export function positiveIntegerOption(
   values: ParsedLauncherOptions,

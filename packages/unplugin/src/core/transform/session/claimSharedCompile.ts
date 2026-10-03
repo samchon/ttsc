@@ -36,24 +36,28 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * Ask the session store for the compile named `identity` and `state`: another
  * worker's publication, or the lock to compile it here (samchon/ttsc#1390).
  *
- * `identity` names what the compile is (project, options, plugins) and `state`
- * the project state it would read. The first worker to need a pair takes its
+ * `identity` encodes reported compile configuration and `state` a supplied
+ * project-input projection. Neither key alone certifies a publication. The
+ * first worker to need a pair takes its
  * lock by creating a directory, which the filesystem makes atomic. The others
  * wait without blocking the event loop, and adopt the publication the holder
  * leaves behind. When the holder releases the lock without publishing, the next
  * waiter takes the lock instead. A holder whose process has died, or whose
- * heartbeat stopped, loses the lock to the next waiter, so a crash mid-compile
- * never blocks the session.
+ * heartbeat stopped, can lose the lock to a waiter. Waiting has no total
+ * deadline or cancellation; progress still depends on native operations and
+ * successful reclamation.
  *
  * The store outlives the processes that use it (samchon/ttsc#1483), so it
- * bounds itself: an adoption marks its publication used, and each publication
+ * best-effort prunes itself: an adoption marks its publication used, and each publication
  * keeps the most recently used ones of its identity within the store's count
  * and byte budgets, and removes locks and partial writes whose writer is gone.
  * A publication larger than the byte budget stays in the compiling worker; it
  * cannot be shared without making persistent storage unbounded.
  *
- * Sharing is only an optimization. Any failure to read, lock, or write the
- * store answers `undefined`, and the caller compiles for itself. With `adopt:
+ * Sharing is only an optimization. An unreadable or unusable publication is
+ * ignored and a worker may claim its own compile. An escaping claim error
+ * answers `undefined`; publishing and cleanup failures are suppressed without
+ * certifying persistence. The caller retains local compilation. With `adopt:
  * false` the caller has already found a publication wanting and compiles
  * regardless, but still under the lock, so its compile replaces the publication
  * for the waiters.
@@ -63,8 +67,8 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
  * @param store The session's shared compile store.
- * @param identity Hex digest of what the compile is.
- * @param state Hex digest of the project state it reads.
+ * @param identity Caller-provided hex configuration digest used in store names.
+ * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
  *
  * @evidence contracts/common.md#principled-implementation
@@ -96,22 +100,36 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  *   investigation rather than asserted OS-safe.
  *
  * @evidence contracts/performance.md#efficient-algorithms
- *   Waiters yield with capped backoff. Pruning scans the persisted store and
- *   sorts last-use entries, then totals their sizes once, because independent
- *   processes share its inventory; a process-local index would not describe it.
+ *   Each waiting iteration may reread and parse all publication bytes, inspect
+ *   envelope fields, probe lock metadata/token/process state and reclaim a
+ *   subtree. Backoff intervals are capped, not iteration count or total time.
+ *   Publishing serializes the full payload before its UTF8 byte-budget check.
+ *   Pruning materializes all N store names, launches concurrent stats for J
+ *   JSON entries, sorts J last-use observations and scans names again for
+ *   abandoned state. Text comparisons, encoded bytes, native IO and removed
+ *   descendants contribute beyond entry counts; transient state includes full
+ *   publication text/value and O(N+J) lists/promises. Independent processes
+ *   share the inventory, so a process-local index cannot establish its contents.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The identity/state pair shares one generation across workers. The producer
- *   supplies those digests and the caller validates adoption; a pathname alone
- *   does not establish input equivalence. Store failure or an oversized
- *   publication leaves later workers on the actual compile path.
+ *   The supplied identity/state pair coordinates in-flight ownership and
+ *   retained publication lookup. Shape checks reject unusable envelopes but
+ *   do not prove inputs; the producer and adopter supply separate stability,
+ *   completeness and current-state proofs. Caller adopt=false bypasses lookup
+ *   while retaining locking. Repeated claims still reread publication/lock
+ *   state; failed or oversized persistence leaves later workers compiling.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   A publication over 256 MiB is not persisted. Each successful publication
  *   best-effort prunes to four files per identity, 32 store-wide and 256 MiB of
- *   publication bytes. Concurrent writes or failed removals can temporarily
- *   exceed these limits. A holder releases its heartbeat and owned lock; later
- *   prunes remove abandoned locks and partial writes of departed workers.
+ *   publication bytes. Concurrent writes, failed removals or failed pruning
+ *   can leave limits exceeded until a later successful prune. Limits do not
+ *   bound live locks, partial-write bytes, waiting claims or concurrent IO.
+ *   A compile claim transfers its unref'd heartbeat and lock to the caller,
+ *   whose release clears the timer and best-effort removes an owned lock;
+ *   publishing alone does not release it. Later prunes reclaim abandoned locks
+ *   and departed-writer partial files. Owner checks followed by pathname IO
+ *   remain non-atomic, including asynchronous heartbeat touches.
  */
 export async function claimSharedCompile(
   store: string,

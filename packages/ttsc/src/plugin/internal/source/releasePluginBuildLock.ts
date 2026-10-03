@@ -24,11 +24,11 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Release renames the leased generation into retained history rather than recursively deleting a possibly replaced current directory.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain return/error behavior and the actual-task-end precondition, distinguishing completion publication from timeout or lease transfer before the tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native path construction and the shared rename adapter preserve the same retirement meaning across Windows sharing refusals and POSIX contention.
- * @evidence contracts/performance.md#efficient-algorithms Direct retirement and completion paths require bounded metadata reads and a small marker write, without an owner scan; the shared adapter retries only a peer-held Windows read whose parent capability probe succeeds.
+ * @evidence contracts/performance.md#efficient-algorithms Direct retirement/completion paths avoid owner-population scans; costs include native path construction, owner JSON/hostname and generation bytes plus marker publication. Eligible Windows refusals can repeat synchronous waits and sibling probes without a deadline after a sampled sibling rename succeeds; that probe does not establish the original refusal's cause.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Release is an effectful ownership transition, so a previous result cannot authorize a later call to skip its own atomic retirement attempt.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Actual callback completion permits payload eviction via a qualified marker; pending marker files are removed in finally, while tombstones remain until all recorded capability holders are gone. Unconfirmed completion conservatively protects payloads while their owners may still act.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Qualified callback completion permits payload eviction; pending marker files have finally-based removal that can fail. Retirement retries can block indefinitely and best-effort probe cleanup may leave empty siblings. Cooperating collectors retain tombstones until recorded holder/observer absence; unconfirmed completion protects payloads while their owners may still act.
  */
 export function releasePluginBuildLock(
   lockDir: string,

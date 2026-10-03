@@ -5,6 +5,7 @@ import (
   "strconv"
   "strings"
   "unicode"
+  "unicode/utf16"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
@@ -371,10 +372,9 @@ func regexpFlagsWith(flags string, flag byte) string {
 
 // regexpUnicodeFlagRepair offers `u` and `v` as competing suggestions.
 //
-// Both satisfy the rule and neither is the obvious answer: `u` is the widely
-// supported mode, `v` the stricter ES2024 superset. Both also change what the
-// pattern matches -- surrogate pairs stop being two independent code units --
-// so this is never applied automatically by `ttsc fix`.
+// Both satisfy the rule, but their syntax and matching semantics differ from
+// legacy mode and from each other. A Unicode-mode choice can change pattern
+// behavior, so neither suggestion is applied automatically by `ttsc fix`.
 func regexpUnicodeFlagRepair(parts regexpLiteralParts) regexpRepair {
   return regexpRepair{suggestions: []Suggestion{
     {Title: "Add the `u` flag.", Edits: []TextEdit{parts.flagEdit(regexpFlagsWith(parts.flags, 'u'))}},
@@ -384,7 +384,7 @@ func regexpUnicodeFlagRepair(parts regexpLiteralParts) regexpRepair {
 
 // regexpUnicodeSetsFlagRepair offers the single `v` rewrite, replacing `u`
 // where the literal already carries it. It stays a suggestion for the same
-// reason as regexpUnicodeFlagRepair: `v` is a stricter mode with its own
+// reason as regexpUnicodeFlagRepair: `v` is a distinct mode with its own
 // matching semantics, not a spelling of the existing pattern.
 func regexpUnicodeSetsFlagRepair(parts regexpLiteralParts) regexpRepair {
   title, flags := "Add the `v` flag.", parts.flags
@@ -445,8 +445,9 @@ func regexpUselessFlags(parts regexpLiteralParts) string {
 
 // regexpUselessFlagRepair deletes the dead flags the analysis named. The
 // analysis is one-sided -- anything it cannot settle counts as using the flag
-// -- so a flag it does reach here is provably inert and the deletion is a fix
-// rather than a suggestion.
+// -- so an accepted flag is classified as inert for pattern matching and
+// removed as a fix. RegExp flag-property observations still change; this
+// pattern analysis does not establish equivalence for every object consumer.
 func regexpUselessFlagRepair(parts regexpLiteralParts) regexpRepair {
   useless := regexpUselessFlags(parts)
   if useless == "" {
@@ -480,38 +481,84 @@ func regexpUselessFlagMessage(useless string) string {
 }
 
 func regexpHasPreferD(parts regexpLiteralParts) bool {
-  return strings.Contains(parts.pattern, "[0-9]")
+  return regexpPatternHasUnescaped(parts.pattern, "[0-9]")
 }
 
 func regexpHasPreferW(parts regexpLiteralParts) bool {
-  return strings.Contains(parts.pattern, "[A-Za-z0-9_]") || strings.Contains(parts.pattern, "[a-zA-Z0-9_]")
+  return regexpPatternHasUnescaped(parts.pattern, "[A-Za-z0-9_]") ||
+    regexpPatternHasUnescaped(parts.pattern, "[a-zA-Z0-9_]")
 }
 
-func regexpHasDuplicateClassCharacter(parts regexpLiteralParts) bool {
-  return walkRegexpCharacterClasses(parts.pattern, func(content string) bool {
-    if classHasRange(content) {
+// regexpPatternHasUnescaped reports whether needle occurs with its first byte
+// unescaped. A bracket preceded by an odd run of backslashes is a literal
+// bracket and opens no character class, so the pattern `\[0-9]` holds no digit
+// class. The match stays a substring test so a spelled-out class nested in a
+// `v`-mode class is still reported, which the class walk would not see.
+func regexpPatternHasUnescaped(pattern, needle string) bool {
+  for offset := 0; ; {
+    index := strings.Index(pattern[offset:], needle)
+    if index < 0 {
       return false
     }
-    seen := map[byte]struct{}{}
-    for i := 0; i < len(content); i++ {
-      ch := content[i]
-      if ch == '\\' {
-        i++
-        continue
-      }
-      if ch == '^' && i == 0 {
-        continue
-      }
-      if ch == '-' {
-        continue
-      }
-      if _, ok := seen[ch]; ok {
-        return true
-      }
-      seen[ch] = struct{}{}
+    index += offset
+    backslashes := 0
+    for cursor := index - 1; cursor >= 0 && pattern[cursor] == '\\'; cursor-- {
+      backslashes++
     }
+    if backslashes%2 == 0 {
+      return true
+    }
+    offset = index + 1
+  }
+}
+
+// regexpHasDuplicateClassCharacter compares decoded simple-class characters.
+// Unicode modes use code points; legacy classes use UTF-16 code units. Ranges
+// and v-mode set expressions remain outside this diagnostic-only subset.
+func regexpHasDuplicateClassCharacter(parts regexpLiteralParts) bool {
+  if !shimscanner.IsValidRegularExpressionLiteral(parts.raw) {
     return false
+  }
+  parsed, err := regexParseLiteral(parts.raw)
+  if err != nil {
+    return false
+  }
+  unicodeMode := strings.ContainsAny(parts.flags, "uv")
+  duplicate := false
+  regexWalk(parsed, func(node regexNode, _ *regexSlot) {
+    class, ok := node.(*regexClassNode)
+    if !ok {
+      return
+    }
+    // Range overlap and opaque v-mode set expressions remain outside this
+    // simple-class rule. The existing parser interprets whole escape atoms.
+    for _, expression := range class.Expressions {
+      if _, rangeElement := expression.(*regexClassRangeNode); rangeElement {
+        return
+      }
+    }
+    seen := map[int]bool{}
+    record := func(character int) {
+      if seen[character] {
+        duplicate = true
+      }
+      seen[character] = true
+    }
+    for _, expression := range class.Expressions {
+      character, ok := expression.(*regexCharNode)
+      if !ok || character.codePointIsNaN() {
+        continue
+      }
+      if !unicodeMode && character.CodePoint > 0xffff {
+        for _, unit := range utf16.Encode([]rune{rune(character.CodePoint)}) {
+          record(int(unit))
+        }
+      } else {
+        record(character.CodePoint)
+      }
+    }
   })
+  return duplicate
 }
 
 func regexpHasUselessCharacterClass(parts regexpLiteralParts) bool {
@@ -645,7 +692,8 @@ func regexpQuantifierExactCount(_ string, quantifier regexpQuantifier) (string, 
 //     `/a{1}?/` only makes it lazy, so dropping them turns "exactly one" into
 //     "zero or one".
 //   - A digit: the braces separate a backreference or octal escape from a
-//     digit, and `/\1{1}2/` would fuse into `\12`, backreference twelve.
+//     digit. `\12` can denote backreference twelve when enough captures exist,
+//     or an octal escape in a legacy pattern with fewer captures.
 func regexpQuantifierDrop(pattern string, quantifier regexpQuantifier) (string, bool) {
   if quantifier.end >= len(pattern) {
     return "", true
@@ -970,8 +1018,8 @@ func init() {
     check:  regexpQuantifierCheck(regexpQuantifierIsTwoNums),
     repair: regexpQuantifierRepair(regexpQuantifierIsTwoNums, regexpQuantifierExactCount),
   })
-  // `regexp/no-zero-quantifier` stays diagnostic-only: `{0}` says the atom
-  // never matches, so the correction is to delete the atom or repair the
+  // `regexp/no-zero-quantifier` stays diagnostic-only: `{0}` requests zero
+  // repetitions, so an intended correction may delete the atom or repair the
   // bound, and the rule computes neither.
   Register(regexpSourceRule{
     name:  "regexp/no-zero-quantifier",

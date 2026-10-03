@@ -14,11 +14,12 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  *
  * The default cache lives inside the workspace, at
  * `<workspaceRoot>/node_modules/.cache/ttsc`, so removing `node_modules` (or
- * the repository) reclaims every compiled plugin binary and Go object file.
+ * the repository) reclaims the binaries and default Go objects stored there.
+ * Dedicated or caller-owned Go cache overrides can live elsewhere.
  * This is the `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt): a
  * disposable build cache under `node_modules/.cache/<tool>`. ttsc keeps no
- * global (`~/.cache`) cache; a machine-wide one silently grew to hundreds of GB
- * across tsgo and plugin version bumps, so it was removed outright. See
+ * automatic global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
+ * and plugin version bumps without an owner to reclaim it. See
  * `resolveSourceBuildCachePaths` for the override-then-workspace priority.
  *
  * @evidence contracts/common.md#principled-implementation Named cache parts separate compiled binaries, Go objects and serialized answers whose owners and retention policies differ.
@@ -66,7 +67,7 @@ export namespace SourceBuildCacheLayout {
 
   /**
    * The parts of the cache root whose entries are single files, each collected
-   * by `pruneCacheFileRoot` and removed by `ttsc clean` (samchon/ttsc#1562).
+   * by `pruneCacheFileRoot` and removed by `ttsc clean`.
    */
   export const CACHE_FILE_DIRNAMES: readonly string[] = [
     DESCRIPTOR_CACHE_DIRNAME,
@@ -78,14 +79,15 @@ export namespace SourceBuildCacheLayout {
    * Run the opportunistic pruning of the plugin cache, of ttsc's Go object
    * cache, and of the single-file caches (`CACHE_FILE_DIRNAMES`), but only for
    * the default workspace-local location. A root the caller named through
-   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and ttsc never deletes from it.
+   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and this opportunistic maintenance
+   * skips it. Explicit clean requests follow the separate cleanup contract.
    *
    * @evidence contracts/common.md#principled-implementation Pruning is admitted only for an unoverridden workspace root, and Go objects are admitted only when their provenance is ttsc-cache.
    * @evidence contracts/common.md#clear-and-simple-design This ownership gate dispatches to dedicated binary, object and file collectors without duplicating their eviction policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Effective environment injection is a supported host boundary; explicit user-owned roots are deliberately protected.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain default-root ownership and why overrides suppress maintenance; prose and tags are visibly separated.
    * @evidence contracts/portability.md#os-neutral-implementation The gate reads injected environment values with Windows case-insensitive names and uses path-aware collector APIs without separator assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms The ownership check is constant work; admitted collectors perform full size and age scans whose cost depends on retained entries.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed ownership branch reads the injected environment; Windows name matching scans its keys and text. Admitted collectors perform size and age scans whose cost depends on retained entries.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This dispatch does not produce or validate a reusable computation result.
    *
@@ -111,14 +113,15 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Collect every single-file part (`CACHE_FILE_DIRNAMES`) of `root`.
+   * Apply the opportunistic collector to each single-file part
+   * (`CACHE_FILE_DIRNAMES`) of `root`.
    *
-   * @evidence contracts/common.md#principled-implementation Each declared answer-cache part receives the same single-file collector, so its contents are reclaimed independently of binary and runtime directories.
+   * @evidence contracts/common.md#principled-implementation Each declared answer-cache part receives the same single-file collector independently of binary and runtime directories; that owner decides interval admission, protection and tolerated deletion failure rather than this adapter guaranteeing reclamation.
    * @evidence contracts/common.md#clear-and-simple-design One loop over the layout's fixed part list centralizes maintenance dispatch.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The part list is the persisted layout contract, not a list of recognized projects or expected answers.
    * @evidence contracts/common.md#meaningful-documentation The native comment identifies the collected population and references the owning layout constant; tags follow a blank comment line.
    * @evidence contracts/portability.md#os-neutral-implementation path.join constructs native children; directory checks and deletion policy stay in the collector.
-   * @evidence contracts/performance.md#efficient-algorithms Dispatch is linear in the fixed part count; dominant work is the sum of their entry scans and optional sorts.
+   * @evidence contracts/performance.md#efficient-algorithms Dispatch visits the fixed part list and constructs native child paths with work proportional to their text. Admitted collectors additionally pay their metadata/filename scans and optional entry sorts; payload population is not bounded by the part count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A maintenance pass has filesystem effects and cannot be reused merely because it returns void.
    *
@@ -136,14 +139,15 @@ export namespace SourceBuildCacheLayout {
    * its first cache write changes its sole payload to `.cache/ttsc`. Creation
    * is exclusive so concurrent first writers never follow or replace an
    * existing filesystem entry. The selected root is pinned to its ordinary
-   * physical directory before publication; default writers use that returned
-   * directory for their payload too.
+   * physical spelling before publication; default writers use that returned
+   * spelling for their payload too. Metadata checks do not hold a directory
+   * handle that prevents concurrent replacement of the selected path.
    *
-   * @evidence contracts/common.md#principled-implementation An ordinary physical root is pinned before exclusive marker creation records its selected installation boundary; its returned path lets the producer publish under the same root.
+   * @evidence contracts/common.md#principled-implementation Current ordinary-root metadata and physical spelling precede exclusive marker creation, recording the selected installation boundary. The producer uses the returned spelling; continued root identity requires that the path not be concurrently replaced, rather than a retained directory-handle proof.
    * @evidence contracts/common.md#clear-and-simple-design Marker publication and existing-entry validation return one physical root for the caller's payload.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker represents an actual prior selection and is not fabricated workspace detection for particular consumers.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-write placement stability and physical pinning before the marker's exclusive publication.
-   * @evidence contracts/portability.md#os-neutral-implementation Native lstat/realpath pin the ordinary root and Node's wx creation rejects replacement of an existing marker without OS-based case assumptions.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-write placement stability, current root validation and the path-replacement limit before exclusive marker publication.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat/realpath observe ordinary-root identity and Node's wx creation refuses an existing marker without OS-based case assumptions; these calls do not freeze parent-directory identity.
    * @evidence contracts/performance.md#efficient-algorithms Publication uses a fixed number of filesystem operations plus ordinary-root validation; recursive parent creation scales with missing path depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation persists installation provenance, not a computed answer whose inputs can be shared.
@@ -166,18 +170,18 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Report from one directory snapshot whether `root` is being or was marked.
+   * Report whether one collected directory listing is empty or has a marker.
    *
    * An empty root is the state after root creation and before marker
-   * publication. Reading the entries once prevents a concurrent publication
-   * from falling between separate marker and emptiness probes.
+   * publication. One listing avoids combining separate marker and emptiness
+   * probes; it does not freeze directory contents or prove later ownership.
    *
-   * @evidence contracts/common.md#principled-implementation One Dirent snapshot observes either an empty publication interval or an ordinary ownership marker without combining incompatible snapshots.
+   * @evidence contracts/common.md#principled-implementation Emptiness and ordinary-marker admission use the same collected Dirent list, avoiding separate observations. The result is placement evidence at that read, not an atomic filesystem snapshot or continuing ownership guarantee.
    * @evidence contracts/common.md#clear-and-simple-design Emptiness and marker recognition are derived from the same local array.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is protocol provenance; no project name or fixture-specific filesystem shape is privileged.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the concurrent publication interval that makes a single snapshot necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Dirent type checks reject a symbolic marker using native filesystem facts instead of platform labels.
-   * @evidence contracts/performance.md#efficient-algorithms One directory listing and linear marker search use O(entries) temporary space and time.
+   * @evidence contracts/performance.md#efficient-algorithms One directory listing and linear marker search retain O(entries) references plus returned filename text; listing and equality costs include the visited names and native filesystem work, with no recursive payload traversal.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The current directory state is queried afresh because marker publication can change its answer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This query retains no resource beyond its local directory snapshot.
@@ -194,17 +198,20 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Pin the default plugin cache to one ordinary physical directory.
+   * Resolve the current default plugin cache to an ordinary physical spelling.
+   * Missing root directories are created. Returned spelling avoids following
+   * the caller's original ancestor alias again, but no retained directory handle
+   * prevents later replacement of the physical path.
    *
-   * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath pins the physical root beneath its resolved parent before destructive maintenance uses it.
+   * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath checks the current root against its observed physical parent. The returned spelling removes the original ancestor alias from later lookups, subject to path identity remaining stable after these non-atomic metadata observations.
    * @evidence contracts/common.md#clear-and-simple-design This boundary returns a physical spelling or throws; downstream collectors receive no partially validated path state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Filesystem identity comes from actual entry types and realpath rather than special-cased path strings.
-   * @evidence contracts/common.md#meaningful-documentation The native purpose and inline ancestor-retarget rationale explain what callers receive and why validation precedes maintenance.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states creation, current physical spelling and the absence of a directory-handle identity pin; the inline comment explains avoidance of the original ancestor alias.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath and lstat handle physical paths and links; textual equality here compares resolved parent spellings and does not infer volume case policy from an OS name.
    * @evidence contracts/performance.md#efficient-algorithms A fixed number of metadata operations performs validation, with path resolution and recursive creation dependent on ancestor depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable aliases are validated per invocation rather than memoized without an invalidation witness.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Root validation acquires no retained handles and does not own cache eviction.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns a path and retains no handles or root history. Created directories belong to the selected cache owner; their lifetime and eviction remain with that caller's cache policy.
    */
   export function canonicalPluginCacheRoot(root: string): string {
     fs.mkdirSync(root, { recursive: true });
@@ -213,8 +220,8 @@ export namespace SourceBuildCacheLayout {
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
       throw new Error(`ttsc: unsafe plugin cache root: ${root}`);
     }
-    // If an ancestor alias is retargeted after this point, all later cache work
-    // stays on the original physical directory rather than following it.
+    // Later lookups use this resolved spelling instead of the caller's original
+    // ancestor alias; this is not a handle pin against physical-path replacement.
     const physicalRoot = fs.realpathSync.native(root);
     if (path.dirname(physicalRoot) !== physicalParent) {
       throw new Error(`ttsc: plugin cache root escaped its parent: ${root}`);
@@ -224,14 +231,17 @@ export namespace SourceBuildCacheLayout {
 
   /**
    * The millisecond timestamp a metadata file records, falling back to its
-   * mtime when its content is not a number; `null` when it cannot be read.
+   * mtime when content reading fails or trimmed content is empty or nonfinite.
+   * Returns `null` only when content supplies no timestamp and stat also fails.
+   * Numeric text uses JavaScript Number conversion, without an integer, range
+   * or decimal-only admission rule.
    *
-   * @evidence contracts/common.md#principled-implementation Nonempty finite numeric content supplies milliseconds; blank or invalid metadata falls back to file mtime, while inaccessible metadata yields null.
+   * @evidence contracts/common.md#principled-implementation Nonempty finite Number-convertible text supplies the timestamp; failed content reads, blank text and nonfinite values fall back to native mtime, and only failed stat after that absence yields null. This reader does not validate chronology or impose a numeric range.
    * @evidence contracts/common.md#clear-and-simple-design Content parsing and metadata fallback are two explicit stages with one nullable result.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Number parsing observes actual stored metadata; no known timestamps or cache keys receive special treatment.
    * @evidence contracts/common.md#meaningful-documentation Native documentation states timestamp units, the fallback and the unavailable outcome, separated from tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node reads UTF-8 metadata and exposes mtimeMs consistently; no native date string or filesystem case convention is assumed.
-   * @evidence contracts/performance.md#efficient-algorithms Parsing costs O(metadata bytes), followed by at most one stat; callers write small timestamp records.
+   * @evidence contracts/performance.md#efficient-algorithms The synchronous read decodes the complete metadata, then trimming and Number conversion inspect its text, with temporary storage proportional to read bytes/text and at most one fallback stat. Supplied path work and native reads are additional costs; the reader enforces no metadata-size cap.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current timestamps change on hits and maintenance, so this reader does not cache its answer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads leave no retained handle or history.
@@ -259,14 +269,14 @@ export namespace SourceBuildCacheLayout {
    *
    * @evidence contracts/common.md#principled-implementation An exclusive sibling staging file is renamed over the target entry, preserving complete publication and avoiding writes through the old inode's aliases.
    * @evidence contracts/common.md#clear-and-simple-design Creation, publication and unconditional staging cleanup are contained in one try/finally.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Random sibling names prevent collisions between actual concurrent publishers; errors are not converted into fabricated successful metadata.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Process identity and random bytes give independent sibling-name candidates, with exclusive creation refusing an occupied candidate; this is not a proof that names can never collide. Publication errors propagate rather than fabricate successful metadata.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish terminal-entry replacement from parent ownership, and inline prose explains why rename avoids alias mutation.
    * @evidence contracts/portability.md#os-neutral-implementation Same-directory rename and exclusive creation use Node's native semantics; failure on locked Windows entries propagates to the owner's policy.
-   * @evidence contracts/performance.md#efficient-algorithms One contents write, one rename and one cleanup cost O(contents bytes), without copying the existing entry.
+   * @evidence contracts/performance.md#efficient-algorithms One contents write, one rename and one cleanup include supplied path/name and contents text work, plus fixed-size random sibling-name generation and native filesystem operations. The existing entry's contents are not copied.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each publication changes filesystem state and cannot be shared by equal return values.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The temporary file is removed in finally after success or failure; cleanup errors may leave a staging entry for the owning cache collector.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts removal of the staging candidate after success or failure, without retaining a handle or history. This assumes that independently chosen candidate belongs to this publication; cleanup errors can leave it for the owning cache collector, and no numeric bound on failed leftovers is established here.
    */
   export function replaceCacheMetadataFile(
     file: string,

@@ -17,7 +17,7 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A data exemption must explain the same directory's observed delta, not cancel every reload because some unrelated data event occurred.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain caller admission, immediate-directory scope and strict glob exemptions with their reasons, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation One filesystem identity transaction resolves both declared aliases and changed native paths, using actual case and link identity.
- * @evidence contracts/performance.md#efficient-algorithms Exact files use a Set; D directory and G glob predicates may require O(CDG) containment comparisons for C deltas, without scanning or hashing file contents in classification.
+ * @evidence contracts/performance.md#efficient-algorithms Setup resolves F reload files, D reload directories and G literal glob roots into call-local collections. Named events and C deltas scan directory/glob predicates; an unexplained directory delta can additionally scan A supplied causes and G exemptions for matching directory entries. Duplicate declarations remain present. Costs include native identity/ancestor/case queries and path/key text, not only predicate counts; classification itself does not hash file contents and no population/text bound is imposed here.
  * @evidence contracts/performance.md#reuse-equivalent-work One transaction caches equivalent native identity/case resolutions for every helper in the same decision; a later event starts a fresh transaction so link retargets are observed.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Identity caches and predicate collections are local to one decision, without a resident historical cache or native handle.
@@ -47,7 +47,8 @@ export function projectInputReloadEventShouldNotify(input: {
   //
   // Data can only carve out strictly below a resolution directory. A glob
   // rooted on that directory, or above it -- `literalGlobRoot` answers with the
-  // volume root for a pattern with no literal prefix -- would otherwise exempt
+  // volume root when a wildcard follows that resolved root directly -- would
+  // otherwise exempt
   // everything the directory exists to classify, and the selection lane would
   // retire in silence. Its role predates any glob drawn around it.
   //

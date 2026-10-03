@@ -50,12 +50,12 @@ const preambleDiagnosticDeclaration = `export interface Named {
 // `sourcePreambleFS` prepends a plugin's preamble before TypeScript-Go parses,
 // so every position tsgo records — including every diagnostic's — is shifted
 // down by the preamble's line count, while the file the user opens has no
-// preamble. `@ttsc/banner` is the shipped plugin that does this, and the reported
+// preamble. `@ttsc/banner` is the shipped plugin that does this, and an uncorrected
 // line could land past the end of the real file. The neighbouring source-map lane
-// has corrected the identical shift for a long time; the diagnostic lane is where
-// the same invariant was missing, which also defeated the duplicate filter in
-// `CompilerDiagnostics.ts` (it compares positions, so a shifted report never matched its
-// plugin-free twin and the user saw the same error twice at two positions).
+// corrects the identical shift; the diagnostic lane must hold the same invariant,
+// which also keeps the duplicate filter in `CompilerDiagnostics.ts` working (it
+// compares positions, so a shifted report would never match its plugin-free twin
+// and the user would see the same error twice at two positions).
 //
 //  1. Load each fixture with the preamble the case declares, so the program is
 //     preamble-shifted exactly as a `SourcePreamblePlugin` project is.
@@ -63,6 +63,10 @@ const preambleDiagnosticDeclaration = `export interface Named {
 //     authored ones, derived from the fixture text.
 //  3. Assert the pretty render places the same coordinate, quotes the authored
 //     source, never quotes the preamble, and never names the shifted line.
+// @evidence contracts/testing.md#behavioral-verification Loads five actual preamble project shapes and asserts one diagnostic with exact authored file/line/column/start plus rendered original source and absence of injected text or shifted coordinates.
+// @evidence contracts/testing.md#independent-expectations A test-local marker scan on authored source independently gives coordinates; preamble height is known from literal fixture text and never obtained from corrected diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases No preamble, two/six-line injections, hashbang insertion and noninjected declaration files contrast offset correction with unchanged controls.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs named scenarios through direct program/diagnostic APIs and closes its private programs; it does not launch a compiler host.
 func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
   const preambleTwoLines = "// preamble 1\n// preamble 2\n"
   const preambleSixLines = "// preamble 1\n// preamble 2\n// preamble 3\n// preamble 4\n// preamble 5\n// preamble 6\n"

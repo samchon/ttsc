@@ -15,6 +15,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc identifies the envelope and explains empty-result meaning,
  *   using the documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscFountainDiagnosticsResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscFountainDiagnosticsResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscFountainDiagnosticsResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscFountainDiagnosticsResult {
   /** Messages selected by the query; an empty array means none were returned. */

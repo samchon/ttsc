@@ -17,14 +17,18 @@ import type { TtscPluginStage } from "./TtscPluginStage";
  *
  * @evidence contracts/common.md#principled-implementation The descriptor distinguishes Go source composition, stage and declared capabilities, with explicit host-input proofs for files outside the compiler graph; these inputs determine build and reuse identity rather than plugin labels.
  * @evidence contracts/common.md#clear-and-simple-design One descriptor states the native implementation and its declared inputs, while factory evaluation, building and pipeline dispatch remain host responsibilities.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-based Go composition and capability opt-ins are supported extension mechanisms; routing never depends on name, and undeclared reads cannot be made cache-safe by compensating guesses.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-based Go composition and capability opt-ins are supported extension mechanisms; declared names may be explicit composes aliases, but no built-in plugin-name exception selects capabilities or native ownership, and undeclared reads cannot be made cache-safe by compensating guesses.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains source ownership, stage, horizontal/vertical composition, capabilities and input-proof obligations; documented-member spacing and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Source and host-input paths are native identities with documented absolute/relative bases; content hashes and physical realpaths are separate proof fields so symlink retargeting remains a change. The descriptor requests Go-source building rather than a hardcoded executable suffix or shell command.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscPlugin {
   /**
-   * Optional human-readable label used in diagnostics and build messages.
-   * Routing is never based on this value.
+   * Optional label used in diagnostics, build messages and explicit
+   * {@link composes} alias matching. Capability selection and executable versus
+   * linked ownership follow the descriptor and actual Go source, respectively.
    */
   name?: string;
 
@@ -56,7 +60,7 @@ export interface ITtscPlugin {
    * read outside its module graph; `{}` declares that it read none. Only such a
    * descriptor, with a fingerprint for each {@link hostInputs} entry, has its
    * evaluation reused by a later launch, since ttsc cannot observe a plain `fs`
-   * read on every Node release it supports (samchon/ttsc#1561).
+   * read on every Node release it supports.
    */
   hostInputHashes?: Record<string, string | null>;
 
@@ -85,7 +89,7 @@ export interface ITtscPlugin {
    *
    * Relative paths are resolved from the consumer project root. Package
    * descriptors published in npm packages should normally return absolute paths
-   * based on their own descriptor directory — derive them from a factory's
+   * based on their own descriptor directory. Derive them from a factory's
    * `context.dirname` (the load-mode-independent replacement for `__dirname`,
    * which is undefined when ttsc loads the descriptor through ttsx or as ESM).
    *
@@ -161,10 +165,10 @@ export interface ITtscPlugin {
    *
    * Differs from `composes`:
    *
-   * - `composes` is horizontal — many plugin entries dispatch to one binary by
+   * - `composes` is horizontal: many plugin entries dispatch to one binary by
    *   name. Each entry is still a top-level `compilerOptions.plugins[]` citizen
    *   with its own lifecycle slot.
-   * - `contributors` is vertical — one binary statically links additional Go
+   * - `contributors` is vertical: one binary statically links additional Go
    *   sources that never appear as top-level plugin entries. The contributing
    *   npm packages are discovered through the host plugin's own config file
    *   (e.g. `lint.config.ts` for `@ttsc/lint`).
@@ -172,9 +176,8 @@ export interface ITtscPlugin {
    * Constraints:
    *
    * - Contributors ship Go source as a package (no `go.mod`); the host plugin's
-   *   module supplies every transitive Go dependency. This is also a
-   *   supply-chain feature — contributors cannot pull in arbitrary Go modules
-   *   at build time.
+   *   module supplies the dependency graph used to build their imports. The
+   *   contributor cannot supply an independent module graph or replace directives.
    * - Contributor source paths must be absolute (the host plugin's JS factory
    *   typically resolves them through `require.resolve`).
    * - Contributor names are used as the sub-package import suffix and must be

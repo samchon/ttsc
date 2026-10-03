@@ -20,9 +20,15 @@ import (
 // 1. Build a fake sidecar that owns `ttsc.fake.fix`.
 // 2. Have it return a code action for `ttsc.fake.other`.
 // 3. Assert the action is dropped and the bridge logs the unowned command.
+//
+// @evidence contracts/testing.md#behavioral-verification CodeActions drops ttsc.fake.other when discovery advertised only ttsc.fake.fix and logs the unowned command.
+// @evidence contracts/testing.md#independent-expectations Command routing authority comes from discovered command IDs, not an arbitrary returned action.
+// @evidence contracts/testing.md#distinguishing-cases A different unowned ID distinguishes this rejection from a missing command and from the valid advertised command in the route case.
+// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceDropsUnownedCodeActionCommand is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
 func TestLSPNativePluginSourceDropsUnownedCodeActionCommand(t *testing.T) {
-  dir := t.TempDir()
-  sidecar := buildNativePluginSourceTestSidecar(t, dir, nativePluginSourceUnownedCommandSidecar)
+  fixture := newNativePluginSourceTestFixture(t)
+  dir := fixture.directory
+  sidecar := buildNativePluginSourceTestSidecar(t, nativePluginSourceUnownedCommandSidecar)
   manifest, err := json.Marshal(driver.NativePluginManifest{
     LSPPlugins: []driver.NativeLSPPluginEntry{{Binary: sidecar, Name: "@ttsc/fake"}},
   })
@@ -39,6 +45,7 @@ func TestLSPNativePluginSourceDropsUnownedCodeActionCommand(t *testing.T) {
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
+  fixture.source = source
   if actions := source.CodeActions("file:///tmp/a.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); len(actions) != 0 {
     t.Fatalf("unowned action was not dropped: %#v", actions)
   }

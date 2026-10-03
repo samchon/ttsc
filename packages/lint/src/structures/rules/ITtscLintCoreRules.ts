@@ -403,7 +403,7 @@ export interface ITtscLintCoreRules {
 
   /**
    * Reject ASCII control characters (`\x00`–`\x1F`) inside regular expression
-   * literals and `RegExp` strings.
+   * literals. Constructor strings passed to `RegExp` are not inspected.
    *
    * They render invisibly in source and almost always indicate an accidental
    * paste or a missed `\t` / `\n` escape.
@@ -637,9 +637,11 @@ export interface ITtscLintCoreRules {
 
   /**
    * Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of
-   * the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions. The
-   * explicit forms are more readable and avoid surprise around primitive edge
-   * cases.
+   * the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
+   *
+   * This is a style preference, with no automatic edits. Number accepts
+   * BigInt while unary + rejects it; String uses a string primitive hint
+   * instead of concatenation's default hint. Choose the intended conversion.
    *
    * @reference https://eslint.org/docs/latest/rules/no-implicit-coercion
    */
@@ -1197,6 +1199,10 @@ export interface ITtscLintCoreRules {
    * Reject empty constructor bodies (`class X { constructor() {} }`) that add
    * nothing over the implicit constructor.
    *
+   * Derived constructors are candidates only when a single rest parameter is
+   * passed unchanged as the single super spread. Zero or fixed-prefix calls
+   * filter caller arguments and remain meaningful.
+   *
    * @reference https://eslint.org/docs/latest/rules/no-useless-constructor
    */
   "no-useless-constructor"?: TtscLintRuleSetting;
@@ -1230,8 +1236,10 @@ export interface ITtscLintCoreRules {
   /**
    * Reject `var` declarations.
    *
-   * Use `let` for mutable bindings and `const` for immutable ones. Autofixable
-   * to `let`.
+   * Use `let` for mutable bindings and `const` for immutable ones. Automatic
+   * replacement with `let` requires local or module ownership and no possible
+   * direct eval observation, including erased TypeScript assertions, scope
+   * escape, redeclaration, TDZ or loop capture.
    *
    * @reference https://eslint.org/docs/latest/rules/no-var
    */
@@ -1249,7 +1257,8 @@ export interface ITtscLintCoreRules {
 
   /**
    * Reject `{ foo: foo }` and similar object-literal shorthand candidates in
-   * favor of `{ foo }`. Autofixable.
+   * favor of `{ foo }`. Autofixable except for comment loss, which is offered
+   * as a suggestion. The colon-form `__proto__` prototype setter is excluded.
    *
    * @reference https://eslint.org/docs/latest/rules/object-shorthand
    */
@@ -1403,8 +1412,9 @@ export interface ITtscLintCoreRules {
   "sort-keys"?: TtscLintRuleSetting;
 
   /**
-   * Require `Number.isNaN` / `isNaN` for `NaN` checks; restrict `typeof`
-   * comparisons to the documented strings.
+   * Reject direct equality or ordering comparisons against the identifier
+   * `NaN`; use `Number.isNaN` / `isNaN` instead. `valid-typeof` separately
+   * checks the string vocabulary of `typeof` comparisons.
    *
    * @reference https://eslint.org/docs/latest/rules/use-isnan
    */

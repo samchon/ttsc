@@ -89,9 +89,8 @@ func run() int {
 // node that an edge connects to a node in another file).
 func summarize(g *graph.Graph, sourceFiles int) metrics {
   // Seeded with every kind Build can produce, so a family that happened not to
-  // occur reports 0 rather than vanishing from the object. Three of the seven
-  // used to be seeded and the map grew the rest on first sight, which meant the
-  // reported shape depended on the project measured.
+  // occur reports 0 rather than vanishing from the object; a map grown on first
+  // sight would make the reported shape depend on the project measured.
   edges := map[string]int{}
   for _, kind := range graph.EdgeKinds() {
     edges[string(kind)] = 0

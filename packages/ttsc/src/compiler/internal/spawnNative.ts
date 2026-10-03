@@ -6,7 +6,7 @@ import { ensureExecutable } from "./ensureExecutable";
 
 /**
  * Spawn a native binary (or a Node.js script when the path has a JS/TS
- * extension) and return its result with `stdout` and `stderr` as text.
+ * extension) and return its result with decoded or raw-buffer output streams.
  *
  * Streams go to private files and are materialized after exit, avoiding the
  * piped maxBuffer ceiling while retaining filesystem and runtime allocation
@@ -20,11 +20,11 @@ import { ensureExecutable } from "./ensureExecutable";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No shell parses argv or foreign process API is replaced. Descriptor recovery is selected by the real resource-exhaustion contract in spawnSyncResilient rather than a fixture outcome.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain executable routing, capture limits, read errors and encoding ownership following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node receives native executable and argument arrays, Windows hiding is an explicit process option, and POSIX permission preparation remains in ensureExecutable rather than shell-specific commands.
- * @evidence contracts/performance.md#efficient-algorithms Argument copying costs O(A); capture reads and decoding cost O(B) for child output bytes, in addition to the child runtime. Each stream is read once after completion.
+ * @evidence contracts/performance.md#efficient-algorithms Argument-reference copying costs O(A); native argv/environment launch work, permission checks, capture acquisition and any broker retry/report costs are delegated but remain part of this call. Reads/decoding allocate complete output proportional to B child bytes. Each stream is read once after synchronous completion; neither output size nor child duration is capped here.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A child execution may have effects and depend on arbitrary filesystem state; this wrapper has no equivalence or invalidation contract permitting reuse of a previous process result.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources The invocation owns one capture until finally, including spawn, recovery and read failures. It returns materialized output to the caller; live file bytes and returned storage grow with child output without a configured ceiling.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources An acquired capture reaches finally on spawn, recovery and read failures; acquisition has its own rollback attempts. Disposal attempts closure/removal with suppressed failures, so native release is not certified. Materialized output transfers to the caller, and capture/returned bytes grow without a configured ceiling; no timeout or descendant-join policy is supplied here.
  */
 export function spawnNative(
   binary: string,

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import util from "node:util";
 
 import { captureProcessOutput } from "../../../compiler/internal/captureProcessOutput";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
 import { GoToolResolution } from "./GoToolResolution";
 import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
@@ -28,11 +29,11 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts POSIX broker retry handles actual descriptor exhaustion and Windows cmd handles supported batch wrappers; neither changes a failed build into an assumed success.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain file capture, missing-wrapper ENOENT and the platform errno/quoting semantics; prose and tags remain distinct.
  * @evidence contracts/portability.md#os-neutral-implementation Windows cmd wrappers are isolated with verbatim arguments and case-insensitive environment lookup; native binaries and POSIX go use Node spawning and the descriptor broker.
- * @evidence contracts/performance.md#efficient-algorithms Output capture avoids the spawn buffer ceiling, then reads O(B) captured bytes once; wrapper argument encoding is linear in total argument length.
+ * @evidence contracts/performance.md#efficient-algorithms File capture avoids the pipe buffer ceiling but performs native acquisition/spawn/full output reads and decoding. Windows selection adds PATH/PATHEXT/native queries; wrapper environment/payload construction processes full argument/name bytes and regex quoting whose backtracking is not asserted linear here. Complete stdout/stderr strings and transient buffers/serialized argv data contribute memory beyond argument count.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go commands can write build/module state and cannot share a result merely because executable and arguments match.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources This synchronous call owns capture files/descriptors and releases them in finally; returned stdout/stderr occupy O(B) bytes owned by the caller, with no output-size bound imposed here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The call delegates file/descriptor acquisition to the capture owner and disposes it in finally; cleanup can fail and replace an earlier result/error. Returned decoded output belongs to the caller with no independent byte ceiling. Synchronous completion concerns the selected command, not proof that arbitrary inherited-handle descendants have terminated.
  */
 export function spawnGoTool(
   goBinary: string,
@@ -87,36 +88,39 @@ function spawnGoToolProcess(
     spawnWorkingDirectory(options.cwd),
   );
   if (!resolved.wrapper) {
-    return spawnSync(goBinary, [...args], options);
+    const nativeArgs = [...args];
+    return E2ETrace.synchronous(goBinary, nativeArgs, options, "windows-go-tool",
+      () => spawnSync(goBinary, nativeArgs, options));
   }
-  // Preserve the native spawn ENOENT contract before cmd.exe becomes the
-  // actual child process. The callers use that code for the install guidance.
-  // The wrapper is known to be missing, so nothing is spawned: Node refuses to
+  // Supply the install-guidance ENOENT result when no regular wrapper candidate
+  // was selected, before cmd.exe becomes the actual child. Candidate stat
+  // failures do not distinguish every absence/permission cause. Node refuses to
   // launch a `.cmd` or `.bat` without a shell (CVE-2024-27980) and answers
   // EINVAL, which would hide that the file does not exist.
   if (resolved.location === null) {
     return missingGoTool(goBinary, args);
   }
   const shim = createWindowsGoCommandShim([resolved.location, ...args]);
-  return spawnSync(
-    GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
+  const command = GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
       GoToolResolution.readWindowsEnvironmentValue(process.env, "COMSPEC") ??
-      "cmd.exe",
-    windowsGoCommandArgs(shim.payload),
-    {
+      "cmd.exe";
+  const commandArgs = windowsGoCommandArgs(shim.payload);
+  const trace = E2ETrace.begin(command, commandArgs, options, "windows-go-wrapper");
+  const result = spawnSync(command, commandArgs, {
       ...options,
       env: { ...inheritedEnv, ...shim.environment },
       shell: false,
       // The /c payload is already one fully quoted Windows command line.
       windowsVerbatimArguments: true,
-    },
-  );
+    });
+  E2ETrace.result(trace, result);
+  return result;
 }
 
 /**
- * The result Node's `spawnSync` returns for an executable that does not exist:
- * no process, and an ENOENT error carrying the platform's own errno, syscall,
- * path, and arguments.
+ * Construct a no-process ENOENT-shaped result for unavailable wrapper selection.
+ * Errno comes from Node's system-error map; this is not a recorded native spawn
+ * failure proving the wrapper's exact absence/permission cause.
  */
 function missingGoTool(
   goBinary: string,

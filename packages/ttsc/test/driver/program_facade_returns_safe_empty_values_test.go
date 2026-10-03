@@ -7,16 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverProgramFacadeReturnsSafeEmptyValues verifies the Program facade
-// returns stable safe fallbacks for missing values.
+// TestDriverProgramFacadeReturnsSafeEmptyValues Verifies that Program facade returns nil for a missing file, one nil-program diagnostic, and the file-only string form.
 //
-// Public helpers are called by plugin packages that may probe for optional
-// files or guard nil Programs. These branches should stay predictable instead
-// of panicking or returning partially formatted diagnostics.
+// A live missing-file query contrasts with a nil receiver and location-less Diagnostic.
 //
 // 1. Load a real Program and request a missing SourceFile.
 // 2. Call Diagnostics on a nil Program.
 // 3. Assert Diagnostic.String keeps the file-only fallback form.
+//
+// @evidence contracts/testing.md#behavioral-verification Program facade returns nil for a missing file, one nil-program diagnostic, and the file-only string form.
+// @evidence contracts/testing.md#independent-expectations The authored absent file and defensive and formatting contracts define expectations.
+// @evidence contracts/testing.md#distinguishing-cases A live missing-file query contrasts with a nil receiver and location-less Diagnostic.
+// @evidence contracts/testing.md#execution-ownership The entry loads and closes a Go Program and directly calls public facade methods. Go discovers TestDriverProgramFacadeReturnsSafeEmptyValues under ./test/driver.
 func TestDriverProgramFacadeReturnsSafeEmptyValues(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

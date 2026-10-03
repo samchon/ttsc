@@ -23,6 +23,11 @@ import (
 //  2. Build the graph.
 //  3. Assert no rec->rec edge and no edge out of dynamic, but a caller->helper
 //     value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that callEdge drops the two edges it is documented to skip while still recording an ordinary cross-call: a self-call (`rec` calling `rec`) yields no edge because `to == from`, and a call whose callee the checker cannot bind to a declaration (a method on an `any`-typed value) yields no edge because Resolve returns nil.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish no rec->rec edge and no edge out of dynamic, but a caller->helper value-call edge.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with `rec()` returning `rec()`, `caller()` calling a separate `helper()`, and `dynamic(host: any)` calling `host.run()`; Build the graph; Assert no rec->rec edge and no edge out of dynamic, but a caller->helper value-call edge.
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesSkipSelfAndUnresolved is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesSkipSelfAndUnresolved(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

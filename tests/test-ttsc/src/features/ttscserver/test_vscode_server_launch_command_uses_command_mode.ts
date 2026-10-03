@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 /**
@@ -12,12 +12,19 @@ import path from "node:path";
  * native binaries run directly, both carrying cwd, tsconfig, stdio, and the VS
  * Code wrapper-command suppression ids.
  *
- * 1. Import the pure launch helper through Node's TypeScript loader.
- * 2. Build launch commands for JS and native server paths.
- * 3. Build a Windows `.cmd` launch command.
- * 4. Assert the command/args shapes match the extension contract.
+ * 1. Build launch commands for a `.js` launcher and a native launcher for one
+ *    project candidate.
+ * 2. Build a `.cmd` launch command for platform `win32` with ComSpec `cmd.exe`.
+ * 3. Compute the command-ID prefix for two different project roots.
+ * 4. Assert the command/args shapes, verbatim flags, shim environment and
+ *    prefixes match the extension contract.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls createServerLaunchCommand for a JS launcher, a native launcher and a Windows .cmd launcher, plus executeCommandIDPrefix for two roots, and asserts command, args, windowsVerbatimArguments, the cmd /d /s /c payload and the full commandShimEnvironment.
+ * @evidence contracts/testing.md#independent-expectations The expected argument vectors are authored literals (--stdio, --cwd=, the suppressed command IDs ttsc.lint.fixAll,ttsc.format.document, --execute-command-id-prefix=, --tsconfig=), the shim payload is the literal six-placeholder string, and the prefix is only required to match ttsc.vscode.<16 hex>. and to differ between roots.
+ * @evidence contracts/testing.md#distinguishing-cases The JavaScript launcher runs through process.execPath with the script as first argument and the native launcher runs directly, neither with verbatim arguments; the .cmd launcher runs through cmd.exe /d /s /c with pre-quoted environment slots and verbatim arguments; two project roots must get different prefixes. A candidate without a tsconfig is not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the pure serverResolution launch-planning functions and spawns nothing: no VS Code host, language client, cmd.exe or ttscserver process runs.
  */
-export const test_vscode_server_launch_command_uses_command_mode = () => {
+export function test_vscode_server_launch_command_uses_command_mode() {
   const repo = TestProject.WORKSPACE_ROOT;
   const cwd = path.join(repo, "packages", "demo");
   const tsconfig = path.join(cwd, "tsconfig.app.json");
@@ -25,38 +32,18 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
   const nativeLauncher = path.join(cwd, "bin", "ttscserver");
   const cmdLauncher = "C:\\\\Tools & SDK\\\\ttscserver.cmd";
 
-  const script = `
-    import { pathToFileURL } from "node:url";
-    const mod = await import(pathToFileURL(${JSON.stringify(
-      path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-    )}).href);
-    const candidate = { cwd: ${JSON.stringify(cwd)}, resolveFrom: ${JSON.stringify(
-      cwd,
-    )}, tsconfig: ${JSON.stringify(tsconfig)} };
-    console.log(JSON.stringify({
-      js: mod.createServerLaunchCommand(${JSON.stringify(jsLauncher)}, candidate),
-      native: mod.createServerLaunchCommand(${JSON.stringify(nativeLauncher)}, candidate),
-      cmd: mod.createServerLaunchCommand(${JSON.stringify(cmdLauncher)}, candidate, "win32", { ComSpec: "cmd.exe" }),
-      prefix: mod.executeCommandIDPrefix(${JSON.stringify(cwd)}),
-      otherPrefix: mod.executeCommandIDPrefix(${JSON.stringify(path.join(repo, "packages", "other"))}),
-    }));
-  `;
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--disable-warning=ExperimentalWarning",
-      "--experimental-strip-types",
-      "--input-type=module",
-      "--eval",
-      script,
-    ],
-    {
-      cwd: repo,
-      encoding: "utf8",
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const parsed = JSON.parse(result.stdout) as {
+  const observed = (() => {
+    const candidate = { cwd: (cwd), resolveFrom: (cwd), tsconfig: (tsconfig) };
+    return {
+      js: mod.createServerLaunchCommand((jsLauncher), candidate),
+      native: mod.createServerLaunchCommand((nativeLauncher), candidate),
+      cmd: mod.createServerLaunchCommand((cmdLauncher), candidate, "win32", { ComSpec: "cmd.exe" }),
+      prefix: mod.executeCommandIDPrefix((cwd)),
+      otherPrefix: mod.executeCommandIDPrefix((path.join(repo, "packages", "other"))),
+    };
+  
+  })();
+  const parsed = observed as {
     cmd: {
       args: string[];
       command: string;
@@ -115,4 +102,4 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
     TTSC_VSCODE_COMMAND_SHIM_ARG_4: `"--execute-command-id-prefix=${parsed.prefix}"`,
     TTSC_VSCODE_COMMAND_SHIM_ARG_5: `"--tsconfig=${tsconfig}"`,
   });
-};
+}

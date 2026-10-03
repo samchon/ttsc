@@ -118,10 +118,14 @@ func copyPrismaOutcome(outcome prismaSetOutcome) prismaSetOutcome {
 //
 // The composition is the whole cache key, which is what makes staleness
 // structural rather than improbable: identical bytes in identical order parse
-// to identical models, so a hit can only return what the current schema means.
-// The path is folded in beside each file's own hash, so moving a model between
-// two files of one set — which changes nothing about the bytes as a whole —
-// still changes the key, and so does adding or removing a file.
+// to identical models, so a hit returns what the current schema means to the
+// parser that first read it. The key names no project root and no parser
+// installation, deliberately, so equal schemas share one entry across roots; a
+// resident host serving two projects that resolve different parser builds
+// shares the entry between them. The path is folded in beside each file's own
+// hash, so moving a model between two files of one set — which changes nothing
+// about the bytes as a whole — still changes the key, and so does adding or
+// removing a file. That is the key only: a per-unit digest folds in no path.
 //
 // An unreadable file yields no digest at all, which keeps the set out of the
 // cache and leaves the loader's own diagnostic for it.

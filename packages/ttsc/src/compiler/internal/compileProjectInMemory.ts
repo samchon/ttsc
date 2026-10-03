@@ -18,17 +18,18 @@ import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
 import { spawnNative } from "./spawnNative";
 
 /**
- * Compile a project and capture emitted files without writing to the project
- * tree.
+ * Compile a project while capturing emitted outputs instead of placing those
+ * outputs in the project tree. Compiler/plugin caches and plugin side effects
+ * remain owned by their normal paths; this is not a no-filesystem-write mode.
  *
- * When no plugins are configured the fast path spawns the native ttsc compiler
+ * When no plugins are configured the native path spawns the native ttsc compiler
  * host (`cmd/ttsc api-compile`) which returns a structured JSON response
  * containing diagnostics and an output file map. When plugins are present the
- * slow path goes through `runBuild` into a temp directory and reads the files
+ * plugin path goes through `runBuild` into a temp directory and reads the files
  * back from disk.
  *
  * A native response must contain a string-valued output record. Plugin output
- * storage is removed before returning. If removal also fails after a thrown
+ * storage removal is attempted before returning. If removal also fails after a thrown
  * operation failure, both are retained in an AggregateError with the original
  * cause. An unsuccessful returned build retains its diagnostics and partial
  * output in that aggregate; removal failure after success propagates directly.
@@ -40,11 +41,11 @@ import { spawnNative } from "./spawnNative";
  * @evidence contracts/common.md#clear-and-simple-design One router separates structured native capture from plugin-backed disk emission while project discovery, native execution and build semantics remain with their owning helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin discovery failure routes through the build's real diagnostic path, and an absent or malformed native output record cannot become an empty successful compile.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe both compile lanes and output-key ownership; separated return members explain diagnostics/status versus emitted content under documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms The native lane captures output once; the plugin lane visits E directory entries, sorts F file paths once in O(F log F) and reads each emitted file once, with compiler work and emitted bytes dominating processing.
+ * @evidence contracts/performance.md#efficient-algorithms Project discovery/plugin admission and native-host source/cache construction are delegated costs of this call. The native lane captures, decodes and parses complete JSON output; the plugin lane visits E entries, sorts F paths with path-text comparison costs and reads emitted bytes once. Native I/O, compiler work, output-key text and temporary storage grow with their actual inputs; no measured lane speed ranking is claimed.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each compile observes potentially changed source and plugin effects; this API owns no proven equivalent-generation cache. The native binary builder independently reuses its valid artifact.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Native capture is disposed by spawnNative; plugin emission owns one temporary tree through finally removal. Cleanup failure propagates after success and aggregates with a thrown failure or a build outcome carrying nonzero status or error diagnostics, preserving its diagnostics and partial output rather than masking it.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Native capture cleanup is best effort in spawnNative; plugin emission owns one accepted temporary tree through finally removal, while temp acquisition has its own failure limitations. Cleanup failure propagates after success and aggregates with a thrown failure or a build outcome carrying nonzero status or error diagnostics, preserving its diagnostics and partial output rather than masking it.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and pathToKey converts only host separators in returned protocol keys, preserving literal POSIX backslashes.
  */
 export function compileProjectInMemory(options: ITtscCompilerContext): {
@@ -157,7 +158,7 @@ function compileProjectWithPlugins(
       // answers an inferred common source directory with TS5011 as soon as any
       // `outDir` is in play, so pin the root it would infer. The keys
       // `outputKeyMapper` builds are unchanged by it — that root is exactly the
-      // layout tsgo already lays the emit out against (issue #1172).
+      // layout tsgo already lays the emit out against.
       pinInferredRootDir: true,
       quiet: true,
       resolvedProject: project,

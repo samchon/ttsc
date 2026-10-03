@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverPublicGuardPaths verifies exported driver helpers fail safely for
+// TestDriverPublicGuardPaths Verifies exported driver helpers fail safely for
 // nil or manually-assembled inputs.
 //
 // These guards are command-facing fallback behavior, so the test avoids real
@@ -16,6 +16,11 @@ import (
 // 1. Exercise diagnostic helpers without a shim diagnostic anchor.
 // 2. Exercise nil Program inspection and emit entrypoints.
 // 3. Assert each guard returns a plain result or error instead of panicking.
+//
+// @evidence contracts/testing.md#behavioral-verification Diagnostic helpers return literal warning/string results, while nil Program inspection returns empty results and each guarded emit/config entry returns the named error.
+// @evidence contracts/testing.md#independent-expectations Public nil-input behavior and authored diagnostic fields establish the expected strings, empty values and failure categories independently of compiler state.
+// @evidence contracts/testing.md#distinguishing-cases Warning severity, positional and file-only strings, nil SourceFile/SourceFiles, nil parsed config and three nil emit facades retain individual checks.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver guard unit calls public operations directly without creating a Program, host, fixture installation or process.
 func TestDriverPublicGuardPaths(t *testing.T) {
   // Diagnostic assertion: manually assembled diagnostics still need useful
   // severity and string behavior for command-side error messages.

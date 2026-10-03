@@ -15,6 +15,7 @@ import type { FlagSpec } from "./FlagSpec";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This selector returns an independent mutable array and owns no request coordinator; parseFlags owns reuse of the derived immutable acceptance index.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Matching row references are returned to the caller in a fresh array; no historical result or external resource is retained by this selector.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation flagsForSubcommand computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function flagsForSubcommand(subcommand: AnySubcommand): FlagSpec[] {
   return FLAG_SCHEMA.filter((flag) => flag.subcommands.includes(subcommand));

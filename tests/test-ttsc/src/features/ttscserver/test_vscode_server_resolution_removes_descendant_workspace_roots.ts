@@ -1,6 +1,7 @@
-import { TestProject } from "@ttsc/testing";
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -10,43 +11,33 @@ import path from "node:path";
  * folder that was removed. Stopping only exact root matches would leave that
  * client alive after the owning workspace folder disappeared.
  *
- * 1. Import the pure server resolution helper.
+ * 1. Call the authored server resolution helper in the unit process.
  * 2. Provide one removed workspace root with a nested client and a sibling.
  * 3. Ask which clients are inside the removed root.
  * 4. Assert the descendant is selected and the sibling is preserved.
+ *
+ * @evidence contracts/testing.md#behavioral-verification rootsInsideRemovedWorkspace returns clients below the removed workspace only.
+ * @evidence contracts/testing.md#independent-expectations The expected list is the single authored nested path: a client rooted below the removed workspace must stop and a client in another workspace must remain, which follows from the removal contract rather than from the helper's containment code.
+ * @evidence contracts/testing.md#distinguishing-cases A nested client below the removed root is selected and an unrelated sibling directory (tmp/other next to tmp/repo) is not. The removed root itself in the list and an alias or case-variant spelling are not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
-export const test_vscode_server_resolution_removes_descendant_workspace_roots =
-  () => {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const removed = path.join(repo, "tmp", "repo");
-    const nested = path.join(removed, "packages", "demo");
-    const sibling = path.join(repo, "tmp", "other");
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
-      console.log(JSON.stringify(mod.rootsInsideRemovedWorkspace([
-        ${JSON.stringify(nested)},
-        ${JSON.stringify(sibling)}
-      ], ${JSON.stringify(removed)})));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      { cwd: repo, encoding: "utf8" },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      (JSON.parse(result.stdout) as string[]).map((entry) =>
-        path.normalize(entry),
-      ),
-      [path.normalize(nested)],
-    );
-  };
+export function test_vscode_server_resolution_removes_descendant_workspace_roots() {
+  const parent = TestProject.tmpdir("vscode-removed-missing-roots-");
+  const removed = path.join(parent, "repo");
+  const nested = path.join(removed, "packages", "demo");
+  const sibling = path.join(parent, "other");
+  for (const entry of [removed, nested, sibling]) assert.equal(fs.existsSync(entry), false);
+  const observed = (() => {
+    return mod.rootsInsideRemovedWorkspace([
+      (nested),
+      (sibling)
+    ], (removed));
+  
+  })();
+  assert.deepEqual(
+    (observed as string[]).map((entry) =>
+      path.normalize(entry),
+    ),
+    [path.normalize(nested)],
+  );
+}

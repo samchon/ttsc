@@ -16,6 +16,9 @@ import type { ITtscApi } from "./ITtscApi";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native member JSDoc explains bridge and shared filesystem ownership, following
  *   the documentation skill's requirement for nonobvious usage context.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IBootResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IBootResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IBootResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface IBootResult {
   /** The typed API object bound by the wasm to `globalThis[apiName]`. */

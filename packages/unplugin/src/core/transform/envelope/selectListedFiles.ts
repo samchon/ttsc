@@ -10,6 +10,14 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Validation follows the supported string-list shape rather than accepting guessed values or special filenames; the function does not mutate the producer list.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the graph-list use, malformed-member handling and duplicate ownership, with a blank line before acknowledgments following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve preserves absolute paths and interprets relative members using the host's path semantics instead of manually joining separators or folding case.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Scans every array member, including malformed members, and resolves each
+ *   nonempty string once. Cost includes native root/entry path text; the returned
+ *   array retains accepted entries and resolved path text, including duplicates.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function selectListedFiles(
   projectRoot: string,

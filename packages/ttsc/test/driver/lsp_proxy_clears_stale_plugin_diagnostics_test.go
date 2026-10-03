@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsStalePluginDiagnostics verifies a later empty plugin result
+// TestLSPProxyClearsStalePluginDiagnostics Verifies a later empty plugin result
 // clears diagnostics the proxy published earlier for the same URI.
 //
 // LSP publishDiagnostics replaces the whole diagnostic set for a URI. When a
@@ -19,6 +19,11 @@ import (
 // 1. Return one plugin diagnostic for `didOpen`.
 // 2. Return no plugin diagnostics for `didSave`.
 // 3. Assert the second plugin publish carries an empty diagnostics array.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes a finding on didOpen and an empty diagnostic array on didSave after the stub returns no findings.
+// @evidence contracts/testing.md#independent-expectations LSP publications replace the prior set for a URI; an empty second result must clear the first literal finding.
+// @evidence contracts/testing.md#distinguishing-cases A populated-to-empty plugin transition is covered; the body checks second result length and does not assert the first publication fields.
+// @evidence contracts/testing.md#execution-ownership Go test/driver uses a saved temporary file and in-process pipe proxy with successive stub diagnostic results.
 func TestLSPProxyClearsStalePluginDiagnostics(t *testing.T) {
   call := 0
   source := &stubSource{

@@ -16,6 +16,20 @@
  * @evidence contracts/common.md#clear-and-simple-design One normalized declaration shape represents both host object and array forms without mixing parsing with compiler-path translation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Regex aliases are not silently coerced into unsupported compiler patterns, and no other host is claimed to supply Vite's alias contract.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain form ownership, unknown find, and root-relative resolution; useful member comments retain the boundary reasons.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Optional root carries a native Vite directory, while find remains module
+ *   syntax and replacement may be native absolute, root-relative or unsupported
+ *   module/package text. Translation owns native anchoring, not erasure or
+ *   a blanket path interpretation of every declared string.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This carrier defines declared fields; normalization and translation own
+ *   scans, native anchoring and precedence algorithms.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This carrier implements no shared-work coordinator; translation and host
+ *   configuration owners determine equivalent declaration populations.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Host configuration and translator own declaration/output lifetime. The
+ *   carrier defines no independent acquisition or retention policy.
  */
 export interface TtscDeclaredAlias {
   /** The alias key, as declared: a module specifier prefix, or a `RegExp`. */
@@ -26,8 +40,9 @@ export interface TtscDeclaredAlias {
 
   /**
    * The Vite root a replacement with a leading `/` is resolved against first,
-   * as `vite:resolve` does. Absent for a caller that passes raw aliases, which
-   * resolve against `process.cwd()`, Vite's own default root.
+   * as `vite:resolve` does. Absent for a caller that passes raw aliases, whose
+   * absolute replacement is then read as itself and never against a guessed
+   * root (`createAliasPaths`).
    */
   root?: string;
 }

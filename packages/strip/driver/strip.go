@@ -262,13 +262,6 @@ func parseCallPattern(text string) (callPattern, error) {
   return callPattern{parts: parts, wildcard: wildcard}, nil
 }
 
-// matches reports whether a dotted call name (e.g. "console.log") matches
-// the pattern. Wildcard patterns require at least one extra segment beyond
-// the pattern prefix.
-func (p callPattern) matches(name string) bool {
-  return p.matchesParts(strings.Split(name, "."))
-}
-
 // matchesParts compares already segmented names so a multi-pattern search
 // does not allocate the same segments for every candidate pattern.
 func (p callPattern) matchesParts(parts []string) bool {

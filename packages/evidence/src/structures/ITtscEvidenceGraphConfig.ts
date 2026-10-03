@@ -13,6 +13,7 @@ import type { ITtscEvidenceGraphClaim } from "./ITtscEvidenceGraphClaim";
  * @evidence contracts/common.md#clear-and-simple-design The root holds only the claim collection; population and policy decisions stay in claim and reference types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No repository-specific path, expected coverage result or bypass flag is embedded in this root representation.
  * @evidence contracts/common.md#meaningful-documentation The root and claims comments explain relationship direction, independent coverage and the nonempty-array runtime requirement that TypeScript's array type cannot enforce.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type holds a list of claims and names no path, file, filesystem or process itself.
  */
 export interface ITtscEvidenceGraphConfig {
   /**

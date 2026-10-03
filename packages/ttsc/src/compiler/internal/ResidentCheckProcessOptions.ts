@@ -10,6 +10,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration uses explicit invocation data rather than recognizing a plugin name or supplying fixture-specific compiler arguments.
  * @evidence contracts/common.md#meaningful-documentation The type explains fixed startup state, and separated member comments document native executable, argument and environment authority following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The executable and cwd are native paths, argv remains separate strings, and environment names retain the supplying boundary's native identity policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ResidentCheckProcessOptions {
   /** Full argv of the sidecar, including its `check-serve` subcommand. */

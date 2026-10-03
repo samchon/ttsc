@@ -2,19 +2,29 @@ package main
 
 import (
   "os"
-  "os/exec"
   "path/filepath"
   "runtime"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
-// TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents proves the two
-// owners of a selected lexical module path stay separate:
+// TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents checks the
+// identity-only auxiliary state for a selected lexical module path:
 //
-//  1. ordinary source bytes are owned by graphSession.sourceHashes, so an
-//     identity-only auxiliary state must not turn their edit into a reload;
+//  1. editing source bytes must not invalidate identity-only auxiliary state;
+//     this test does not exercise graphSession's separate source-hash owner;
 //  2. retargeting the same lexical symlink or junction must invalidate even
 //     when the old and new target bytes agree.
+//
+// 1. Capture identity-only state through an actual directory alias.
+// 2. Edit source bytes, then recreate the alias against the equal-byte target.
+// 3. Contrast invalidation decisions and content-sensitive duplicate priority.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual captureDiskStates and diskStatesChanged observe a lexical directory alias before and after a source-byte edit and a physical retarget; compactAuxiliaryInputs checks duplicate ownership.
+// @evidence contracts/testing.md#independent-expectations Literal equal target bytes define the retarget control, while the first target's changed bytes must not invalidate identity-only state. Explicit duplicate inputs require the content-sensitive entry to win.
+// @evidence contracts/testing.md#distinguishing-cases Source-content edit versus same-byte physical retarget distinguishes content from identity ownership; a duplicate identity-only/content-sensitive path verifies compaction priority.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes actual disk-state and compaction owners with a native directory alias: POSIX symlink creation, or the windowsjunction helper's actual cmd.exe child for a Windows junction. It does not launch a compiler product host. Only a permission-denied POSIX symlink creation is skipped; other creation errors fail. TempDir owns all fixtures and aliases.
 func TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents(t *testing.T) {
   root := t.TempDir()
   first := filepath.Join(root, "first")
@@ -47,6 +57,11 @@ func TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents(t *testing.T) {
     t.Fatal("selected source contents leaked into identity-only auxiliary invalidation")
   }
 
+  // At the retarget boundary, both physical targets must have the same bytes.
+  // The preceding edit left first at value 2 and second at value 1.
+  if err := os.WriteFile(filepath.Join(second, "selection.ts"), []byte("export const value = 2;\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
   if err := os.Remove(link); err != nil {
     t.Fatal(err)
   }
@@ -67,19 +82,15 @@ func TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents(t *testing.T) {
 func createAuxiliaryDirectoryLink(t *testing.T, target, link string) {
   t.Helper()
   if runtime.GOOS == "windows" {
-    command := exec.Command(
-      "node",
-      "-e",
-      `require("node:fs").symlinkSync(process.argv[1], process.argv[2], "junction")`,
-      target,
-      link,
-    )
-    if output, err := command.CombinedOutput(); err != nil {
-      t.Skipf("directory junction unavailable on this host: %v: %s", err, output)
+    if err := windowsjunction.Create(link, target); err != nil {
+      t.Fatalf("directory junction creation failed: %v", err)
     }
     return
   }
   if err := os.Symlink(target, link); err != nil {
-    t.Skipf("directory symlink unavailable on this host: %v", err)
+    if os.IsPermission(err) {
+      t.Skipf("directory symlink permission denied on this host: %v", err)
+    }
+    t.Fatalf("directory symlink creation failed: %v", err)
   }
 }

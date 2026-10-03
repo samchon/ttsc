@@ -16,6 +16,7 @@ import type { ITtscEvidenceGraphTypeScriptClaim } from "./ITtscEvidenceGraphType
  * @evidence contracts/common.md#clear-and-simple-design Each artifact-specific interface owns its selector while the common base owns outgoing coverage, so callers narrow one type discriminator.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The alternatives describe supported artifact semantics and contain no consumer-specific variant or test-only escape.
  * @evidence contracts/common.md#meaningful-documentation The JSDoc explains the outgoing relationship and independent obligations rather than repeating the union members, with prose separated from tags.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This union only selects among the artifact claim shapes and names no path, file, filesystem or process itself.
  */
 export type ITtscEvidenceGraphClaim =
   | ITtscEvidenceGraphMarkdownClaim

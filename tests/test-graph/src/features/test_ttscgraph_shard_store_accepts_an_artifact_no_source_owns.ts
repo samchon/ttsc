@@ -1,21 +1,11 @@
-import { DUMP_SCHEMA_VERSION } from "@ttsc/graph";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { TtscGraphShardStore } = require(
-  path.join(graphLib, "model", "TtscGraphShardStore.js"),
-) as {
-  TtscGraphShardStore: new () => {
-    apply(transaction: unknown): { nodes: { id: string; kind: string }[] };
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} & { TtscGraphShardStore: { shardDigest(shard: unknown): string } };
+import { DUMP_SCHEMA_VERSION } from "../../../../packages/graph/src/model/loadGraph";
+import { TtscGraphShardStore } from "../../../../packages/graph/src/model/TtscGraphShardStore";
+import type { ITtscGraphSnapshot } from "../../../../packages/graph/src/structures/ITtscGraphSnapshot";
 
 /** A metadata shard carrying one external leaf and two published artifacts. */
-const metadataShard = () => ({
+const metadataShard = (): ITtscGraphSnapshot.IShard => ({
   key: "metadata",
   nodes: [
     {
@@ -66,22 +56,22 @@ const metadataShard = () => ({
  * 1. Apply a transaction whose metadata shard carries an external leaf and two
  *    artifacts, one of them with no file at all.
  * 2. Assert the transaction is accepted and every node survives.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Authored TtscGraphShardStore.apply accepts a metadata transaction containing a Markdown section, a fileless Swagger operation and an external interface; all three literal node kinds survive reconstruction instead of artifacts being rejected as source-owned facts.
+ * @evidence contracts/testing.md#independent-expectations Literal IDs and expected kinds come from the declared artifact and external-leaf inputs, and the pinned generation covers the authored fixture producer identity. The shard digest is produced by shardDigest, so this case does not independently prove digest correctness; it tests acceptance and node preservation.
+ * @evidence contracts/testing.md#distinguishing-cases The metadata shard combines a file-bearing section and an operation with an empty file alongside the external leaf previously accepted by this guard, distinguishing artifact acceptance from rejecting all non-external nodes or losing existing external facts. Invalid authored-node ownership is outside this positive consumer case.
+ * @evidence contracts/testing.md#execution-ownership The matching src/features test_ttscgraph_shard_store_accepts_an_artifact_no_source_owns export directly imports the authored shard store and schema version; the source-unit runner executes the synchronous transaction in its Node process without requiring a built CJS graph package or spawning a native producer.
  */
-export const test_ttscgraph_shard_store_accepts_an_artifact_no_source_owns =
-  (): void => {
+export function test_ttscgraph_shard_store_accepts_an_artifact_no_source_owns(): void {
     const shard = metadataShard();
-    const digest = (
-      TtscGraphShardStore as unknown as {
-        shardDigest(shard: unknown): string;
-      }
-    ).shardDigest(shard);
+    const digest = TtscGraphShardStore.shardDigest(shard);
     const store = new TtscGraphShardStore();
     const dump = store.apply({
       protocolVersion: 1,
       schemaVersion: DUMP_SCHEMA_VERSION,
       project: "/fixture",
       tsconfig: "tsconfig.json",
-      producer: { tool: "fixture", typescript: "7.0.0-dev" },
+      producer: { tool: "fixture", version: "fixture-v1", typescript: "7.0.0-dev" },
       capabilities: ["artifactNodes"],
       universe: { configs: [], roots: [] },
       sequence: 1,
@@ -90,7 +80,7 @@ export const test_ttscgraph_shard_store_accepts_an_artifact_no_source_owns =
       // transaction whose generation does not match, so a changed fixture fails
       // loudly and names the value it expected.
       generation:
-        "7ab24ddc6ab6db01295f0f583b51a8e243791519a3393fd8a328d71cdc572e36",
+        "5f742ac15325301beaf9a0c0e46d34637a50631a9ac909b157ef4b4b225c3692",
       upserts: [{ digest, shard }],
       deletes: [],
       manifest: [{ key: shard.key, digest }],
@@ -112,4 +102,4 @@ export const test_ttscgraph_shard_store_accepts_an_artifact_no_source_owns =
       "interface",
       "the external leaf the metadata shard always carried is gone",
     );
-  };
+}

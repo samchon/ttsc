@@ -43,6 +43,22 @@ import { registrationState } from "./registrationState";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish preload and explicit registration, option
  *   locking and thrown failures; separated tags follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   structuredClone follows the supplied option graph and allocates its detached
+ *   snapshot; a locked call additionally pays deep-comparison cost even when
+ *   idempotent. First installation delegates plugin construction/setup to
+ *   ensureRegistered and the host. Fixed entry-point branches do not erase these costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Runtime-keyed state shares one registration. Before lock each call replaces
+ *   activeOptions; after lock only deep-strict-equal snapshots are accepted,
+ *   without replacing the installed loader or changing its effective options.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Transfers the detached snapshot into runtime state, replacing the old pending
+ *   value until lock. The installed provider/state retains locked options and
+ *   the loader's setup cache for the runtime session; no teardown or fixed option
+ *   byte bound is provided here. Rejected snapshot/deep-compare values are local.
  */
 export function register(options?: TtscUnpluginOptions): void {
   const runtime = bunRuntime();

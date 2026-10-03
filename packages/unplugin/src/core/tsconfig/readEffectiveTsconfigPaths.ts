@@ -8,11 +8,13 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * `extends` chain, and absolutize every mapping target.
  *
  * TypeScript merges `compilerOptions` per option key, so the effective `paths`
- * is the whole object from the nearest config in the chain that declares one
+ * is the whole usable record from the nearest config in the chain that declares one
  * (own config first, then `extends` entries in reverse priority order).
  * Relative targets are anchored at the directory of the config that declares
  * them. TypeScript-Go resolves inherited relative `paths` against the declaring
  * file, not the extending one.
+ * Alias names are own enumerable data properties, including names that coincide
+ * with JavaScript prototype members, so serialization preserves the declared keys.
  *
  * The generated transform tsconfig replaces `paths` wholesale (standard
  * `extends` semantics), so the alias overlay must re-state these base mappings
@@ -28,7 +30,8 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * @evidence contracts/common.md#principled-implementation
  *   Effective paths replace the whole inherited option; each string target
  *   becomes absolute at the declaring directory so wrapper relocation preserves
- *   its resolution meaning. Invalid target entries are not emitted as paths.
+ *   its resolution meaning. Explicit own data properties preserve arbitrary
+ *   alias keys without invoking inherited setters. Invalid targets are omitted.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Declaration lookup, target anchoring and output assembly have separate
@@ -45,6 +48,17 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * @evidence contracts/common.md#meaningful-documentation
  *   Paragraphs explain wholesale replacement and temporary-wrapper anchoring,
  *   including the reason an absolute mapping is necessary instead of optional.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Declaration lookup includes native config resolution and source parsing.
+ *   Output assembly scans every mapping and target, retaining only strings;
+ *   native anchoring and separator conversion also depend on target lengths.
+ *   The temporary filtered arrays and output grow with the selected targets.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This reader assembles one paths overlay. The enclosing transform-config
+ *   capture owns equivalence across reads through its source-chain signature;
+ *   a previous overlay alone does not establish current config contents.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its output is local and handed to the caller.
  */
 export function readEffectiveTsconfigPaths(
   tsconfig: string,
@@ -65,7 +79,12 @@ export function readEffectiveTsconfigPaths(
         absolutizePathsTarget(declared.baseDir, target, path.dirname(resolved)),
       );
     if (absolute.length !== 0) {
-      output[key] = absolute;
+      Object.defineProperty(output, key, {
+        configurable: true,
+        enumerable: true,
+        value: absolute,
+        writable: true,
+      });
     }
   }
   return output;

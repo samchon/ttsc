@@ -3,20 +3,32 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 /**
  * What one delivery hands a host that observes the project through its record
  * (`TtscTransformHooks.project`): the record file and the inputs a watching
- * session's bridge observes to move it. A written digest identifies a current
- * snapshot; an existing record handed over after a refused write has no digest.
+ * session's bridge observes to move it. A digest identifies snapshot bytes
+ * accepted by persistence, which can find identical bytes without rewriting.
+ * An existing record handed over without acceptance for that revision has no
+ * digest.
  *
- * @evidence contracts/common.md#principled-implementation The record path, optional written digest, failure flag and snapshot callback distinguish content proof from a record merely found on disk.
+ * @evidence contracts/common.md#principled-implementation The record path, optional accepted snapshot digest, failure flag and snapshot callback distinguish revision-specific byte acceptance from a record merely found after persistence refusal.
  * @evidence contracts/common.md#clear-and-simple-design One delivery carrier groups the persisted record with its live-watch inputs while keeping reading behind a named callback signature.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent digest remains absent when no current write landed; the type does not fabricate a cache proof for an existing record.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent digest remains absent when persistence accepted no snapshot for this revision; identical existing bytes can be accepted without rewriting, and an arbitrary older record gains no guessed current proof.
  * @evidence contracts/common.md#meaningful-documentation Native members explain digest ownership, recovery state and snapshot replacement; separated members and tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation The actual native record spelling is carried separately from its content digest and input identities, with no OS-wide case assumption.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectRegistration only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectRegistration only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectRegistration only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectRegistration {
   /**
-   * The digest of the bytes this process wrote to {@link record} for the
-   * delivery's generation (`projectRecordDigest`), or `undefined` for a record
-   * no write of this process landed on, handed over as it is. A host that keeps
+   * The digest of snapshot bytes this process wrote or found identical in
+   * {@link record} for the delivery's revision (`projectRecordDigest`), or
+   * `undefined` when persistence accepted no bytes for that revision. A host
+   * that keeps
    * no snapshot of the record compares it with the record's bytes before it
    * serves the module from a cache (`createRollupCachedModuleProof`).
    */
@@ -33,7 +45,7 @@ export interface TtscProjectRegistration {
    */
   inputs: TtscWatchProjectInputs;
 
-  /** Host-approved record path; digest identifies a current written snapshot. */
+  /** Host-approved record path; digest identifies the accepted snapshot bytes. */
   record: string;
 }
 
@@ -48,5 +60,14 @@ export interface TtscProjectRegistration {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Snapshot delivery carries recorded inputs instead of reconstructing evidence from an expected cache outcome.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe snapshot replacement and caller ownership; separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native spellings and identity facts stay in the input carrier; this callback performs no platform-dependent path rewrite.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscWatchProjectInputs only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscWatchProjectInputs only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscWatchProjectInputs only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type TtscWatchProjectInputs = () => readonly TtscWatchInput[];

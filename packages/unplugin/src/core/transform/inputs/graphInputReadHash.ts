@@ -14,7 +14,7 @@ import { compilerStatKind } from "./compilerStatKind";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts BOM constants are encoding discriminants, not expected hashes; failed reads remain null instead of manufactured content.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes failure, BOM normalization, incomplete units and observed-kind provenance, with separated tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral reads use the supplied filesystem and encoding bytes; big-endian UTF-16 is copied before swapping so a shared Buffer is not mutated.
- * @evidence contracts/performance.md#efficient-algorithms Work is O(B) in input bytes with O(B) decoding space for UTF-16; UTF-8 and BOM stripping use shared slices, and an existing kind avoids a second stat.
+ * @evidence contracts/performance.md#efficient-algorithms Native kind and byte observations pay their path/component resolution costs. Decoding and hashing scan B input bytes, with O(B) decoding space for UTF-16; UTF-8 and BOM stripping use shared slices, and an existing kind avoids a second stat. Directory kind avoids the byte read entirely.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This performs a fresh read within one observation; consumers own cross-request hash reuse and its metadata proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Buffers and hash state are call-local; no persistent descriptor, task or retained cache is acquired here.
  */

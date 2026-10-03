@@ -10,22 +10,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitRawDeclarationDirOutputsSurviveOutDirContainment verifies the outDir
-// containment guard exempts declarationDir outputs.
+// TestEmitRawDeclarationDirOutputsSurviveOutDirContainment Verifies that EmitAllRaw retains outDir JavaScript and separate declarationDir outputs while rejecting dependency-adjacent writes.
 //
-// Negative twin for the outputEscapesOutDir predicate (issue #293): a
-// `declarationDir` sits outside `outDir` by design, so its `.d.ts` outputs
-// escape `outDir` legitimately. A guard that only whitelisted `outDir` would
-// silently swallow every declaration of a `declaration + declarationDir`
-// project; this pins the DeclarationDir branch while the self-referenced
-// dependency's own outputs (both `.js` and `.d.ts`) still get skipped.
+// Legitimate declarations outside outDir contrast with forbidden writes beside dependency sources.
 //
-//  1. Reuse the self-referenced dependency layout with `declaration` and
-//     `declarationDir: "types"` added to the nested project.
-//  2. Load with ForceEmit and run EmitAllRaw.
-//  3. Assert `dist/main.js` and `types/main.d.ts` are written.
-//  4. Assert every write lands under `dist/` or `types/` — nothing beside the
-//     dependency's sources.
+// 1. Reuse the self-referenced dependency layout with `declaration` and `declarationDir: "types"` added to the nested project.
+// 2. Load with ForceEmit and run EmitAllRaw.
+// 3. Assert `dist/main.js` and `types/main.d.ts` are written.
+// 4. Assert every write lands under `dist/` or `types/` and none lands beside dependency sources.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAllRaw retains outDir JavaScript and separate declarationDir outputs while rejecting dependency-adjacent writes.
+// @evidence contracts/testing.md#independent-expectations The authored dist/types roots define allowed locations independently of the containment predicate.
+// @evidence contracts/testing.md#distinguishing-cases Legitimate declarations outside outDir contrast with forbidden writes beside dependency sources.
+// @evidence contracts/testing.md#execution-ownership LoadProgram and a recording writer execute directly in Go over a temporary project. Go discovers TestEmitRawDeclarationDirOutputsSurviveOutDirContainment under ./test/driver.
 func TestEmitRawDeclarationDirOutputsSurviveOutDirContainment(t *testing.T) {
   root := t.TempDir()
   writeSelfReferencedDependencyProject(t, root)

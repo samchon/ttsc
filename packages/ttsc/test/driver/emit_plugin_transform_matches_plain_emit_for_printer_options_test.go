@@ -49,10 +49,9 @@ export class Widget {
 // `PrintFileWithSourceMap`. That helper builds `printer.PrinterOptions` by hand
 // from the oracle in `internal/compiler/emitter.go::emitJSFile`; every field it
 // omits takes the Go zero value, so the option is silently ignored on the plugin
-// lane while a plain build honors it. Three fields were missing at once
-// (`removeComments` — found independently by pull request #1154 —
-// `noEmitHelpers`, and `target`) because the only coverage spot-checked
-// `sourceMap` alone. Comparing the two lanes per field, rather than asserting
+// lane while a plain build honors it. `removeComments`, `noEmitHelpers`, and
+// `target` are among the fields that coverage spot-checking `sourceMap` alone
+// would miss. Comparing the two lanes per field, rather than asserting
 // one lane's output in isolation, is what makes the next omission fail here: a
 // wrong-but-consistent emit cannot pass, because the plain lane is the oracle.
 //
@@ -68,6 +67,10 @@ export class Widget {
 //  2. Assert the plugin lane carries the option's observable witness, with a
 //     negative twin one property away where it must not.
 //  3. Assert both lanes emitted the same artifact set with byte-identical text.
+// @evidence contracts/testing.md#behavioral-verification Runs real raw and plugin-lane emits for nineteen authored option rows, checking literal required/forbidden tokens, prefixes and artifacts plus complete byte/set parity.
+// @evidence contracts/testing.md#independent-expectations Literal witnesses independently specify comments, helpers, numeric separator threshold, line endings, BOM and map options; the raw native emitter separately owns compatibility of remaining bytes.
+// @evidence contracts/testing.md#distinguishing-cases Positive/negative option twins and exact ES2020/ES2021 separator threshold distinguish forwarding errors; inline/external maps and BOM placement cover shared-artifact boundaries.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit uses actual emitter helpers with separately loaded Programs for raw/plugin lanes and local write maps, closes both Programs and invokes no native host.
 func TestEmitPluginTransformMatchesPlainEmitForPrinterOptions(t *testing.T) {
   cases := []printerOptionCase{
     {

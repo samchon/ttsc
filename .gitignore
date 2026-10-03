@@ -1,4 +1,4 @@
-# Dependencies and package manager state
+﻿# Dependencies and package manager state
 node_modules/
 
 # Build outputs
@@ -32,9 +32,6 @@ coverage/
 .discussions/
 .playwright-mcp/
 
-# Local Go workspace overlays
-go.work
-go.work.sum
 
 # Reference and experiment checkouts
 .references/
@@ -43,7 +40,7 @@ go.work.sum
 experimental/typia/
 experimental/nestia/
 
-# Benchmark results — an ephemeral artifact, never committed. Each benchmark
+# Benchmark results ??an ephemeral artifact, never committed. Each benchmark
 # package resolves its own work root, so the rule covers the container.
 benchmarks/*/.work/
 

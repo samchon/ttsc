@@ -5,11 +5,11 @@ import type { TtscProjectDirectorySnapshot } from "./TtscProjectDirectorySnapsho
 
 /**
  * Digest a project's root-file membership: the policy that decides it and every
- * directory that can hold a program input, with its membership signature
- * (samchon/ttsc#1419).
+ * directory whose subtree currently contains an admitted regular file, with
+ * its membership signature.
  *
  * It is the same judgement `sameProjectDirectories` makes. Directories that
- * cannot hold a program input are left out, so a bundler filling its output
+ * contain no admitted regular file are left out, so a bundler filling its output
  * directory leaves the digest alone, while a program input appearing anywhere
  * the walk enters changes a signature and with it the digest. The policy is
  * part of it, since the same directories under another rule are another
@@ -22,9 +22,10 @@ import type { TtscProjectDirectorySnapshot } from "./TtscProjectDirectorySnapsho
  * @evidence contracts/common.md#clear-and-simple-design A projection, lexical sort and shared encoding/hash compose the identity without performing another filesystem walk.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Irrelevant emitted trees are excluded by the walk's computed relevance, not hardcoded output names; changed policy remains part of the identity.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain policy inclusion, irrelevant-directory omission and equivalence to the membership comparison; parameter tags name the contributing values.
- * @evidence contracts/performance.md#efficient-algorithms One filtering projection retains relevant directories, then sorting costs O(r log r) for r relevant entries; hashing and serialization scale with the selected signatures and policy representation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The operation hashes caller-supplied values and coordinates no completed or in-flight computation; mutable snapshot arrays and policy do not authorize persistent memoization here.
+ * @evidence contracts/portability.md#os-neutral-implementation Directory addresses and policy path spellings are serialized exactly as recorded by the same native project walk; sorting only removes enumeration order and introduces no independent case or alias equivalence.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary pairs and serialization are local to this call; the digest transfers to its caller and no resource is retained.
+ * @evidence contracts/performance.md#efficient-algorithms Filtering scans all D directory records and retains r relevant address/signature pairs. Pair sorting uses O(r log r) path-text comparisons; stable encoding additionally sorts policy record keys and serializes policy arrays and selected path/signature text, then hashes the emitted bytes. Temporary filter/pair arrays, sorted record copies and JSON text follow those populations rather than only the relevant-directory count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The operation hashes caller-supplied values and coordinates no completed or in-flight computation; mutable snapshot arrays and policy do not authorize persistent memoization here.
  */
 export function projectMembershipDigest(
   policy: ITtscProjectMembershipPolicy,

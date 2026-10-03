@@ -7,31 +7,33 @@ import type { TtscLintSeverity } from "../TtscLintSeverity";
  * Plugin authors expose rules under their own namespace prefix (`demo/no-demo`,
  * `myplugin/foo-bar`). The signature here accepts any `"<namespace>/<rule>"`
  * key with either the bare severity form, the severity tuple, or the
- * severity-plus-options tuple. Plugins tighten a known rule by augmenting
- * `ITtscLintRuleOptionsMap`; the mapped overlay intersected into
- * `ITtscLintRules` then supersedes this `unknown` fallback for that key. An
- * optionless contributor augments this interface directly with
- * `TtscLintRuleSetting` instead:
+ * severity-plus-options tuple. A plugin tightens its rules by publishing an
+ * ordinary exported interface that maps each rule name to its options object,
+ * or to `void` for a severity-only rule; the user passes it as the generic
+ * argument of `ITtscLintConfig`, and the resulting
+ * {@link TtscLintContributorOverlay} intersected into `rules` supersedes this
+ * `unknown` fallback for the listed keys:
  *
  * ```ts
- * import type { TtscLintRuleSetting } from "@ttsc/lint";
- *
- * declare module "@ttsc/lint" {
- *   interface ITtscLintContributorRules {
- *     "demo/no-options"?: TtscLintRuleSetting;
- *   }
+ * export interface IDemoLintRules {
+ *   "demo/no-marker-comment": { markers?: readonly string[] };
+ *   "demo/capitalize-exports": void;
  * }
+ *
+ * export default {
+ *   rules: { "demo/capitalize-exports": "warning" },
+ * } satisfies ITtscLintConfig<IDemoLintRules>;
  * ```
  *
- * Contributor namespaces with no imported augmentation retain the compatible
- * `unknown` options slot.
+ * Contributor namespaces that are not passed to the generic retain the
+ * compatible `unknown` options slot.
  *
  * @reference https://ttsc.dev/lint/development/rules
  *
- * @evidence contracts/common.md#principled-implementation The template-literal index accepts namespaced contributor rules and unknown options only when imported augmentation does not narrow the name.
- * @evidence contracts/common.md#clear-and-simple-design One open interface supports module augmentation while sharing the existing severity setting type.
+ * @evidence contracts/common.md#principled-implementation The template-literal index accepts namespaced contributor rules and unknown options for every name that no contributor interface passed to the config generic lists.
+ * @evidence contracts/common.md#clear-and-simple-design One open interface keeps unlisted contributor names accepted while sharing the existing severity setting type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback is a documented contributor compatibility boundary, not a built-in rule validation bypass.
- * @evidence contracts/common.md#meaningful-documentation Native prose and an augmentation example explain optionless extension and unknown fallback; paragraph and tag boundaries follow documentation guidance.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and an exported-interface example explain typed contributor rules and the unknown fallback; paragraph and tag boundaries follow documentation guidance.
  */
 export interface ITtscLintContributorRules {
   [ruleName: `${string}/${string}`]:

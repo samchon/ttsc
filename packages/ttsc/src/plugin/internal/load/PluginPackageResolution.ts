@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
@@ -19,10 +20,10 @@ import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The ttsc condition is a supported package contract; an opted-in invalid or missing target does not fall back to a runtime barrel that the package intentionally excluded.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain direct/hoisted discovery, dedicated-condition scope, target errors and physical identity; private target helpers document their semantic premises with separated prose under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native joins/relative/realpath and Node resolution preserve OS-neutral paths; slash-based package/export grammar remains distinct from native path boundaries and escape checks.
- * @evidence contracts/performance.md#efficient-algorithms Direct dependency names are deduplicated in one pass and manifest searches stop at the selecting root; wildcard export selection keeps only the highest-ranked pattern in O(p) comparisons without sorting all candidates.
+ * @evidence contracts/performance.md#efficient-algorithms Selected operations account for native ancestor/search-root queries, manifest/name/path bytes and JSON target traversal. Wildcard selection retains the highest-ranked key without sorting, but complete key classification/comparison, recursive substitution/condition inspection and native target queries still contribute work; key count alone is not a processing ceiling.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This resolver owns current filesystem discovery, not a cross-call answer cache; descriptor/capability caches validate the resulting observed inputs.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All collections are call-local and synchronous filesystem queries retain no handles; entry persistence and process lifetimes belong to other owners.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The grouping's private four-name condition list is fixed module policy, not a growing answer history or handle owner. Query arrays/records are owned by selected operations and returned values transfer to callers; persistent entries and process lifetimes belong to other owners.
  */
 export namespace PluginPackageResolution {
   /**
@@ -69,7 +70,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Regular-file kind comes from filesystem metadata rather than suffix guessing or a known-package exception.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states both regular-file and link-following semantics, with separate acknowledgment prose under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native stat provides actual file kind through OS-neutral Node APIs; no platform path spelling assumption determines presence.
-   * @evidence contracts/performance.md#efficient-algorithms One metadata query avoids reading content to determine file kind.
+   * @evidence contracts/performance.md#efficient-algorithms One native metadata query avoids reading file contents for kind; path lookup/link traversal and path-text costs remain delegated rather than bounded by the query count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Presence must be observed now; this predicate owns no metadata cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous query retains no handle or population.
@@ -93,7 +94,7 @@ export namespace PluginPackageResolution {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This pure manifest-key extraction does not interpret native paths or process behavior.
    *
-   * @evidence contracts/performance.md#efficient-algorithms One pass over the two key populations uses average-constant Set membership and O(d) retained output.
+   * @evidence contracts/performance.md#efficient-algorithms Enumeration of the two accepted object key populations preserves first occurrence with a Set. Key/name bytes, property enumeration and hashing accompany key count; temporary key arrays and returned unique names coexist, so output storage is not measured by name count alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The Set deduplicates this result but establishes no retained expensive-work cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The local Set and returned array belong to the call; no persistent population is kept.
@@ -120,7 +121,7 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * The physical `package.json` of dependency `name` as seen from the project:
+   * The selected `package.json` of dependency `name` as seen from the project:
    * the project's own `node_modules/<name>` first, then Node resolution of
    * `<name>/package.json`, then, for a package whose exports hide its manifest,
    * the manifest of the package directory Node resolved the package's entry
@@ -130,16 +131,16 @@ export namespace PluginPackageResolution {
    * selects the entry (`moduleResolutionBaseSelects`), the rule every
    * resolution input of a load stops at. The manifest nearest the entry is not
    * it: a dual package keeps `dist/cjs/package.json` beside its CommonJS build,
-   * and reading that one lost the package's own `ttsc` declaration, so a
-   * hoisted plugin package of that shape was never discovered
-   * (samchon/ttsc#1499).
+   * and reading that one would miss the package's own `ttsc` declaration.
+   * Realpath is best effort: a failed canonicalization retains the selected
+   * native spelling rather than certifying physical identity.
    *
    * @evidence contracts/common.md#principled-implementation Direct manifest lookup precedes Node manifest resolution and selected-entry search-root ownership, so exports-hidden manifests and nested dual-build package.json files do not change package owner identity.
-   * @evidence contracts/common.md#clear-and-simple-design The ordered resolver returns one owning physical manifest while shared helpers handle regular files and selected-root matching.
+   * @evidence contracts/common.md#clear-and-simple-design The ordered resolver returns one selected manifest with best-effort realpath, while shared helpers handle regular files and selected-root matching.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback addresses packages whose export map hides metadata; it does not guess ownership from an entry's nearest nested manifest or special-case a package name.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the three ordered paths and why selected package root differs from nearest manifest, with paragraph/tag separation under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native joins/dirname/realpath and createRequire resolve use actual OS-neutral package paths; package-name slash components follow specifier grammar.
-   * @evidence contracts/performance.md#efficient-algorithms A direct hit returns immediately; fallback visits Node search roots until the one that selected the entry, avoiding irrelevant farther roots.
+   * @evidence contracts/performance.md#efficient-algorithms A direct hit still includes path/name construction, native stat and best-effort realpath. Fallback adds Node manifest/entry resolution and search-root candidate/native identity checks until selection; query counts, complete path/name text and native topology contribute work even when no farther root is visited.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current owning-manifest resolution is not cached here; accepted descriptor answers reuse its separately proved input observations.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query returns a caller-owned path and retains no native handle or cross-call population.
@@ -175,15 +176,17 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * The physical path of the nearest `package.json` at or above `location`, the
-   * manifest whose scope the file belongs to.
+   * Select the nearest regular `package.json` at or above `location`, using its
+   * realpath when available and retaining the selected spelling on failure.
+   * Candidate enumeration and file-kind rechecks are separate observations;
+   * this query does not freeze package scope or certify unresolved identity.
    *
-   * @evidence contracts/common.md#principled-implementation The first regular package.json at or above the location determines package scope; canonicalization returns that selected manifest's physical identity.
+   * @evidence contracts/common.md#principled-implementation Ancestor candidates are rechecked for the first regular manifest, then best-effort canonicalization returns realpath or selected lexical spelling. This current scope observation is not a frozen physical-identity proof.
    * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration and physical resolution stay in shared helpers while this adapter selects the nearest file.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Scope is derived from ancestor candidates, not a known-package path or manifest-shaped directory.
-   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope and physical output, with separate tags under the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope, separate observations and realpath fallback, with separate tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve/realpath provide OS-neutral ancestor and link semantics without manual slash splitting.
-   * @evidence contracts/performance.md#efficient-algorithms The candidate owner stops at the first regular manifest, bounding traversal by ancestor depth.
+   * @evidence contracts/performance.md#efficient-algorithms Candidate enumeration performs native start/ancestor queries and stores complete path strings; find then rechecks candidate file kinds before best-effort realpath. Native path/link lookup and path-text cost accompany depth, and the selection pass repeats metadata queries rather than reusing their earlier observations.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fresh scope query owns no retained discovery cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Candidate arrays and the returned path are call-owned with no open resource retained.
@@ -204,7 +207,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts It stops at the actual nearest regular manifest, without assuming a fixed workspace depth or adding every farther ancestor as a workaround.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states candidate bounds and the existing-start-path requirement, with separate tag prose following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native stat/resolve/dirname provide OS-neutral starting kind and root termination, including Windows volume roots.
-   * @evidence contracts/performance.md#efficient-algorithms One loop visits each relevant ancestor once and stops immediately at a manifest or root; output is O(depth).
+   * @evidence contracts/performance.md#efficient-algorithms The initial kind stat and one manifest-kind query per ancestor accompany native path resolve/dirname work. Candidate storage includes complete path strings at each visited depth; native lookup/link topology and path-text processing are not bounded by ancestor count alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current ancestor candidates are observed per query rather than cached.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned candidate array is caller-owned and no handle or global population is retained.
@@ -237,7 +240,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Arrays and primitive JSON are not promoted to package records by a type cast; parser errors are not suppressed to fabricate missing configuration.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes missing/non-object results from attributed malformed-JSON errors, with paragraph/tag separation under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native file queries and the shared JSON reader interpret actual filesystem paths without POSIX-only parsing or shell invocation.
-   * @evidence contracts/performance.md#efficient-algorithms One metadata check and one file parse cost O(manifest bytes), with no unnecessary dependency traversal.
+   * @evidence contracts/performance.md#efficient-algorithms Native regular-file preflight precedes the shared full UTF-8 read, optional BOM normalization and strict JSON parse. Path/metadata lookup, decode, text/value allocation and parse-error attribution accompany manifest bytes; no dependency traversal or duplicate JSON parse is added.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current manifest content is read per operation; no manifest-answer cache is owned here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads close their descriptors and the parsed record belongs to the caller.
@@ -274,7 +277,8 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * The physical file a plugin specifier names, resolved from the project root.
+   * Resolve a plugin specifier from the project root, using realpath when
+   * available and retaining selected native spelling on canonicalization failure.
    *
    * Absolute and relative specifiers are paths. A package specifier honors the
    * package's `ttsc` export condition first, so a package whose main entry is a
@@ -282,11 +286,11 @@ export namespace PluginPackageResolution {
    * otherwise resolves as Node would.
    *
    * @evidence contracts/common.md#principled-implementation Native absolute/relative inputs use their explicit base; bare packages opt into ttsc target semantics only when a matching branch exists, otherwise Node owns resolution.
-   * @evidence contracts/common.md#clear-and-simple-design One dispatcher keeps plugin-only conditions local and returns canonical selected identity to descriptor loading.
+   * @evidence contracts/common.md#clear-and-simple-design One dispatcher keeps plugin-only conditions local and returns best-effort canonical selection to descriptor loading; unsuccessful realpath is not physical-identity proof.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Dedicated condition selection is a declared package extension, not process-wide patching; opted-in invalid targets fail without falling back to unrelated runtime exports.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path versus package behavior and condition scope; helper comments explain error/null semantics and target constraints, with separated prose under the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation Native absolute/relative detection and path APIs preserve OS-neutral path bases; package exports slash grammar is validated separately before native containment checking.
-   * @evidence contracts/performance.md#efficient-algorithms Path cases return directly; wildcard export selection scans p keys once while condition target evaluation preserves declaration-order short circuiting.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path classification/resolution and best-effort realpath preserve caller bases. Package target URL resolution uses a native pathToFileURL anchor and fileURLToPath decoding before native containment/file checks; URL/export grammar is not interpreted as literal native percent spelling.
+   * @evidence contracts/performance.md#efficient-algorithms Path cases still perform native normalization/realpath; package cases include manifest discovery/read/parse and Node queries. Export selection classifies keys, compares patterns and may recursively substitute/inspect target nodes before short-circuit target resolution. Key/target/path/manifest bytes and native operations contribute cost; no target depth or size ceiling is supplied here.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Resolution reads current package authority and keeps no cross-call answer cache; observed-input cache owners decide reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All target and candidate structures are call-local and no process or descriptor handle is acquired.
@@ -347,7 +351,7 @@ export namespace PluginPackageResolution {
    *
    * Returns `null` to fall back to the normal `require.resolve` when the
    * package does not opt in — no `exports`, or no `ttsc` branch for the
-   * requested subpath — so such a package resolves exactly as it did before. A
+   * requested subpath — so such a package resolves as an ordinary package. A
    * package that opts in gets Node's answer for its target: the file it
    * selects, or the rejection Node would report for it.
    */
@@ -370,7 +374,7 @@ export namespace PluginPackageResolution {
     if (exportsField === undefined) {
       return null;
     }
-    const target = selectExportTarget(exportsField, split.subpath);
+    const target = selectExportTarget(exportsField, split.subpath, packageJson);
     // Only take over when the package actually opts in with a `ttsc` condition
     // for this subpath; otherwise defer so behaviour is unchanged for every
     // package that does not.
@@ -409,7 +413,8 @@ export namespace PluginPackageResolution {
    * Split a bare specifier into its package name and the `.`-prefixed subpath
    * it addresses (`"typia"` → `.`, `"typia/lib/transform"` → `./lib/transform`,
    * `"@scope/pkg/sub"` → `./sub`). Returns `null` for a relative/empty
-   * specifier or a malformed scoped name.
+   * specifier or a scoped name lacking two slash-separated components. This
+   * split is not a complete package-name validity check.
    */
   function splitPackageSpecifier(
     specifier: string,
@@ -434,7 +439,11 @@ export namespace PluginPackageResolution {
    * `exports` value with no `.`-prefixed keys is sugar for the `.` target.
    * Returns `undefined` when no entry addresses the subpath.
    */
-  function selectExportTarget(exportsField: unknown, subpath: string): unknown {
+  function selectExportTarget(
+    exportsField: unknown,
+    subpath: string,
+    packageJson: string,
+  ): unknown {
     if (typeof exportsField === "string" || Array.isArray(exportsField)) {
       return subpath === "." ? exportsField : undefined;
     }
@@ -442,9 +451,14 @@ export namespace PluginPackageResolution {
       return undefined;
     }
     const record = exportsField as Record<string, unknown>;
-    const isSubpathMap = Object.keys(record).some(
-      (key) => key === "." || key.startsWith("./"),
-    );
+    const keys = Object.keys(record);
+    const isSubpathMap = keys.some((key) => key.startsWith("."));
+    if (isSubpathMap && keys.some((key) => !key.startsWith("."))) {
+      throw packageResolutionError(
+        "ERR_INVALID_PACKAGE_CONFIG",
+        `ttsc: "exports" in ${packageJson} cannot mix subpath and condition keys`,
+      );
+    }
     if (!isSubpathMap) {
       // Conditions object: the whole value is the `.` target.
       return subpath === "." ? exportsField : undefined;
@@ -458,7 +472,7 @@ export namespace PluginPackageResolution {
     }
     let pattern: string | undefined;
     let replacement: string | undefined;
-    for (const key of Object.keys(record)) {
+    for (const key of keys) {
       const candidate = exportPatternReplacement(key, subpath);
       if (
         candidate !== undefined &&
@@ -550,8 +564,9 @@ export namespace PluginPackageResolution {
    * already substituted: the absolute file it selects, `null` when a matched
    * branch blocks it, or `undefined` when no branch matches.
    *
-   * A string must be a `./` path whose segments name no `.`, `..`, or
-   * `node_modules`, and must stay inside the package; anything else is an
+   * A string must be a `./` URL target whose segments name no `.`, `..`, or
+   * `node_modules`, and must stay inside the package after URL resolution and
+   * native filename decoding; anything else is an
    * invalid target. An object tries its keys in package order and returns the
    * first branch that matches, so a matched `null` ends the search instead of
    * falling through to `default`. An array returns its first matching entry,
@@ -571,7 +586,7 @@ export namespace PluginPackageResolution {
       ) {
         throw invalidPackageTarget(target, packageJson);
       }
-      const file = path.resolve(packageDir, target);
+      const file = fileURLToPath(new URL(target, pathToFileURL(packageJson)));
       if (isOutsideDirectory(packageDir, file)) {
         throw invalidPackageTarget(target, packageJson);
       }
@@ -606,9 +621,19 @@ export namespace PluginPackageResolution {
     }
     if (target === null) return null;
     if (typeof target === "object") {
-      for (const [key, value] of Object.entries(
-        target as Record<string, unknown>,
-      )) {
+      const entries = Object.entries(target as Record<string, unknown>);
+      if (
+        entries.some(([key]) => {
+          const numeric = Number(key);
+          return String(numeric) === key && numeric >= 0 && numeric < 0xffffffff;
+        })
+      ) {
+        throw packageResolutionError(
+          "ERR_INVALID_PACKAGE_CONFIG",
+          `ttsc: "exports" in ${packageJson} cannot contain numeric condition keys`,
+        );
+      }
+      for (const [key, value] of entries) {
         if (key !== "default" && !conditions.has(key)) continue;
         const resolved = resolvePackageTarget(
           value,
@@ -667,7 +692,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback preserves input data and does not fabricate a target or a cache-valid physical identity.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states link resolution and unchanged-on-failure behavior, with separate tags following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node realpath uses actual native link semantics without separator parsing or blanket case folding.
-   * @evidence contracts/performance.md#efficient-algorithms One native canonicalization query performs no redundant content scan.
+   * @evidence contracts/performance.md#efficient-algorithms One Node realpath request avoids file-content reads; delegated component/link resolution and returned path text depend on native path/topology rather than a constant-time request count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Targets are observed now; no canonical-path cache is owned here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string is caller-owned and no open resource or population remains.

@@ -10,11 +10,10 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestSourceFileAppliesLinkedProgramPlugins verifies that Program.SourceFile
+// TestSourceFileAppliesLinkedProgramPlugins Verifies that Program.SourceFile
 // runs linked ProgramPlugin hooks before handing out the single file.
 //
-// Locks the single-file lane of the same class as the emit-funnel regression:
-// a host's `--file` transform mode fetches one source through SourceFile and
+// This is the single-file lane of the linked-plugin funnel: a host's `--file` transform mode fetches one source through SourceFile and
 // prints it, so if only SourceFiles applied linked plugins, a whole-project
 // run and a single-file run of the same host would disagree about the tree.
 //
@@ -22,6 +21,11 @@ import (
 //     "linked-applied" and pair it with one manifest entry.
 //  2. Fetch index.ts via Program.SourceFile (never calling SourceFiles).
 //  3. Print the returned file and assert the linked rewrite is present.
+//
+// @evidence contracts/testing.md#behavioral-verification Program.SourceFile returns a tree with linked-applied and without linked-pending.
+// @evidence contracts/testing.md#independent-expectations The stub owns two distinct literals, so old-value absence detects missed hooks.
+// @evidence contracts/testing.md#distinguishing-cases Single-file access never calls SourceFiles; whole-program access has separate coverage.
+// @evidence contracts/testing.md#execution-ownership Go unit TestSourceFileAppliesLinkedProgramPlugins is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestSourceFileAppliesLinkedProgramPlugins(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"rewrite","stage":"transform","config":{}}]`)

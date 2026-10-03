@@ -19,6 +19,10 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose distinguishes proof loss from positive mutation evidence;
  *   the candidate comment explains optionality under the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A few constant-time field reads.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Re-evaluated per delivery because a tracker can fail or lose events at any moment.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Reads tracker state flags; it reads no filesystem and parses no path.
  */
 export function notificationsProveMembership(
   cached: TtscCachedProjectTransform,

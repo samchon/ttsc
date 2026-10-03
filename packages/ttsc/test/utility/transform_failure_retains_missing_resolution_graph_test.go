@@ -27,6 +27,11 @@ func (plugin failureGraphMutationProbe) ApplyProgram(*driver.Program, driver.Plu
 // 1. Transform an unresolved type-only package import through the utility host.
 // 2. Require structured diagnostics, its missing candidate, and no source output.
 // 3. Restore only the declaration and verify the next transform runs the plugin.
+//
+// @evidence contracts/testing.md#behavioral-verification RunTransformWithIO over an unresolved type-only import returns structured diagnostics, the missing candidate in the graph and no source output, and after only the declaration is restored the next transform runs the plugin.
+// @evidence contracts/testing.md#independent-expectations The diagnostics, the missing candidate and the plugin call count are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases The invalid program (no plugin call, graph kept) contrasts with the repaired program (plugin called once).
+// @evidence contracts/testing.md#execution-ownership TestTransformFailureRetainsMissingResolutionGraph is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformFailureRetainsMissingResolutionGraph(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Cleanup(resetLinkedPluginRegistry)

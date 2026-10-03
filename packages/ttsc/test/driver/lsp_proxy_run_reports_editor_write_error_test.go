@@ -10,15 +10,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReportsEditorWriteError covers two error branches with
-// one scenario: pumpUpstreamToEditor's malformed-envelope forward path
-// and its augmented-frame forward path. Both must surface a write error
-// when the editor closes its read end mid-session.
+// TestLSPProxyRunReportsEditorWriteError Verifies pumpUpstreamToEditor's
+// malformed-envelope forward path: a non-JSON upstream frame must surface a
+// write error when the editor closes its read end mid-session. The
+// augmented-frame forward path is covered by
+// TestLSPProxyRunReportsEditorAugmentedWriteError.
+//
+// The authored non-JSON body and closed reader independently choose the failure branch.
 //
 //  1. Build a proxy with EditorOut closed on the editor side.
 //  2. Send a malformed upstream frame so the pump takes the parse-error
 //     branch into the failing write.
 //  3. Assert the proxy returns a wrapped io.ErrClosedPipe error.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns io.ErrClosedPipe within three seconds for malformed-frame forwarding to a closed editor.
+// @evidence contracts/testing.md#independent-expectations The authored non-JSON body and closed reader independently choose the failure branch.
+// @evidence contracts/testing.md#distinguishing-cases Malformed envelope forwarding failure differs from augmented writes.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRunReportsEditorWriteError in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRunReportsEditorWriteError(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

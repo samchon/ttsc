@@ -21,12 +21,23 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  * @evidence contracts/common.md#clear-and-simple-design One admission predicate composes membership, relevant tracker changes and universal proof for out-of-program deliveries.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed or omitted notification streams cannot prove unchanged state; unrelated project events are excluded only by compiler membership policy.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain out-of-program stability and relevant change categories before tags.
- * @evidence contracts/performance.md#efficient-algorithms Event scans stop at the first relevant change; authoritative stability avoids a whole walk while universal fallback costs unresolved input observations.
- * @evidence contracts/performance.md#reuse-equivalent-work One generation's watcher and universal authority serves out-of-program deliveries; lost proof requires the caller's complete snapshot.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Trackers and clock references belong to the generation owner; this predicate retains no history or resource.
  * @evidence contracts/portability.md#os-neutral-implementation Actual watcher content authority, compiler membership policy and same-device clock references qualify native observations without OS-name-derived case rules.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Trackers and clock references belong to the generation owner; this predicate retains no history or resource.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Scans the three trackers' recorded changes until a relevant event. Each
+ *   project event pays lexical policy checks and native lstat along its path;
+ *   costs follow event count, path components and policy matching. Admission
+ *   then refreshes the native clock probe and validates universal coverage,
+ *   unresolved content/candidates and plugin environment/tree authority. A
+ *   quiet stream does not make that delegated work constant or eliminate it.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Qualified current notification and universal authority permit sibling
+ *   out-of-program deliveries to reuse the generation without another project
+ *   walk. The predicate is recomputed against live flags and recorded events;
+ *   it caches no boolean permission across a tracker or universal change.
  */
 export function notificationsProveProgramUnchanged(
+  /** Generation supplying live tracker state, compiler policy and universal proof. */
   cached: TtscCachedProjectTransform,
 ): boolean {
   if (!notificationsProveMembership(cached)) return false;

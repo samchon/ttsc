@@ -57,12 +57,26 @@ export namespace EvidenceBenchmarkRuntime {
    * is dropped from the tool list and the thread runs on, so a cohort would
    * launch without the capability the frontend gate demands and nothing would
    * say so until a cell reported it could not drive a browser.
+   *
+   * The optional operator home identifies the credential source and the home
+   * adopted by a pre-isolation thread. Normal launches use the actual user's
+   * `.codex` directory. The returned isolated directory belongs to the caller;
+   * a copy or configuration-write failure may leave a partial directory there.
+   *
+   * @evidence contracts/common.md#principled-implementation Requires the supplied home's actual auth file before choosing a destination, adopts that same home for retained sessions without an isolated home, and otherwise copies only auth bytes plus the pinned browser configuration. This preserves existing thread-store identity without importing unrelated operator configuration.
+   * @evidence contracts/common.md#clear-and-simple-design One existing preparation operation accepts its credential/home dependency explicitly while retaining the default user-home resolution; no CLI flag, new exported abstraction or test-specific branch is added.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Reads and copies actual files through native APIs; tests can supply an owned credential home without replacing os.homedir, filesystem methods, environment globals or an authenticated Codex process.
+   * @evidence contracts/common.md#meaningful-documentation Documents credential-source identity, pre-isolation adoption, caller cleanup ownership and partial-directory failure effects alongside the required browser-server reason.
+   * @evidence contracts/portability.md#os-neutral-implementation os.homedir supplies the production default; path.join and native Node filesystem operations consume the explicit home without shell commands or OS-based path case folding.
+   * @evidence contracts/performance.md#efficient-algorithms Performs fixed existence checks, one auth copy and one small configuration write; time and transient copy cost follow the credential size rather than scanning historical session stores.
+   * @evidence contracts/performance.md#reuse-equivalent-work Retained sessions reuse their existing home identity, but each isolated preparation refreshes auth and pinned configuration because those inputs may change. Session databases are never copied to manufacture reuse.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Returns the original operator home without acquiring it for adopted sessions; new or existing isolated directories transfer to the caller. A failure after mkdir can leave a partial directory, and successful runRoot-undefined homes have no automatic reclamation here; callers must remove their exact owned roots.
    */
   export function prepareCodexHome(
     runRoot: string | undefined,
     retainedSessionId?: string,
+    operatorHome: string = path.join(os.homedir(), ".codex"),
   ): string {
-    const operatorHome: string = path.join(os.homedir(), ".codex");
     const real: string = path.join(operatorHome, "auth.json");
     if (!fs.existsSync(real))
       throw new Error(

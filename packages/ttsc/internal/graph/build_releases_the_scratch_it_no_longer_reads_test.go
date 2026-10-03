@@ -13,13 +13,10 @@ import (
 // reads after the call.
 //
 // Every field asserted nil below is documented build-only and holds pointers
-// into the compiler AST or into the preceding generation's nodes. They used to
-// survive the build, so a consumer retaining the Graph pinned all of it —
+// into the compiler AST or into the preceding generation's nodes. If they
+// survived the build, a consumer retaining the Graph would pin all of it —
 // internal/graphsymbols keeps one for the lifetime of an editor session between
 // invalidations, closing the Program while the maps referencing its AST live on.
-// Measured on this repository's own packages, holding the Graph after closing
-// the Program retained 38.1 MB for @ttsc/lint, 52.5 MB for ttsc, and 58.2 MB for
-// @ttsc/graph; releasing the scratch brings those to 3.7, 5.0, and 4.0 MB.
 //
 // The assertion is structural rather than a heap measurement on purpose: a
 // megabyte threshold is a flaky test, while "the producer stopped holding it" is
@@ -29,6 +26,11 @@ import (
 //  2. Assert every build-only field is released.
 //  3. Assert the two fields the shard expansion reads after the call, and the
 //     graph itself, are not.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a returned Graph carries only what a consumer reads, and still carries what the shard path reads after the call.
+// @evidence contracts/testing.md#independent-expectations The expectation is structural and exact rather than a heap measurement: found by reflection, every unexported map, slice or pointer field of the returned Graph must be nil after both a complete Build and a partial BuildFiles, ExportedTargets and ImplementationSources must remain non-nil, and Nodes, Edges and DocTags must be non-empty. The test cannot tell whether a released field was truly unreferenced elsewhere.
+// @evidence contracts/testing.md#distinguishing-cases Build the complete graph for a one-file project; Assert every build-only field is released; Assert the two fields the shard expansion reads after the call, and the graph itself, are not.
+// @evidence contracts/testing.md#execution-ownership TestBuildReleasesTheScratchItNoLongerReads is a Go source-unit entry. BuildFiles, Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestBuildReleasesTheScratchItNoLongerReads(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -58,7 +60,7 @@ export function run(store: Store): void { store.save() }
   // The partial build is not a second case of the same thing: `baseNodes` and
   // `selectedFiles` are nil on arrival in a complete build, so a complete build
   // alone cannot fail on them. `baseNodes` is the largest of the nine and the
-  // one #1243 flagged as the caution, because it is passed in rather than built.
+  // one that needs the most care, because it is passed in rather than built.
   var mainFile string
   for _, node := range g.Nodes {
     mainFile = node.File

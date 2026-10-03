@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
+import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
 
 /**
  * Verifies default API cleanup removes a dangling runtime cache link.
@@ -15,9 +15,13 @@ import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
  * 1. Point a dedicated cache's runtime entry at a temporary directory.
  * 2. Remove the target so the junction is dangling.
  * 3. Clean through TtscCompiler and assert the link itself is removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The authored TtscCompiler.clean API resolves and removes a dangling runtime link; lstat proves the initial link exists despite existsSync missing its target, and cleanup returns its path before lstat reports ENOENT.
+ * @evidence contracts/testing.md#independent-expectations Node native lstat observes the link itself whereas existsSync follows its target; default cleanup must remove an owned dangling cache entry rather than treating it as absent.
+ * @evidence contracts/testing.md#distinguishing-cases A directory link is first valid, then made dangling by removing only its target; the returned cleanup path and absent terminal link independently detect skipping the dangling entry. A live link, a link with owned runs and a non-link runtime directory are not covered.
+ * @evidence contracts/testing.md#execution-ownership This named source-unit entry imports the authored compiler API and invokes only cleanup over a temporary fixture. No compiler build, consumer install or product host runs; native directory-link input exercises the resolver directly. Missing cleanup candidates can cause the shared identity resolver to query Windows case policy through read-only fsutil, not a compiler or runtime host.
  */
-export const test_ttsccompiler_clean_removes_a_dangling_runtime_link =
-  (): void => {
+export function test_ttsccompiler_clean_removes_a_dangling_runtime_link(): void {
     const root = TestProject.tmpdir("ttsc-dangling-runtime-");
     const project = path.join(root, "project");
     const cache = path.join(root, "cache", "ttsc");
@@ -48,4 +52,4 @@ export const test_ttsccompiler_clean_removes_a_dangling_runtime_link =
       () => fs.lstatSync(runtime),
       (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT",
     );
-  };
+  }

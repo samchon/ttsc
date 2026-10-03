@@ -35,7 +35,10 @@ const inlineSourceMapMarker = "//# sourceMappingURL=data:application/json;base64
 // output with `inlineSourceMap` carries it base64-embedded in a
 // `//# sourceMappingURL=data:...` trailer. Non-map, non-JS/declaration outputs
 // (e.g. `.tsbuildinfo`) are never scanned. Returns (text, false) when there is
-// nothing to correct (no preamble, no map, or unparseable).
+// nothing to correct or the required JSON/base64 fields cannot be decoded.
+// This is a compatibility transformer, not a complete source-map validator.
+// Inline handling selects the last literal marker on an admitted carrier; it
+// does not parse JavaScript to prove that marker belongs to a trailing comment.
 //
 // This compatibility helper only knows a leading-line offset. Native emit
 // callers use Program.NewSourceMapCorrector, which has the generation's exact
@@ -46,13 +49,14 @@ const inlineSourceMapMarker = "//# sourceMappingURL=data:application/json;base64
 // passed to an emit path that already self-corrects (EmitWithPluginTransformers)
 // must not call it again.
 //
-// @evidence contracts/common.md#principled-implementation File kind selects external-map or inline-map correction under the caller's explicit leading-line offset contract; malformed or absent maps remain unchanged.
+// @evidence contracts/common.md#principled-implementation Filename suffix selects external-map or inline-map correction under the caller's leading-line offset contract. Absent markers and failed required JSON/base64 decoding leave input unchanged; full mapping validity and source eligibility are not independently certified.
 // @evidence contracts/common.md#clear-and-simple-design One suffix dispatch delegates JSON mapping changes to AdjustSourceMapForPreamble.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Map carriers use supported output extensions and the declared inline trailer rather than fixture filenames or guessed output positions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states carrier behavior, unchanged-result conditions, and one-time use following the documentation skill.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The dispatch owns no segment-processing strategy; the delegated map correction performs that computation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emitted artifact is corrected once and the operation owns no shared cache.
+// @evidence contracts/performance.md#efficient-algorithms Filename case conversion scans path text; an inline carrier adds a last-marker scan, base64 decoding/encoding and output reconstruction. Delegated JSON, source/content and VLQ processing scale with map and embedded-source bytes; unsupported suffixes avoid scanning output text.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This function owns no shared cache or delivery coordinator; callers must enforce the documented one-time correction, which this operation does not independently track.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary decoding buffers are local and no resident collection or resource is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation AdjustEmittedSourceMap computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func AdjustEmittedSourceMap(fileName, text string, dropLines int) (string, bool) {
   if dropLines <= 0 {
     return text, false
@@ -117,10 +121,12 @@ func adjustInlineSourceMap(text string, dropLines int) (string, bool) {
 // every mapping for real code lands `dropLines` lines too far down (on blank or
 // nonexistent lines), so a debugger jumps to the wrong place.
 //
-// This rewrites the map's `mappings` to undo that shift, per source: a segment is
-// only adjusted when its source file (`sources[sourceIndex]`) is one the preamble
-// was injected into (`isSourcePreambleTarget`) — so a mixed map (e.g. a bundled
-// `.js`/`.json` map under `outFile`) leaves `.json` segments alone. For an
+// This rewrites the map's `mappings` using a filename-suffix source mask. With
+// a decoded sources array and an in-range source index, non-target suffixes
+// remain unshifted, so a mixed `.js`/`.json` map leaves `.json` segments alone.
+// Missing or undecodable sources, and out-of-range mapping indices, default to
+// adjustment rather than independently proving which files received a preamble.
+// Callers must supply valid maps and the appropriate leading-line contract. For an
 // adjusted source, segments inside the preamble region (source line < dropLines)
 // are dropped — those generated lines are the emitted preamble comment, which has
 // no real-source counterpart and is left unmapped — and every remaining segment's
@@ -132,15 +138,17 @@ func adjustInlineSourceMap(text string, dropLines int) (string, bool) {
 // hashbang, or partial-line insertion. Use Program.NewSourceMapCorrector for
 // emitted artifacts or Program.AuthoredSourceMap for a syntactic printer map.
 // Returns (rewritten, true) when changed, or (input, false) when there is nothing
-// to do or the map cannot be parsed.
+// to do or required JSON fields cannot be decoded. Mapping segments are handled
+// permissively; the result does not certify complete source-map validity.
 //
 // @evidence contracts/common.md#principled-implementation The line-only API removes leading injected source lines and recomputes source-map deltas while preserving generated-column-only segments; exact BOM/hashbang/same-line placement requires the Program.AuthoredSourceMap boundary instead.
 // @evidence contracts/common.md#clear-and-simple-design JSON extraction, source eligibility, segment shifting, and embedded-content trimming are separate helpers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Delta accumulators track decoded source positions even for dropped mappings, avoiding a constant encoded-delta patch that corrupts later segments.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state leading-line limitations, exact-correction alternatives, and single-application behavior following the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Mappings are decoded and re-encoded in one segment pass; source masks and optional embedded content are processed once per map.
+// @evidence contracts/performance.md#efficient-algorithms JSON decoding/serialization scans map bytes; mapping line/segment splits and VLQ decoding/encoding process mapping text, while source masks scan filename bytes and optional content trimming processes embedded-source text. These invocation-local arrays and output buffers scale with those inputs; one segment pass maintains separate input/output delta accumulators instead of rescanning earlier segments.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A map correction owns no cross-request cache or shared computation coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded JSON and segment buffers are invocation-local without a retained cache or external handle.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation AdjustSourceMapForPreamble computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
   if dropLines <= 0 || strings.TrimSpace(mapText) == "" {
     return mapText, false

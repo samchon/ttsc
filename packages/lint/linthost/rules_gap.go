@@ -258,12 +258,9 @@ func (noWrapperObjectTypes) Check(ctx *Context, node *shimast.Node) {
     return
   }
   message := "Use primitive type keywords instead of wrapper object types."
-  // Shadow guard: if the user has declared `type String = …`,
-  // `interface String { … }`, or `class String { … }` at file scope,
-  // their `String` is NOT the global wrapper and a rewrite to `string`
-  // would change the type. Pre-existing detection issue, but the fix
-  // would silently corrupt the type — bail to detection-only when a
-  // shadowing declaration exists in the same file.
+  // A file-scope type/interface/class can introduce its own wrapper name.
+  // This AST-local policy also conservatively suppresses reporting beside
+  // same-named value or import bindings, without resolving their type meaning.
   if fileShadowsWrapperName(ctx.File, name) {
     return
   }
@@ -287,9 +284,9 @@ func (noWrapperObjectTypes) Check(ctx *Context, node *shimast.Node) {
 }
 
 // fileShadowsWrapperName reports whether the source file binds its own
-// `String`/`Number`/`Boolean`/`Symbol`/`BigInt`/`Object` at top level, so
-// the referenced name is NOT the global wrapper and a rewrite to the
-// primitive would change the type. Walks SourceFile.Statements once; no
+// `String`/`Number`/`Boolean`/`Symbol`/`BigInt`/`Object` at top level.
+// It classifies syntax, not the referenced type's resolved symbol.
+// Walks SourceFile.Statements once; no
 // memoization because the rule already runs once per TypeReference and
 // the average statement count per file dominates the cost over the inner
 // loop.
@@ -297,9 +294,9 @@ func (noWrapperObjectTypes) Check(ctx *Context, node *shimast.Node) {
 // The guard is intentionally comprehensive: it returns true when the
 // wrapper name is bound by ANY file-scope declaration, because over-bailing
 // (declining to rewrite a real global wrapper because a same-named binding
-// exists) is safe — it only skips a lint fix — whereas under-bailing
-// silently corrupts the type. A binding shadows the global when it comes
-// from:
+// exists) suppresses this rule's finding as well as its fix. A same-named
+// value binding need not create a type, and an import's type meaning is not
+// resolved here. The conservative guard recognizes bindings from:
 //   - a `type` / `interface` / `class` / `enum` declaration,
 //   - a `function` declaration,
 //   - a `namespace` / `module` declaration,

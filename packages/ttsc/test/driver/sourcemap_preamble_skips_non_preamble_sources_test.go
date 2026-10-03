@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreambleSkipsNonPreambleSources verifies the per-source
+// TestAdjustSourceMapForPreambleSkipsNonPreambleSources Verifies the per-source
 // guard: only segments whose source file was preamble-injected are shifted.
 //
 // The preamble is injected into TypeScript/JavaScript sources but NOT into
@@ -19,6 +19,11 @@ import (
 //     dropLines of 3, including an `a.ts` segment inside the preamble region.
 //  2. Run AdjustSourceMapForPreamble.
 //  3. Assert `a.ts` segments dropped/-3, `b.json` segments unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble shifts the TypeScript source mapping to line two, drops its preamble mapping, and preserves both JSON source lines.
+// @evidence contracts/testing.md#independent-expectations Only the authored TypeScript source receives a preamble; literal absolute segment records establish which lines change and which must stay intact.
+// @evidence contracts/testing.md#distinguishing-cases A shifted real TS segment, dropped TS preamble segment, ordinary JSON segment and low JSON segment distinguish source selection and removal.
+// @evidence contracts/testing.md#execution-ownership Go test/driver uses its independent map construction/parsing helpers and calls correction directly without emitting a bundle.
 func TestAdjustSourceMapForPreambleSkipsNonPreambleSources(t *testing.T) {
   const dropLines = 3
   sources := []string{"src/a.ts", "data/b.json"}

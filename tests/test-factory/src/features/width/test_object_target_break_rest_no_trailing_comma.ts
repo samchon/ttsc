@@ -1,8 +1,8 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, type Node, TsPrinter } from "@ttsc/factory";
+import factory, { type Expression, type Node, TsPrinter } from "../../../../../packages/factory/src/index";
 
 import { id } from "../../internal/helpers";
-import { syntaxErrorOf } from "../../internal/oracle";
+import { structure, syntaxErrorOf } from "../../internal/oracle";
 
 const wide = new TsPrinter({ printWidth: 200 });
 const tiny = new TsPrinter({ printWidth: 20 });
@@ -32,6 +32,11 @@ const target = (multiLine?: boolean): Expression =>
  *    `multiLine: true`, flat and broken.
  * 2. Assert every layout compiles in V8.
  * 3. Assert the rvalue twin keeps its trailing comma when it breaks.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Object destructuring targets compile without rest commas while the identical rvalue spread keeps its legal comma.
+ * @evidence contracts/testing.md#independent-expectations V8 compilation supplies grammar authority; authored complete source strings independently fix assignment, for-in, property and spread nesting and binding names. The independently checked rvalue spread comma establishes positional scope.
+ * @evidence contracts/testing.md#distinguishing-cases Assignment/for-in/nested property/spread target/forced multiline run flat and broken; rvalue is the negative twin.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_object_target_break_rest_no_trailing_comma. Runs labeled targets with wide/tiny TsPrinter.print and syntaxErrorOf, retaining each case failure title.
  */
 export const test_object_target_break_rest_no_trailing_comma = (): void => {
   const cases: [string, Node][] = [
@@ -78,9 +83,18 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
       ),
     ],
   ];
-  for (const [title, node] of cases) {
+  const expected = [
+    "({ firstDestructuredBinding, ...remainingDestructuredBindings } = sourceCollectionValue);",
+    "for ({ firstDestructuredBinding, ...remainingDestructuredBindings } in sourceCollectionValues) {}",
+    "({ propertyName: { firstDestructuredBinding, ...remainingDestructuredBindings } } = sourceCollectionValue);",
+    "[...{ firstDestructuredBinding, ...remainingDestructuredBindings }] = sourceCollectionValue;",
+    "({ firstDestructuredBinding, ...remainingDestructuredBindings } = sourceCollectionValue);",
+  ];
+  for (const [index, [title, node]] of cases.entries()) {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
+    TestValidator.equals(`${title} flat preserves target`, structure(flat), structure(expected[index]!));
+    TestValidator.equals(`${title} broken preserves target`, structure(broken), structure(expected[index]!));
     TestValidator.equals(
       `${title} flat compiles`,
       syntaxErrorOf(flat),
@@ -121,5 +135,10 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
     "rvalue twin compiles",
     syntaxErrorOf(rvalue),
     undefined,
+  );
+  TestValidator.equals(
+    "rvalue twin preserves spread",
+    structure(rvalue),
+    structure("var mergedValue = { firstDestructuredBinding, ...remainingDestructuredBindings };"),
   );
 };

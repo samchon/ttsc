@@ -14,6 +14,14 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts String-prefix containment and unconditional case folding are absent, and lexical containment does not claim physical ownership.
  * @evidence contracts/common.md#meaningful-documentation The native comment states lexical scope and explains sibling and cross-root rejection.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral root boundaries use native relative, separator, and absolute-path semantics, including drive/share differences without hardcoded platform roots.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One relative-path normalization examines the two input path lengths;
+ *   boundary checks inspect only that result. No ancestor filesystem walk
+ *   or separate normalized-path collections are needed for lexical containment.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function pathIsWithin(
   child: string,

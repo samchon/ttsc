@@ -1,4 +1,5 @@
 import type { FlagSpec } from "../../../flags/FlagSpec";
+import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 
@@ -12,6 +13,10 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
  * schema, so a question is decided by the flag's identity (any case, one or two
  * dashes) and, for a boolean flag, by the value TypeScript-Go gives it.
  *
+ * Classification observes this unexpanded argv frame. It does not read
+ * response files; their contents and effects remain owned by the native
+ * compiler and cannot be certified by these predicates.
+ *
  * @evidence contracts/common.md#principled-implementation Schema identities and compiler-compatible boolean occurrence parsing distinguish effective flags from mere user-owned presence.
  * @evidence contracts/common.md#clear-and-simple-design The grouping centralizes forwarding classification and preservation policy so higher build layers do not maintain parallel literal flag sets.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared schema metadata replaces producer-name or exact-spelling exceptions, and malformed argv remains under compiler diagnostic ownership.
@@ -20,20 +25,22 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups APIs; selected predicates and argv transformation functions own their scans and allocations.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work No completed or in-flight computation is retained by this API grouping.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace owns no persistent map, task or handle; helper parser state is invocation-local.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A namespace only groups the declarations inside it; each carries its own acknowledgments.
  */
 export namespace PassthroughFlags {
   /**
-   * Whether `--diagnostics` or `--extendedDiagnostics` is in effect after every
-   * forwarded occurrence, read the way TypeScript-Go reads them.
+   * Whether a visible `--diagnostics` or `--extendedDiagnostics` occurrence
+   * remains enabled in this unexpanded argv frame, using native boolean rules.
    *
    * @evidence contracts/common.md#principled-implementation Last-occurrence boolean interpretation matches compiler option assignment, so a later false or null disables earlier diagnostics selection.
    * @evidence contracts/common.md#clear-and-simple-design Shared boolean parsing resolves schema identities; this predicate asks only whether either timing flag remains enabled.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual forwarded tokens and schema determine timing rather than exact-spelling checks or benchmark-only flag handling.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies effective rather than merely present flags and compiler-compatible precedence.
-   * @evidence contracts/performance.md#efficient-algorithms One argv scan records the final value per schema flag, followed by a scan of the bounded flag population.
+   * @evidence contracts/performance.md#efficient-algorithms One native-occurrence cursor records final values per schema flag, then scans enabled schema references. Work includes argv count, token-name normalization and list-lookahead text bytes; local maps/arrays are bounded by distinct schema flags and transient parsing by the current value's bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate inspects current mutable options and coordinates no retained or in-flight computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Boolean state is local to the call; no argument history or resource is retained.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation hasDiagnosticsFlag computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function hasDiagnosticsFlag(options: TtscCommonOptions): boolean {
     const enabled = effectiveBooleanFlags(options);
@@ -44,7 +51,8 @@ export namespace PassthroughFlags {
   }
 
   /**
-   * Report whether the caller forwarded a print-and-exit tsgo flag
+   * Report whether this unexpanded argv frame includes an enabled
+   * print-and-exit tsgo flag
    * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`) that is in
    * effect, so ttsc can avoid adding compile-only flags to a command that is
    * not going to compile.
@@ -59,10 +67,11 @@ export namespace PassthroughFlags {
    * @evidence contracts/common.md#clear-and-simple-design Schema metadata owns terminal classification and the shared parser owns value precedence, avoiding parallel flag lists in build orchestration.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts This uses supported flag metadata rather than selected spelling exceptions or treating malformed argv as a successful terminal request.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain terminal effects, schema ownership and the significance of a disabled occurrence.
-   * @evidence contracts/performance.md#efficient-algorithms Argv is interpreted once and a short-circuit scan finds an enabled terminal flag among final schema values.
+   * @evidence contracts/performance.md#efficient-algorithms A native-occurrence cursor interprets argv once, including token-name and list-lookahead bytes, then short-circuits on an enabled terminal schema flag. Local final-value references are bounded by distinct schema flags; transient parsing scales with the current lookahead value.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Classification reads one options value and establishes no reusable producer or cross-request state.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only invocation-local parser state is allocated; no process or retained history is owned.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Terminal metadata and native-compatible boolean assignments classify compiler argv only; no native path is resolved or process/OS capability acquired here.
    */
   export function forwardsTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -73,8 +82,8 @@ export namespace PassthroughFlags {
   }
 
   /**
-   * Report whether the caller forwarded a terminal flag, in effect, whose
-   * meaning does not presuppose a resolved project (`--init`, `--all`, `-?`).
+   * Report whether an enabled terminal flag visible in this unexpanded frame
+   * has project-independent meaning (`--init`, `--all`, `-?`).
    *
    * Derived from `FLAG_SCHEMA[*].projectFree`, through the same identity
    * resolution as every other classification — never a literal list of flag
@@ -84,10 +93,11 @@ export namespace PassthroughFlags {
    * @evidence contracts/common.md#clear-and-simple-design The same final boolean interpretation serves all classifications while schema metadata owns which commands require a project.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Project bypass is granted by declared flag semantics, not by catching arbitrary setup failures and pretending compilation succeeded.
    * @evidence contracts/common.md#meaningful-documentation The preceding native prose explains the project-independent meaning and schema source; acknowledgments are kept apart from descriptive paragraphs.
-   * @evidence contracts/performance.md#efficient-algorithms One argv interpretation and a short-circuit final-value scan determine classification without loading a project.
+   * @evidence contracts/performance.md#efficient-algorithms The shared occurrence cursor scans token names and list-lookahead text before a short-circuit scan of distinct enabled schema references. Parsing and local value/reference arrays remain invocation-bound; no project read or response-file expansion is added.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This classification does not coordinate repeated production or retain option interpretation between requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All parser state is local and no native resource is acquired.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation A schema projectFree boolean classifies option meaning without resolving configs, reading paths or probing executables; those native capabilities belong to the execution owner.
    */
   export function forwardsProjectFreeTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -98,7 +108,7 @@ export namespace PassthroughFlags {
   }
 
   /**
-   * Report whether the caller forwarded a flag ttsc adds to tsgo internally —
+   * Report whether this unexpanded frame visibly names a flag ttsc adds internally —
    * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or
    * `--noEmit` (ttsc adds it for the pre-emit type-check). When the user also
    * forwards the same flag, post-processing must keep the user-visible effect
@@ -115,10 +125,11 @@ export namespace PassthroughFlags {
    * @evidence contracts/common.md#clear-and-simple-design Presence recognition is separate from effective boolean parsing because preservation and execution classification have different requirements.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognizing malformed user spelling prevents internally supplied values from erasing its compiler error; no producer method or argv is patched.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes presence from enabled state and explains why malformed inline spelling is still recognized.
-   * @evidence contracts/performance.md#efficient-algorithms A short-circuit argv scan resolves tokens until the requested shadow identity is found.
+   * @evidence contracts/performance.md#efficient-algorithms A short-circuit native-occurrence cursor resolves visible flag names and skips consumed operands; work includes visited token-name and list-lookahead bytes. Only transient current-value parsing is allocated, with no final flag table or argv copy.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current argv presence is inspected directly without coordinating a shared or retained producer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This lookup owns no persistent state or handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Canonical shadow identity and argv consumption are compiler-token policy; no token is resolved as a native filesystem path and no process or OS capability is accessed.
    */
   export function forwardsInternalShadowFlag(
     options: TtscCommonOptions,
@@ -129,43 +140,65 @@ export namespace PassthroughFlags {
     // Resolution covers the bare form (`--pretty`), the inline-value form
     // (`--pretty=true`), and case variants (`--PRETTY`). This is identity
     // recognition, not acceptance of an inline boolean value by tsgo.
-    return passthrough.some((token) => {
-      const spec = resolveFlagSpec(token);
-      return spec?.internalShadow === true && spec.name === flag;
-    });
+    for (let index = 0; index < passthrough.length;) {
+      const spec = resolveFlagSpec(passthrough[index]!);
+      if (spec?.internalShadow === true && spec.name === flag) return true;
+      index += readCompilerOptionOccurrence(passthrough, index).width;
+    }
+    return false;
   }
 
   /**
-   * The forwarded argv without the occurrences of the named boolean flags, each
-   * removed together with the value token TypeScript-Go would consume for it.
+   * This unexpanded argv frame without visible occurrences of the named boolean
+   * flags, each removed with the value token TypeScript-Go would consume for it.
    *
-   * Only an occurrence TypeScript-Go itself accepts is removed. A spelling it
-   * rejects (`--diagnostics=false`) or a value it does not consume
-   * (`--diagnostics TRUE`, whose `TRUE` is an input file to it) stays, so the
-   * compiler that receives the rest still reports the malformed argv instead of
-   * ttsc erasing it into a successful build.
+   * Only an occurrence TypeScript-Go itself accepts is removed. An inline
+   * spelling it rejects (`--diagnostics=false`) stays for native diagnosis.
+   * Unconsumed data also stays: `--diagnostics TRUE` removes the enabled option
+   * but leaves `TRUE` as a native input file. Its acceptance or failure belongs
+   * to the compiler, rather than being certified as a malformed boolean here.
    *
-   * @evidence contracts/common.md#principled-implementation Only valid boolean occurrences and the exact value token the compiler consumes are removed; malformed spelling and unrelated input tokens survive.
+   * An empty token preserves an unconsumed lookahead boundary when deletion
+   * would otherwise bind later data to a retained boolean, list or config-only
+   * option. A surviving dash option already preserves that boundary; adjacent
+   * removals defer the fence until they expose data or the end of the frame.
+   * Native parsing ignores the empty token as a positional input.
+   *
+   * @evidence contracts/common.md#principled-implementation The native cursor identifies valid boolean assignments and skips scalar operands. Removal retains malformed spelling and inserts a native-ignored empty lookahead fence when needed to preserve the remaining options, files and diagnostics.
    * @evidence contracts/common.md#clear-and-simple-design One indexed argv walk uses the shared occurrence parser and builds a fresh output array without modifying caller tokens.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid argv is preserved for the compiler's real diagnostic instead of being normalized into a successful request.
    * @evidence contracts/common.md#meaningful-documentation Native examples explain inline rejection and unconsumed uppercase values, giving the reason preservation matters.
-   * @evidence contracts/performance.md#efficient-algorithms The argv walk is linear with membership checks over the small supplied removal-name list; consumed value tokens are skipped rather than parsed twice.
+   * @evidence contracts/performance.md#efficient-algorithms The cursor visits A argv tokens with linear membership checks over D supplied removal names, giving O(A times D) membership work plus visited token/lookahead text bytes. Production consumers supply one or two names; consumed operands are skipped. Returned references grow with A, and transient list parsing with the current value's bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This transforms one argv sequence without retaining or coordinating equivalent computation across requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The new array is transferred to the caller and no token history or handle remains owned here.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Removing compiler-token occurrences and inserting native-ignored empty fences interprets no filesystem path and accesses no process, shell or OS capability; the downstream compiler owns response-file expansion and execution.
    */
   export function withoutBooleanFlags(
     passthrough: readonly string[],
     names: readonly string[],
   ): string[] {
     const out: string[] = [];
-    for (let i = 0; i < passthrough.length; i++) {
-      const occurrence = booleanOccurrence(passthrough, i);
-      if (occurrence !== undefined && names.includes(occurrence.flag.name)) {
-        i += occurrence.width - 1;
+    let previousNeedsFence = false;
+    for (let i = 0; i < passthrough.length;) {
+      const occurrence = readCompilerOptionOccurrence(passthrough, i);
+      const flag = resolveFlagSpec(passthrough[i]!);
+      if (occurrence.booleanValue !== undefined && flag !== undefined &&
+        names.includes(flag.name)) {
+        // Native ignores an empty positional token. It also prevents a
+        // retained boolean/list/config-only option from consuming newly
+        // adjacent data after the removed option disappears.
+        const next = passthrough[i + occurrence.width];
+        if (previousNeedsFence && (next === undefined || !next.startsWith("-"))) {
+          out.push("");
+          previousNeedsFence = false;
+        }
+        i += occurrence.width;
         continue;
       }
-      out.push(passthrough[i]!);
+      out.push(...passthrough.slice(i, i + occurrence.width));
+      previousNeedsFence = occurrence.needsFence;
+      i += occurrence.width;
     }
     return out;
   }
@@ -177,43 +210,15 @@ export namespace PassthroughFlags {
   function effectiveBooleanFlags(options: TtscCommonOptions): FlagSpec[] {
     const passthrough = options.passthrough ?? [];
     const values = new Map<FlagSpec, boolean>();
-    for (let i = 0; i < passthrough.length; i++) {
-      const occurrence = booleanOccurrence(passthrough, i);
-      if (occurrence === undefined) continue;
-      values.set(occurrence.flag, occurrence.value);
-      i += occurrence.width - 1;
+    for (let i = 0; i < passthrough.length;) {
+      const occurrence = readCompilerOptionOccurrence(passthrough, i);
+      if (occurrence.booleanValue !== undefined) {
+        const flag = resolveFlagSpec(passthrough[i]!);
+        if (flag !== undefined) values.set(flag, occurrence.booleanValue);
+      }
+      i += occurrence.width;
     }
     return [...values].filter(([, value]) => value).map(([flag]) => flag);
   }
 
-  /**
-   * Read one argv position the way TypeScript-Go's command-line parser reads a
-   * boolean option.
-   *
-   * The name matches case-insensitively after one or two dashes, and an inline
-   * `=` is not split, so `--flag=false` names no option at all. A following
-   * token is consumed only when it is exactly `true`, `false`, or `null`; only
-   * `false` and `null` turn the option off. Any other following token stays an
-   * argument of its own, and the option is on.
-   */
-  function booleanOccurrence(
-    argv: readonly string[],
-    index: number,
-  ):
-    | {
-        readonly flag: FlagSpec;
-        readonly value: boolean;
-        readonly width: 1 | 2;
-      }
-    | undefined {
-    const token = argv[index]!;
-    if (token.includes("=")) return undefined;
-    const flag = resolveFlagSpec(token);
-    if (flag === undefined || flag.kind !== "boolean") return undefined;
-    const next = argv[index + 1];
-    if (next === "true") return { flag, value: true, width: 2 };
-    if (next === "false" || next === "null")
-      return { flag, value: false, width: 2 };
-    return { flag, value: true, width: 1 };
-  }
 }

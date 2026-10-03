@@ -2,7 +2,6 @@ package driver_test
 
 import (
   "fmt"
-  "os/exec"
   "path/filepath"
   "regexp"
   "strings"
@@ -11,16 +10,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling verifies rewrites
-// follow TypeScript-Go's actual CommonJS binding at every collision depth.
+// TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling Verifies rewrites follow the actual CommonJS binding at every authored collision depth.
 //
-// The driver used to enumerate only the bare root, `_1`, and `_2`. That made a
-// valid default import fail as soon as ordinary locals pushed the emitter to
-// `_3`; a substantially higher case proves the repair has no new finite cap.
+// A driver that enumerated only the bare root, `_1`, and `_2` would fail a
+// valid default import as soon as ordinary locals pushed the emitter to
+// `_3`. The suffix-16 case distinguishes a small fixed enumeration from one
+// tested only at the adjacent boundary; these finite cases do not by
+// themselves prove an unbounded suffix range.
 //
-// 1. Compile bare-root and default-import cases for suffixes 0, 1, 2, 3, and 16.
-// 2. Register the same source-level rewrite through the public driver API.
-// 3. Assert the actual emitted alias, successful emit, and rewritten runtime value.
+// 1. Emit the bare-root and default-import fixtures at suffixes 0, 1, 2, 3 and 16.
+// 2. Register each source-level rewrite and inspect the actual nonambient import binding.
+// 3. Require each literal exported replacement; the same five runtime identities live in the E2E batch.
+//
+// @evidence contracts/testing.md#behavioral-verification Each named Go subtest runs actual driver emission, checks its nonambient suffix binding and requires the independently named exported replacement.
+// @evidence contracts/testing.md#independent-expectations Authored collision counts establish plugin_1, plugin_2, plugin_3 and plugin_16; the bare-root case and literal rewritten-case names are independent controls.
+// @evidence contracts/testing.md#distinguishing-cases Ambient bare root, no collision, adjacent collisions and fifteen locals distinguish finite suffix guesses from declaration-derived aliases.
+// @evidence contracts/testing.md#execution-ownership These five driver unit subcases invoke the compiler directly and inspect output; TestDriverRewriteRuntimeBatch separately loads all five artifacts in one Node process.
 func TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling(t *testing.T) {
   cases := []struct {
     name       string
@@ -104,14 +109,8 @@ func TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling(t *testing.T) {
           t.Fatalf("emitted binding mismatch: got %v, want %q\n%s", binding, expected, js)
         }
       }
-      command := exec.Command("node", "-e", `process.stdout.write(String(require("./index.js").value))`)
-      command.Dir = filepath.Dir(jsPath)
-      output, err := command.CombinedOutput()
-      if err != nil {
-        t.Fatalf("rewritten JavaScript failed: %v\n%s", err, output)
-      }
-      if string(output) != want {
-        t.Fatalf("runtime value = %q, want %q\n%s", output, want, js)
+      if !strings.Contains(js, fmt.Sprintf("exports.value = %q;", want)) {
+        t.Fatalf("rewritten export missing %q:\n%s", want, js)
       }
     })
   }

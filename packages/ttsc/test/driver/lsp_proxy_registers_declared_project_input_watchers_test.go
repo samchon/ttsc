@@ -49,8 +49,20 @@ type decodedDeclaredClientRequest struct {
   Params json.RawMessage `json:"params"`
 }
 
-// TestLSPProxyRegistersDeclaredProjectInputWatchers verifies the complete
+// TestLSPProxyRegistersDeclaredProjectInputWatchers Verifies the complete
 // initialize/register/replace/unregister wire lifecycle.
+//
+// Authored patterns, native URI bases, watcher kind 7 and LSP methods ground protocol expectations.
+//
+// 1. Initialize relative-pattern support and register declared file/glob inputs.
+// 2. Acknowledge a replacement registration before removing the old registration.
+// 3. Publish an empty snapshot and observe unregistration.
+// 4. Forward an unrelated response unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run registers, replaces and removes watcher registrations while preserving an unrelated response.
+// @evidence contracts/testing.md#independent-expectations Authored patterns, native URI bases, watcher kind 7 and LSP methods ground protocol expectations.
+// @evidence contracts/testing.md#distinguishing-cases External missing path with space/hash, glob, replacement and empty snapshot differ; actual OS watch delivery and replacement payload contents are not checked.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRegistersDeclaredProjectInputWatchers in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRegistersDeclaredProjectInputWatchers(t *testing.T) {
   root := t.TempDir()
   external := t.TempDir()

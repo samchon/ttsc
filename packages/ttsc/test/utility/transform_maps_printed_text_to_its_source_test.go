@@ -12,8 +12,7 @@ import (
 
 // TestUtilityTransformMapsPrintedTextToItsSource verifies the transform
 // envelope carries a source map from each changed file's printed text back to
-// the text its author wrote, and none for a file printed unchanged
-// (samchon/ttsc#1392).
+// the text its author wrote, and none for a file printed unchanged.
 //
 // The utility host reprints every transformed file. A bundler handed that text
 // without a map attributes every later position to the reprint: a Rollup build
@@ -28,6 +27,11 @@ import (
 //     and maps `value` to its authored line and column.
 //  2. Transform the plain file with no linked plugin, and assert it is printed
 //     unchanged and carries no map.
+//
+// @evidence contracts/testing.md#behavioral-verification The transform envelope carries a source map from each changed file's printed text back to the authored text, including after a hashbang line, and no map for a file printed unchanged.
+// @evidence contracts/testing.md#independent-expectations The authored text and the authored line and column of value are literals decoded from the map independently.
+// @evidence contracts/testing.md#distinguishing-cases Plain and hashbang inputs differ in where the preamble starts, and the unchanged file carries no map.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformMapsPrintedTextToItsSource is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformMapsPrintedTextToItsSource(t *testing.T) {
   const source = "export const value = 1;\n"
   for name, authored := range map[string]string{

@@ -14,6 +14,11 @@ import (
 //  2. Change only the producer's exported return type.
 //  3. Require both sources to be re-extracted and the new consumer diagnostic
 //     to be transmitted in its replacement shard.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServeShardsRefreshDependentDiagnostics proves a public API edit rebuilds the reverse semantic closure. The dependent source text is unchanged while its checker diagnostic changes, so reusing that shard would be stale.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: after only the producer's return type changes from number to string, the snapshot must be mode incremental and changed, the consumer's shard digest must differ and be upserted, and the extracted file list must be exactly [consumer, value] (the reverse closure, in that order). The consumer's new diagnostic is inferred from the shard digest change rather than read, and The full-projection comparison runs another lane over the same compiler and extraction helpers, so it cannot independently detect a shared checker or extraction defect.
+// @evidence contracts/testing.md#distinguishing-cases Commit a producer and consumer whose public types initially agree; Change only the producer's exported return type; Require both sources to be re-extracted and the new consumer diagnostic to be transmitted in its replacement shard.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsRefreshDependentDiagnostics is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -30,7 +35,7 @@ func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if snapshot, _, _, err := session.SnapshotShards(); err != nil || snapshot == nil {
+  if snapshot, _, _, err := snapshotGraphShardState(session); err != nil || snapshot == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", snapshot != nil, err)
   }
   consumerSource := session.compiler.Program().SourceFile(consumer)
@@ -43,7 +48,7 @@ func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   if err := os.WriteFile(value, []byte("export function value(): string { return 'one'; }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  snapshot, mode, changed, err := session.SnapshotShards()
+  snapshot, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

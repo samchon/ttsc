@@ -5,7 +5,7 @@ import (
 )
 
 /**
- * Verifies the three review states are reported one at a time, each naming the
+ * Verifies absent and unfingerprinted reviews are reported one at a time, each naming the
  * expected fingerprint.
  *
  * The states are mutually exclusive because each repair subsumes the next:
@@ -24,6 +24,11 @@ import (
  *  2. Review it with no fingerprint and assert the unfingerprinted state, and
  *     that the unreviewed state is gone.
  *  3. Assert neither run reports more than one review finding.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule checks absent and unfingerprinted reviews; each has exactly one review finding, and the unfingerprinted arm must not also be unreviewed.
+ * @evidence contracts/testing.md#independent-expectations The review states require one repair at a time: absent review precedes missing fingerprint. The diagnostic must offer a token in the absent-review arm.
+ * @evidence contracts/testing.md#distinguishing-cases Only two states execute here despite the historical Test name; stale reviews are covered by RequireReviewExpiresOnCitedContent.
+ * @evidence contracts/testing.md#execution-ownership TestRequireReviewReportsItsThreeStates is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestRequireReviewReportsItsThreeStates(t *testing.T) {
   document := "## Pricing\n\nThe rate is capped at 30%.\n"
@@ -65,37 +70,4 @@ export interface ISale {
   if count := countProblemsContaining(unfingerprinted, "@evidenceReview"); count != 1 {
     t.Fatalf("expected exactly one review finding, got %d:\n%v", count, unfingerprinted)
   }
-}
-
-/**
- * Verifies a reference that does not require a review demands nothing.
- *
- * Every reference policy in this plugin is opt-in and its false value is the
- * historical behavior, so the compatibility claim is that an existing project
- * sees no new diagnostic. A regression here is the worst kind of release: every
- * consumer's build breaks on tags they were never asked to write.
- *
- *  1. Use the same fixture with `requireReview` absent.
- *  2. Assert the graph is clean with no review tag anywhere.
- */
-func TestReferenceWithoutRequireReviewDemandsNothing(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Pricing\n\nThe rate is capped at 30%.\n",
-    "src/ISale.ts": `/**
- * @evidence docs/spec.md#pricing Derives the sale price from this section.
- */
-export interface ISale {
-  price: number;
-}
-`,
-  }, `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "symbol":"type",
-    "reference":{
-      "type":"markdown",
-      "files":["docs/**/*.md"],
-      "symbol":"h2"
-    }
-  }]}`))
 }

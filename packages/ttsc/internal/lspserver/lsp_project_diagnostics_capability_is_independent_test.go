@@ -18,6 +18,11 @@ import (
 //  2. Seed the diagnostics producer, then make its next refresh fail to launch.
 //  3. Assert only the explicitly capable producer was invoked.
 //  4. Assert its last-good publication remains available after the failure.
+//
+// @evidence contracts/testing.md#behavioral-verification Only the producer that explicitly declares lsp-project-diagnostics is invoked, a topology-only plugin is never probed for it, and the producer's last-good publication survives a failed refresh.
+// @evidence contracts/testing.md#independent-expectations The invocation set and last-good content are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases A topology-only and a diagnostics-only plugin expose the two capability combinations.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsCapabilityIsIndependent is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectDiagnosticsCapabilityIsIndependent(t *testing.T) {
   topologyOnly := NativeLSPPluginEntry{
     Binary:        "ttsc-no-such-topology-only-sidecar",

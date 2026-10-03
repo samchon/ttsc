@@ -23,6 +23,11 @@ import (
 //     `src/index.ts` assigns an arrow function to it.
 //  2. Request one negotiated shard snapshot.
 //  3. Assert the response carries a complete transaction and no error.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies shard assembly succeeds for a project that declares an ambient global in its own `.d.ts` and assigns the implementation elsewhere.
+// @evidence contracts/testing.md#independent-expectations The expectation comes from the shard-protocol transaction invariant, written as literals independent of the shard builder: a first negotiated snapshot must have no error, mode initial, no legacy dump, a non-empty manifest, exactly one upsert per manifest entry and no deletes. The fixture (a global var declared in a .d.ts and assigned in index.ts) reproduces the earlier failure where assembly refused the whole transaction, so that refusal fails the first assertion.
+// @evidence contracts/testing.md#distinguishing-cases Serve a project whose `src/globals.d.ts` declares `var patched` and whose `src/index.ts` assigns an arrow function to it; Request one negotiated shard snapshot; Assert the response carries a complete transaction and no error.
+// @evidence contracts/testing.md#execution-ownership TestServeAnswersAProjectThatImplementsItsOwnAmbientDeclaration is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeAnswersAProjectThatImplementsItsOwnAmbientDeclaration(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -42,7 +47,7 @@ patched = (message: string): void => {
 
   input := strings.NewReader("{\"id\":1,\"graphSnapshotVersion\":1}\n")
   var output bytes.Buffer
-  if code := serveSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
     t.Fatalf("serveSnapshots exited %d: %s", code, output.String())
   }
 

@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies the shared request role and opaque producer, following the
  *   documentation skill's requirement for nonobvious usage context.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSnapshotHandle is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSnapshotHandle is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSnapshotHandle is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscSnapshotHandle {
   /** Opaque handle returned by `snapshot`. */

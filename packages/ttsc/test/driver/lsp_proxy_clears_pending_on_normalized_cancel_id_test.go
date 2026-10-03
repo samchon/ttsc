@@ -7,19 +7,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsPendingOnNormalizedCancelID pins the shared id
-// normalizer between rememberCodeActionRequest and
+// TestLSPProxyClearsPendingOnNormalizedCancelID Verifies the shared id
+// normalizer between handleCodeActionRequest and
 // forgetCancelledRequest. A cancel arriving with id `1.0` must drop
-// the pending entry stored under id `1` (and vice versa) — otherwise
+// the pending entry stored under id `1`. otherwise
 // peers that disagree on numeric encoding leak pending entries across
 // every cancelled codeAction request.
 //
-//  1. Configure a source whose CodeActions would augment the response.
-//  2. Send codeAction request id=1 and drain it upstream.
-//  3. Send $/cancelRequest id=1.0.
-//  4. Send the matching upstream response id=1.
-//  5. Assert the editor receives the response unmodified — the cancel
-//     must have cleared the pending entry despite the different shape.
+// Numerically equal JSON-RPC ids correlate; authored response bytes are the pass-through oracle.
+//
+// 1. Forward a codeAction request with id 1.
+// 2. Forward cancellation with numerically equal id 1.0.
+// 3. Send the upstream response and require unchanged unaugmented bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run cancels id 1 with id 1.0 and forwards the unaugmented response.
+// @evidence contracts/testing.md#independent-expectations Numerically equal JSON-RPC ids correlate; authored response bytes are the pass-through oracle.
+// @evidence contracts/testing.md#distinguishing-cases Integer request and differently spelled float cancellation are exercised in this direction.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyClearsPendingOnNormalizedCancelID in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyClearsPendingOnNormalizedCancelID(t *testing.T) {
   source := &stubSource{actions: []driver.LSPCodeAction{{Title: "should-not-appear"}}}
   h := newProxyHarness(t, source)

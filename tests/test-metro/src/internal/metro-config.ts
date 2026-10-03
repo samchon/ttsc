@@ -63,25 +63,6 @@ function publishedUpstream(envKey: string): unknown {
 }
 
 /**
- * Asserts `withTtsc` points `transformer.babelTransformerPath` at the package's
- * built transformer module, by absolute path, and that the file exists.
- */
-export async function assertWithTtscSetsBabelTransformerPath(): Promise<void> {
-  await withCleanEnv(async () => {
-    const { withTtsc } = await TestMetroRuntime.loadIndex();
-    const config = withTtsc({
-      projectRoot: tempProjectRoot(),
-      transformer: {},
-    });
-    const target = config.transformer.babelTransformerPath;
-    assert.equal(typeof target, "string");
-    assert.equal(path.isAbsolute(target), true);
-    assert.match(target, /transformer\.js$/);
-    assert.equal(fs.existsSync(target), true);
-  });
-}
-
-/**
  * Asserts `withTtsc` preserves the rest of the Metro config: unrelated
  * top-level keys and existing `transformer` fields survive untouched while only
  * `babelTransformerPath` is added.

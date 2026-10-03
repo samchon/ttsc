@@ -6,6 +6,7 @@ import { collectProjectInputSnapshot } from "../project/collectProjectInputSnaps
 import { matchesCachedExternalInputs } from "./matchesCachedExternalInputs";
 import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
+import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";
 import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees";
 import { sameHashes } from "./sameHashes";
 import { sameProjectDirectories } from "./sameProjectDirectories";
@@ -25,17 +26,26 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * The delivered module is compared from disk like every other input: the
  * compile read it from disk, so a delivered text that differs is not the file's
  * state (samchon/ttsc#1394).
+ * The delivery caller refreshes the generation's native clock reference before
+ * this operation; this validator does not mint a reference itself.
  *
- * @evidence contracts/common.md#principled-implementation Universal authority, declared project membership, content hashes and external physical targets must all match before signatures and directory observations are adopted.
- * @evidence contracts/common.md#clear-and-simple-design One complete-proof boundary composes domain validators and commits refreshed witnesses only after their combined success.
+ * @evidence contracts/common.md#principled-implementation Universal authority, declared project membership, content hashes and external physical targets must all match before project/external signatures and directory observations are adopted. Universal entry validators may independently refresh already qualified entry witnesses along the way.
+ * @evidence contracts/common.md#clear-and-simple-design One complete-proof boundary composes domain validators and adopts aggregate project/external witnesses after combined success, while universal entry qualification stays with its owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed notifications neither prove unchanged state nor force recompilation when direct recorded-state validation can establish the same generation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost-notification fallback, membership authority, disk-source comparison and the reason signatures are re-earned.
- * @evidence contracts/performance.md#efficient-algorithms Full membership enumeration is necessary when notifications cannot prove it; declared input keys avoid hashing irrelevant project bytes and stable separable signatures reuse previously proved content.
- * @evidence contracts/performance.md#reuse-equivalent-work Successful complete validation refreshes generation-owned signatures and restores trackers' verified state, allowing subsequent consumers to share the established proof.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Witness updates replace current signatures and directory observations on the existing generation; no historical snapshots or native handles are retained by this proof.
  * @evidence contracts/portability.md#os-neutral-implementation The recorded compiler membership policy and identity context qualify the native walk and lexical alias targets rather than assumed OS case rules.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Current directory observations are replaced; earned signatures merge into generation records, which may retain older entries rather than deleting every unearned witness. Storage follows that generation's directory/input spelling population and lazy identity/selection indexes, without an independent historical snapshot collection or new watcher handle here.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Universal entries/probes/tree environments precede a native membership
+ *   walk. Declared keys avoid irrelevant byte hashes but do not skip directory
+ *   enumeration. Directory/hash comparisons, external spelling and physical
+ *   target scans, signature entry materialization/adoption and native identity
+ *   work add population/path/digit costs; unresolved content and predicate
+ *   replay add bytes/listings. Early rejection skips subsequent domains.
+ * @evidence contracts/performance.md#reuse-equivalent-work Qualified separable signatures avoid repeated content reads under the caller's refreshed clock. Successful aggregate proof adopts earned project/external signatures and clears unverified flags; it neither clears recorded changes/failed flags nor makes later quiet notifications sufficient without their other admission conditions.
  */
 export function matchesCompleteInputSnapshot(
+  /** Generation with a complete capture baseline and caller-refreshed clock proof. */
   cached: TtscCachedProjectTransform,
 ): boolean {
   if (
@@ -56,6 +66,7 @@ export function matchesCompleteInputSnapshot(
   if (
     hostValidation === undefined ||
     !matchesUniversalHostInputEntries(cached, hostValidation) ||
+    !matchesUniversalHostInputProbes(cached, hostValidation) ||
     !matchesUniversalHostInputTrees(cached, hostValidation)
   ) {
     return false;
@@ -105,14 +116,13 @@ export function matchesCompleteInputSnapshot(
     external: externalCurrent.signatures,
     project: current.provenSignatures,
   });
-  // The program's membership is proven unchanged, while a directory that holds
-  // no program input may have appeared since the capture. Adopting the walk's
-  // list registers it with a watching host from now on, so a root file created
-  // in it later is heard (samchon/ttsc#1419).
+  // Adopt current directory witnesses, including newly observed directories
+  // with no current program input. This assignment updates snapshot storage;
+  // it does not register or replace a native watcher (samchon/ttsc#1419).
   cached.projectDirectories = current.projectDirectories;
-  // Every recorded input was just read and still holds, which is exactly what
-  // a gap in a watcher's notifications left unproven, so the watchers' silence
-  // vouches for the state again from here on (samchon/ttsc#1425).
+  // Recorded inputs were proven by replay or qualified metadata, closing the
+  // current notification gap. Failed flags and recorded changes remain for
+  // later notification admission to judge (samchon/ttsc#1425).
   for (const tracker of [
     cached.projectMutationTracker,
     cached.hostInputMutationTracker,

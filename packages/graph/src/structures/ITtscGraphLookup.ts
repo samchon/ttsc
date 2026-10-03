@@ -8,6 +8,10 @@ import { ITtscGraphDocTag } from "./ITtscGraphDocTag";
  * @evidence contracts/common.md#clear-and-simple-design The envelope carries one collection and its completeness indication, leaving search inputs in the request.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The omission flag prevents a bounded exact-citation match from masquerading as exhaustive coverage.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why truncation matters for documentation targets; member blocks remain separated.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphLookup {
   /** Discriminator for targeted symbol lookup. */
@@ -37,6 +41,10 @@ export namespace ITtscGraphLookup {
    * @evidence contracts/common.md#clear-and-simple-design One query owns lookup semantics rather than introducing separate redundant search APIs.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Address spelling is supplied by the caller, with no repository-specific citation shortcuts.
    * @evidence contracts/common.md#meaningful-documentation Separate paragraphs describe name lookup, citation lookup, limits and external declarations with their defaults.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRequest {
     /** Discriminator for targeted symbol lookup. */
@@ -83,6 +91,10 @@ export namespace ITtscGraphLookup {
    * @evidence contracts/common.md#clear-and-simple-design A compact record combines display facts and follow-up identity without source bodies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Matching tags are reported as written rather than certified as true or resolved specifications.
    * @evidence contracts/common.md#meaningful-documentation Member comments explain optional tags, one-based lines and relative score separately.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IHit {
     /** Stable node id for subsequent graph calls. */

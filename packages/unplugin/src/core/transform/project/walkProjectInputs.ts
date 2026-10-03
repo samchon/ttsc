@@ -21,21 +21,34 @@ import { isProjectWalkDirectory } from "./isProjectWalkDirectory";
  * be read, the names no configuration needs ({@link isIgnoredProjectEntry}).
  *
  * Uses an iterative DFS instead of `fs.readdirSync` recursion to avoid
- * unbounded call-stack depth on deep project trees. The result is sorted so
- * that hash comparisons are deterministic across OS-level directory orderings.
+ * unbounded call-stack depth on deep project trees. File paths and each
+ * membership digest's entries use string sorting rather than native directory
+ * order. Directory presentation uses localeCompare and can retain input order
+ * for collation ties; membership equality compares directory paths by key.
  *
  * @evidence contracts/common.md#principled-implementation Iterative lexical descent applies the same configured membership policy as event classification, and metadata bracketing records incomplete or changing directories instead of certifying a torn snapshot.
  * @evidence contracts/common.md#clear-and-simple-design One enumeration pass records child structure, then relevance propagation and digest construction use those records; the second phase is necessary because parent relevance depends on descendants.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exclusion follows resolved compiler admission rather than compensating name lists, and failed observations remain explicit proof failures instead of disappearing from a successful result.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain iterative descent and deterministic output; inline comments explain two-phase relevance, filtered membership and the metadata helper's narrower race-detection role.
- * @evidence contracts/portability.md#os-neutral-implementation The supplied native readdir and bigint stat view owns entry kinds and timestamps; its platform selects child joining, parent extraction and membership grammar, and final sorting removes OS enumeration-order dependence.
- * @evidence contracts/performance.md#efficient-algorithms Iterative DFS avoids call-stack growth, a visited map bounds relevance propagation and child-directory sets avoid repeated linear membership scans; sorting each selected membership list and final paths dominates ordering work.
- * @evidence contracts/performance.md#reuse-equivalent-work Directory metadata and entries are captured once per walk and reused for relevance and digest construction; a new walk reobserves membership rather than trusting an earlier directory timestamp.
+ * @evidence contracts/portability.md#os-neutral-implementation The supplied native readdir and bigint stat view owns entry kinds and timestamps; its platform selects child joining, parent extraction and membership grammar. Digest/file string sorting removes native enumeration order from those results, while localeCompare directory presentation is not a cross-platform total ordering guarantee.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All traversal state is local and returned snapshots transfer to the caller; synchronous filesystem observations leave no retained watcher, handle or task.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   DFS visits admitted directories and scans their native entries, paying
+ *   bracketing stats, path/metadata text and configured policy matching. Visit
+ *   records and a path map let relevance propagate only until an already marked
+ *   ancestor; child sets avoid linear membership searches. Digest entry sorts,
+ *   final file/directory sorts and text hashing add population/comparison costs.
+ *   The explicit frontier, entry/visit records, maps, failures and output arrays
+ *   grow with traversed directories/entries/path text; avoiding recursion does
+ *   not bound that temporary population or file count.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each reached directory is enumerated once with native metadata before and after; its recorded entries serve relevance and digest construction without another enumeration. New walks repeat current observations rather than trusting a prior directory timestamp; immutable policy compilation is shared by the matching owner.
  */
 export function walkProjectInputs(
+  /** Lexical starting directory whose admitted native entries are enumerated. */
   root: string,
+  /** Coherent native metadata/listing view and its path grammar. */
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  /** Resolved compiler admission, or the explicit permissive fallback. */
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): {
   complete: boolean;

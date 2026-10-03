@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { inlineServedSourceMap } from "../../../../../packages/ttsc/lib/launcher/internal/inlineServedSourceMap.js";
+import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher/internal/inlineServedSourceMap";
 
 /**
  * Verifies the serve-time source-map inliner rewrites an external map into an
@@ -15,13 +15,20 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/lib/launcher
  * reads the sibling `.map`, replaces `sources` with the real absolute `file://`
  * URL, drops `sourceRoot`, and re-encodes — and re-running it on
  * already-inlined text (as the shared cross-process dependency cache can) must
- * reproduce the same bytes. A CRLF-terminated emit must rewrite the same way.
+ * reproduce the same bytes. An emit with a CRLF body line ending must rewrite
+ * the same way.
  *
  * 1. Write a `lib.js` + sibling `lib.js.map` (relative `sources`, a `sourceRoot`)
  *    and inline it; assert the trailer is a single `data:` URI whose decoded
  *    map lists the real absolute source and carries no `sourceRoot`.
  * 2. Feed the output back through a fresh emit key; assert the bytes are equal.
- * 3. Inline a CRLF-terminated emit; assert it too becomes a `data:` trailer.
+ * 3. Inline an emit with a CRLF body line ending; assert it too becomes a
+ *    data: trailer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification inlineServedSourceMap inlines external metadata, removes sourceRoot, retains the map fields and emitted code, produces identical bytes when its own output is fed back in, and rewrites an emit with a CRLF body line ending once.
+ * @evidence contracts/testing.md#independent-expectations The decoded version/file/names/mappings literals and independently constructed source URL constrain correctness before byte-equal idempotence is tested.
+ * @evidence contracts/testing.md#distinguishing-cases Initial external rewrite, a fresh emitted-path repeated pass and a CRLF emit distinguish first transformation, reuse equivalence and line-ending preservation.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls inlineServedSourceMap with map files written to a TestProject.tmpdir, and does not run Node with source maps or inspect stack frames.
  */
 export const test_ttsx_inline_source_map_rewrites_external_maps_and_is_idempotent =
   () => {
@@ -50,6 +57,10 @@ export const test_ttsx_inline_source_map_rewrites_external_maps_and_is_idempoten
       "the rewrite must leave exactly one sourceMappingURL trailer",
     );
     const decoded = decodeInlineMap(out);
+    assert.equal(decoded.version, 3);
+    assert.equal(decoded.file, "lib.js");
+    assert.deepEqual(decoded.names, []);
+    assert.equal(decoded.mappings, "AAAA");
     assert.deepEqual(
       decoded.sources,
       [pathToFileURL(sourceFile).href],
@@ -85,7 +96,7 @@ export const test_ttsx_inline_source_map_rewrites_external_maps_and_is_idempoten
     assert.equal(
       trailerCount(crlfOut),
       1,
-      "a CRLF-terminated emit must rewrite to one data: trailer",
+      "an emit with a CRLF body line ending must rewrite to one data: trailer",
     );
     assert.ok(
       crlfOut.startsWith("exports.x = 1;\r\n//# sourceMappingURL=data:"),

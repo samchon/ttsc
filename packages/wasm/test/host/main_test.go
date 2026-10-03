@@ -45,6 +45,11 @@ const suiteBudget = 120 * time.Second
 // the last test, so a timer scoped to the tests would already be disarmed by
 // the time it mattered. On a healthy run the process exits in under a second
 // and the pending timer is simply discarded with it.
+//
+// @evidenceExclude contracts/testing.md#behavioral-verification TestMain asserts no product behavior; it arms the teardown guard and returns the status of m.Run, and every case owns its own assertions.
+// @evidenceExclude contracts/testing.md#independent-expectations There is no expected product value here; the only literals are the suite budget and the guard's exit status 1.
+// @evidenceExclude contracts/testing.md#distinguishing-cases The entry has no input matrix; the healthy exit and the stall guard are one process lifecycle, not decision cases.
+// @evidence contracts/testing.md#execution-ownership TestMain is the discoverable entry of the host suite process: it starts the guard before m.Run and never stops it, because the stall it reports happens after the last case, and it leaves the case population to the Test functions of the package.
 func TestMain(m *testing.M) {
   time.AfterFunc(suiteBudget, reportStallAndExit)
   os.Exit(m.Run())

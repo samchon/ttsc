@@ -12,8 +12,18 @@ import (
   "golang.org/x/sys/windows"
 )
 
-// TestReportRejectedConfigCandidatesResolvesWindowsShortPath pins the concrete
-// 8.3 spelling that exposed a permanently incomplete host-input manifest.
+// TestReportRejectedConfigCandidatesResolvesWindowsShortPath Verifies that ReportRejectedConfigCandidates reports the physical long path for a distinct Windows short alias.
+//
+// A directory candidate owns this case; unavailable or identical 8.3 aliases explicitly skip.
+//
+// 1. Create a long-named directory and obtain a distinct Windows 8.3 alias, or skip when unavailable.
+// 2. Resolve the physical path independently and report the directory-shaped rejected candidate.
+// 3. Assert the callback receives the cleaned physical long path.
+//
+// @evidence contracts/testing.md#behavioral-verification ReportRejectedConfigCandidates reports the physical long path for a distinct Windows short alias.
+// @evidence contracts/testing.md#independent-expectations filepath.EvalSymlinks independently resolves the alias and supplies the expected cleaned path.
+// @evidence contracts/testing.md#distinguishing-cases A directory candidate owns this case; unavailable or identical 8.3 aliases explicitly skip.
+// @evidence contracts/testing.md#execution-ownership GetShortPathName provides a real OS alias while the reporting operation runs directly in Go. Go discovers TestReportRejectedConfigCandidatesResolvesWindowsShortPath under ./test/driver.
 func TestReportRejectedConfigCandidatesResolvesWindowsShortPath(t *testing.T) {
   directory := filepath.Join(t.TempDir(), "directory candidate long name", "demo.config.json")
   if err := os.MkdirAll(directory, 0o755); err != nil {

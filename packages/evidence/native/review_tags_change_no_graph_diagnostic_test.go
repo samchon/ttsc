@@ -29,6 +29,11 @@ import (
  *     blocks and nothing else changed.
  *  3. Assert both runs produce identical diagnostics, and that the run is not
  *     vacuously clean.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule compares an under-covered graph before/after adding review tags under uniqueEvidence and singleEvidencePerSymbol; baseline must be nonempty, full joined diagnostics equal and Non-participating count zero.
+ * @evidence contracts/testing.md#independent-expectations Review tags must not discharge coverage or enter host/unit cardinality. Baseline equivalence is the intended relation, not an independent oracle for every diagnostic's correctness.
+ * @evidence contracts/testing.md#distinguishing-cases A reviewed target and an orphan-looking review on an uncited target challenge both accidental evidence insertion and erroneous declaration validation.
+ * @evidence contracts/testing.md#execution-ownership TestReviewTagsChangeNoGraphDiagnostic is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestReviewTagsChangeNoGraphDiagnostic(t *testing.T) {
   document := "## Pricing\n\n## Refunds\n"

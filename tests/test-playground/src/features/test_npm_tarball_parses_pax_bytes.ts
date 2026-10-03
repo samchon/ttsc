@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   mountPackageFiles,
   unpackNpmTarball,
-} from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
+} from "../../../../packages/playground/src/npm/internal/npmRegistry";
 import { createPaxRecord, createTarball } from "../internal/tarball";
 
 /**
@@ -11,12 +11,18 @@ import { createPaxRecord, createTarball } from "../internal/tarball";
  *
  * PAX record lengths count UTF-8 bytes, not JavaScript string code units. A
  * multibyte path must therefore survive into all three mounted views instead of
- * acquiring a newline or corrupting the cursor before the next record.
+ * acquiring a newline or corrupting the cursor before the next record. The
+ * multibyte path is a TypeScript source, so it is mounted into the compiler view;
+ * declaration, runtime and manifest files cover the other two views.
  *
  * 1. Unpack a header with a multibyte non-path record followed by a multibyte
  *    `path` record, alongside an ASCII control.
  * 2. Mount the extracted file and reject malformed PAX record lengths rather than
  *    silently treating an invalid header as a different path.
+ * @evidence contracts/testing.md#behavioral-verification unpackNpmTarball parses UTF8-byte PAX records without corrupting multibyte paths, and mountPackageFiles preserves extracted text in compiler/editor/runtime namespaces; malformed length999 rejects.
+ * @evidence contracts/testing.md#independent-expectations Authored unicode/ASCII archive paths and literal complete extracted map define the oracle independently of parsing; literal mounted keys/bytes establish each consumer namespace and package metadata retention.
+ * @evidence contracts/testing.md#distinguishing-cases Multibyte comment before multibyte path, repeated PAX overrides, ASCII control, declaration/runtime/manifest mounts and an overflowing PAX record retain distinct assertions.
+ * @evidence contracts/testing.md#execution-ownership This entry owns its byte-oriented createPaxRecord/createTarball fixtures and direct extraction/mount calls in process, without network, native artifact production or a browser host.
  */
 export const test_npm_tarball_parses_pax_bytes = async () => {
   const unicodePath = "package/한글/日本語.ts";

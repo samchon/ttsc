@@ -11,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitRewritesEverySourceUnderParallelEmit verifies whole-program
+// TestDriverEmitRewritesEverySourceUnderParallelEmit Verifies whole-program
 // emit patches every source file's output when TypeScript-Go emits in parallel.
 //
 // With SingleThreaded dropped, TypeScript-Go runs one emitter goroutine per
@@ -19,12 +19,17 @@ import (
 // callback mutates the shared `cursors` map and resolves a per-output rewrite;
 // without the serializing mutex it would trip `fatal error: concurrent map
 // writes` or splice a replacement into the wrong file. A single-source fixture
-// cannot surface either bug because it spawns only one emitter — this case uses
+// cannot surface either bug because it spawns only one emitter. this case uses
 // four sources so the concurrent path is actually exercised.
 //
 // 1. Load a four-file project, each file owning a distinct plugin call.
 // 2. Register one rewrite per source with a file-unique replacement.
 // 3. Emit the whole program and assert every output carries its own rewrite.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll puts the correct replacement and marker in each of four outputs.
+// @evidence contracts/testing.md#independent-expectations Four authored source names determine distinct replacement literals.
+// @evidence contracts/testing.md#distinguishing-cases Concurrent sources must retain their own rewrites rather than another file's replacement.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverEmitRewritesEverySourceUnderParallelEmit is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverEmitRewritesEverySourceUnderParallelEmit(t *testing.T) {
   root := t.TempDir()
 

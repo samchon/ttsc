@@ -27,6 +27,10 @@ import { TtscGraphDumpNodeKind } from "./TtscGraphDumpNodeKind";
  * @evidence contracts/common.md#clear-and-simple-design The wire envelope separates origin and build universe from graph facts; span paths are reconstructed by the loader.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native output is the full graph rather than a fixture-specific capped subset.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain producer/consumer roles, generation ownership and the portable path vocabulary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphDump {
   /** Absolute path of the project root the graph was built for. */
@@ -72,6 +76,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Capabilities distinguish absent evidence from collected-empty evidence without version-specific field guesses.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown capabilities remain permitted rather than rejecting a newer producer by a hardcoded list.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain digest evidence, independent versions, capability extensibility and the second producer's scope.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IProvenance {
     /**
@@ -87,7 +95,9 @@ export namespace ITtscGraphDump {
      * uncollected one look identical on the wire.
      *
      * The known members are `universe`, `sourceDigests`, `diskDigests`,
-     * `diagnostics`, and `docTags`. The type stays `string[]` rather than a
+     * `diagnostics`, `docTags`, and `artifactNodes`, which the producer lists
+     * only when it asked the project's configured plugins for artifact nodes.
+     * The type stays `string[]` rather than a
      * union of those on purpose: a union would make `typia.assert` reject a
      * newer producer for naming a capability this client has not heard of,
      * turning "proves more than you know about" into a hard failure. An unknown
@@ -129,6 +139,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Three textual coordinates are sufficient for provenance and permit unversioned producer builds.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty build version remains an explicit supported producer state, not a fabricated release number.
    * @evidence contracts/common.md#meaningful-documentation Comments explain dev placeholders, unversioned tools and the checker version independently.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IProducer {
     /** The producing binary's name, such as `ttscgraph`. */
@@ -155,6 +169,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Two collections separate configuration content from root attribution instead of duplicating whole sources.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing configured root remains part of the universe rather than disappearing from invalidation evidence.
    * @evidence contracts/common.md#meaningful-documentation Native documentation explains why compiler options and currently missing roots remain build inputs.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IUniverse {
     /**
@@ -181,6 +199,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Two portable coordinates express attribution without repeating config content.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Root identity is not collapsed to a basename or guessed project owner.
    * @evidence contracts/common.md#meaningful-documentation Both member comments specify the dump path vocabulary and config ownership.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRootFile {
     /** The tsconfig that named this root, in the dump's path vocabulary. */
@@ -197,6 +219,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design One path and digest carry exactly the input witness needed by the build universe.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The contract names content hashing rather than treating size or quiet watchers as content identity.
    * @evidence contracts/common.md#meaningful-documentation Native comments identify path vocabulary and hexadecimal SHA-256 encoding.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IFileDigest {
     /** In the dump's path vocabulary. */
@@ -219,6 +245,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design The manifest retains only file and two witnesses, leaving source text outside the wire protocol.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing raw bytes are an empty witness; augmented source does not receive a fabricated disk-equivalence claim.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain preamble divergence, capability gating and empty-digest meaning.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface ISourceDigest {
     /** In the dump's path vocabulary. */
@@ -256,6 +286,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design A self-contained diagnostic record avoids parsing codes and severity from prose.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic categories are explicit wire values, not inferred from expected test output.
    * @evidence contracts/common.md#meaningful-documentation Native comments document one-based coordinates, diagnostic code and message without its code prefix.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IDiagnostic {
     /** In the dump's path vocabulary. */
@@ -290,6 +324,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Shared node facts are inherited while repeated declaration paths are removed from wire spans.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Implementation spans may retain another file; they are not forced into declaration coordinates for compactness.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reconstruction, artifact parent ownership and cross-file implementation spans.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INode extends Omit<
     ITtscGraphNode,
@@ -327,6 +365,10 @@ export namespace ITtscGraphDump {
    * @evidence contracts/common.md#clear-and-simple-design Omit reuses relation fields and avoids repeating the source path inside each wire edge.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compression preserves endpoint identity and actual evidence rather than shortening ids heuristically.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain id-based path reconstruction and the producer's relationship vocabulary.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IEdge extends Omit<ITtscGraphEdge, "evidence" | "kind"> {
     /** Relationship kind written by the native producer. */

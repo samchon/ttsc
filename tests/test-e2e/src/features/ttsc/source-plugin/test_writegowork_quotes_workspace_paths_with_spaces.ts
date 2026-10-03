@@ -1,0 +1,253 @@
+import { TestProject } from "@ttsc/testing";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
+
+import {
+  assert,
+  buildSourcePlugin,
+  fs,
+  path,
+  shellQuote,
+} from "../../../internal/ttsc/internal/source-build";
+
+/**
+ * Verifies writeGoWork quotes unsafe go.work workspace paths (#394, #857).
+ *
+ * `writeGoWork` emitted `use`/`replace` paths unquoted, so an overlay resolved
+ * under a directory with a space — the common `C:\Users\John Smith\...` /
+ * `/Users/John Smith/...` case — produced a `go.work` the modfile lexer splits
+ * into extra tokens, and `go` failed to parse it. The maintained emitter quotes
+ * path tokens through formatGoWorkPath and its Go-style token formatter.
+ * This drives the real build pipeline (fake `go`)
+ * and inspects the generated `go.work` to pin both directives, plus a
+ * space-free twin that must stay unquoted so the fix never over-quotes. The
+ * build uses copies of its overlays kept in their original layout below its
+ * scratch directory (samchon/ttsc#1527), so the spaced segment is still there
+ * to quote. A namespaced Windows path (or a POSIX double-slash spelling of the
+ * same local directory) also proves its copy survives a real `go work edit
+ * -json` parse.
+ *
+ * 1. Build a plugin whose overlays are a ttsc-module dir under a `"space dir"`
+ *    path, a space-free shim dir, and a namespaced spelling of another.
+ * 2. Capture the `go.work` the builder hands to `go build`.
+ * 3. Assert the spaced copy is quoted in both `use` and `replace` and the
+ *    space-free copy stays bare.
+ * 4. Parse the captured workspace with the real Go modfile tool and assert it
+ *    retains the namespaced overlay's copy.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin sends quoted spaced use/replace paths and bare clean paths to a fake child; real go work edit -json accepts the captured namespaced overlay.
+ * @evidence contracts/testing.md#independent-expectations Go modfile parsing is the independent syntax oracle, paired with literal required quote distinctions on produced workspace input.
+ * @evidence contracts/testing.md#distinguishing-cases Spaced, space-free and namespaced/double-slash overlay spellings all survive copying and Go parsing.
+ * @evidence contracts/testing.md#execution-ownership The exported test_writegowork_quotes_workspace_paths_with_spaces entry is discovered from features/ttsc/source-plugin by the E2E TestExecutor. Local capture/helpers and the real Go parser execute beneath it. The direct token formatter does not replace this builder-copy/captured-workspace connection or certify its execution.
+ * @evidence contracts/e2e.md#necessary-boundary The builder hands a workspace to an actual child cwd, then installed Go parses the captured workspace. The Go parser validates quoted paths independently of the builder; the fake build alone does not establish successful native compilation.
+ * @evidence contracts/e2e.md#shared-execution One source build shares three overlay inputs and the captured workspace; one independent real Go parser inspects that same output. The metadata/build responder writes only a stub, so no native plugin compilation or Program reuse is certified. Calls and returned results are not total process counts or measured cost reduction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root is retained before preparation. The first tool/capture environment writes are inside try and exact prior absence or values are restored before invoking real Go. Its GOWORK override is call-local, status0/signalnull are explicit, and returned commands do not certify arbitrary descendants. The captured workspace survives builder scratch cleanup; parser syntax/membership does not prove copied overlays still exist or compile.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin sends quoted spaced use/replace paths and bare clean paths to a fake child; real go work edit -json accepts the captured namespaced overlay. These assertions stay in test_writegowork_quotes_workspace_paths_with_spaces with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ */
+export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
+  const root = TestProject.tmpdir("ttsc-gowork-spaces-");
+  TestProject.retainTemporaryDirectory(root);
+  const source = path.join(root, "plugin");
+  const spacedOverlay = path.join(root, "space dir", "ttsc");
+  const bareOverlay = path.join(root, "nospace", "shim");
+  const commentPrefixBase = path.join(root, "comment-prefix", "shim");
+  const commentPrefixOverlay =
+    process.platform === "win32"
+      ? path.toNamespacedPath(commentPrefixBase)
+      : `/${commentPrefixBase}`;
+
+  writeFile(
+    path.join(root, "go.mod"),
+    "module example.com/workspace\n\ngo 1.26\n",
+  );
+
+  writeFile(
+    path.join(source, "go.mod"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
+  writeFile(path.join(source, "main.go"), "package main\n\nfunc main() {}\n");
+
+  writeFile(
+    path.join(spacedOverlay, "go.mod"),
+    "module github.com/samchon/ttsc/packages/ttsc\n\ngo 1.26\n",
+  );
+  writeFile(path.join(spacedOverlay, "ttsc.go"), "package ttsc\n");
+  writeFile(
+    path.join(bareOverlay, "go.mod"),
+    "module github.com/microsoft/typescript-go/shim/foo\n\ngo 1.26\n",
+  );
+  writeFile(path.join(bareOverlay, "foo.go"), "package foo\n");
+  writeFile(
+    path.join(commentPrefixBase, "go.mod"),
+    "module example.com/comment-prefix\n\ngo 1.26\n",
+  );
+  writeFile(path.join(commentPrefixBase, "shim.go"), "package shim\n");
+
+  const capture = path.join(root, "go.work");
+  const fakeGo = createGoWorkCapturingGoBinary(root);
+
+  const previousGo = process.env.TTSC_GO_BINARY;
+  const previousCapture = process.env.FAKE_GO_WORK_CAPTURE;
+  try {
+    process.env.TTSC_GO_BINARY = fakeGo;
+    process.env.FAKE_GO_WORK_CAPTURE = capture;
+    buildSourcePlugin({
+      baseDir: root,
+      cacheDir: path.join(root, "cache"),
+      overlayDirs: [spacedOverlay, bareOverlay, commentPrefixOverlay],
+      pluginName: "gowork-spaces",
+      source,
+      quiet: true,
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+  } finally {
+    restoreEnv("TTSC_GO_BINARY", previousGo);
+    restoreEnv("FAKE_GO_WORK_CAPTURE", previousCapture);
+  }
+
+  const goWork = fs.readFileSync(capture, "utf8");
+  // The build compiles copies of its overlays, kept below its scratch
+  // directory in their original layout (samchon/ttsc#1527), so each path ends
+  // with the overlay's own segments, spaces included.
+  const useEntry = (suffix: string): RegExpMatchArray | null =>
+    goWork.match(new RegExp(`\\n\\t("?)([^"\\n]*${escape(suffix)})\\1\\n`));
+  const spacedUse = useEntry("space dir/ttsc");
+  const bareUse = useEntry("nospace/shim");
+  const commentPrefixUse = useEntry("comment-prefix/shim");
+
+  // The spaced overlay must appear quoted in the `use` block and the `replace`
+  // directive, and must never appear as a bare (unquoted) token.
+  assert.ok(
+    spacedUse !== null && spacedUse[1] === '"',
+    `go.work should quote the spaced use path:\n${goWork}`,
+  );
+  assert.ok(
+    goWork.includes(
+      `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => "${spacedUse![2]}"`,
+    ),
+    `go.work should quote the spaced replace path:\n${goWork}`,
+  );
+
+  // The space-free overlay is the negative twin: it must stay bare so the fix
+  // does not over-quote clean tokens.
+  assert.ok(
+    bareUse !== null && bareUse[1] === "",
+    `go.work should leave the space-free use path bare:\n${goWork}`,
+  );
+  assert.ok(
+    commentPrefixUse !== null,
+    `go.work should use the copy of the namespaced overlay:\n${goWork}`,
+  );
+  const commentPrefix = commentPrefixUse![2]!;
+
+  const parsed = child_process.spawnSync("go", ["work", "edit", "-json"], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, GOWORK: capture },
+    windowsHide: true,
+  });
+  if (parsed.error) throw parsed.error;
+  assert.equal(parsed.signal, null);
+  assert.equal(
+    parsed.status,
+    0,
+    `go work edit -json should parse generated go.work:\n${parsed.stderr || parsed.stdout}`,
+  );
+  const workspace = JSON.parse(parsed.stdout) as {
+    Use?: readonly { DiskPath?: string }[];
+  };
+  assert.ok(
+    workspace.Use?.some((entry) => entry.DiskPath === commentPrefix),
+    `go work edit -json should retain ${commentPrefix}:\n${parsed.stdout}`,
+  );
+};
+
+function escape(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function writeFile(file: string, contents: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, contents, "utf8");
+}
+
+function restoreEnv(key: string, previous: string | undefined): void {
+  if (previous === undefined) delete process.env[key];
+  else process.env[key] = previous;
+}
+
+/**
+ * Writes a fake `go` that answers the metadata commands ttsc issues while
+ * composing a source build (`version`, `env -json`, `mod edit -json`) and, on
+ * `go build`, copies the workspace's `go.work` to `FAKE_GO_WORK_CAPTURE` before
+ * writing a stub binary — so the test can inspect the exact `go.work` ttsc
+ * generated without a real Go toolchain.
+ */
+function createGoWorkCapturingGoBinary(root: string): string {
+  const script = path.join(root, "fake-go.cjs");
+  fs.writeFileSync(
+    script,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      "const args = process.argv.slice(2);",
+      'if (args[0] === "version") {',
+      '  console.log("go version fake");',
+      "  process.exit(0);",
+      "}",
+      'if (args[0] === "env" && args[1] === "-json") {',
+      '  console.log("{}");',
+      "  process.exit(0);",
+      "}",
+      'if (args[0] === "mod" && args[1] === "edit" && args[2] === "-json") {',
+      '  const text = fs.readFileSync(path.resolve(args[3] ?? "go.mod"), "utf8");',
+      "  const m = text.match(/^\\s*module\\s+(\\S+)/m);",
+      "  console.log(JSON.stringify(m ? { Module: { Path: m[1] } } : {}));",
+      "  process.exit(0);",
+      "}",
+      // `go work use` sets the directive only; the captured paths are the
+      // builder's own spelling.
+      'if (args[0] === "work" && args[1] === "use") process.exit(0);',
+      'if (args[0] === "build") {',
+      "  const capture = process.env.FAKE_GO_WORK_CAPTURE;",
+      "  if (capture) {",
+      '    fs.writeFileSync(capture, fs.readFileSync(path.join(process.cwd(), "go.work"), "utf8"), "utf8");',
+      "  }",
+      '  const outIndex = args.indexOf("-o");',
+      "  const out = outIndex >= 0 ? args[outIndex + 1] : null;",
+      "  if (!out) {",
+      '    console.error("missing -o output path");',
+      "    process.exit(1);",
+      "  }",
+      "  fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });",
+      '  fs.writeFileSync(out, "fake plugin binary\\n", "utf8");',
+      "  process.exit(0);",
+      "}",
+      'console.error(`unexpected go command: ${args.join(" ")}`);',
+      "process.exit(1);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  if (process.platform === "win32") {
+    const command = path.join(root, "fake-go.cmd");
+    fs.writeFileSync(
+      command,
+      `@echo off\r\n"${process.execPath}" "%~dp0fake-go.cjs" %*\r\n`,
+      "utf8",
+    );
+    return command;
+  }
+
+  const command = path.join(root, "fake-go");
+  fs.writeFileSync(
+    command,
+    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
+    "utf8",
+  );
+  fs.chmodSync(command, 0o755);
+  return command;
+}

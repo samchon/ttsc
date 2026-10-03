@@ -1,20 +1,36 @@
 import assert from "node:assert/strict";
 
-import { collectExternalPackageNames } from "../../../../packages/playground/lib/src/npm/collectExternalPackageNames.js";
-import { installPlaygroundDependencies } from "../../../../packages/playground/lib/src/npm/installPlaygroundDependencies.js";
+import { collectExternalPackageNames } from "../../../../packages/playground/src/npm/collectExternalPackageNames";
+import { installPlaygroundDependencies } from "../../../../packages/playground/src/npm/installPlaygroundDependencies";
 
 /**
+ * Verifies package discovery reads quoted strings and slashes with the lexical
+ * semantics of JavaScript.
+ *
  * Dependency discovery must use the same cooked quoted-string values and slash
  * boundaries as JavaScript while recognizing only a direct optional CommonJS
  * call. Malformed literals fail closed, and inert lookalikes remain opaque.
+ *
+ * 1. Collect specifiers written with hex, unicode, code-point, line-continuation,
+ *    simple and quote escapes, and require their cooked values.
+ * 2. Require malformed literals to fail closed without hiding a later valid
+ *    import, and optional calls to count only when made directly on the require
+ *    binding.
+ * 3. Pass a cooked name to the installer and require the registry request to carry
+ *    the cooked name rather than its escape spelling.
+ *
+ * @evidence contracts/testing.md#behavioral-verification collectExternalPackageNames decodes executable import and direct optional require literals while ignoring malformed strings, comments, regex text and object methods. The cooked package name is passed into the authored dependency installer request path.
+ * @evidence contracts/testing.md#independent-expectations Literal expected cooked characters follow JavaScript string-escape and line-continuation semantics; explicit package arrays distinguish executable syntax from inert text. A recording fetch rejects before any network access and independently captures the requested registry name.
+ * @evidence contracts/testing.md#distinguishing-cases Hex, fixed Unicode, code-point, quote, NUL, six simple escapes and five newline continuations preserve their cooked values. Malformed escapes and unterminated quotes contrast with a later valid import; postfix division, regexes, direct optional calls and method lookalikes retain separate controls.
+ * @evidence contracts/testing.md#execution-ownership This exported asynchronous source unit calls the authored collector and installer with in-memory source strings and a recording fetch function. No archive is fetched or installed, and no compiler or host process starts; its existing literal fixtures and request assertions execute once here.
  */
 export const test_collect_external_package_names_preserves_javascript_lexical_semantics =
   async () => {
     const escapedSource = [
-      String.raw`import "hex\x2dpackage";`,
-      String.raw`export {} from "fixed\u002dpackage";`,
-      String.raw`void import("point\u{2d}package");`,
-      String.raw`require("slash\\package");`,
+      "import \"hex\\x2dpackage\";",
+      "export {} from \"fixed\\u002dpackage\";",
+      "void import(\"point\\u{2d}package\");",
+      "require(\"slash\\\\package\");",
     ].join("\n");
     assert.deepEqual(collectExternalPackageNames(escapedSource, []), [
       "fixed-package",
@@ -47,19 +63,19 @@ export const test_collect_external_package_names_preserves_javascript_lexical_se
       );
     }
     assert.deepEqual(
-      collectExternalPackageNames(String.raw`require("quote\"package");`, []),
+      collectExternalPackageNames("require(\"quote\\\"package\");", []),
       ['quote"package'],
       "an escaped quote contributes to the value without ending the literal",
     );
     assert.deepEqual(
-      collectExternalPackageNames(String.raw`require("nul\0package");`, []),
+      collectExternalPackageNames("require(\"nul\\0package\");", []),
       ["nul\0package"],
     );
 
     const malformed = [
-      String.raw`import "bad\xG1";`,
-      String.raw`require("bad\u{}");`,
-      String.raw`export {} from "bad\u{110000}";`,
+      "import \"bad\\xG1\";",
+      "require(\"bad\\u{}\");",
+      "export {} from \"bad\\u{110000}\";",
       'import "unterminated',
       'import "after-malformed";',
     ].join("\n");
@@ -85,7 +101,7 @@ export const test_collect_external_package_names_preserves_javascript_lexical_se
 
     // The cooked name, never its source escape spelling, reaches the installer.
     const cooked = collectExternalPackageNames(
-      String.raw`import "pkg\u002dname";`,
+      "import \"pkg\\u002dname\";",
       [],
     );
     assert.deepEqual(cooked, ["pkg-name"]);

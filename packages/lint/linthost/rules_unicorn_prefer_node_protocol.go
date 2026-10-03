@@ -1,8 +1,8 @@
-// unicorn/prefer-node-protocol: the bare Node built-in specifier
-// (`import "fs"` / `require("fs")`) is ambiguous — a userland package
-// named `fs` on the module path resolves first, silently hijacking
-// what readers assume is the Node built-in. The `node:` prefix removes
-// the ambiguity and is supported by every modern Node release.
+// unicorn/prefer-node-protocol: the `node:` prefix explicitly identifies
+// a Node built-in (`import "node:fs"` / `require("node:fs")`). Bare built-in
+// names such as `fs` already take priority over same-named userland packages;
+// `require("node:fs")` additionally bypasses the require cache. This rule
+// enforces explicit built-in spelling supported by modern Node releases.
 //
 // AST-only: visit `ImportDeclaration` for the static-import case and
 // `CallExpression` for the `require(...)` case. Both reduce to a

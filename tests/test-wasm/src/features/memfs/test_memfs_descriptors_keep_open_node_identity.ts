@@ -37,6 +37,11 @@ function fstatSize(fs: IWasmExecFS, fd: number): Promise<number> {
  * 1. Unlink an open file, reject path stat, then use every fd operation.
  * 2. Rename one open file over another open file.
  * 3. Mutate both fds, assert distinct bytes, then close without recreating names.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS descriptors continue reading, writing, truncating and statting the opened node after unlink or replacement rename. Literal separated source/destination bytes detect path-based retargeting or recreation on close.
+ * @evidence contracts/testing.md#independent-expectations POSIX open-node identity survives namespace removal/replacement. Authored KEEP, NEW and OLD become literal XE, SEW and DLD under independently specified writes; missing path stat must be ENOENT while descriptor size remains two.
+ * @evidence contracts/testing.md#distinguishing-cases Unlink with an open fd, file-over-file rename with both fds open, independent writes to displaced and named nodes, and closing the displaced fd cover identity and namespace boundaries.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_descriptors_keep_open_node_identity creates MemFS and invokes unlink/rename/ftruncate/close via callMutation, readAt/fstatSize directly wrap fs.read/fstat, and writeFdText wraps fs.write. The one unit entry owns every observed node/namespace result in Node.
  */
 export const test_memfs_descriptors_keep_open_node_identity =
   async (): Promise<void> => {

@@ -1,112 +1,8 @@
 import { createRequire } from "node:module";
 
+import type { UpstreamTransformer } from "./UpstreamTransformer";
+
 const nodeRequire = createRequire(import.meta.url);
-
-/**
- * The subset of the Metro Babel-transformer contract this adapter relies on.
- *
- * Metro loads the module named by `transformer.babelTransformerPath` and calls
- * its `transform` once per file, expecting a Babel AST back. `getCacheKey` is
- * an optional export Metro folds into its transform-cache key; Metro invokes it
- * with arguments (e.g. `{ projectRoot, enableBabelRCLookup }`), so it is typed
- * variadic.
- *
- * @evidence contracts/common.md#principled-implementation
- *   This structural interface describes Metro's Babel-transformer extension:
- *   one transform operation and an optional variadic cache key. It does not
- *   implement Babel, install peers or alter their exports. Concrete modules
- *   supply the callbacks through normal Node loading.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   This peer-independent interface exposes only the transform and cache-key
- *   callbacks the adapter invokes, avoiding a dependency on Metro's full API.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   This structural callback contract carries Metro parameters and AST
- *   results; it does not define native module resolution or process
- *   invocation.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains the awaited AST result and optional cache-key
- *   callback including forwarded arguments. Checked against the documentation
- *   skill: separate paragraphs state the contract and why its nonobvious
- *   boundary matters; field comments retain their own useful facts.
- */
-export interface UpstreamTransformer {
-  /**
-   * Parse the supplied source and return the Babel AST Metro consumes.
-   *
-   * The adapter preserves Metro's filename, options and additional parameters;
-   * only `src` may hold successfully transformed TypeScript. The returned AST
-   * may have its locations remapped by the adapter before Metro receives it.
-   *
-   * @evidence contracts/common.md#principled-implementation
-   *   This method signature represents the upstream transformer that Metro
-   *   selected.
-   *
-   * @evidence contracts/common.md#clear-and-simple-design
-   *   One parameter record preserves Metro's extensible delivery shape and
-   *   the result exposes only the AST this adapter needs.
-   *
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   It accepts the original Metro parameter record, with src replaced only by
-   *   the owning adapter after a successful compiler pass; the type declares no
-   *   implementation or test-specific branch.
-   *
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   This method signature carries Metro source, filename spelling and options
-   *   to Babel without defining native path interpretation.
-   *
-   * @evidence contracts/common.md#meaningful-documentation
-   *   The native JSDoc explains source, filename, extra Metro parameters and
-   *   the awaited Babel AST result. Checked against the documentation skill:
-   *   separate paragraphs state the contract and why its nonobvious boundary
-   *   matters; field comments retain their own useful facts.
-   *
-   */
-  transform(params: {
-    src: string;
-    filename: string;
-    options: Record<string, unknown>;
-    [key: string]: unknown;
-  }): Promise<{ ast: object }>;
-
-  /**
-   * Optional upstream contribution to Metro's static transformer key.
-   *
-   * Metro's arguments are forwarded unchanged. Absence contributes no upstream
-   * key; the adapter treats a throwing key as nonfatal and disables reuse,
-   * while transformer loading failures still fail actual transformation.
-   *
-   * @evidence contracts/common.md#principled-implementation
-   *   The optional callback follows Metro's upstream transformer contract.
-   *   Arguments are variadic because Metro supplies its own key options; absence
-   *   is handled by the adapter.
-   *
-   * @evidence contracts/common.md#clear-and-simple-design
-   *   An optional variadic callback expresses the one upstream contribution
-   *   without adapter-specific copies of Metro's cache-key options.
-   *
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   This signature executes nothing and never replaces a foreign callback.
-   *
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   This optional variadic callback contributes a string key. Native
-   *   resolution belongs to the separate loader operation.
-   *
-   * @evidence contracts/common.md#meaningful-documentation
-   *   The native JSDoc explains optional absence, forwarded Metro arguments and
-   *   the upstream key contribution. Checked against the documentation skill:
-   *   separate paragraphs state the contract and why its nonobvious boundary
-   *   matters; field comments retain their own useful facts.
-   *
-   */
-  getCacheKey?: (...args: unknown[]) => string;
-}
 
 /**
  * Upstream transformer module specifiers tried (in order) when no explicit
@@ -166,6 +62,15 @@ export const UPSTREAM_CANDIDATES = [
  *   the documentation skill: separate paragraphs state the contract and why
  *   its nonobvious boundary matters; field comments retain their own useful
  *   facts.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Keeps no state between calls; loaded modules belong to Node's module cache.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   At most three candidate probes per call, each a require.resolve followed by one require.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Deliberately unmemoised: Node's module cache makes a repeated require cheap and a changed option must take effect.
  */
 export function resolveUpstreamTransformer(
   customPath?: string,
@@ -257,6 +162,15 @@ export function resolveUpstreamTransformer(
  *   nonexecution and the absent result. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Resolves paths without executing a candidate and retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   At most three resolutions, stopping at the first one that succeeds.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Runs once per withTtsc call, in the config process only.
  */
 export function locateProjectUpstreamTransformer(
   resolve: (specifier: string) => string,

@@ -23,6 +23,11 @@ import (
 //  2. Build the graph.
 //  3. Assert handle -> Service.run (value-call, deduped) and handle -> Service
 //     (the new-expression constructor edge) both exist.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that the value-call walk reaches what the checker resolves but the first cut dropped: a method-to-method call lands on the callee's method node, and a `new T()` lands on T's class node, both attributed to the calling method.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Controller.handle: the Service.run method node must exist, a value-call edge must run from Controller.handle to Service.run (reached through s.run() and made.run()), and a value-call edge must run from Controller.handle to the Service class node (new Service()). The test checks edge presence only, not that the two run() calls collapse to one edge.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where Controller.handle calls Service.run (via a parameter and a constructed value) and constructs a Service; Build the graph; Assert handle -> Service.run (value-call, deduped) and handle -> Service (the new-expression constructor edge) both exist.
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesCoverMethodsAndConstructors is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesCoverMethodsAndConstructors(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

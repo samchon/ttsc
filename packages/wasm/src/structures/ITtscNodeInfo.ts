@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Members explain range units, endpoint inclusion and optional text. Native
  *   JSDoc follows the documentation skill's concrete usage-context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscNodeInfo is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscNodeInfo is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscNodeInfo is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscNodeInfo {
   /** Numeric `ast.Kind` from TypeScript-Go. */
@@ -21,7 +24,7 @@ export interface ITtscNodeInfo {
   /** Human-readable name of `kind`. */
   kindName: string;
 
-  /** Byte offset where the node begins (inclusive). */
+  /** Byte offset of the token's first byte (inclusive), after leading whitespace and comments. */
   pos: number;
 
   /** Byte offset where the node ends (exclusive). */

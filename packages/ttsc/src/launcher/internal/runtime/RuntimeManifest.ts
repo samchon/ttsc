@@ -6,12 +6,17 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
  *
  * The directories and actual compiler emit observations describe already-built
  * output; the hooks use them to establish which preparation owns a source.
+ * This transport shape does not authenticate its producer or current artifact
+ * bytes; trusted preparation and immutable emit are registry/index premises.
  *
  * @evidence contracts/common.md#principled-implementation Native source/emit roots, actual output-to-source observations and owning format options bind serving to one checked preparation; optional entry/output-list/policy fields cannot replace the required compiler provenance.
  * @evidence contracts/common.md#clear-and-simple-design One serializable build manifest groups serving identity and its run-owned caches, keeping loader callbacks and mutable lock state outside the transport.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit entry/output ownership and plugin policy replace basename guesses or independently chosen transform behavior for later roots.
- * @evidence contracts/common.md#meaningful-documentation The purpose and separated member comments explain native paths, required actual emit provenance, protocol output separators, module/target defaults, orphan lifetime and false-only plugin policy without member tags.
- * @evidence contracts/portability.md#os-neutral-implementation Native root/entry/cache paths remain distinct from slash-separated relative output records; producers resolve physical source identity and consumers convert output spelling through the filesystem boundary.
+ * @evidence contracts/common.md#meaningful-documentation The purpose and separated member comments explain trusted preparation scope, native coordinates, producer provenance, relative output separators, format defaults, caller-owned orphan storage lifetime and false-only plugin policy without member tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Native root/entry/cache paths and producer-native provenance keys remain distinct from slash-separated relative outputs. Producer identity observations and consumer filesystem conversions own physical alias handling; the structural strings do not pin a namespace or certify that every root observation succeeded.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface RuntimeManifest {
   /** Project root of the entry's owning tsconfig. */
@@ -23,7 +28,7 @@ export interface RuntimeManifest {
   /** Directory holding the entry project's emitted JavaScript. */
   readonly emitDir: string;
 
-  /** Physical TypeScript root whose checked preparation created this manifest. */
+  /** Selected TypeScript entry coordinate whose preparation created this manifest. */
   readonly entrySource?: string;
 
   /** Exact JavaScript emitted for `entrySource`. */
@@ -54,8 +59,9 @@ export interface RuntimeManifest {
   readonly depCacheDir: string;
 
   /**
-   * Directory of the lowered orphan sources, under the run's resolved cache
-   * root, which outlives the run (samchon/ttsc#1562).
+   * Directory of lowered orphan sources under the resolved cache root, outside
+   * the run's disposable project directory. Cache collection or explicit root
+   * cleanup, rather than this manifest, determines its continued storage.
    */
   readonly orphanCacheDir?: string;
 

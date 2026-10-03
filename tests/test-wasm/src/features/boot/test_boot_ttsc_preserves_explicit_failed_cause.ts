@@ -10,14 +10,19 @@ import { withBootStubs } from "../../internal/bootHarness";
  * A known host validation failure (e.g. a duplicate plugin name) invokes the
  * `Failed` bridge and then returns, so the Go runtime exits too. Both the
  * `Failed` rejection and the early-exit race branch settle; the boot must
- * reject exactly once with the real `Failed` cause — not the generic early-exit
- * message — and the losing branch must not become an unhandled rejection.
+ * reject with the real `Failed` cause rather than the generic early-exit
+ * message, and the losing branch must not become an unhandled rejection.
  *
  * 1. Stub a runtime that fires `Failed` with a duplicate-plugin-name error then
  *    exits.
  * 2. Boot it and let the losing branch settle.
  * 3. Assert the terminal rejection preserves the duplicate-name cause and nothing
  *    leaked.
+ *
+ * @evidence contracts/testing.md#behavioral-verification bootTtsc preserves the explicit Failed error when the same runtime also exits. The terminal error type/code, original cause message and unhandledRejection count distinguish a generic early-exit substitution or an unowned losing promise.
+ * @evidence contracts/testing.md#independent-expectations The supplied duplicate-plugin error is independently authored; Failed must keep that cause and the Worker-termination contract fixes the code. The literal zero rejection count observes the 20ms event-loop window only, not all possible future runtime activity.
+ * @evidence contracts/testing.md#distinguishing-cases Failed followed immediately by a resolved go.run pins the race against generic early exit. test_boot_ttsc_rejects_before_readiness owns unsignaled runtime rejection, test_boot_ttsc_requires_worker_replacement_after_early_exit owns unsignaled fulfillment, and test_boot_ttsc_resolves_normal_host owns Ready success.
+ * @evidence contracts/testing.md#execution-ownership test_boot_ttsc_preserves_explicit_failed_cause calls bootTtsc through withBootStubs and owns a scoped Node unhandledRejection listener removed in finally. The fake runtime emits Failed then resolves; no native Wasm build or product Worker is launched.
  */
 export const test_boot_ttsc_preserves_explicit_failed_cause =
   async (): Promise<void> => {

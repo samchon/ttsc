@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.base.json","compilerOptions":{"declaration":true,"outDir":"dist","rootDir":"../../banner/shared","plugins":[{"transform":"@ttsc/strip"}]},"include":["../../banner/shared/strip-case.ts"]}

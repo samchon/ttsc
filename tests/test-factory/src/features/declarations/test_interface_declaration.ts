@@ -1,14 +1,22 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "@ttsc/factory";
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
 import { id, kw, mod, param, print, ref } from "../../internal/helpers";
 
 /**
- * Print an {@link factory.createInterfaceDeclaration|interface}.
+ * Verifies printing of an {@link factory.createInterfaceDeclaration|interface}.
  *
  * Generic, extends a base, and carries a readonly property, an optional
  * property, a method signature, and an index signature — each member on its own
  * line.
+ *
+ * 1. The generic exported IBox printer preserves Base heritage and readonly/optional/method/index members.
+ * 2. The complete literal interface body specifies each name, type, punctuation and indentation independently.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The generic exported IBox printer preserves Base heritage and readonly/optional/method/index members.
+ * @evidence contracts/testing.md#independent-expectations The complete literal interface body specifies each name, type, punctuation and indentation independently.
+ * @evidence contracts/testing.md#distinguishing-cases Optional property, readonly property, callable member and index signature occupy distinct branches within one declaration.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_interface_declaration. Calls createInterfaceDeclaration and signature constructors followed by TsPrinter.print.
  */
 export const test_interface_declaration = (): void => {
   TestValidator.equals(

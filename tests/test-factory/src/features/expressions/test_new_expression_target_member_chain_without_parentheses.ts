@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "@ttsc/factory";
+import factory, { type Expression } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 import { id, print, reparse } from "../../internal/helpers";
@@ -19,10 +19,15 @@ const construct = (target: Expression): Expression =>
  *
  * 1. Print `new` expressions targeting `C`, `a.b.C`, `new F()` (inner `new` with
  *    an argument list), and `new F().bar` (member access over it).
- * 2. Assert none of the targets are parenthesized, matching the legacy
- *    `ts.Printer`.
+ * 2. Assert none of the targets are parenthesized, against literal expected
+ *    text.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Pure identifier/member and already-argumented inner new targets stay bare.
+ * @evidence contracts/testing.md#independent-expectations Exact sources and reparsed NewExpression identity establish grammar without redundant parentheses.
+ * @evidence contracts/testing.md#distinguishing-cases Identifier, property chain and explicit-argument new are negative twins of call and argumentless-new target wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_member_chain_without_parentheses. Calls member/new constructors, TsPrinter.print and TypeScript reparse directly.
  */
 export const test_new_expression_target_member_chain_without_parentheses =
   (): void => {

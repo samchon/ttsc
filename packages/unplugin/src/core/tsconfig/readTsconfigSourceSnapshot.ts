@@ -23,20 +23,6 @@ import { collectTsconfigSourceSnapshot } from "./collectTsconfigSourceSnapshot";
  *   Absolute native spellings remain lexical graph keys so linked configs keep
  *   relative anchors; physical realpath is a distinct cycle observation.
  *   Sorted output orders strings without asserting a filesystem case rule.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   A lexical-source map avoids rereading an already observed graph node while
- *   branch physical ancestry cuts cycles. Work follows source bytes and distinct
- *   lexical graph edges; deterministic output sorts s sources in O(s log s).
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Each call must observe current contents and extends resolution. Reusing
- *   a snapshot across calls requires a validity proof owned by its consumer.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The snapshot transfers to its caller and local graph state ends on return;
- *   this reader retains no historical sources or native handle.
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Exact source observations replace timestamp guesses; snapshot equality is
  *   evidence for the generation owner, not a substitute for compiler errors.
@@ -44,6 +30,18 @@ import { collectTsconfigSourceSnapshot } from "./collectTsconfigSourceSnapshot";
  * @evidence contracts/common.md#meaningful-documentation
  *   Prose explains why wrapper derivation and compiler reads need matching
  *   snapshots, with purpose and consequence in separate paragraphs.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The snapshot transfers to its caller and local graph state ends on return;
+ *   this reader retains no historical sources or native handle.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A lexical-source map avoids rereading an already observed graph node while
+ *   branch physical ancestry cuts cycles. Work follows source bytes and distinct
+ *   lexical graph edges and copied ancestor depths. Deterministic output sorts
+ *   s source keys with O(s log s) string comparisons whose cost follows key
+ *   lengths, then creates one output entry per source.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Each call must observe current contents and extends resolution. Reusing
+ *   a snapshot across calls requires a validity proof owned by its consumer.
  */
 export function readTsconfigSourceSnapshot(
   tsconfig: string,

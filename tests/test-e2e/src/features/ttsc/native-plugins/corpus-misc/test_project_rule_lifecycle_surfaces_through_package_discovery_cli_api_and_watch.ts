@@ -1,0 +1,463 @@
+import { TestProject } from "@ttsc/testing";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { TtscCompiler } from "ttsc";
+
+import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  assert,
+  fs,
+  goPath,
+  path,
+  setupLintProject,
+  spawn,
+  tsgoBinary,
+  ttscBin,
+} from "../../../../internal/ttsc/internal/plugin-corpus";
+import {
+  TtscserverClient,
+  initializeTtscserverClient,
+  runTtscserverSession,
+} from "../../../../internal/ttsc/internal/ttscserver";
+
+import { WatchSession } from "../../../../internal/ttsc/internal/watch";
+
+type PublishDiagnosticsParams = {
+  uri: string;
+  diagnostics?: {
+    code?: unknown;
+    message?: string;
+    source?: string;
+  }[];
+};
+
+const guardContributor =
+  `package guard
+
+import (
+  "fmt"
+  "os"
+  "path/filepath"
+  "runtime"
+  "strings"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+type projectGuard struct{}
+
+type projectBinding struct {
+  identity rule.ProjectIdentity
+  marker string
+  sources int
+}
+
+func (projectGuard) Name() string { return "guard/project" }
+func (projectGuard) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
+  var options struct {
+    Marker string ` +
+  '`json:"marker"`' +
+  `
+  }
+  if err := ctx.DecodeOptions(&options); err != nil {
+    panic(err)
+  }
+  physicalRoot := filepath.Clean(ctx.Identity.PhysicalProjectRoot)
+  markerRoot := filepath.Clean(filepath.Dir(options.Marker))
+  sameRoot := physicalRoot == markerRoot
+  if runtime.GOOS == "windows" {
+    sameRoot = strings.EqualFold(physicalRoot, markerRoot)
+  }
+  if !sameRoot {
+    panic(fmt.Sprintf(
+      "project input identity mismatch: physical=%s marker=%s",
+      physicalRoot,
+      markerRoot,
+    ))
+  }
+  return []rule.ProjectInput{{
+    Kind: rule.ProjectInputFile,
+    Pattern: options.Marker,
+  }}
+}
+func (projectGuard) Check(ctx *rule.ProjectContext) {
+  ctx.SetState(&projectBinding{
+    identity: ctx.Identity,
+    marker: filepath.Join(ctx.Identity.PhysicalProjectRoot, "guard-state.txt"),
+    sources: len(ctx.Sources),
+  })
+}
+
+func (binding *projectBinding) Revalidate() error {
+  marker, err := os.ReadFile(binding.marker)
+  if err != nil {
+    return err
+  }
+  if strings.TrimSpace(string(marker)) != "blocked" {
+    return nil
+  }
+  return fmt.Errorf(
+    "project blocked logical=%s physical=%s logicalRoot=%s invocation=%s lifecycle=%s explicit=%s origin=%s sources=%d",
+    binding.identity.LogicalConfigPath,
+    binding.identity.PhysicalConfigPath,
+    binding.identity.LogicalProjectRoot,
+    binding.identity.InvocationCwd,
+    binding.identity.LifecycleID,
+    binding.identity.ExplicitProjectRoot,
+    binding.identity.PluginConfigOrigin,
+    binding.sources,
+  )
+}
+
+type guardedProjectIO struct{}
+
+func (guardedProjectIO) Name() string { return "guard/project-io" }
+func (guardedProjectIO) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (guardedProjectIO) Check(ctx *rule.Context, node *shimast.Node) {
+  result := ctx.ProjectResult("guard/project")
+  switch result.Status {
+  case rule.ProjectRuleAbsent, rule.ProjectRuleOff, rule.ProjectRuleFailed:
+    return
+  }
+  binding, ok := result.State.(*projectBinding)
+  if !ok {
+    result.Report("project binding missing from live result")
+    return
+  }
+  if err := binding.Revalidate(); err != nil {
+    result.Report(err.Error())
+    result.Report(err.Error())
+    return
+  }
+}
+
+type independentAST struct{}
+
+func (independentAST) Name() string { return "guard/ast" }
+func (independentAST) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (independentAST) Check(ctx *rule.Context, node *shimast.Node) {
+  ctx.Report(node, "guard AST rule remained independent")
+}
+
+func init() {
+  rule.RegisterProject(projectGuard{})
+  rule.Register(guardedProjectIO{})
+  rule.Register(independentAST{})
+}
+`;
+
+const unrelatedContributor = `package unrelated
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+type independentAST struct{}
+
+func (independentAST) Name() string { return "unrelated/ast" }
+func (independentAST) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (independentAST) Check(ctx *rule.Context, node *shimast.Node) {
+  ctx.Report(node, "unrelated AST rule remained independent")
+}
+
+func init() { rule.Register(independentAST{}) }
+`;
+
+/**
+ * Verifies project rules retain one live lifecycle and identity contract
+ * through package-discovered CLI, public API, LSP, and watch executions.
+ *
+ * The fixture has no `compilerOptions.plugins`; `@ttsc/lint` is discovered from
+ * package metadata, then its config contributes a project rule plus guarded and
+ * independent file rules. The project is selected through a junction/symlink so
+ * the contributor can prove logical and physical paths remain distinct.
+ *
+ * 1. Run CLI and assert a file helper turns passed project state into one
+ *    deduplicated finding ordered before independent file findings.
+ * 2. Run the public API with explicit root/config-origin channels and assert its
+ *    structured project diagnostic has `file: null`.
+ * 3. Publish the JIT failure over LSP, then clear it with a clean loaded cycle.
+ * 4. Trigger two additional watch cycles by changing the contributor-declared
+ *    external input and assert the blocked cycles carry distinct lifecycle
+ *    ids.
+ *
+ * @evidence contracts/testing.md#behavioral-verification CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs.
+ * @evidence contracts/testing.md#independent-expectations The authored contributors report passed-in identities and deliberate marker states; expected path channels and counts are specified separately by each assertion.
+ * @evidence contracts/testing.md#distinguishing-cases Logical linked and physical project roots, explicit API origin, blocked/clean LSP cycles, and blocked-clean-blocked watch cycles distinguish transport and lifetime ownership.
+ * @evidence contracts/testing.md#execution-ownership The exported test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary One source-backed lint contributor crosses package discovery, public compiler diagnostics, LSP publication and watch input invalidation. Logical/physical identities, project-before-file ordering, clear notifications and fresh lifecycle IDs must survive those different public transports; contributor-semantic units cannot establish those connections.
+ * @evidence contracts/e2e.md#shared-execution CLI, public API, LSP and watch use one authored source-backed contributor/linked consumer and suite producer cache, while retaining their distinct public transports. Available sharing does not measure cache hits, total builds/processes/Program generations or minimum preparation; workspace linking is not packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks physical consumer and logical link parent; the shared cache remains suite-owned. LSP body/shutdown failure conservatively retains both tracked inputs and preserves retention failures. Watch keeps the original total 120-second observation deadline, mutates clean/blocked only after completed cycles and joins supported close; body and close failures coexist, unknown join retains both inputs. Reported lifecycle IDs distinguish contributor instances, not compiler Program-object/loaded-image identity or arbitrary descendant proof.
+ * @evidence contracts/e2e.md#preserved-coverage CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs. These assertions stay in test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ */
+export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
+  async (): Promise<void> => {
+    const physicalRoot = setupLintProject("lint-violations");
+    fs.writeFileSync(
+      path.join(physicalRoot, "package.json"),
+      JSON.stringify({ devDependencies: { "@ttsc/lint": "*" } }),
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          noEmit: true,
+          rootDir: "src",
+        },
+        include: ["src"],
+      }),
+    );
+    fs.rmSync(path.join(physicalRoot, "lint.config.json"), { force: true });
+    fs.mkdirSync(path.join(physicalRoot, "contributors", "guard"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(physicalRoot, "contributors", "unrelated"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(physicalRoot, "contributors", "guard", "guard.go"),
+      guardContributor,
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "contributors", "unrelated", "unrelated.go"),
+      unrelatedContributor,
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "lint.config.cjs"),
+      `const path = require("node:path");
+module.exports = {
+  plugins: {
+    guard: { source: path.join(__dirname, "contributors", "guard") },
+    unrelated: { source: path.join(__dirname, "contributors", "unrelated") },
+  },
+  rules: {
+    "guard/project": ["error", {
+      marker: path.join(__dirname, "guard-state.txt"),
+    }],
+    "guard/project-io": "error",
+    "guard/ast": "error",
+    "unrelated/ast": "error",
+  },
+};
+`,
+    );
+
+    const logicalParent = TestProject.tmpdir("ttsc-project-rule-logical-");
+    const logicalRoot = path.join(logicalParent, "linked-project");
+    fs.symlinkSync(
+      physicalRoot,
+      logicalRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    const logicalConfig = path.join(logicalRoot, "tsconfig.json");
+    const physicalConfig = fs.realpathSync(
+      path.join(physicalRoot, "tsconfig.json"),
+    );
+    const guardState = path.join(physicalRoot, "guard-state.txt");
+    fs.writeFileSync(guardState, "blocked\n");
+    const env = {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+    };
+
+    const cli = spawn(ttscBin, ["--cwd", logicalRoot, "--noEmit"], {
+      cwd: logicalRoot,
+      env,
+    });
+    assert.ifError(cli.error);
+    assert.equal(cli.signal, null);
+    assert.equal(typeof cli.status, "number");
+    assert.notEqual(cli.status, 0, "project rule should fail the CLI check");
+    assert.equal(
+      cli.stderr.match(/\[guard\/project\]/g)?.length,
+      1,
+      `project reporter should deduplicate one CLI finding\n${cli.stderr}`,
+    );
+    assert.equal(cli.stderr.includes(`logical=${logicalConfig}`), true);
+    assert.equal(cli.stderr.includes(`physical=${physicalConfig}`), true);
+    assert.equal(cli.stderr.includes(`invocation=${logicalRoot}`), true);
+    assert.match(cli.stderr, /lifecycle=\S+/);
+    assert.equal(
+      cli.stderr.includes("project I/O should have been skipped"),
+      false,
+    );
+    assert.match(cli.stderr, /\[guard\/ast\].*remained independent/s);
+    assert.match(cli.stderr, /\[unrelated\/ast\].*remained independent/s);
+    assert.equal(
+      cli.stderr.indexOf("[guard/project]") < cli.stderr.indexOf("[guard/ast]"),
+      true,
+      `finalized project finding should precede file findings\n${cli.stderr}`,
+    );
+
+    const api = new TtscCompiler({
+      binary: tsgoBinary,
+      cacheDir: SHARED_PLUGIN_CACHE_DIR,
+      cwd: logicalRoot,
+      env,
+      pluginConfigDir: logicalRoot,
+      projectRoot: logicalRoot,
+    }).compile();
+    assert.equal(api.type, "failure");
+    if (api.type !== "failure") return;
+    const projectDiagnostic = api.diagnostics.find((diagnostic) =>
+      diagnostic.messageText.includes("project blocked"),
+    );
+    assert.notEqual(projectDiagnostic, undefined);
+    assert.equal(projectDiagnostic?.file, null);
+    assert.equal(
+      projectDiagnostic?.messageText.includes(`explicit=${logicalRoot}`),
+      true,
+    );
+    assert.equal(
+      projectDiagnostic?.messageText.includes(`origin=${logicalRoot}`),
+      true,
+    );
+
+    const file = path.join(physicalRoot, "src", "main.ts");
+    const uri = pathToFileURL(path.join(logicalRoot, "src", "main.ts")).href;
+    const secondFile = path.join(physicalRoot, "src", "second.ts");
+    const secondURI = pathToFileURL(
+      path.join(logicalRoot, "src", "second.ts"),
+    ).href;
+    fs.writeFileSync(secondFile, "export const second = 2;\n");
+    const client = TtscserverClient.startLauncher(logicalRoot, {
+      env: {
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_PLUGIN_CONFIG_DIR: "",
+      },
+    });
+    try {
+      await runTtscserverSession(client, async () => {
+        await initializeTtscserverClient(client, logicalRoot);
+        const failedPublication =
+          client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              (params.diagnostics ?? []).some(
+                (diagnostic) => diagnostic.code === "guard/project",
+              ),
+            60_000,
+          );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(file, "utf8"),
+          },
+        });
+        const failedParams = await failedPublication;
+        assert.equal(namesFile(failedParams.uri, logicalConfig), true);
+        assert.equal(
+          failedParams.diagnostics?.filter(
+            (diagnostic) => diagnostic.code === "guard/project",
+          ).length,
+          1,
+        );
+        const lspProjectDiagnostic = failedParams.diagnostics?.find(
+          (diagnostic) => diagnostic.code === "guard/project",
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`logical=${logicalConfig}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`physical=${physicalConfig}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`logicalRoot=${logicalRoot}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`invocation=${logicalRoot}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes("explicit= origin= sources="),
+          true,
+        );
+  
+        fs.writeFileSync(guardState, "clean\n");
+        const cleanPublication =
+          client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              namesFile(params.uri, logicalConfig) &&
+              (params.diagnostics ?? []).length === 0,
+            60_000,
+          );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri: secondURI,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(secondFile, "utf8"),
+          },
+        });
+        await cleanPublication;
+      });
+    } catch (error) {
+      // This helper may report failed shutdown; conservatively retain both inputs.
+      const failures: unknown[] = [error];
+      try { TestProject.retainTemporaryDirectory(physicalRoot, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainTemporaryDirectory(logicalParent, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainSharedPluginCache("project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      throw new AggregateError(failures, "project-rule LSP body or shutdown");
+    }
+
+    fs.writeFileSync(guardState, "blocked\n");
+
+    const deadline = Date.now() + 120_000;
+    const watch = new WatchSession(logicalRoot, {
+      args: ["--noEmit"],
+      env,
+      ownershipRoot: physicalRoot,
+      ownedInputRoots: [logicalParent],
+    });
+    const failures: unknown[] = [];
+    let completedOriginalCycles = false;
+    try {
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before initial cycle");
+      await watch.waitForBuilds(1, Math.max(1, deadline - Date.now()));
+      fs.writeFileSync(guardState, "clean\n");
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before clean cycle");
+      await watch.waitForBuilds(2, Math.max(1, deadline - Date.now()));
+      fs.writeFileSync(guardState, "blocked\n");
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before blocked cycle");
+      await watch.waitForBuilds(3, Math.max(1, deadline - Date.now()));
+      completedOriginalCycles = true;
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try { await watch.close(); } catch (closeError) { failures.push(closeError); }
+    }
+    const output = watch.transcript();
+    if (failures.length) throw new AggregateError(failures, `project-rule watch observation or close\n${output}`);
+    assert.equal(completedOriginalCycles, true, output);
+    assert.equal(
+      output.match(/\[guard\/project\]/g)?.length,
+      2,
+      `watch should report only the two blocked external-input cycles\n${output}`,
+    );
+    const lifecycleIDs = [...output.matchAll(/lifecycle=(\S+)/g)].map(
+      (match) => match[1],
+    );
+    assert.equal(new Set(lifecycleIDs).size, 2, output);
+  };
+
+/**
+ * Whether a URI the server published names `file`.
+ *
+ * The server names the project's config itself, since no client opened it, so
+ * its URI is compared as the file it names rather than as text: an unreserved
+ * `~` in a Windows short path may be spelled `~` or `%7E` (RFC 3986 section
+ * 6.2.2.2). A URI of another scheme names no file.
+ */
+function namesFile(uri: string, file: string): boolean {
+  return uri.startsWith("file:") && fileURLToPath(uri) === file;
+}

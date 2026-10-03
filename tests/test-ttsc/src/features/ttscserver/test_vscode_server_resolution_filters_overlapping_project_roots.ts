@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -16,45 +16,34 @@ import path from "node:path";
  * 2. Resolve candidates for an active file in the nested package.
  * 3. Filter overlapping candidates.
  * 4. Assert only the nested package root remains.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates and filterNonOverlappingCandidates select the nested configured root.
+ * @evidence contracts/testing.md#independent-expectations The expectation follows from the one-owner-per-document rule: the authored nested directory is the only root that may survive, and it is compared as a literal path rather than derived from the filter.
+ * @evidence contracts/testing.md#distinguishing-cases The active file's nested config produces a nested candidate and the workspace root contributes a parent candidate; only the nested one is kept. A sibling-root case, an alias case and a no-nested-config case are not covered by this test.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_filters_overlapping_project_roots function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
  */
-export const test_vscode_server_resolution_filters_overlapping_project_roots =
-  () => {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const root = TestProject.tmpdir("vscode-overlapping-roots-");
-    const nested = path.join(root, "packages", "demo");
-    fs.mkdirSync(path.join(nested, "src"), { recursive: true });
-    fs.writeFileSync(path.join(root, "tsconfig.json"), "{}\n");
-    fs.writeFileSync(path.join(nested, "tsconfig.json"), "{}\n");
-    fs.writeFileSync(path.join(nested, "src", "main.ts"), "export {};\n");
+export function test_vscode_server_resolution_filters_overlapping_project_roots() {
+  const repo = TestProject.WORKSPACE_ROOT;
+  const root = TestProject.tmpdir("vscode-overlapping-roots-");
+  const nested = path.join(root, "packages", "demo");
+  fs.mkdirSync(path.join(nested, "src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "tsconfig.json"), "{}\n");
+  fs.writeFileSync(path.join(nested, "tsconfig.json"), "{}\n");
+  fs.writeFileSync(path.join(nested, "src", "main.ts"), "export {};\n");
 
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
-      const candidates = mod.createResolutionCandidates({
-        activeFile: ${JSON.stringify(path.join(nested, "src", "main.ts"))},
-        activeWorkspaceRoot: ${JSON.stringify(root)},
-        workspaceRoots: [${JSON.stringify(root)}],
-      });
-      console.log(JSON.stringify(mod.filterNonOverlappingCandidates(candidates).map((entry) => entry.cwd)));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      { cwd: repo, encoding: "utf8" },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      (JSON.parse(result.stdout) as string[]).map((entry) =>
-        path.normalize(entry),
-      ),
-      [path.normalize(nested)],
-    );
-  };
+  const observed = (() => {
+    const candidates = mod.createResolutionCandidates({
+      activeFile: (path.join(nested, "src", "main.ts")),
+      activeWorkspaceRoot: (root),
+      workspaceRoots: [(root)],
+    });
+    return mod.filterNonOverlappingCandidates(candidates).map((entry) => entry.cwd);
+  
+  })();
+  assert.deepEqual(
+    (observed as string[]).map((entry) =>
+      path.normalize(entry),
+    ),
+    [path.normalize(nested)],
+  );
+}

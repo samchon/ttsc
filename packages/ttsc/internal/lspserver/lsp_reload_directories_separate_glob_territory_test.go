@@ -20,6 +20,11 @@ import (
 //  2. Prove unrelated immediate entries and the directory itself remain cold.
 //  3. Prove exact reload files are never exempt inside glob territory.
 //  4. Prove a glob rooted on or above the reload directory exempts nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification A missing glob root created directly inside a reload directory stays on the warm data lane, while unrelated immediate entries, the directory itself and exact reload files stay cold, and a glob rooted on or above the directory exempts nothing.
+// @evidence contracts/testing.md#independent-expectations The expected lane per event is literal.
+// @evidence contracts/testing.md#distinguishing-cases Glob territory below, beside and above the reload directory are separate inputs.
+// @evidence contracts/testing.md#execution-ownership TestLSPReloadDirectoriesSeparateGlobTerritory is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
   uri := func(location string) string {
     normalized := filepath.ToSlash(location)

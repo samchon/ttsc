@@ -10,6 +10,11 @@ import "testing"
 //  1. Evaluate the same producer gap with no exemption and an empty exemption.
 //  2. Supply a reasoned public-root exemption and accept the unrelated function gap.
 //  3. Confirm only the deliberate classification passes both gate classes.
+//
+// @evidence contracts/testing.md#behavioral-verification A producer gap passes the gate only with a non-empty rationale; an absent or empty exemption leaves it failing.
+// @evidence contracts/testing.md#independent-expectations The expected gap and new-gap counts are literal numbers for the absent, empty and reasoned exemptions.
+// @evidence contracts/testing.md#distinguishing-cases Absent, empty and reasoned exemptions are three inputs for the same gap.
+// @evidence contracts/testing.md#execution-ownership TestProducerExemptionsRequireRationale is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestProducerExemptionsRequireRationale(t *testing.T) {
   surface := newProducerSurface()
   surface.add(flowConsume, flowType{pkg: "fixture", name: "Root"}, "fixture.UseRoot")

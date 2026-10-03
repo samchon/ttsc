@@ -15,6 +15,9 @@ import type { ITtscSnapshotHandle } from "./ITtscSnapshotHandle";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc names the endpoint and accepted path bases, while the inherited member
  *   documents the opaque handle, following the documentation skill's context rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscFileQuery is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscFileQuery is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscFileQuery is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscFileQuery extends ITtscSnapshotHandle {
   /** Project-relative or absolute path inside the snapshot's program. */

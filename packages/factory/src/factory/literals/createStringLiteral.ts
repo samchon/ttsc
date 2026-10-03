@@ -8,10 +8,10 @@ import { make } from "../internal/make";
  * printer wraps it in double quotes; pass `isSingleQuote` as `true` to wrap it
  * in single quotes instead.
  *
- * The printer escapes the active quote character inside the content. With
- * double quotes, an embedded `"` is emitted as `\"`; with single quotes, an
- * embedded `'` is emitted as `\'`. The other quote character is left
- * untouched.
+ * In a JavaScript expression, the printer escapes the active quote character
+ * with a backslash: `\"` inside double quotes or `\'` inside single quotes.
+ * The other quote character is left untouched. In a quoted JSX attribute,
+ * entities preserve the cooked value instead; backslashes stay literal.
  *
  * With `text` of `he said "hi"` and the default quoting, this prints:
  *

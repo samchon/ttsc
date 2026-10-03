@@ -18,8 +18,7 @@ import (
 //
 // The launcher hands the native host the files the descriptors' load read or
 // probed and each plugin's Go sources, both by directory with the digest of
-// every file, and the build's rule for residue and passed-over directories
-// (samchon/ttsc#1507). They join the session's project inputs for its whole
+// every file, and the build's rule for residue and passed-over directories. They join the session's project inputs for its whole
 // life, so the proxy's reload path, its watcher registration, and its
 // registration-time recheck all cover them.
 //
@@ -34,6 +33,11 @@ import (
 //     it, and an edit to the descriptor each do.
 //  3. Hand it inputs whose source digest no longer matches, and assert the source
 //     refuses to start.
+//
+// @evidence contracts/testing.md#behavioral-verification Inputs a session's plugin selection was loaded from, links, descriptors and missing resolution candidates, end the session when they change, an unchanged source file, an editor backup and pruned directories do not, and every directory gets a children watcher.
+// @evidence contracts/testing.md#independent-expectations Currentness decisions and watcher registrations are literal expectations for the authored plugin module tree.
+// @evidence contracts/testing.md#distinguishing-cases Changing, unchanged, backup and pruned inputs separate what ends the session from what does not.
+// @evidence contracts/testing.md#execution-ownership TestNativePluginSourceEndsTheSessionOnASelectionInput is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestNativePluginSourceEndsTheSessionOnASelectionInput(t *testing.T) {
   root := t.TempDir()
   module := filepath.Join(root, "plugin")

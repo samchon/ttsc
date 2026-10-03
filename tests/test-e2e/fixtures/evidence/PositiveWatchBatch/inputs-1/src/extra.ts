@@ -1,0 +1,2 @@
+/** Extra. */
+export interface Extra {}

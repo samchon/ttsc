@@ -9,6 +9,15 @@ import (
 // TestServeShardsRebuildDeclarationEdit verifies that a declaration-file
 // movement publishes one honest complete replacement instead of entering the
 // authored-source partial builder with an empty invalidation set.
+//
+// 1. Publish a project whose local value calls an ambient number-returning declaration.
+// 2. Change the ambient declaration to return string.
+// 3. Require one complete rebuild replacement based on the initial generation and equality with the full projection.
+//
+// @evidence contracts/testing.md#behavioral-verification Require one complete rebuild replacement based on the initial generation and equality with the full projection.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: changing the ambient api.d.ts return type from number to string must make the next shard snapshot mode rebuild, changed, with BaseGeneration equal to the initial generation, and the committed shards must equal a full projection. The full-projection comparison runs another lane over the same compiler and extraction helpers, so it cannot independently detect a shared checker or extraction defect.
+// @evidence contracts/testing.md#distinguishing-cases Publish a project whose local value calls an ambient number-returning declaration. Change the ambient declaration to return string. Require one complete rebuild replacement based on the initial generation and equality with the full projection.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsRebuildDeclarationEdit is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsRebuildDeclarationEdit(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -24,7 +33,7 @@ func TestServeShardsRebuildDeclarationEdit(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  initial, _, _, err := session.SnapshotShards()
+  initial, _, _, err := snapshotGraphShardState(session)
   if err != nil || initial == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", initial != nil, err)
   }
@@ -32,7 +41,7 @@ func TestServeShardsRebuildDeclarationEdit(t *testing.T) {
     t.Fatal(err)
   }
 
-  replacement, mode, changed, err := session.SnapshotShards()
+  replacement, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
