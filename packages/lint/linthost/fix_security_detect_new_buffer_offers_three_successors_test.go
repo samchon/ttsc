@@ -10,8 +10,9 @@ import "testing"
 // array, or buffer, `Buffer.alloc` for a zero-filled size, `Buffer.allocUnsafe`
 // for an uninitialized one. This rule fires only when the argument is not a
 // literal, so the source cannot say which applies, and imposing one would
-// recreate the constructor's original hazard — `Buffer.allocUnsafe` on what
-// was really a string hands back uninitialized heap memory.
+// select an incompatible API or allocation policy. Buffer.allocUnsafe requires
+// a numeric size and throws for a string; a valid size can expose uninitialized
+// memory unless the caller initializes it. This test checks edits, not allocation.
 //
 //  1. Report `new Buffer(input)` and assert three suggestions, each removing
 //     `new`, rewriting the callee, and leaving the argument list intact.
