@@ -12,10 +12,10 @@ import (
 //
 // react/jsx-no-undef called `reactExtrasFileHasDeclaration(ctx.File, name)` —
 // a full-file walk — for every uppercase tag, so a file with E component
-// elements walked the whole file E times (O(E) per file). Collected once into
+// elements required E full-file walks. Collected once into
 // a set on the shared per-file table, the walk must run exactly once per file
-// and each tag becomes an O(1) membership check, independent of the element
-// count.
+// and each tag uses the cached name set. This count oracle distinguishes collection from element
+// population; it does not measure lookup time.
 //
 //  1. Build three files with wildly different undeclared-tag counts (50/500/2000).
 //  2. Run react/jsx-no-undef over them with the walk counter zeroed.
@@ -45,7 +45,8 @@ func TestReactJSXNoUndefDeclarationsCollectedOncePerFile(t *testing.T) {
   engine := NewEngine(RuleConfig{"react/jsx-no-undef": SeverityError})
   engine.SetSerial(true)
 
-  reactDeclaredNamesCollectCount.Store(0)
+  previousCount := reactDeclaredNamesCollectCount.Swap(0)
+  defer reactDeclaredNamesCollectCount.Store(previousCount)
   findings := engine.Run(files, nil)
   if err := validateSemanticRuleFindings(RuleConfig{"react/jsx-no-undef": SeverityError}, findings); err != nil {
     t.Fatalf("invalid undeclared-component findings: %v", err)
