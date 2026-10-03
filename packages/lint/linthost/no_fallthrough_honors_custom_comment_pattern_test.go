@@ -5,8 +5,8 @@ import "testing"
 // TestNoFallthroughHonorsCustomCommentPattern verifies the commentPattern option accepts a matching custom marker.
 //
 // Upstream valid case with `commentPattern: "break omitted"`: a project can
-// standardize its own marker wording, delivered through the typed rule
-// options transport. Locks the custom-pattern compilation and matching path.
+// standardize its own marker wording, passed in the Engine's JSON options
+// blob. This pins custom-pattern compilation and matching.
 //
 // 1. Mark the transition with `/* break omitted */`.
 // 2. Run the engine with options {"commentPattern":"break omitted"}.

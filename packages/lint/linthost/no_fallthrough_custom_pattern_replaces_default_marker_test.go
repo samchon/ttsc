@@ -2,11 +2,11 @@ package linthost
 
 import "testing"
 
-// TestNoFallthroughCustomPatternReplacesDefaultMarker verifies a custom commentPattern disables the default marker.
+// TestNoFallthroughCustomPatternReplacesDefaultMarker verifies the authored custom pattern rejects the default marker.
 //
 // ESLint compiles the custom pattern INSTEAD of the default one, so a
-// standard `// falls through` stops being accepted once a project configures
-// its own wording (upstream invalid regression). Negative twin of the
+// standard `// falls through` does not match the authored custom wording.
+// This is the negative twin of the
 // custom-pattern acceptance, one property away (the comment text kept at the
 // default spelling).
 //
