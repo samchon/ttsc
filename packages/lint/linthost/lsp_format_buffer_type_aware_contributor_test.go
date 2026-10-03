@@ -33,7 +33,7 @@ func init() {
 //  2. Format a syntactically invalid dirty buffer and require no changes, with
 //     the valid disk twin untouched in both cases.
 //
-// @evidence contracts/testing.md#behavioral-verification The registered checker-backed contributor advances dirty-buffer FIRST to FINAL through two passes while preserving bufferOnly and disk bytes; malformed dirty syntax produces no changes.
+// @evidence contracts/testing.md#behavioral-verification The registered checker-backed contributor advances dirty-buffer FIRST to FINAL through the fixture's two staged rewrites while preserving bufferOnly and disk bytes; malformed dirty syntax produces no changes.
 // @evidence contracts/testing.md#independent-expectations The authored FINAL text, original diskOnly source and empty error edit establish independent answers. The fixture contributor independently requires the imported value to infer number before reporting either edit.
 // @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: checker-backed multi-pass edits use the buffer, syntax errors do not fall back to disk. Each keeps its own assertions under this one discoverable entry.
 // @evidence contracts/testing.md#execution-ownership Registers a checker-backed format contributor through the public rule package at init time and calls run lsp-execute-command with --content-stdin in process through the buffer helpers, so the Program and checker are built in process; no external host or formatter is started.
@@ -94,10 +94,11 @@ func seedDirtyBufferFormatProject(t *testing.T, disk string) string {
 }
 
 // dirtyBufferFormatContributor requires the imported `value` binding to be a
-// number before it rewrites the stage marker. This prevents a checker that was
-// built without the dirty target or its dependency graph from satisfying the
-// fixture. FIRST -> SECOND -> FINAL requires two independently rebuilt Program
-// cycles and therefore shields the complete cascade, not only its first pass.
+// number before it rewrites the stage marker. The output requires the dirty
+// source and both FIRST -> SECOND -> FINAL transitions; the type gate requires
+// a checker able to resolve this imported binding. Disk and buffer use the same
+// binding, so this does not independently prove checker provenance or count
+// Program rebuilds.
 type dirtyBufferFormatContributor struct{}
 
 func (dirtyBufferFormatContributor) Name() string {
