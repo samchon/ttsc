@@ -17,26 +17,28 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * project, so a real build error reaches the caller. The host exits non-zero at
  * startup on a type error, and the client surfaces that as a rejected request.
  *
- * Uses the shared utility-plugins fixture (so the constructor's plugin build
- * succeeds and the only failure is the type error), then breaks one source
- * file. Exercises the real native compiler and a Go linked host, so it runs in
- * CI.
+ * Uses the linked utility-plugins fixture and an incompatible source in an
+ * actual resident request. The rejection assertion does not independently
+ * attribute the failure to type checking or inspect constructor build success.
  *
  * 1. Copy the fixture and replace src/main.ts with a non-compiling source.
- * 2. Construct a TtscService (the plugin build still succeeds).
+ * 2. Construct the actual TtscService against the authored project.
  * 3. Assert transformFile rejects.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual TtscService transform request rejects when native startup compilation sees a string assigned to an exported number.
+ * @evidence contracts/testing.md#behavioral-verification An actual TtscService transform request rejects for the authored incompatible string-to-number project. The original rejection predicate does not inspect a compiler diagnostic, native exit status or every possible rejection cause.
  * @evidence contracts/testing.md#independent-expectations The explicit incompatible assignment independently requires a compiler failure; a rejected public request distinguishes failure from an empty or stale success value.
- * @evidence contracts/testing.md#distinguishing-cases Owns failure during initial Program load rather than an update to a healthy session; successful transform/update/disposal cases execute in the shared resident survivor.
- * @evidence contracts/testing.md#execution-ownership The matching named service export constructs the actual public API and native host, then observes rejection in the Linux native batch.
- * @evidence contracts/e2e.md#necessary-boundary The native child nonzero startup must propagate through real process transport into a rejected API promise; pure diagnostic or message parsing units cannot prove that lifecycle connection.
- * @evidence contracts/e2e.md#shared-execution The unchanged linked utility producer shares the batch plugin cache and compiler objects with healthy service scenarios; the failed project alone needs its own process because no healthy Program can be loaded.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The incompatible source belongs to an isolated consumer fixture; try/finally disposes the failed service, and only immutable producer artifacts are reused across successful and failing consumers.
+ * @evidence contracts/testing.md#distinguishing-cases Keeps incompatible startup source separate from healthy-session updates. Healthy transformation/update/disposal have a separate named owner and require their own actual execution evidence.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry, which constructs the actual built workspace API/native host and observes a public request rejection.
+ * @evidence contracts/e2e.md#necessary-boundary The authored incompatible project is submitted through the real resident startup/request connection, not a fabricated reply or direct parser. Public rejection alone does not independently certify a nonzero child status or exact native compilation cause.
+ * @evidence contracts/e2e.md#shared-execution The linked utility inputs and explicit suite cache remain available across separate healthy/failing consumers. This construction is distinct and does not reuse a healthy service or certify cache hits, identical Program objects or avoided builds.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Incompatible source belongs to the tracked copied root. Supported void disposal is attempted, with body/disposal errors aggregated, but it does not await actual child close. Root/already-owned shared plugin cache are conservatively retained before preparation; no restoration or cleanup is authorized by rejection/disposal alone.
  * @evidence contracts/e2e.md#preserved-coverage The original assert.rejects remains, with the same incompatible source and actual compiled host; no success value is accepted to shorten this failure boundary.
  */
 export async function test_ttscservice_rejects_when_the_project_does_not_compile(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
+  const retentionReason = "failed resident startup has no awaited disposal acknowledgement";
+  TestProject.retainTemporaryDirectory(root, retentionReason);
+  TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),
@@ -51,9 +53,14 @@ export async function test_ttscservice_rejects_when_the_project_does_not_compile
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     },
   });
+  const failures: unknown[] = [];
   try {
     await assert.rejects(() => service.transformFile("src/main.ts"));
+  } catch (error) {
+    failures.push(error);
   } finally {
-    service.dispose();
+    try { service.dispose(); }
+    catch (error) { failures.push(error); }
   }
+  if (failures.length) throw new AggregateError(failures, "failed-startup rejection or disposal assertion failed");
 }

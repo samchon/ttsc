@@ -16,7 +16,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * the project per call, `TtscService` keeps a `serve` host warm and answers
  * per-file requests from it (samchon/ttsc#255). This is the path a Metro worker
  * pool or an editor session reuses, so it must (1) run the linked transform
- * plugins inside the resident host, (2) serve a stable cached result across
+ * plugins inside the resident host, (2) serve equal returned text across
  * calls, and (3) report a file outside the program as absent rather than
  * error.
  *
@@ -26,27 +26,31 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  *
  * 1. Copy the fixture project and seed its `@ttsc/*` plugin packages.
  * 2. Transform `src/main.ts` and assert the banner plugin ran in the host.
- * 3. Re-transform the same file and assert an identical (cached) result.
+ * 3. Re-transform the same file and assert equal text, without a cache-hit oracle.
  * 4. Ask for a file outside the program and assert `undefined`; verify concurrent replies.
  * 5. Update the file in the same host and verify edited output and reapplied plugins.
  * 6. Transform and update through a nested directory link, and reject an external linked source.
  * 7. Dispose the host and require later requests to reject.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual resident transforms preserve the banner, repeated and concurrent response identity, outside-program absence, then apply edited files through physical/nested linked paths, retain external-link absence and reject requests after disposal.
- * @evidence contracts/testing.md#independent-expectations The literal utility combo banner, unchanged first result, undefined stray results and RESIDENT_EDIT marker with absent join call independently establish identity, routing and replacement rather than deriving expected output from the client.
+ * @evidence contracts/testing.md#behavioral-verification Actual resident transforms preserve the banner, repeated/concurrent text equality and outside-program absence, then apply edited files through physical/nested linked paths, retain external-link absence and reject requests after disposal.
+ * @evidence contracts/testing.md#independent-expectations Authored utility combo banner, undefined stray results and literal edit markers/absent join call prescribe output content. Repeat/concurrent/physical-alias equality compares actual returned text relationally, rather than independently prescribing the entire first output or certifying cache identity.
  * @evidence contracts/testing.md#distinguishing-cases Owns absolute and relative file requests, an un-aborted signal, repeated/pipelined main versus stray replies, incremental physical/nested-link replacement, external linked absence and post-disposal rejection in one host; failed startup compilation remains separate.
- * @evidence contracts/testing.md#execution-ownership The matching named service export owns the original resident, incremental and nested-link scenarios through the actual public TtscService API in the Linux native batch.
- * @evidence contracts/e2e.md#necessary-boundary The client must frame real native serve requests and match concurrent responses, send buffer updates through the compiler and terminate the child; direct request parsing or source transformation units cannot prove these assembled operations.
- * @evidence contracts/e2e.md#shared-execution The former incremental and nested-link cases now reuse the same copied project, linked contributor binary, loaded Program and resident process; only one service is constructed and no second identical native session is launched.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All unchanged-output and concurrent-routing checks precede the intentional buffer mutation; the edited assertions then observe the same host. An isolated consumer fixture prevents edits leaking, and try/finally always disposes the service even when an assertion fails.
- * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, stable-repeat, outside/concurrent replies and disposed-request rejection assertions remain, together with every original incremental before/update/after/banner/no-join and nested-link transform/update/external-absence assertion. Physical-versus-nested alias result equality additionally checks a shared overlay. The old separate incremental and nested-link files are removed only after actual shared-host validation.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry, which owns resident requests, accepted updates and native nested/external link inputs through the actual built workspace API. Post-disposal rejection is an API terminal observation, not actual OS close.
+ * @evidence contracts/e2e.md#necessary-boundary Actual serve requests/concurrent replies, buffer updates and native path adaptation are assembled across the resident connection. Direct policy/parser units cannot establish these returned outputs; void disposal does not independently certify child termination.
+ * @evidence contracts/e2e.md#shared-execution One constructed service and copied linked-utility project serve all unchanged/concurrent/update/alias observations. Accepted updates may create new Program generations; shared inputs/cache availability do not certify identical objects, build/process totals, hits or packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original unchanged/concurrent checks precede intentional physical then nested-link buffer mutation. Copied root/external directory/shared plugin cache are retained before preparation because supported void disposal supplies no awaited close acknowledgement. Body/disposal errors are aggregated; neither terminal rejection nor retention certifies descendants or authorizes uncertain-input cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, stable-repeat, outside/concurrent replies and disposed-request rejection assertions remain, with every original incremental before/update/after/banner/no-join and nested-link transform/update/external-absence assertion. Physical-versus-nested equality checks the returned overlay. Historical embedding/file removal is not newly certified survival; actual shared-host execution/coverage remains a separate obligation.
  */
 export async function test_ttscservice_transforms_a_file_through_the_resident_host(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
+  const retentionReason = "healthy resident service has no awaited disposal acknowledgement";
+  TestProject.retainTemporaryDirectory(root, retentionReason);
+  TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
   const alias = path.join(root, "linked-src");
   fs.symlinkSync(path.join(root, "src"), alias, "junction");
   const outside = TestProject.tmpdir("ttsc-service-outside-");
+  TestProject.retainTemporaryDirectory(outside, retentionReason);
   fs.writeFileSync(
     path.join(outside, "absent.ts"),
     "export const absent = true;\n",
@@ -64,6 +68,7 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     },
   });
+  const failures: unknown[] = [];
   try {
     const first = await service.transformFile(
       path.join(root, "src", "main.ts"),
@@ -163,10 +168,14 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
       );
     }
 
-    // dispose terminates the host and rejects any later request.
+    // Supported disposal makes later requests reject; OS close is not awaited.
     service.dispose();
     await assert.rejects(() => service.transformFile("src/main.ts"));
+  } catch (error) {
+    failures.push(error);
   } finally {
-    service.dispose();
+    try { service.dispose(); }
+    catch (error) { failures.push(error); }
   }
+  if (failures.length) throw new AggregateError(failures, "healthy resident observations or disposal failed");
 }
