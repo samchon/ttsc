@@ -1193,14 +1193,17 @@ const (
 
 // NewNodeFactory creates an AST node factory with the supplied creation hooks.
 // Pass a zero-value NodeFactoryHooks to get the default factory behaviour.
+// The returned factory retains the hook functions and their captured values.
+// Construction does not call them or allocate AST nodes; later factory methods
+// own node creation and arena growth.
 //
 // @evidence contracts/common.md#principled-implementation Direct delegation preserves upstream creation hooks and returns its factory allocation unchanged.
 // @evidence contracts/common.md#clear-and-simple-design One adapter exposes factory construction without another allocator or hook layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported upstream hooks provide injection without replacing foreign creation methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains hook input and zero-value behavior with a blank line before tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewNodeFactory acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewNodeFactory performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewNodeFactory computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream allocates one factory and transfers it to the caller, retaining three hook references and any reachable captures until the factory and caller references are released. Arenas start empty; later factory operations grow them. Construction acquires no native handles or tasks and imposes no independent cap on hook capture bytes.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent factory-construction strategy. Upstream allocates one fixed-shape factory and copies the hook value in O(1) time and space without creating nodes or invoking callbacks.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction returns fresh mutable factory state, not a coordinated shared result; callers own any supported reuse of that factory and its hook state.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewNodeFactory computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
   return innerast.NewNodeFactory(options)
@@ -1289,16 +1292,17 @@ func IsProtoSetter(node *Node) bool {
 }
 
 // NewNodeVisitor creates a visitor with the supplied callback and child hooks.
-// A nil factory selects the upstream default factory. The callback may be nil;
-// construction itself neither traverses nodes nor invokes visit.
+// A nil factory creates a fresh zero-hook factory. The callback may be nil;
+// construction itself neither traverses nodes nor invokes visit. The returned
+// visitor retains callback, factory and hook references for later use.
 //
 // @evidence contracts/common.md#principled-implementation Delegation preserves callback/factory/hooks and upstream nil-factory default rather than starting a traversal.
 // @evidence contracts/common.md#clear-and-simple-design One adapter leaves visitation and node recreation with the upstream visitor.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported hooks and callback arguments replace no foreign visitor methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains construction versus traversal and nil inputs with separated tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewNodeVisitor acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewNodeVisitor performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewNodeVisitor computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Upstream transfers one new visitor to the caller and, for a nil input factory, one new empty factory. The visitor retains its callback, factory and nine hook references, including their reachable captures and factory arenas; caller reachability determines their lifetime. Construction starts no native handle or task and sets no independent retained-byte cap.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent visitor-construction strategy. Upstream copies fixed-shape callback/factory/hooks into a visitor and optionally creates an empty factory in O(1) time and space without traversal or callback invocation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction returns a fresh visitor with caller-selected references, not a coordinated shared result; callers own reuse of the visitor and any supplied factory state.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewNodeVisitor computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options NodeVisitorHooks) *NodeVisitor {
   return innerast.NewNodeVisitor(visit, factory, options)
