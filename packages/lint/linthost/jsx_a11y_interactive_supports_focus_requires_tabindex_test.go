@@ -4,7 +4,7 @@ import "testing"
 
 // TestJsxA11yInteractiveSupportsFocusRequiresTabindex verifies interactive roles need focus.
 //
-// A custom element with role button must be reachable by keyboard. This case
+// A div with role button needs keyboard focus under this policy. This case
 // locks the explicit-role path separate from native button handling.
 //
 // 1. Parse a div with role button and no tabIndex.

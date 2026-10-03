@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yIframeHasTitleAllowsSpreadProps verifies spread props satisfy iframe-has-title.
+// TestJsxA11yIframeHasTitleAllowsSpreadProps verifies iframe-has-title
+// abstains when an unknown spread may supply title.
 //
 // The title may come through the `{...props}` spread, so the rule must not
 // report while the prop set is unknown — `@ttsc/lint` findings are

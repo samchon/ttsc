@@ -6,10 +6,10 @@ import "testing"
 // not suppress explicit redundant alt text.
 //
 // img-redundant-alt judges an explicitly written alt value, so a sibling
-// spread changes nothing about the violation. This pins the presence-
-// predicated side of the spread handling: only absence-predicated reports go
-// quiet, and the attribute walk must not panic on the JsxSpreadAttribute
-// member.
+// spread does not suppress this static report. The case pins this rule's
+// known-alt policy, not every rule's spread handling or the final runtime
+// alt value after a spread. The attribute walk must not panic on the
+// JsxSpreadAttribute member.
 //
 // 1. Parse an img with a redundant alt plus a spread.
 // 2. Enable only `jsx-a11y/img-redundant-alt`.
