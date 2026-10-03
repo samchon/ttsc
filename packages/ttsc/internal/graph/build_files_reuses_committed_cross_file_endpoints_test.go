@@ -9,14 +9,14 @@ import (
 
 // TestBuildFilesReusesCommittedCrossFileEndpoints verifies partial extraction
 // resolves selected-file facts against, but does not re-emit, the preceding
-// generation's unchanged declaration index.
+// full build's declaration index from the same unchanged Program.
 //
 // A member implementation edge is the boundary case: resolving the base class
 // alone is insufficient because the edge targets the base member node. If a
 // partial builder sees only its replacement file, that member disappears unless
 // the committed endpoint index participates in checker resolution. Conversely,
-// emitting the base and unrelated nodes again would turn a file edit back into
-// a whole-project graph replacement.
+// emitting the base and unrelated nodes again would violate this selected-file
+// extraction's output boundary. No edit or committed shard replacement runs.
 //
 //  1. Compile a base interface, one implementation and an unrelated source.
 //  2. Build the complete generation, then rebuild only the implementation file
@@ -24,11 +24,12 @@ import (
 //  3. Require the implementation/member facts and cross-file edge while
 //     rejecting re-emission of the base and unrelated nodes.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies partial extraction resolves selected-file facts against, but does not re-emit, the preceding generation's unchanged declaration index.
-// @evidence contracts/testing.md#independent-expectations The expectations are literal: with only impl.ts selected and the complete generation's nodes as the base index, the partial graph must contain the Impl.run method node, no node from base.ts or unrelated.ts, and a member-relation edge from Impl.run to Base.run whose origin is implements.
+// @evidence contracts/testing.md#behavioral-verification BuildFiles selects impl.ts using the same Program's full-build nodes as its base index, emits Impl.run and its implements member relation to Base.run, and emits no node from base.ts or unrelated.ts.
+// @evidence contracts/testing.md#independent-expectations The method names, implements relation and forbidden file membership are authored expectations. File paths come from the loaded Program, and method IDs use the owning nodeID formatter, so ID grammar and filename reporting are not independently certified.
 // @evidence contracts/testing.md#distinguishing-cases Compile a base interface, one implementation and an unrelated source; Build the complete generation, then rebuild only the implementation file against its node index; Require the implementation/member facts and cross-file edge while rejecting re-emission of the base and unrelated nodes.
-// @evidence contracts/testing.md#execution-ownership TestBuildFilesReusesCommittedCrossFileEndpoints is a Go source-unit entry. BuildFiles, Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, then calls Build and BuildFiles directly. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or native product command is used.
 func TestBuildFilesReusesCommittedCrossFileEndpoints(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {

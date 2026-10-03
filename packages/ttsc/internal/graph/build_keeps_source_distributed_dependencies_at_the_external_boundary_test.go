@@ -18,10 +18,11 @@ import (
 // 3. Assert provenance retains the dependency source text without its facts.
 //
 // @evidence contracts/testing.md#behavioral-verification TestBuildKeepsSourceDistributedDependenciesAtTheExternalBoundary proves a package whose public entry is raw TypeScript remains a referenced leaf rather than becoming authored graph content. The resident source text is retained as provenance evidence even though its declarations are not walked.
-// @evidence contracts/testing.md#independent-expectations The expectations are literal over a workspace source importing the raw-TypeScript package dep-src: dependencyValue must be an external node in a node_modules/dep-src file, the unreferenced dependencyInternal must not be a node, workspaceValue must be a non-external node with a value-call edge to dependencyValue, and SourceTexts must still hold a dep-src path.
+// @evidence contracts/testing.md#independent-expectations The authored dep-src fixture expects an external dependencyValue, no dependencyInternal node, a non-external workspaceValue with a value-call to dependencyValue, and the exact two-function source text in SourceTexts. Node IDs are taken from the returned named nodes, so their grammar is not independently certified.
 // @evidence contracts/testing.md#distinguishing-cases Load one workspace source that imports a raw TypeScript package entry; Assert only the referenced dependency symbol becomes an external leaf; Assert provenance retains the dependency source text without its facts.
-// @evidence contracts/testing.md#execution-ownership TestBuildKeepsSourceDistributedDependenciesAtTheExternalBoundary is a Go source-unit entry. Build, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native project/package fixture, constructs and closes a driver compiler Program in-process, then directly calls Build and SourceTexts. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command is used.
 func TestBuildKeepsSourceDistributedDependenciesAtTheExternalBoundary(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true },
@@ -67,8 +68,11 @@ export function workspaceValue(): number { return dependencyValue() + 1; }
   }
 
   dependencyTextRetained := false
-  for file := range SourceTexts(program) {
+  for file, text := range SourceTexts(program) {
     if strings.Contains(filepath.ToSlash(file), "/node_modules/dep-src/") {
+      if text != "export function dependencyValue(): number { return 1; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n" {
+        t.Fatalf("resident dependency text differs from the authored fixture: %q", text)
+      }
       dependencyTextRetained = true
       break
     }
