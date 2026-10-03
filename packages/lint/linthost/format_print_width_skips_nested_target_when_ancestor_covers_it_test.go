@@ -9,7 +9,8 @@ import (
 )
 
 // TestFormatPrintWidthSkipsNestedTargetWhenAncestorCoversIt verifies the
-// rule visits only the outermost reflow target on the way down a tree.
+// rule emits a finding only for the outermost reflow target; nested
+// visits abstain when a reflow ancestor already owns the edit.
 //
 // Nested reflow targets must have one edit owner. Counting only the original
 // short array cannot distinguish ancestor suppression from its fitting fast
@@ -22,7 +23,7 @@ import (
 // 3. Assert one complete outer-call range and the independent full output.
 //
 // @evidence contracts/testing.md#behavioral-verification The original outer-call count/rule checks remain. A long nested object must yield exactly one complete outer-call range, and the applied full output must preserve all values, argument order and use syntax.
-// @evidence contracts/testing.md#independent-expectations Independent source literals define the complete outer-call byte range. Installed Prettier 3.8.3 at width24 supplies the authored nested-object whole output; neither oracle derives ownership or bytes from the rule walker.
+// @evidence contracts/testing.md#independent-expectations Independent source literals define the complete outer-call byte range. A complete independently authored width24 layout fixes the nested-object whole output; neither oracle derives ownership or bytes from the rule walker.
 // @evidence contracts/testing.md#distinguishing-cases The original short nested array can fit independently and is not alone a distinguishing guard case. The added nested object itself overflows, so duplicate reflow would create an extra finding; flat-short and direct ancestor predicates are complementary.
 // @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthSkipsNestedTargetWhenAncestorCoversIt owns its original direct engine assertions plus nested-object exact-range and literal full-output cases in the selected public Go unit population. Owning operations, engine and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatPrintWidthSkipsNestedTargetWhenAncestorCoversIt(t *testing.T) {
