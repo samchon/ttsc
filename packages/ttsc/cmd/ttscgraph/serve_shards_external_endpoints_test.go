@@ -10,13 +10,15 @@ import (
 //
 // A partial projection must not prune an ambient callable still named by a local
 // edge. The full projection comparison checks another publication lane, while
-// both lanes continue to share the compiler and extraction helpers.
+// both lanes continue to share the compiler and extraction helpers. This unit
+// independently checks the cached endpoint name and External flag, not the
+// local call edge or its endpoints.
 //
 // 1. Load an ambient external declaration and a local call to it.
 // 2. Publish the base, then change only the local implementation body.
 // 3. Require incremental publication, endpoint retention and full-lane agreement.
 //
-// @evidence contracts/testing.md#behavioral-verification An incremental private-body edit retains the ambient external callable while its local value-call edge still references it.
+// @evidence contracts/testing.md#behavioral-verification An incremental private-body edit whose authored source continues to call external retains a cached node named external with External true. The local call edge and its endpoints are not independently asserted.
 // @evidence contracts/testing.md#independent-expectations The literal local body continues to call external, so that endpoint must remain in the committed node cache. Canonical facts are also compared with the full projection lane over the same compiler; the shared compiler and extraction helpers mean that comparison is not an independent checker oracle.
 // @evidence contracts/testing.md#distinguishing-cases Initial publication, a local body-only edit, the incremental mode and the still-referenced external endpoint contrast a retained dependency with the separate last-reference removal case.
 // @evidence contracts/testing.md#execution-ownership This Go source-unit entry calls newGraphSession and snapshotGraphShardState, which complete the actual prepared state transaction with explicit empty ignore membership; real Git acquisition remains in the worktree E2E.

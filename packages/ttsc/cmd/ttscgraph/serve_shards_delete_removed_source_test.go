@@ -7,14 +7,15 @@ import (
 )
 
 // TestServeShardsDeleteRemovedSource verifies a root-set reload names the
-// superseded source shard explicitly while publishing a complete replacement
-// generation. A consumer never has to infer deletion from a missing payload.
+// removed source shard explicitly in Deletes and retains a committed key for
+// the other source. Complete replacement payloads and consumer application are
+// not observed here.
 //
 // 1. Publish index.ts and keep.ts as the initial source shards.
 // 2. Delete index.ts and publish the resulting source change.
 // 3. Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
 //
-// @evidence contracts/testing.md#behavioral-verification Deleting a root source makes the next shard snapshot a reload delta based on the initial generation that names the removed source's shard key in Deletes while the remaining source keeps its key in the committed store.
+// @evidence contracts/testing.md#behavioral-verification Deleting a root source makes the next shard snapshot a reload delta based on the initial generation that names the removed source's shard key in Deletes while the remaining source has a nonempty key in the committed store. Equality with its old key, complete payload membership, and consumer application are not asserted.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over a two-source fixture: after src/index.ts is removed the snapshot must be mode reload and changed with BaseGeneration equal to the initial generation, its Deletes must contain the shard key the store held for index.ts, and the committed store must drop index.ts and keep a key for keep.ts.
 // @evidence contracts/testing.md#distinguishing-cases Publish index.ts and keep.ts as the initial source shards. Delete index.ts and publish the resulting source change. Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
 // @evidence contracts/testing.md#execution-ownership TestServeShardsDeleteRemovedSource is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
