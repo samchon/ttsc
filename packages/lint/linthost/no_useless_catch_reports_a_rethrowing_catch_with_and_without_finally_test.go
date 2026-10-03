@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification no-useless-catch must report a catch that only rethrows its binding with and without a finally block, with the message that names what is redundant, and must leave a catch that does other work alone.
 // @evidence contracts/testing.md#independent-expectations ESLint documents both shapes as incorrect: a bare rethrowing catch, and a rethrowing catch before a finally, whose cleanup runs on the rethrow either way; the two literal messages are the upstream wrapper and catch-clause texts.
 // @evidence contracts/testing.md#distinguishing-cases The finally and no-finally twins differ only in the finally block and in the reported message, and a catch that logs before rethrowing is the negative control.
-// @evidence contracts/testing.md#execution-ownership TestNoUselessCatchReportsARethrowingCatchWithAndWithoutFinally parses virtual sources and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
+// @evidence contracts/testing.md#execution-ownership TestNoUselessCatchReportsARethrowingCatchWithAndWithoutFinally writes each source to a temporary project, parses it and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
 func TestNoUselessCatchReportsARethrowingCatchWithAndWithoutFinally(t *testing.T) {
   messageOf := func(source string) string {
     t.Helper()

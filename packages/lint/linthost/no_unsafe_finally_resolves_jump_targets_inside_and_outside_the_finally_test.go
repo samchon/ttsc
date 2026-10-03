@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification no-unsafe-finally must report a continue through a switch and a labeled break that leave the finally block, and must stay silent for jumps resolved by a loop, a switch or a label inside it.
 // @evidence contracts/testing.md#independent-expectations ECMAScript jump semantics decide the expectations: continue ignores switch statements when resolving its target, and a labeled jump resolves to the statement that carries the label.
 // @evidence contracts/testing.md#distinguishing-cases The reported sources and the silent sources differ only in where the target lies, so a rule that ignored every jump near a loop or switch fails the positive cases and one that reported every jump fails the negative ones.
-// @evidence contracts/testing.md#execution-ownership TestNoUnsafeFinallyResolvesJumpTargetsInsideAndOutsideTheFinally parses virtual sources and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
+// @evidence contracts/testing.md#execution-ownership TestNoUnsafeFinallyResolvesJumpTargetsInsideAndOutsideTheFinally writes each source to a temporary project, parses it and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
 func TestNoUnsafeFinallyResolvesJumpTargetsInsideAndOutsideTheFinally(t *testing.T) {
   for _, source := range []string{
     "function f(k: number): void {\n  for (;;) {\n    try {\n      work();\n    } finally {\n      switch (k) {\n        case 1:\n          continue;\n      }\n    }\n  }\n}\nfunction work(): void {}\nJSON.stringify(f);\n",
