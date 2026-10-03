@@ -12,7 +12,7 @@ export function releaseConfigLanguageBoundary(): void {
   failed = undefined;
 }
 
-/** One builtin native host load with nine independently scoped config inputs. */
+/** One launcher result for nine scoped configs; native child/Program totals are not asserted here. */
 export function configLanguageBoundaryResult(): ReturnType<typeof runLintProject> {
   if (failed) throw failed.error;
   if (completed) return completed;
