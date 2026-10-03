@@ -116,13 +116,17 @@ func (d Diagnostic) IsError() bool {
 // offsets into the source file; `code` is a stable rule identifier (e.g. the
 // rule's enum index). Severity controls both the rendered banner color and
 // the exit-code outcome.
+// The native lint constructor clamps endpoints to the supplied text and expands
+// a nonpositive span to one byte when room remains. With no source, the public
+// location and span stay absent; the retained source text must remain the version
+// described by the resulting diagnostic.
 //
 // @evidence contracts/common.md#principled-implementation The native lint anchor uses byte spans and category while the plain fields retain the same source and one-based byte location for structured consumers.
 // @evidence contracts/common.md#clear-and-simple-design One constructor associates native rendering and public diagnostic data instead of a separate plugin rendering path.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source context remains unlocated and supplied rule identifiers are preserved without fixture-based rewriting.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte units, rule identifier and severity effects following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation A supplied compiler source is inspected without resolving native filesystem identity or launching a process.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This adapter delegates span and line mapping to native diagnostic/scanner APIs.
+// @evidence contracts/performance.md#efficient-algorithms Range normalization is bounded scalar work; mapping the start can build the source-owned ECMAScript line map by scanning text, then binary-searches its line starts. Source bytes, line count and native line-map locks govern delegated work, not only the constructor's fixed field assignments.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Constructing one finding does not coordinate repeated diagnostic requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result transfers its rendering anchor to the consumer without constructor-owned historical storage.
 func NewLintDiagnostic(
@@ -184,14 +188,17 @@ func (p *Program) SourceFile(filename string) *ast.SourceFile {
   return p.TSProgram.GetSourceFile(filename)
 }
 
-// String returns a `path:line:col: message` formatted string.
+// String returns message alone without File, file/message without a positive
+// Line, or file/line/column/message otherwise. In that last form Column is printed
+// as supplied, including zero or a negative value; this is a display, not source
+// position validation.
 //
-// @evidence contracts/common.md#principled-implementation Located diagnostics include available line and column; unlocated findings retain just their message rather than invented coordinates.
+// @evidence contracts/common.md#principled-implementation The three field-presence branches preserve supplied values: missing file yields message alone, nonpositive line omits coordinates, and positive line includes the supplied column without inventing or validating one.
 // @evidence contracts/common.md#clear-and-simple-design One formatter handles the three available-location shapes without a renderer dependency.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting uses supplied location fields and introduces no fixture-specific text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the displayed shape following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This formatter displays an existing source name and performs no native path resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Ordinary diagnostic formatting selects no input-processing algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Missing-file output reuses Message directly; the two fixed format strings otherwise produce output proportional to filename/message bytes and decimal coordinates, with no source scan or filesystem lookup.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Formatting one value does not coordinate shared computation requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string transfers to its caller without formatter-owned state or handles.
 func (d Diagnostic) String() string {
@@ -205,17 +212,17 @@ func (d Diagnostic) String() string {
 }
 
 // WritePrettyDiagnostics renders diagnostics with TypeScript-style colors,
-// source snippets and the trailing error summary when raw tsgo or lint
-// diagnostic objects are available. Mixed batches (e.g. typecheck + lint)
-// are rendered through the same color/context pipeline; entries without
-// either anchor fall back to the legacy `path:line:col: message` form.
+// available source snippets for native tsgo/lint anchors. That rich subset is
+// sorted and gets its own native summary; plain findings are written afterward
+// and are not included in that summary. Missing anchors and native findings
+// without an authored position use the plain supplied-field display.
 //
 // @evidence contracts/common.md#principled-implementation Rich anchors go through the native mixed diagnostic writer; unlocated generated findings stay on the plain path with an explicit missing-authored-location explanation.
-// @evidence contracts/common.md#clear-and-simple-design One boundary classifies the batch and delegates native context rendering, preserving a plain fallback only for absent rendering anchors.
+// @evidence contracts/common.md#clear-and-simple-design One boundary separates rich anchors from plain or missing-authored-position findings, delegates rich rendering and then writes the plain subset.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The plain path serves real unlocated diagnostics rather than masking a native source-position failure with a guessed range.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes mixed rich rendering and location-free output under documentation-skill guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Supplied streams and diagnostic source names are rendered without native filesystem or process access.
-// @evidence contracts/performance.md#efficient-algorithms One O(N) classification pass and one rich-batch collection pass feed the native writer; temporary references grow linearly with batch size.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The caller supplies the writer and owns its native destination/capabilities; this renderer presents supplied source names and coordinates without its own filesystem identity query or process selection.
+// @evidence contracts/performance.md#efficient-algorithms Linear partition/collection passes allocate batch references; rich rendering additionally sorts diagnostics by source/position and formats context, messages and summary before plain formatting. Finding count, compared filenames and rendered/source-context bytes govern work, plus the supplied writer's cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation writes observable output and does not coordinate equivalent requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns w; this renderer never closes it or retains the batch after returning.
 func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
