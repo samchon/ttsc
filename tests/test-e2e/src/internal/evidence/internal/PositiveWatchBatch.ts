@@ -31,7 +31,7 @@ import type { ICreateProjectProps } from "../../../../../utils/src/evidence/ICre
  */
 export namespace PositiveWatchBatch {
   /** Executes one real watcher and preserves each original case's failure identity. */
-  export async function run(): Promise<void> {
+  export async function run(preparation: Pick<ICreateProjectProps, "workspaceParent" | "preparedModules"> = {}): Promise<void> {
     const failures: unknown[] = [];
     const check = (assertion: () => void): void => { try { assertion(); } catch (error) { failures.push(error); } };
     let project: ITtscEvidenceProject | undefined;
@@ -40,7 +40,7 @@ export namespace PositiveWatchBatch {
       const authored = watchScenes();
       // The default canonical workspace producer is the original cold oracle's
       // producer. Keeping it from startup preserves same-root identity.
-      project = createProject({ ...authored[0].props, name: "positive-watch-batch" });
+      project = createProject({ ...authored[0].props, ...preparation, name: "positive-watch-batch" });
       const owned = project;
       const library = privatizeLibrary(owned.directory);
       assert.ok(!fs.lstatSync(library).isSymbolicLink(), "Loader revocation requires an actual detached private directory.");

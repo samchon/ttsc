@@ -22,6 +22,6 @@ import { PositiveWatchBatch } from "../../../internal/evidence/internal/Positive
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Missing Swagger runs before any api parent is created; empty Markdown keeps its original .keep and uncited source after genuine reinitialization. Each phase restores recorded original bytes or absence, primary/sibling layout, source corpus and include membership. Code-link includes its typed primary config; Staged retains src-only membership. Baselines and resets retain their authored0/2 verdicts; private loader revocation is last and process closure and fixture removal are attempted despite failures. Forced or unjoined ownership is a failure that blocks reuse, not successful cleanup.
  * @evidence contracts/e2e.md#preserved-coverage positiveWatchCases owns all thirteen original watch assertion mappings, including missing/generated Swagger, empty/created/deleted Markdown, documented configuration cycle reset, content-derived review expiry, first numeric Claim1 identity, both physically external channels, distinct export/file failures and exact cold multiplicity. The duplicate standalone entries are removed; each callback retains its independently collected assertions and mutation name, and this claim does not certify a completed run.
  */
-export async function case_evidence_positive_watch_consumers_share_one_watcher(): Promise<void> {
-  await PositiveWatchBatch.run();
+export async function case_evidence_positive_watch_consumers_share_one_watcher(preparation: Parameters<typeof PositiveWatchBatch.run>[0] = {}): Promise<void> {
+  await PositiveWatchBatch.run(preparation);
 }

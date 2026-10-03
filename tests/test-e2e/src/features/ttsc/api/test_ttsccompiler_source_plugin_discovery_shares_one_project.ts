@@ -42,11 +42,11 @@ import {
  * @evidence contracts/testing.md#execution-ownership This ordinary test export is discovered by test-e2e src/index.ts and selected by evidence.config.json; it runs the native plugin loader and source producer through TtscCompiler, through the checkout built API and selected native compiler; manifest parsing units alone do not exercise this assembly. It is not packed installation or loaded-image certification.
  * @evidence contracts/e2e.md#necessary-boundary Native plugin discovery and API output publication, worker environment capture and the sampled descriptor-hold timer bound require actual native API and worker connections; direct manifest or envelope units cannot prove this assembly.
  * @evidence contracts/e2e.md#shared-execution The six discovery calls and seven calls formerly made by three private API consumers share one workspace instead of four project roots and an additional later-temp directory outside those projects. The current thirteen public invocations include four asynchronous worker requests; these static calls do not certify actual worker/process totals, construction counts or native Program/descriptor-child reduction. The immutable process-owned Go producer and content-keyed cache remain shared. The authored check descriptor substitutes only that producer's absolute source path.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before each input state the test removes its own descriptors, asset and temp paths, then the workspace resets source, package discovery trees, outputs and configuration from baseline plus overlay. Requested asynchronous outcomes are awaited, changed temp variables and timers are restored in finally, and body/close causes are retained with root absence after scenarios. The directory helper itself joins no worker/process; direct outcomes do not prove arbitrary descendant closure or forced-interruption cleanup. Scenarios collects failures so one state does not hide subsequent cases.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before each input state the test removes its own descriptors, asset and temp paths, then the workspace resets source, package discovery trees, outputs and configuration from baseline plus overlay. Requested asynchronous outcomes are awaited, changed temp variables and timers are restored in finally, and body/close causes are retained. Standalone cleanup verifies root absence; a borrowed slot remains with the shared owner for observation. The directory helper itself joins no worker/process; direct outcomes do not prove arbitrary descendant closure or forced-interruption cleanup. Scenarios collects failures so one state does not hide subsequent cases.
  * @evidence contracts/e2e.md#preserved-coverage Retains configured and discovered compile/transform records, ancestor positive and nearest-manifest negative, the original exact host-input list, scoped-temp exception text and physical path, ambient success, sync/async envelope equality, 500ms stall bound, call-time environment mutation and missing-config exception kind/message/name equality. The three removed additional entries now share these executable scenarios and the existing discovery workspace.
  */
-export async function test_ttsccompiler_source_plugin_discovery_shares_one_project(): Promise<void> {
-  const workspace = CompilerApiWorkspace.open();
+export async function test_ttsccompiler_source_plugin_discovery_shares_one_project(preparedWorkspace?: CompilerApiWorkspace.IWorkspace): Promise<void> {
+  const workspace = preparedWorkspace ?? CompilerApiWorkspace.open();
   const failures: unknown[] = [];
   try {
     const root = workspace.root;
@@ -322,7 +322,7 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
     failures.push(error);
   } finally {
     try {
-      CompilerApiWorkspace.close(workspace);
+      if (!preparedWorkspace) CompilerApiWorkspace.close(workspace);
     } catch (error) {
       failures.push(error);
     }
