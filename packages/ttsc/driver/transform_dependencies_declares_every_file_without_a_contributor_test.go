@@ -5,19 +5,16 @@ import (
   "testing"
 )
 
-// TestTransformDependenciesDeclaresEveryFileWithoutAContributor verifies the
-// rule the host declares under when nothing else can contribute: a
-// source-to-source transform is syntactic, so a file the host alone produced
-// depends on its own text and the compiler options, and on nothing else.
+// TestTransformDependenciesDeclaresEveryFileWithoutAContributor supplies two
+// file keys and no contributors directly to the aggregation operation. Both
+// keys are declared complete and the dependency map remains nil. This checks
+// the empty-contributor rule, not host output, plugin classification, or a
+// consumer's decision to stop revalidating a reference closure.
 //
-// With an empty contributor set the aggregation is vacuously satisfied for
-// every file, which is what lets a plugin-free project's consumer stop
-// revalidating each delivered module's whole reference closure.
-//
-// @evidence contracts/testing.md#behavioral-verification aggregateTransformDependencies with no contributing plugin declares every key complete and publishes no dependency entries.
+// @evidence contracts/testing.md#behavioral-verification aggregateTransformDependencies with no contributors returns both supplied keys as complete and a nil dependency map.
 // @evidence contracts/testing.md#independent-expectations The expected complete list and nil dependency map are literals.
 // @evidence contracts/testing.md#distinguishing-cases The empty contributor set is the vacuous case, contrasted with the contributor cases in sibling tests.
-// @evidence contracts/testing.md#execution-ownership TestTransformDependenciesDeclaresEveryFileWithoutAContributor is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#execution-ownership This driver Go unit calls the unexported aggregation with two literal keys and an empty declaration ledger. It uses no filesystem fixture, consumer installation, compiler Program, or product process.
 func TestTransformDependenciesDeclaresEveryFileWithoutAContributor(t *testing.T) {
   keys := []string{"src/main.ts", "src/types.ts"}
 
