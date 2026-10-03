@@ -1436,8 +1436,8 @@ func IsPropertyAccessExpression(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fixture indexes or consumer receiver types affect the predicate.
 // @evidence contracts/common.md#meaningful-documentation Native prose illustrates bracket access and explains input/evaluation boundaries.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsElementAccessExpression acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsElementAccessExpression performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsElementAccessExpression computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent access classifier. Upstream compares one node kind in O(1) time and space without examining receiver or index children.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsElementAccessExpression computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsElementAccessExpression(node *Node) bool {
   return innerast.IsElementAccessExpression(node)
@@ -1460,15 +1460,17 @@ func IsTokenKind(kind Kind) bool {
 
 // IsExpressionNode reports whether node has expression semantics in its
 // enclosing syntax context.
-// Supply a nonnil node with the parent links required by context-sensitive cases.
+// Supply valid compiler node payloads and the parent links required by
+// context-sensitive cases. Parent ascent must terminate; this helper does not
+// detect cycles, and context checks can recurse up that chain.
 //
 // @evidence contracts/common.md#principled-implementation Delegation preserves upstream kind/context expression rules, assuming the required parent relationships exist.
 // @evidence contracts/common.md#clear-and-simple-design Upstream owns context-sensitive expression classification without a shim parent walker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No consumer node names or patched syntax parents determine the result.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes contextual expression meaning and parent/nonnil premises.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsExpressionNode acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsExpressionNode performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsExpressionNode computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent expression-context algorithm. Upstream uses fixed kind/payload tests, but qualified-name ascent and mutually recursive expression-context fallback can visit H parents, costing O(H) time and up to O(H) call-stack space; it does not scan child subtrees.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding classification owns no cache or in-flight coordination; compiler-tree owners establish validity of context and parent links across calls.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsExpressionNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsExpressionNode(node *Node) bool {
   return innerast.IsExpressionNode(node)
