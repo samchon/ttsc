@@ -7,10 +7,9 @@ import "testing"
 // attached to the open paren and flows `, target)` after its closing
 // brace, instead of exploding both arguments onto their own lines.
 //
-// The old printer only hugged the LAST argument, so a leading callback
-// with a trailing simple argument over-expanded. shouldHugFirstArgument
-// pins the two-argument callback+simple shape (vue onUnmounted, rxjs
-// schedule).
+// shouldHugFirstArgument selects the two-argument block-callback plus
+// simple trailing identifier shape. This fixture owns the resulting
+// layout, without measuring an earlier printer or framework consumer.
 //
 //  1. Parse an over-width call whose first arg is a block callback and
 //     second is a plain identifier (printWidth 40).

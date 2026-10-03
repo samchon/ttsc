@@ -7,12 +7,11 @@ import "testing"
 // when a long un-movable suffix (` satisfies T;`) follows the call.
 //
 // The suffix lands on the reflow's short last line, never on the hugged
-// opening line. An earlier revision shrank the whole printWidth budget
-// by the suffix width, which starved the interior layout and exploded
-// every argument onto its own line — diverging from Prettier, which
-// charges the suffix only against the last line. The rule now renders
-// at the full budget and only re-measures the suffix when the reflow
-// collapses to a single line.
+// opening line. The rule renders at the full printWidth budget and
+// re-renders with a suffix-reduced budget only for an overflowing flat
+// result. This authored multiline result distinguishes charging the
+// suffix against every interior line; it does not execute an earlier
+// revision or an external formatter.
 //
 //  1. Configure printWidth=30; the suffix ` satisfies …;` is 28 wide.
 //  2. Feed an exploded call followed by the long suffix.
