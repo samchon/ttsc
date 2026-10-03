@@ -67,28 +67,25 @@ func didOpenEnvelope(uri string, text string) Envelope {
   return Envelope{JSONRPC: "2.0", Method: methodDidOpen, Params: params}
 }
 
-// TestLSPCleanDidOpenRefreshesCompilerState verifies that opening a document
-// whose buffer already matches disk refreshes both compiler-backed caches, while
-// opening a dirty buffer still refreshes neither.
+// TestLSPCleanDidOpenRefreshesCompilerState checks invalidation dispatch on
+// directly supplied clean and dirty didOpen envelopes. The resident source and
+// symbol provider are recording instances, not actual compiler-backed caches.
 //
-// The resident lint Program and the graph symbol provider stay warm for the
-// whole editor session, and a save is not the only moment their input can have
-// moved. A document closed across a branch switch, a `git pull`, or an edit from a second editor
-// therefore came back with diagnostics computed over the pre-change AST and
-// published against the new buffer. Equality with today's disk is not evidence
-// that the warm Program was built from today's disk, so the clean branch is
-// exactly the branch that must invalidate — and the dirty branch, which reports
-// nothing at all until the buffer reaches disk, must keep not invalidating.
+// Matching disk should dispatch one invalidation to each recording instance and
+// name the clean URI; a dirty second file should not increase either count.
+// Returning handled=false establishes eligibility for forwarding, not an actual
+// upstream frame. Program freshness and published diagnostic content are not
+// observed, and the scheduled NullPluginSource diagnostics are not joined here.
 //
 //  1. Write a file, open it with the same text, and assert both caches were
 //     refreshed and the resident refresh named that document's URI.
 //  2. Open a second file with text that differs from disk.
-//  3. Assert neither cache was refreshed and the notification still forwards.
+//  3. Assert neither recorder gained a call and the notification is not handled.
 //
-// @evidence contracts/testing.md#behavioral-verification Opening a document whose buffer equals disk refreshes both the resident lint Program and the graph symbol provider and names that document's URI, while opening a dirty buffer refreshes neither.
+// @evidence contracts/testing.md#behavioral-verification A clean direct didOpen produces one recorded symbol invalidation and one resident invalidation naming its URI; a dirty second open preserves both counts. Both return handled=false. Actual compiler cache refresh, diagnostic content, upstream forwarding, and asynchronous completion are not asserted.
 // @evidence contracts/testing.md#independent-expectations The refresh counts and the named URI are literal expectations for the two opened files.
-// @evidence contracts/testing.md#distinguishing-cases A clean open and a dirty open differ only in buffer-versus-disk equality, so a refresh gated on the wrong condition fails one half.
-// @evidence contracts/testing.md#execution-ownership TestLSPCleanDidOpenRefreshesCompilerState is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases Two owned files have the same disk bytes, but the clean buffer matches and the dirty buffer differs. They also have different URIs and run sequentially on one proxy; this is not a one-variable-only or reversed-order experiment.
+// @evidence contracts/testing.md#execution-ownership Owns two temporary native files and a NewProxy with supported instance-owned recording PluginSource/SymbolProvider and io.Discard streams. Direct handleEditorEnvelope reads buffer/disk state and schedules NullPluginSource diagnostics on the clean branch; no join or diagnostics-result oracle is claimed. No actual compiler Program, sidecar, product CLI, installed consumer, or upstream server runs.
 func TestLSPCleanDidOpenRefreshesCompilerState(t *testing.T) {
   dir := t.TempDir()
   clean := filepath.Join(dir, "clean.ts")
