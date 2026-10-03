@@ -1068,23 +1068,22 @@ func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerche
   return checkerGetMinArgumentCount(recv, signature)
 }
 
-// Checker_getSignaturesOfType returns the call or construct signatures declared
-// on t, selected by kind (SignatureKindCall / SignatureKindConstruct). This is
-// the producer companion to Checker_getMinArgumentCount and
-// Checker_getReturnTypeOfSignature: without it the *Signature those two consume
-// could not be obtained. A type-transform plugin uses the construct signatures
-// of a class's constructor type to detect the `new C(x)` strategy and the call
-// signatures of a static `from` member to detect the `C.from(x)` strategy.
-// Returns nil if recv or t is nil.
+// Checker_getSignaturesOfType returns semantic call or construct signatures
+// selected by kind (SignatureKindCall / SignatureKindConstruct), after reduced
+// apparent-type normalization. Structured-member resolution can inherit,
+// instantiate or combine signatures; these are not limited to direct declarations.
+// Results can be passed to minimum-arity or return-type queries and share the
+// checker's resolved signature slice. Nonnil t must belong to recv's graph.
+// Returns nil for nil recv/t or a normalized type with no structured signatures.
 //
 // @evidence contracts/common.md#principled-implementation The upstream type query selects call or construct signatures by kind, retaining instantiated overload identities for further checker queries.
 // @evidence contracts/common.md#clear-and-simple-design One explicit kind parameter separates invocation from construction without duplicating type traversal.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Signatures are actual compiler results rather than assumed constructor or factory shapes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states selectable populations, relationships to arity/return queries and nil absence.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getSignaturesOfType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getSignaturesOfType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getSignaturesOfType computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getSignaturesOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned call/construct subslice shares checker-owned structured signature storage; entries can retain declarations, target/composite signatures and type mappers. The caller controls additional retention, while this wrapper stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs and forwards the kind. Upstream reduction and structured-member resolution own base/member instantiation and union/intersection signature formation or comparison; their type/signature graph costs precede the direct subslice selection.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Structured member resolution and its combined signature storage coordinate reuse within the producing checker. This wrapper adds no signature cache or repeated-query coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Signature normalization and resolution use the supplied checker/program; this wrapper introduces no path, host or platform policy.
 func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Type, kind innerchecker.SignatureKind) []*innerchecker.Signature {
   if recv == nil || t == nil {
     return nil
@@ -1092,19 +1091,21 @@ func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
   return recv.GetSignaturesOfType(t, kind)
 }
 
-// Checker_getReturnTypeOfSignature returns the return type of signature, used to
-// verify that a static `from(x)` factory actually returns the class instance
-// type before selecting the `C.from(x)` construction strategy. Returns nil if
-// recv or signature is nil.
+// Checker_getReturnTypeOfSignature resolves a signature's semantic return type
+// in its producing checker, including instantiated/composite signatures and
+// annotation or body inference. Upstream recursion handling can yield error
+// or any types and report diagnostics; the resolved result is signature state.
+// This query does not select a consumer's construction strategy. Returns nil
+// if recv or signature is nil.
 //
 // @evidence contracts/common.md#principled-implementation Upstream signature return typing applies its instantiated semantic context rather than using a syntactic return annotation that may be inferred or generic.
 // @evidence contracts/common.md#clear-and-simple-design One return query complements signature enumeration while keeping semantic resolution inside the checker.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts A factory's return is queried instead of assumed from its name or construction convention.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains return-type purpose and nil inputs separately from implementation acknowledgments.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getReturnTypeOfSignature acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getReturnTypeOfSignature performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getReturnTypeOfSignature computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getReturnTypeOfSignature computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The return comes from signature semantics rather than a function's name or a consumer's construction convention.
+// @evidence contracts/common.md#meaningful-documentation Native prose states producing-checker resolution, inference/composite cases, recursion fallback/state effects and nil inputs without prescribing consumer policy.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolved return types, instantiation/composite type state and diagnostics belong to the producing checker/signature lifetime. The caller can retain that graph through the returned type; this wrapper stores no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs. Upstream uncached resolution follows target/composite signatures, instantiates their return types or resolves annotations/function bodies, with cycle handling and optional-chain adjustments; cost follows those semantic/body graphs rather than fixed wrapper steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream resolvedReturnType and type-resolution state coordinate result reuse and recursion handling. This wrapper adds no return-type cache or repeated-query policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Return typing and inference remain with the supplied checker/program; the wrapper adds no path, host or platform policy.
 func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
   if recv == nil || signature == nil {
     return nil
@@ -1198,26 +1199,23 @@ func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
   return signature.HasRestParameter()
 }
 
-// Checker_getRestTypeOfSignature returns the ELEMENT type of the signature's
-// rest parameter (`...xs: S[]` -> S; a tuple rest uses its variable rest part),
-// which is the seed type for a rest-ONLY single-argument constructor/factory,
-// matching ClassifiableSeed, which unwraps the rest to its element. When the
-// signature has no derivable variable rest element it falls back to `any`
-// upstream, including a fixed-length tuple rest. A
-// leading-required + rest-tail `(s: S, ...r: R[])` has a rest parameter yet its
-// seed is the FIRST parameter S, not the rest element. So take the rest element
-// only when `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`;
-// otherwise read Signature_parameters(sig)[0]. Returns nil if recv or signature
-// is nil.
+// Checker_getRestTypeOfSignature exposes the upstream rest-type query. It
+// numeric-indexes the last rest parameter's type (`...xs: S[]` -> S). For a
+// tuple rest, upstream first derives its variable tail and then numeric-indexes
+// that derived type; this is not a union of all fixed tuple positions.
+// Missing rest parameters or absent derived/index information return the
+// checker's any type. This query does not choose a consumer's seed parameter.
+// Nonnil inputs must belong to the same checker graph. Returns nil if recv or
+// signature is nil.
 //
 // @evidence contracts/common.md#principled-implementation The compiler derives the last rest parameter's type, extracts a tuple's variable rest part when present, then applies numeric indexing; absent derivable rest typing returns upstream any rather than a fabricated fixed-tuple element union.
-// @evidence contracts/common.md#clear-and-simple-design One query exposes rest element semantics independently of declared parameter count, so callers can distinguish a sole spread parameter from a required prefix.
+// @evidence contracts/common.md#clear-and-simple-design One query exposes upstream rest typing independently of declared parameter count or a consumer's choice of seed argument.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Ordinary array parameters are not treated as rest declarations and fixed tuple-rest absence is not hidden with a guessed element type.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes variable tuple rest, any fallback, leading-prefix use and nil inputs.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getRestTypeOfSignature acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getRestTypeOfSignature performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getRestTypeOfSignature computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getRestTypeOfSignature computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the tuple-tail then numeric-index pipeline, any fallback, consumer-policy boundary and same-checker/nil conditions.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The result is a checker-owned semantic type, including the shared any fallback; the caller can retain its type graph. Upstream tuple-tail derivation owns temporary element slices and any constructed union/index state, while this wrapper keeps no independent result or handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper only guards nil inputs. Upstream rest-symbol typing, tuple argument/tail traversal and union construction precede numeric index-info resolution; these semantic graph/list costs belong to the checker rather than a fixed-step local strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature symbol types, tuple/type arguments and structured index information reuse producing-checker state; this wrapper introduces no rest-query cache or repeated-work coordination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Rest and index typing remain with the supplied checker/program; this wrapper adds no path, host or platform policy.
 func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
   if recv == nil || signature == nil {
     return nil
