@@ -13,7 +13,7 @@ import {
 
 /**
  * Verifies the launcher's contract with a consumer-local native compiler on one
- * scripted installation.
+ * scripted consumer-local package fixture.
  *
  * A project-local `typescript` install replaces the workspace compiler with a
  * scripted stub that logs every argument vector and writes JavaScript itself.
@@ -31,10 +31,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Four real launcher requests against one scripted compiler require exactly one invocation with --noEmit and no --noEmitOnError and no output for a noEmit project; exactly one invocation with --noEmitOnError and dist/main.js for an emit; ttsx output consumer-local-tsgo with --outDir, --showConfig and --listFilesOnly true in the log; and on POSIX the NONEXEC banner with repaired executable bits.
  * @evidence contracts/testing.md#independent-expectations Argument literals defined by the launcher protocol and authored stub output strings (single-pass, consumer-local-tsgo, NONEXEC) are the oracles; the source prints source-should-not-run so executing the original source cannot satisfy the ttsx request.
  * @evidence contracts/testing.md#distinguishing-cases The noEmit and emitting configurations differ only in the compiler option, so the same stub distinguishes the guard flag from its absence; the ttsx request distinguishes stub output from source output; the version request distinguishes a repaired from an unrepaired binary.
- * @evidence contracts/testing.md#execution-ownership This named E2E entry owns all four requests and their log assertions; the log is reset between requests so each count belongs to one launcher invocation. Failures are collected under per-request labels.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns three universal requests and the existing POSIX-only fourth request. Reset recorder rows count scripted target invocations, not launcher/Go-wrapper/Node/descendant totals. Named failures are collected; this local package fixture is not packed installation or a real TypeScript semantic compiler.
  * @evidence contracts/e2e.md#necessary-boundary Actual launcher argv delivery to an executable compiler, its exit and output handling, and POSIX executable-bit repair exist only across a real process boundary; a unit over argument arrays cannot observe invocation counts or mode repair.
- * @evidence contracts/e2e.md#shared-execution One project, one scripted installation and one stub launcher binary serve all four requests; each request needs its own launcher process by definition.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The invocation log and the configuration are reset before each request; the version request runs last because it removes executable bits; the isolated cache environment keeps ttsx state inside the project.
+ * @evidence contracts/e2e.md#shared-execution One project, one scripted package fixture and one native script-wrapper preparation serve the three universal and POSIX-only requests. Each requested launcher call is separate; actual wrapper/inner Node and provenance probes require their own observations rather than one recorder-row-per-process inference.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The invocation log and the configuration are reset before each request; the version request runs last because it removes executable bits; the isolated cache selectors keep ttsx state inside the project. Synchronous result/expected status checks do not certify arbitrary descendant closure or loaded executable image; normal tracked root cleanup does not prove forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Replaces the former separate entries for no-plugin noEmit build, no-plugin single-invocation emit, ttsx consumer-local compiler execution and the POSIX non-executable version banner, keeping every status, count, flag, output and mode assertion. The version request keeps its POSIX-only scope by skipping inside the entry on Windows.
  */
 export function test_compiler_consumer_local_native_compiler_receives_the_launcher_contract(): void {
