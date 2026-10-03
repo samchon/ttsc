@@ -43,6 +43,11 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * concurrent dependency children share the configured host. The configured host
  * consumes a real linked run index. Two public clean commands retire the
  * completed default cache only after all runtime readers have exited.
+ * A dependency profile reads its two live physical root publications; a
+ * nearer empty installation profile retains cache queries before and after its
+ * host. Its child-local empty cache override preserves that native ancestry
+ * input rather than substituting the cohort cache. Original unavailable link
+ * creation remains a named skip without coverage.
  * Flat and nested check-only profiles stage their original inferred-root
  * inputs on this root after the previous graph is held; each public request
  * retains its exact greeting and both source-adjacent JavaScript absence
