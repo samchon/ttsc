@@ -12,6 +12,8 @@ const registered = {
   "compiler-stub": "test_e2e_compiler_stub.ts",
   compiler: "test_e2e_compiler.ts",
   metro: "test_e2e_metro_host.ts",
+  graph: "test_e2e_graph.ts",
+  installation: "test_e2e_installation.ts",
 } as const;
 const argument = process.argv.find((value) => value.startsWith("--family="));
 const selected = argument
