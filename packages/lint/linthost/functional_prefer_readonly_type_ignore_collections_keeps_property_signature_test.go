@@ -4,7 +4,7 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeIgnoreCollectionsKeepsPropertySignature verifies ignoreCollections leaves non-collection positions checked.
 //
-// The negative twin. The key names a set of type shapes, so a mutable property
+// The reporting twin. The key names a set of type shapes, so a mutable property
 // signature whose type is not a collection must still require its readonly
 // modifier.
 //

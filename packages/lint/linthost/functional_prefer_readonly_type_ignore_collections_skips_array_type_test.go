@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalPreferReadonlyTypeIgnoreCollectionsSkipsArrayType verifies functional/prefer-readonly-type honors ignoreCollections.
 //
-// `ignoreCollections` is published as a skip for array, tuple, and mutable
-// collection references and decoded nothing before #1132, so a project that
-// set it still got every array type reported.
+// This array alias belongs to the published collection exemption. The
+// configured zero-finding comparison observes that array shape; tuples
+// and collection references are not present in this fixture.
 //
 // 1. Parse a mutable array type alias.
 // 2. Enable only functional/prefer-readonly-type with `ignoreCollections: true`.
