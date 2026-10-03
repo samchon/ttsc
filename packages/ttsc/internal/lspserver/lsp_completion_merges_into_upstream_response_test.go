@@ -6,22 +6,21 @@ import (
   "testing"
 )
 
-// TestLSPCompletionMergesIntoUpstreamResponse pins the response merge.
+// TestLSPCompletionMergesIntoUpstreamResponse checks three authored response shapes.
 //
-// tsgo answers completion in three shapes — a bare item array, a CompletionList,
-// or null — and picks per request. Each has to be handled rather than assumed,
-// because guessing wrong does not error: it silently drops either the plugin's
-// items or the compiler's, and the user simply sees a shorter list than they
-// should. That is the failure this whole channel is most likely to ship with.
+// A bare item array, a CompletionList and null must accept the supplied hint.
+// This unit checks ordered labels and isIncomplete, then checks the label
+// fallback and insertText in a null-result merge. It does not run tsgo or an
+// editor, or assert preservation of every upstream item or envelope field.
 //
 //  1. Merge into each of the three shapes.
-//  2. Assert upstream's items survive alongside the plugin's in every one.
-//  3. Assert isIncomplete stays upstream's answer, not ours.
+//  2. Assert the literal upstream and plugin label order for each shape.
+//  3. Assert the supplied list's true flag and array/null false flags.
 //
-// @evidence contracts/testing.md#behavioral-verification mergeCompletionResponse keeps upstream's items beside the plugin's in a bare array, a CompletionList and a null result, and keeps isIncomplete as upstream answered it.
+// @evidence contracts/testing.md#behavioral-verification Actual mergeCompletionResponse calls produce the literal ordered labels for an authored bare array, CompletionList and null result; the list's true isIncomplete survives and array/null yield false. A separate null-result call asserts the supplied Insert becomes label and insertText. Other item and envelope fields are not compared.
 // @evidence contracts/testing.md#independent-expectations The expected label lists and incompleteness are literals per response shape.
 // @evidence contracts/testing.md#distinguishing-cases Each of the three upstream shapes takes a different decode path, so a merge that handled only one drops items in the others.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionMergesIntoUpstreamResponse is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls the actual package-local merge function with authored JSON bytes and one supplied item, then decodes the returned bytes. It creates no filesystem fixture, substitutes no operation and starts no compiler, process or product host; upstream response production and editor handling are outside its observations.
 func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
   items := []LSPCompletionItem{{Insert: "pricing", Detail: "Pricing"}}
 
@@ -43,8 +42,7 @@ func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
       incomplete: true,
     },
     {
-      // Not an edge case: tsgo returns null for completion in JSDoc prose,
-      // which is exactly where these hints live. This is the common shape.
+      // A null response has no upstream item to retain.
       name:       "null result",
       body:       `{"jsonrpc":"2.0","id":1,"result":null}`,
       wantLabels: []string{"pricing"},
@@ -100,7 +98,7 @@ func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
 // @evidence contracts/testing.md#behavioral-verification An upstream error response is returned byte for byte, and merging no items leaves the body unchanged.
 // @evidence contracts/testing.md#independent-expectations The expected output is the input body itself.
 // @evidence contracts/testing.md#distinguishing-cases An error body and an empty contribution are the two cases that must not be rewritten.
-// @evidence contracts/testing.md#execution-ownership TestLSPCompletionLeavesUpstreamErrorsAlone is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes the actual package-local merge function on two authored JSON bodies and compares returned bytes to each original. It substitutes no seam and creates no directory or sidecar; no upstream compiler, editor, process or product host runs. The changing merge cases are owned by TestLSPCompletionMergesIntoUpstreamResponse.
 func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
   body := `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}`
   if got := string(mergeCompletionResponse([]byte(body), []LSPCompletionItem{{Insert: "x"}})); got != body {
