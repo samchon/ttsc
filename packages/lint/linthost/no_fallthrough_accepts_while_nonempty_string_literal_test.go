@@ -4,7 +4,7 @@ import "testing"
 
 // TestNoFallthroughAcceptsWhileNonemptyStringLiteral verifies a non-empty string literal folds to a constant-true loop test.
 //
-// ESLint's simple-constant folding boxes every bare Literal, so
+// ESLint's simple-constant folding converts bare Literal values to booleans, so
 // `while ("spin")` is an infinite loop and the case end is unreachable
 // without a break. Locks the string branch of literalTruthiness.
 //
