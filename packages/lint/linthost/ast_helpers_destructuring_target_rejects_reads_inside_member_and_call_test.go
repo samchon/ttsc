@@ -21,7 +21,7 @@ import (
 // 3. Assert the literal-pattern cases are targets and the read cases are not.
 //
 // @evidence contracts/testing.md#behavioral-verification isDestructuringAssignmentTarget walks the real parsed ancestors of each literal and the assertions distinguish pattern positions from reads below a member access, element access or call.
-// @evidence contracts/testing.md#independent-expectations Each expectation follows from the ECMAScript grammar: only an array or object literal reachable through pattern positions to the left of `=` or a for-in/of head is a pattern; the answers are literal, not derived from the walk.
+// @evidence contracts/testing.md#independent-expectations Authored assignment-left and for-of initializer positions supply literal write-target expectations, while right-hand/default/key/call positions are reads. The parenthesized fixture exercises the parser-represented wrapper policy; this helper test does not certify syntax validity or evaluate the sources.
 // @evidence contracts/testing.md#distinguishing-cases Positive cases are a plain, nested and parenthesized pattern and a for-of head; negative cases are a right-hand side, a default value, an element-access key and an object under a call that is assigned through.
 // @evidence contracts/testing.md#execution-ownership The test parses virtual sources and calls the helper directly in one Go process, with no Program, checker or binary.
 func TestIsDestructuringAssignmentTargetRejectsLiteralsReadInsideOtherExpressions(t *testing.T) {
