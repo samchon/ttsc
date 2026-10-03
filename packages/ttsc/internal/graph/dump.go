@@ -279,18 +279,20 @@ type DumpOrigin struct {
 // root of the portable path coordinate; ignored is the git-ignored source set
 // (nil for a non-git project); sources maps a source file's physical path to its
 // text so byte spans become line/col evidence (nil omits evidence); origin is
-// the snapshot evidence that proves where the facts came from. It returns an
-// error before serialization when a path is on another filesystem root or two
-// physical sources would collide at one wire identity.
+// caller-supplied provenance and diagnostics, not independently authenticated by
+// this projector. A non-nil graph and stable supplied data are required. It
+// returns an error before serialization for detected cross-root or identity
+// collisions under the mapper's case policy and best-effort native path answers;
+// successful projection is not a physical snapshot or filesystem freeze.
 //
-// @evidence contracts/common.md#principled-implementation Facts, provenance and diagnostics pass through one mapper so the snapshot has injective portable identities and source spans from the supplied generation.
+// @evidence contracts/common.md#principled-implementation Facts and supplied provenance/diagnostics pass through one mapper's collision checks; source spans use supplied text, while this projector neither authenticates origin nor freezes native identity or graph payloads.
 // @evidence contracts/common.md#clear-and-simple-design Shared newDumpFacts performs projection; this envelope adapter stamps producer schema and normalizes mandatory arrays before publication.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Collision and cross-root failures stop publication instead of emitting guessed coordinates or quietly dropping inconvenient nodes.
-// @evidence contracts/common.md#meaningful-documentation Native prose states source ownership, project base, optional ignored set and pre-serialization failures, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Compiler virtual paths and native aliases use one mapper under the producing Program's preserved case policy; standalone graphs preserve exact spelling without OS syntax guesses.
-// @evidence contracts/performance.md#efficient-algorithms Node/edge sorting is O(N log N + E log E); grouping facts and source line indexing are linear, with logarithmic indexed coordinate lookup per span.
+// @evidence contracts/common.md#meaningful-documentation Native prose states supplied-data ownership, project base, optional inputs and the mapper's pre-serialization checks and identity limits, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Virtual and native paths share the mapper's compiler-reported case policy, with exact spelling for standalone graphs. Native alias resolution is best-effort, may inspect ancestors and may retain lexical spelling; the mapper does not certify per-directory case behavior or observation-time identity.
+// @evidence contracts/performance.md#efficient-algorithms Projection includes node/edge and provenance/diagnostic text-key sorts, all member/tag/decorator payloads, source-line construction, repeated trivia/signature scans and span lookups. Cached path mapping still includes path bytes and native ancestor resolution on misses; population-only sorting and coordinate lookup bounds are not the full cost.
 // @evidence contracts/performance.md#reuse-equivalent-work One dump context shares raw path mapping, physical aliases and per-source line indices across facts, diagnostics and provenance for this immutable snapshot.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Mapping and line-index caches are call-local; only the completed output survives, and failed projections return no partial published payload.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Mapping, line indices, grouping and output arrays scale without a payload cap. Local caches become unreachable after the call, but returned fields may borrow original literal/member payloads; the caller owns their shared lifetimes and immutability. Projection failure returns no partial Dump, without reclaiming caller inputs or publishing bytes.
 func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) (Dump, error) {
   facts, ctx, err := newDumpFacts(g, project, ignored, sources)
   if err != nil {
@@ -525,23 +527,24 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
   return json.Marshal(d)
 }
 
-// EncodeDump writes the export JSON straight to w, one buffered pass, ending it
+// EncodeDump projects and JSON-encodes the graph to w, ending the encoded value
 // with the newline the one-shot protocol expects.
 //
-// The alternative, marshaling the whole document into a byte slice, converting
-// that slice into a string and printing the string, holds a second full copy of
-// the document live beside the first. On a large repository that is hundreds of
-// megabytes of peak heap that buys nothing, because the bytes are already
-// exactly what stdout wants.
+// The standard JSON encoder builds the complete encoded value in memory before
+// writing it; pretty output also uses an indentation buffer. The 1 MiB bufio
+// writer batches I/O rather than bounding payload memory, and may reuse an
+// already larger supplied bufio.Writer. This avoids an additional caller-created
+// string conversion but is not incremental JSON serialization. Write failures
+// may leave partial output; the caller owns the writer and its close lifecycle.
 //
-// @evidence contracts/common.md#principled-implementation Validated projection is encoded directly to the supplied writer with the protocol's trailing newline and all writer failures preserved.
-// @evidence contracts/common.md#clear-and-simple-design The streaming adapter keeps projection in NewDump and uses standard buffered JSON encoding rather than a second string-output pipeline.
+// @evidence contracts/common.md#principled-implementation NewDump's checked identity projection is encoded to the supplied writer with a trailing newline; encoding, write and final-flush errors propagate without certifying complete publication after failure.
+// @evidence contracts/common.md#clear-and-simple-design Projection stays in NewDump and standard buffered JSON encoding avoids an additional caller string-output pipeline without promising incremental serialization.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Buffer size is an I/O batching constant, not a fact cap; no expected payload or foreign writer behavior is patched.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain direct output and avoided complete byte/string copies, with documentation-skill tag separation.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain full-value/indentation buffering, the I/O buffer's distinct role and writer ownership, with documentation-skill tag separation.
 // @evidence contracts/portability.md#os-neutral-implementation The caller supplies the writer; portable graph identities and native mapping errors are preserved from NewDump without shell output quoting.
-// @evidence contracts/performance.md#efficient-algorithms JSON work is linear in output bytes, with fixed buffering instead of complete encoded byte and string intermediates alongside the projected graph.
+// @evidence contracts/performance.md#efficient-algorithms NewDump owns projection, mapping and sorting costs. JSON encoding includes map-key text sorting and the full value's bytes; pretty output additionally scans and buffers indented bytes before native writer/flush work.
 // @evidence contracts/performance.md#reuse-equivalent-work The projection context shares equivalent path and source-index work; streamed bytes are effectful output and are not replayed from a cross-request cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The function owns only its fixed local buffer and flushes on successful encoding; the supplied writer's close lifecycle belongs to its caller.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Projection, full encoded value and optional indentation bytes coexist without a payload cap. The standard encoder returns its state to a pool that may retain buffer capacity; bufio may reuse caller storage. Successful encoding is flushed, while writer close, partial-output handling and retained caller buffers remain caller-owned.
 func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) error {
   dump, err := NewDump(g, project, tsconfig, ignored, sources, origin)
   if err != nil {
