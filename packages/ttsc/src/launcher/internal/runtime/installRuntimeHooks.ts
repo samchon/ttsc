@@ -2143,12 +2143,11 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
  * Compile a dependency project into a fresh generation directory and publish
  * its completion marker atomically.
  *
- * The emit lands in `<cacheDir>/gen-<generation>`, a directory no other
- * generation or process shares, so it is never mutated in place while a reader
- * looks at it. Only after the emit is proven non-empty is the marker written by
- * temp-and-rename, binding metadata to that exact generation. A build that
- * produced no output drops its partial directory so a failed generation can
- * never be reused.
+ * Under cooperative cache ownership and noncolliding generation ids, emit
+ * lands in a fresh `<cacheDir>/gen-<generation>` rather than replacing a
+ * reader's generation in place. Emit presence and provenance are checked before
+ * temp-and-rename publication. Failure attempts to remove the partial directory;
+ * refused cleanup can leave it behind without publishing a successful marker.
  */
 function buildDependency(
   tsconfig: string,
@@ -2272,12 +2271,11 @@ function buildDependency(
 
 /**
  * Publish the completion marker atomically: write it to a private temp name in
- * the same directory, then rename onto `metaPath`. Node's rename replaces an
- * existing file atomically on POSIX and Windows alike, so a concurrent reader
- * sees either the whole previous marker or the whole new one, never a
- * half-written file. The marker is the LAST artifact a build writes, after its
- * generation's emit is complete, so observing the new marker guarantees the new
- * generation is complete.
+ * the same directory, then rename onto `metaPath`. Successful native rename
+ * replaces the whole marker rather than writing it in place; refusal propagates
+ * with an attempted temporary-file cleanup. The producer calls this after emit
+ * presence and provenance checks. Stable layout and retained immutable emit
+ * remain cooperative premises, and no fsync establishes crash durability.
  */
 function publishDependencyMeta(
   metaPath: string,
