@@ -28,10 +28,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification ttsc --noEmit reports both the check child warning TS9001 and compiler TS2322 with a failing status.
  * @evidence contracts/testing.md#independent-expectations The Go fixture prints a literal warning and assigning a string to number independently requires TS2322.
  * @evidence contracts/testing.md#distinguishing-cases A successful warning-producing check child coexists with a failing compiler; runtime-failure cases own crashed children.
- * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics entry is discovered by TestExecutor from corpus-misc in the E2E runner population. The named call uses the checkout built launcher and selected native compiler/Go fixture through the existing toolchain override; it is not packed installation or independently loaded-image validation. Nested fixture helpers are not selectable feature hosts.
  * @evidence contracts/e2e.md#necessary-boundary An actually compiled check child writes a warning while the independent TypeScript compiler finds a type error. The CLI must merge both stderr streams and select failure; direct diagnostic merging without those real child invocations cannot establish their delivery.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution The fixture selects the shared keyed source-plugin cache and built workspace launcher for one noEmit request. This distinct authored Go producer and independent TypeScript checker remain actual boundaries; cache availability, one public invocation or preserved status is not proof of cache hits, exact child counts or Program reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked project owns its descriptor/Go/source inputs; the suite cache has a separate owner and child-only env leaves ambient state unchanged. Numeric non-signalled errorfree direct-child return precedes assertions, not arbitrary descendant retirement or interruption cleanup. Prepared source/tool/byte identities and actual delegated child observations are separate obligations.
  * @evidence contracts/e2e.md#preserved-coverage ttsc --noEmit reports both the check child warning TS9001 and compiler TS2322 with a failing status. These assertions stay in test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics =
@@ -76,6 +76,9 @@ export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript
       },
     });
 
+    assert.ifError(result.error);
+    assert.equal(result.signal, null);
+    assert.equal(typeof result.status, "number");
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /TS9001: check warning/);
     assert.match(result.stderr, /TS2322/);
