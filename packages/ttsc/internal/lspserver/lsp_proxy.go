@@ -347,26 +347,25 @@ func NewProxy(opts ProxyOptions) *Proxy {
   return proxy
 }
 
-// Run drives both pump goroutines until they return. Pumps return when
-// their input stream closes (ErrFrameClosed), when context cancellation
-// has already been observed by the upstream/editor closers, or when a
-// pipe write fails. ErrFrameClosed and context.Canceled are folded into
-// a nil result so editor shutdown does not look like a crash.
+// Run waits for the two pump results, except that upstream completion after
+// an editor exit notification can end the session while the editor pump is
+// still blocked. ErrFrameClosed, context.Canceled and os.ErrClosed are omitted
+// from the returned first error. Context cancellation requests source shutdown;
+// interrupting blocked injected streams remains their owner's responsibility.
 //
 // Once the editor has sent `exit` and the upstream has ended, Run returns
 // without waiting for the editor's stream to close: `exit` ends the session,
-// and a read blocked on the editor's stdin is not interrupted by closing it on
-// every platform (a Windows pipe is not), so waiting kept the server running
-// until the editor happened to close the pipe.
+// so the return does not require closing an injected editor stream to interrupt
+// its read. This exception is not a join of that remaining pump.
 //
 // @evidence contracts/common.md#principled-implementation Two pumps dispatch complete frames; generation guards reject stale contributions and initialized position negotiation fixes UTF-16 before live buffer conversions.
 // @evidence contracts/common.md#clear-and-simple-design Method helpers separate correlation, local contributions and passthrough; one source-close boundary coordinates cancellation and completion.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Local answers require actual command/capability ownership; malformed unsupported payloads pass through rather than being repaired into expected responses. Older optional sources use explicit interface capability checks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stream termination and the editor-exit exception, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native disk reads and physical input matching stay behind path helpers; negotiated UTF-16 and protocol URI spelling remain distinct from native bytes and path case capability.
-// @evidence contracts/performance.md#efficient-algorithms Streaming frames are decoded once for routing; completion prefilters hints before a document-prefix scan whose identifier accumulation is linear. Watcher populations are deduplicated and sorted before registration reconciliation.
-// @evidence contracts/performance.md#reuse-equivalent-work Live buffer text, producer corpora and diagnostic publications serve equivalent consumers under document/producer generations; owner-scoped invalidation preserves unaffected Programs and coalesces refreshes.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Completion/action/command IDs are removed on response or cancellation and text on document close; diagnostic generation history has no per-session cardinality cap. Timers/schedulers stop and source Close is invoked once, but custom providers, blocked caller streams and local request goroutines lack an independent count or join bound.
+// @evidence contracts/performance.md#efficient-algorithms Each pump frames and parses an envelope before routing; handlers also decode method payloads and can marshal rewritten responses. The wait loop itself has constant per-result bookkeeping, while delegated text scans, producer calls, native input probes and registration reconciliation retain their input-dependent costs. Frame caps do not bound stream duration or all session populations.
+// @evidence contracts/performance.md#reuse-equivalent-work The session retains live text, producer corpora and diagnostic publications under their document/producer guards. Owner-scoped invalidation and refresh coalescing coordinate requests; they do not independently authenticate daemon Program equivalence or a common producer capture. Actual cache validity and native execution remain with their owners.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Session correlation, document text and diagnostic state grow with traffic without a general byte/history budget. Teardown stops pending timer/scheduler admission and requests source closure once; timer callbacks already begun, copied observers and local request tasks are not joined. Stopping the context AfterFunc does not wait for an already-started shutdown callback. Custom streams can block indefinitely; the editor-exit exception can return before its pump completes, and closure errors are ignored.
 func (p *Proxy) Run(ctx context.Context) error {
   stopSourceCancellation := context.AfterFunc(ctx, p.shutdownResidentPlugins)
   defer stopSourceCancellation()
