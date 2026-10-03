@@ -94,7 +94,7 @@ const CLIENT_CAPABILITIES = {
  * @evidence contracts/testing.md#execution-ownership The named server entry owns the actual launcher/proxy/upstream stream and server-initiated capability registration, with bounded language requests after one native diagnostic readiness wait.
  * @evidence contracts/e2e.md#necessary-boundary Synthetic merge or rule units cannot establish that real TypeScript-Go advances its dispatch loop after registerCapability and its responses survive the proxy.
  * @evidence contracts/e2e.md#shared-execution One consumer/handshake/session carries all three original language requests and native readiness. The snapshotted workspace producer and explicit suite-owned cache are available for reuse, without a packed-installation, cache-hit, Program reuse, child/build total or minimum preparation claim. Snapshot preparation costs remain distinct from session request sharing.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked source/config stay immutable and waiter/open/request order remains original. runTtscserverSession preserves body and shutdown failures and checks direct-child close/code before successful cleanup. Any startup/body/shutdown error conservatively retains consumer and already-owned snapshot/cache inputs and preserves retention failures; retention is not proof of arbitrary descendant closure or loaded-image equality.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked source/config stay immutable and waiter/open/request order remains original. runTtscserverSession preserves body and shutdown failures and checks direct-child close/code before successful cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Any startup/body/shutdown error conservatively retains consumer and already-owned snapshot/cache inputs and preserves retention failures; retention is not proof of arbitrary descendant closure or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage All provider, type, registration, symbol and non-plugin completion assertions remain, including the original timeout context that distinguishes an upstream hang from native diagnostics readiness.
  */
 export async function test_ttscserver_answers_typescript_go_language_requests() {
@@ -234,7 +234,7 @@ export async function test_ttscserver_answers_typescript_go_language_requests() 
           upstreamLabels.includes("legacy"),
           `completion must carry tsgo's own items: ${JSON.stringify(upstreamLabels.slice(0, 40))}`,
         );
-      });
+      }, REQUEST_TIMEOUT);
     } catch (error) {
       const failures: unknown[] = [error];
       const reason = "language-request session startup, body or shutdown failed";

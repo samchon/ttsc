@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint, TestProject, retainNativeLintProducer } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -109,10 +109,10 @@ const CLIENT_CAPABILITIES = {
  * @evidence contracts/testing.md#behavioral-verification The real rule-published JSDoc corpus must return param/returns and exact replacement range from an unsaved buffer, remain absent outside its block and resolve its own item locally.
  * @evidence contracts/testing.md#independent-expectations Saved bytes without JSDoc, authored dirty block/caret/typed fragment and literal param/returns and ownership marker independently prescribe the published item and resolve response.
  * @evidence contracts/testing.md#distinguishing-cases LF and CRLF controls distinguish the CR-only coordinate branch with identical authored carets and vocabulary. Every document retains disk versus dirty-buffer authority, in-block versus outside scope, two vocabulary entries and ownership-preserving resolve; upstream probes retain failure context.
- * @evidence contracts/testing.md#execution-ownership The named server E2E entry executes all three document rows through one actual jsdoc registration, lsp-hints transport, proxy merge and completionItem resolve session; row callbacks are reviewed with this entry.
- * @evidence contracts/e2e.md#necessary-boundary Matcher/merge units cannot prove the lint contributor corpus crosses lsp-hints into the live editor buffer and that plugin-owned resolve stays out of TypeScript-Go.
- * @evidence contracts/e2e.md#shared-execution One immutable lint producer, configuration, project and server supply the same JSDoc vocabulary to LF, CR and CRLF documents. Every row sends its own open/change requests and waits for its own readiness; buffer coordinates do not require a second producer or server, and this case does not assert native Program-load counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct URIs and saved bytes isolate dirty buffers and diagnostics. No disk source is changed, each saved-source assertion verifies authority separation, and awaited session shutdown precedes fixture cleanup. Assertions and document operation failures accumulate before shutdown.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named server export in the generic E2E population. All three rows execute beneath its actual jsdoc/hints/proxy/resolve session; row callbacks are not separately selectable hosts. Upstream probes provide failure context rather than independent success assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Matcher/merge units cannot prove the lint contributor corpus crosses lsp-hints into the live editor buffer or that an actual published plugin item resolves with its value and ownership marker. The marker assertion does not count upstream resolve requests.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, configuration, project and server supply the vocabulary to LF, CR and CRLF documents using the explicit suite cache. Every row sends its own open/change requests and waits for its own readiness; availability does not certify packed installation, cache hits, child/build totals or Program reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct URIs/saved bytes isolate dirty buffers; original disk-authority assertions and per-document failure collection remain. Successful supported shutdown/direct close precedes cleanup, with a separate shutdown deadline using REQUEST_TIMEOUT. Startup/body/shutdown failure conservatively retains tracked consumer/already-owned snapshot/cache and preserves retention errors; row assertion failures may still clean after actual successful shutdown. Close is not arbitrary descendant or loaded-image proof.
  * @evidence contracts/e2e.md#preserved-coverage All original LF corpus entries, filter/detail, exact edit range/text, unchanged disk, empty outside-block result and resolve marker also execute for CR and CRLF. Original readiness, corpus and request budgets remain; resolve requires an actual published param and is blocked when that dependent input is absent.
  */
 export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus() {
@@ -128,6 +128,7 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
     },
   });
   const failures: unknown[] = [];
+  let sessionJoined = false;
   try {
     const client = TtscserverClient.startLauncher(project.tmpdir, {
       env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
@@ -162,11 +163,9 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
         try {
           // 2. Open what was saved and wait for the saved file's own lint finding.
           //
-          // This wait is what absorbs the cold plugin build. The sidecar compiles
-          // `@ttsc/lint` from Go source on first use — minutes on a cold cache — and
-          // answers no verb until it does, so a completion request sent before this
-          // point does not come back empty, it does not come back at all. Once a
-          // plugin diagnostic has arrived, the sidecar is known to be answering.
+          // An actual finding for this URI establishes diagnostic readiness.
+          // It does not measure build duration or establish readiness of every
+          // later hints request, Program construction or transport step.
           const ready = client.waitForNotification<PublishDiagnosticsParams>(
             "textDocument/publishDiagnostics",
             (params) =>
@@ -245,10 +244,9 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
             }`;
           }
 
-          // 4. Wait for the corpus. `lsp-hints` is answered from a Program the
-          // sidecar loads in the background, and the proxy answers nothing until it
-          // lands, so an early empty reply is the documented state rather than a
-          // failure.
+          // 4. Poll for the authored corpus under the separate outer deadline.
+          // Empty replies and request errors retain context for that deadline;
+          // their cause is not independently classified by this observer.
           const deadline = Date.now() + CORPUS_TIMEOUT;
           let items: CompletionItem[] = [];
           let attempts = 0;
@@ -268,10 +266,8 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
                 ),
               );
             } catch (error) {
-              // A request that never came back is the cold-build state, not a
-              // failure: the sidecar builds `@ttsc/lint` from Go source on first
-              // use, which the build itself documents as minutes on a cold cache.
-              // Only the outer deadline decides that the corpus is never coming.
+              // Preserve the actual request error for the eventual deadline.
+              // Retrying does not diagnose it as a cold build or prove recovery.
               last = error instanceof Error ? error.message : String(error);
             }
             if (items.length > 0) break;
@@ -398,10 +394,17 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
           failures.push(new Error(name + ": LSP newline corpus", { cause: error }));
         }
       }
-    });
+    }, REQUEST_TIMEOUT);
+    sessionJoined = true;
   } catch (error) {
     failures.push(error);
-  } finally {
+    const reason = "JSDoc corpus session startup, body or shutdown failed";
+    try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+    catch (retentionError) { failures.push(retentionError); }
+    try { retainNativeLintProducer(reason); }
+    catch (retentionError) { failures.push(retentionError); }
+  }
+  if (sessionJoined) {
     try {
       project.cleanup();
     } catch (error) {
@@ -414,13 +417,14 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
 
 /**
  * Bound for the corpus wait, measured from a sidecar already known to answer.
- * All that remains behind `lsp-hints` is the Program load.
+ * Native readiness is not a witness that every later hints preparation,
+ * Program construction or transport step has completed.
  */
 const CORPUS_TIMEOUT = 300_000;
 
 /**
  * Bound for one completion attempt. A request that outlives it is retried
- * rather than failed, so a slow Program load costs a retry instead of the run.
+ * within the separate corpus deadline; the observer does not classify its cause.
  */
 const REQUEST_TIMEOUT = 60_000;
 

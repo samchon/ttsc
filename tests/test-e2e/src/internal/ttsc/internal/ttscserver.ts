@@ -473,18 +473,24 @@ export const PLUGIN_BUILD_TIMEOUT = 900_000;
  *
  * @param client The started session.
  * @param body The test's work against it.
+ * @param shutdownTimeout Optional separate shutdown deadline. Expiry preserves
+ * the observed error without killing the child or proving the losing operation
+ * joined; callers must retain inputs whose ownership remains unresolved.
  * @returns What `body` returned.
  */
 export async function runTtscserverSession<T>(
   client: TtscserverClient,
   body: (client: TtscserverClient) => Promise<T>,
+  shutdownTimeout?: number,
 ): Promise<T> {
   let result: T;
   try {
     result = await body(client);
   } catch (error) {
     try {
-      await shutdownTtscserverClient(client);
+      const shutdown = shutdownTtscserverClient(client);
+      if (shutdownTimeout === undefined) await shutdown;
+      else await waitForTtscserverOutcome(shutdown, shutdownTimeout, "failed-body ttscserver shutdown was not joined");
     } catch (shutdownError) {
       throw new AggregateError(
         [error, shutdownError],
@@ -494,7 +500,9 @@ export async function runTtscserverSession<T>(
     }
     throw error;
   }
-  await shutdownTtscserverClient(client);
+  const shutdown = shutdownTtscserverClient(client);
+  if (shutdownTimeout === undefined) await shutdown;
+  else await waitForTtscserverOutcome(shutdown, shutdownTimeout, "ttscserver shutdown was not joined");
   return result;
 }
 

@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint, TestProject, retainNativeLintProducer } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -66,14 +66,9 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
 /**
  * Verifies one ttscserver LSP session carries diagnostics through to a fix.
  *
- * The VS Code extension's whole job is this JSON-RPC conversation, yet each
- * sibling server test pins a single verb in its own process. Nothing reads the
- * `initialize` capabilities the editor registers its commands and lightbulb
- * kinds from, and nothing sends `didChange` or `didSave` at all — so the
- * dirty-buffer suppression between an edit and its save, and the republication
- * that ends it, have no coverage. A break anywhere along initialize → didOpen →
- * didChange → didSave → codeAction → executeCommand would leave every existing
- * test green while the editor showed nothing.
+ * The ordered protocol chain observes merged capabilities, dirty-buffer
+ * suppression, saved revalidation and returned edits in one actual server.
+ * It exercises the editor protocol without launching an editor extension.
  *
  * 1. Materialize a `@ttsc/lint` project with a `no-var` violation, handshake, and
  *    assert ttsc's command ids and action kinds are merged into tsgo's
@@ -89,10 +84,10 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and returns a targeted fix without writing disk.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
- * @evidence contracts/testing.md#execution-ownership The named server entry owns actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer in one Linux session.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named entry in the generic server population. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing across the native bridge.
- * @evidence contracts/e2e.md#shared-execution One project, native producer and initialized server execute the complete original editor lifecycle; rule decisions remain in the shared Go units instead of recreating hosts for each notification.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness, the dirty edit remains buffer-only until that step, command nonmutation is checked against saved bytes, and failure-preserving session shutdown precedes cleanup.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. Timeout does not force termination or certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion; the no-var-only fixture remains separate from cascade policies so its expected let rewrite stays unchanged.
  */
 export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_fixes() {
@@ -104,11 +99,10 @@ export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_f
     });
     const file = path.join(project.tmpdir, "src", "main.ts");
     const uri = pathToFileURL(file).href;
-    const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
-    });
-
     try {
+      const client = TtscserverClient.startLauncher(project.tmpdir, {
+        env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      });
       await runTtscserverSession(client, async () => {
         // 1. Handshake. The editor builds its command palette and lightbulb menu
         // from this response, so the advertised ids are editor-visible behavior.
@@ -121,14 +115,9 @@ export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_f
               processId: process.pid,
               rootUri: pathToFileURL(project.tmpdir).href,
             },
-            // Deliberately unbounded, matching
-            // test_ttscserver_lsp_honors_explicit_lint_config_file: the launcher
-            // builds project plugins before it spawns the server, so a cold
-            // `@ttsc/lint` source build — minutes, and measured at over ten on a
-            // cold Go cache — is charged entirely to this one request. Any bound
-            // small enough to be a useful hang signal is small enough to flake.
-            // The wait still ends on server death: the client rejects every
-            // pending request when the child closes.
+            // Preserve the original unbounded initialize request. Pending
+            // requests reject on direct child close; this does not diagnose
+            // every delay as a cold build or count construction costs.
           ),
         );
         const capabilities = initialized.capabilities ?? {};
@@ -316,21 +305,26 @@ export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_f
           SAVED,
           "LSP executeCommand should return edits, not write the file",
         );
-      });
-    } finally {
-      project.cleanup();
+      }, REQUEST_TIMEOUT);
+    } catch (error) {
+      const failures: unknown[] = [error];
+      const reason = "editor session startup, body or shutdown failed";
+      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      try { retainNativeLintProducer(reason); }
+      catch (retentionError) { failures.push(retentionError); }
+      throw new AggregateError(failures, reason);
     }
+    project.cleanup();
   }
 
 /**
- * Bound for a publishDiagnostics wait. `lsp-diagnostics` goes to the resident
- * sidecar daemon, which the proxy bounds at 30s per verb and falls back to a
- * fresh spawn on timeout — so a single wait can legitimately cost two attempts
- * plus the first one's Program load.
+ * Original bound for one publishDiagnostics wait. It is a harness deadline,
+ * not a measurement of the number of native attempts or Program constructions.
  */
 const DIAGNOSTICS_TIMEOUT = 120_000;
 
-/** Bound for a request the sidecar answers with a Program already loaded. */
+/** Original request bound, also used as a separate supported-shutdown deadline. */
 const REQUEST_TIMEOUT = 60_000;
 
 /**
