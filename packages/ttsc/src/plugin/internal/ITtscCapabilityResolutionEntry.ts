@@ -3,16 +3,16 @@ import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutio
 
 /**
  * The answer `resolveCapabilityPlugins` produced for one project, and the exact
- * state that makes it still true.
+ * recorded premises the reader rechecks before reusing it.
  *
- * The answer is small and fully serializable — a binary path, a capability map,
+ * The answer is serializable: a binary path, a capability map,
  * a manifest string — which is why it is cached here and not one layer down.
  * `loadProjectPlugins` returns live plugin descriptors the compiler drives, and
  * writing those to disk would be caching a different, much larger thing.
  *
  * @evidence contracts/common.md#principled-implementation A serializable answer is paired with evaluation-time input hashes/realpaths, plugin build states and format/version identity so reuse can be refused when any premise changes.
  * @evidence contracts/common.md#clear-and-simple-design The cache entry contains the narrow capability answer and its proof data, leaving live descriptor execution state out of persistence.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Stored source states prove the binary's real build inputs instead of trusting an existing old executable or a plugin-name guess.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The reader compares stored source states against the shared selected-source/environment recipe rather than accepting an existing executable alone. Metadata-assisted digest reuse remains conditional on its observation premises; executable existence does not authenticate its bytes.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains why this answer is persisted, source/environment invalidation and verbatim manifest payloads; paragraphs, member and tag spacing follow the documentation skill.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
@@ -29,7 +29,7 @@ export interface ITtscCapabilityResolutionEntry {
   /** Content hash per host input, `null` for one that does not exist. */
   hostInputHashes: Record<string, string | null>;
 
-  /** Physical identity per host input, so a retargeted link is a change. */
+  /** Recorded resolved-path observation per host input, or null if unavailable. */
   hostInputRealpaths: Record<string, string | null>;
 
   /**
@@ -37,11 +37,12 @@ export interface ITtscCapabilityResolutionEntry {
    * reported it (`pluginSources`: each module root, linked package, and
    * contributor source, with the Go build environment there).
    *
-   * A binary path is keyed on exactly these, so any edit below one, or another
-   * `GOFLAGS` or Go toolchain, produces a different path, and the cached entry
-   * would keep naming the old binary, which still exists because the build
-   * cache retains it. Nothing in the host inputs moves then, so these states,
-   * proven by the build's own rule (`pluginSourceStateHolds`), are what notices.
+   * An edit in the selected source population or a changed build-environment
+   * observation can change this state while the host inputs remain unchanged.
+   * The entry can still name a retained old executable, so the reader compares
+   * these states through `pluginSourceStateHolds`. Files outside the build's
+   * selected source population are not universally covered, and matching state
+   * or executable existence does not authenticate the executable's bytes.
    */
   pluginSources: Record<string, ITtscCapabilityPluginSource>;
 
