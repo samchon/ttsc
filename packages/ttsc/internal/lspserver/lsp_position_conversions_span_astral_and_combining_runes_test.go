@@ -3,13 +3,11 @@ package lspserver
 import "testing"
 
 // TestLSPPositionConversionsSpanAstralAndCombiningRunes verifies that both
-// proxy-side position converters spend a UTF-16 budget, not a byte or rune one,
-// across every width a line can hold.
+// position helper and its completion wrapper spend the supplied UTF-16 budget
+// on nine authored ASCII, BMP, astral, combining and line-boundary inputs.
 //
-// UTF-16 is the encoding ttscserver pins for the whole session
-// (constrainInitializePositionEncoding), so these two helpers are the contract
-// for every feature that maps an editor column onto the cached buffer:
-// incremental didChange splicing and plugin completion. An astral rune is the
+// The wrapper delegates to lspPositionToByteOffset; agreement between their
+// outputs is not an independent implementation oracle. An astral rune is the
 // boundary that separates the three counting schemes at once — four bytes, one
 // rune, two UTF-16 units — and a combining mark is the boundary where two runes
 // render as one grapheme but still cost two units.
@@ -19,10 +17,10 @@ import "testing"
 //  2. Assert both converters return the same byte offset for each.
 //  3. Assert the line walk, the end-of-line column, and an out-of-range column.
 //
-// @evidence contracts/testing.md#behavioral-verification Both position converters return the same byte offset for the column after an identifier on ASCII, CJK, astral and combining-sequence lines, and handle line walks, end-of-line columns and out-of-range columns.
+// @evidence contracts/testing.md#behavioral-verification The helper and its delegating wrapper return literal offsets on nine supplied positive cases, including LF, bare CR and CRLF line walks; the helper alone rejects column 99 past the final line. Direct utf16Length calls require four units for a mixed prefix and zero for empty text. Actual edits, completion requests and session negotiation are not executed.
 // @evidence contracts/testing.md#independent-expectations Expected offsets are literal byte counts from the UTF-16 definition.
-// @evidence contracts/testing.md#distinguishing-cases Astral and combining characters separate byte, rune and UTF-16 counting at once.
-// @evidence contracts/testing.md#execution-ownership TestLSPPositionConversionsSpanAstralAndCombiningRunes is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases ASCII and BMP distinguish byte width, an astral rune distinguishes rune and UTF-16 width, and a combining sequence still counts its separate code points. Before-astral/end-of-line positions, three line separators, the helper's past-end refusal and empty width complete this authored matrix; malformed text and positions inside a surrogate pair are not covered.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls lspPositionToByteOffset, offsetForPosition and utf16Length on authored strings. It uses no substitute operation, temporary directory, child, installed consumer or product host; the positive subtests remain individually named.
 func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
   cases := []struct {
     name      string
@@ -112,15 +110,14 @@ func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
     })
   }
 
-  // A column past the end of the line is a cache/editor divergence, not a
-  // clamped position: the buffer cache drops its entry rather than splice at a
-  // guessed byte.
+  // The direct helper rejects this past-end column; cache eviction is not
+  // exercised by this call.
   if got, ok := lspPositionToByteOffset("const \U0001D499", lspPositionWire{Character: 99}); ok {
     t.Errorf("lspPositionToByteOffset past end = (%d, true), want ok=false", got)
   }
 
-  // The completion replace range is measured in the same units, so the filter
-  // width of a mixed-width prefix must agree with the columns above.
+  // Independently authored width expectations exercise the width helper;
+  // this does not construct a completion replacement range.
   if units := utf16Length("é\U0001D499"); units != 4 {
     t.Errorf("utf16Length = %d, want 4 (e + combining acute + astral pair)", units)
   }
