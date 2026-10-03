@@ -48,7 +48,7 @@ export function beginLintTrace():
       };
     }
     const state = writer;
-    const invocation = `${process.pid}-${state.instance}-${++state.ordinal}`;
+    const invocation = `${state.instance}:${++state.ordinal}`;
     const observation = {
       record: (event: string, data: Record<string, unknown>): void => {
         let descriptor: number | undefined;
@@ -64,7 +64,7 @@ export function beginLintTrace():
               at: new Date().toISOString(),
               invocation,
               pid: Object.hasOwn(data, "pid") ? data.pid : process.pid,
-              data,
+              data: { ...data, writerRuntime: process.version },
             }) + "\n",
           );
           if (body.length > 256 * 1024 * 1024 - state.bytes) return;
