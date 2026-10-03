@@ -23,22 +23,31 @@ const nativePluginCommandStderrLimit = 1024 * 1024
 // writes to its private manifest file after running normal project plugin
 // discovery and source-plugin builds.
 //
-// @evidence contracts/common.md#principled-implementation Descriptor entries, executable entries and initial input snapshots remain distinct; raw project context preserves the launcher-selected identity.
-// @evidence contracts/common.md#clear-and-simple-design One manifest captures immutable startup inputs without mixing later refresh state into its wire shape.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Initial snapshot keys refer to actual launcher data rather than embedded expected project selections.
+// @evidence contracts/common.md#principled-implementation Descriptor entries, executable entries and initial declarations remain distinct. Raw project context carries the declared launcher identity without authenticating it; the source separately normalizes accepted startup inputs.
+// @evidence contracts/common.md#clear-and-simple-design One manifest separates supplied startup fields from later host refresh state. Its maps, slices and raw JSON are mutable values, not an immutable capture.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Shared snapshot keys select supplied manifest entries rather than embedded expected selections; required-key lookup and host normalization own admission, not this wire shape.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the launcher producer and selection-change effect, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Binary locations and project context carry native paths separately from diagnostic URIs; the source performs native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The manifest carries startup values; construction selects discovery and validation algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The value does not coordinate producer reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resource acquisition belongs to the constructed source rather than this transport value.
 type NativePluginManifest struct {
+  // InitialProjectInputs holds shared startup declarations selected by entry key.
   InitialProjectInputs map[string]LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
-  Plugins              []NativePluginConfigEntry          `json:"plugins"`
-  LSPPlugins           []NativeLSPPluginEntry             `json:"lspPlugins"`
-  ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
+
+  // Plugins contains the compact descriptor configuration passed to sidecars.
+  Plugins []NativePluginConfigEntry `json:"plugins"`
+
+  // LSPPlugins contains executable entries whose declared flags admit queries.
+  LSPPlugins []NativeLSPPluginEntry `json:"lspPlugins"`
+
+  // ProjectContext carries opaque launcher JSON; the source reads supplied
+  // physical project/config locations and separately gates forwarding it.
+  ProjectContext json.RawMessage `json:"projectContext,omitempty"`
 
   // SelectionInputs are what the plugin selection itself was loaded from. A
-  // change to one ends the session like a plugin's own reload input.
+  // reported change is compared by the host's restart-selection policy. The
+  // value itself does not register a watcher or certify that a change arrived.
   SelectionInputs *NativePluginSelectionInputs `json:"selectionInputs,omitempty"`
 }
 
@@ -54,15 +63,21 @@ type NativePluginManifest struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work It does not coordinate configuration reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It carries data without a native resource lifecycle.
 type NativePluginConfigEntry struct {
+  // Config is decoded JSON configuration, separate from executable metadata.
+  // Numeric values follow encoding/json's ordinary interface-value decoding.
   Config map[string]any `json:"config"`
-  Name   string         `json:"name"`
-  Stage  string         `json:"stage"`
+
+  // Name identifies the descriptor passed through the compact plugin protocol.
+  Name string `json:"name"`
+
+  // Stage selects the descriptor's configured plugin lane.
+  Stage string `json:"stage"`
 }
 
 // NativeLSPPluginEntry names one built sidecar that opted into the LSP
 // protocol through its JavaScript descriptor capabilities.
 //
-// @evidence contracts/common.md#principled-implementation Binary identity, initial snapshots and capability flags distinguish supported native operations without assuming every descriptor supports every verb.
+// @evidence contracts/common.md#principled-implementation Executable path, initial snapshots and declared capability flags distinguish query admission without assuming every descriptor advertises every verb. The path/flags are supplied metadata, not artifact identity or runtime capability authentication.
 // @evidence contracts/common.md#clear-and-simple-design Executable capabilities remain separate from generic plugin configuration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Capability flags come from the descriptor contract rather than probing known package names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the opt-in boundary, following the documentation skill.
@@ -71,14 +86,31 @@ type NativePluginConfigEntry struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The entry describes identity inputs without coordinating execution reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The source owns processes started from this descriptor.
 type NativeLSPPluginEntry struct {
-  Binary                 string                   `json:"binary"`
+  // Binary selects exec's native executable; it is not an artifact fingerprint.
+  Binary string `json:"binary"`
+
+  // InitialProjectInputKey refers to the manifest's shared startup snapshot.
+  // A nonempty key takes precedence over InitialProjectInputs.
   InitialProjectInputKey string                   `json:"initialProjectInputKey,omitempty"`
-  InitialProjectInputs   *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
-  Name                   string                   `json:"name,omitempty"`
-  ProjectDiagnostics     bool                     `json:"projectDiagnostics,omitempty"`
-  ProjectInputs          bool                     `json:"projectInputs,omitempty"`
-  ProjectContextArgs     bool                     `json:"projectContextArgs,omitempty"`
-  Stage                  string                   `json:"stage,omitempty"`
+
+  // InitialProjectInputs optionally supplies an inline startup declaration.
+  InitialProjectInputs *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
+
+  // Name is optional descriptor labeling used in source diagnostics.
+  Name string `json:"name,omitempty"`
+
+  // ProjectDiagnostics admits dedicated project-diagnostic queries.
+  ProjectDiagnostics bool `json:"projectDiagnostics,omitempty"`
+
+  // ProjectInputs admits input declaration discovery and startup snapshots.
+  ProjectInputs bool `json:"projectInputs,omitempty"`
+
+  // ProjectContextArgs permits the separate project-context JSON argument when
+  // one is available; it also distinguishes the selected transport key.
+  ProjectContextArgs bool `json:"projectContextArgs,omitempty"`
+
+  // Stage carries descriptor stage metadata independently of these query flags.
+  Stage string `json:"stage,omitempty"`
 }
 
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
