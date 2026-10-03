@@ -12,9 +12,9 @@ import (
 // internal heritage kind into the schema's `extends` and `implements`: a class
 // superclass records "extends", a class interface list records "implements".
 //
-// One class declaration carries both clauses at once, so the test pins that the
-// keyword — not the base's declaration kind — selects the origin: `extends Sup`
-// and `implements Iface` on the same class must come out as different origins.
+// One class declaration carries both clauses at once: extends Sup and implements
+// Iface must have their literal origins. Their target kinds differ too, so this
+// entry alone cannot distinguish keyword selection from a target-kind heuristic.
 //
 //  1. Compile `class Sub extends Sup implements Iface` plus the base class and
 //     interface.
@@ -23,10 +23,11 @@ import (
 //     heritage edge has Origin "implements".
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a heritage edge carries the clause keyword as Origin, so the dump can split the single internal heritage kind into the schema's `extends` and `implements`: a class superclass records "extends", a class interface list records "implements".
-// @evidence contracts/testing.md#independent-expectations The expectations are literal: for class Sub extends Sup implements Iface the heritage edge Sub to Sup must have Origin extends and Sub to Iface must have Origin implements, so the clause keyword rather than the base's declaration kind selects the origin.
+// @evidence contracts/testing.md#independent-expectations Literal extends and implements origins follow the authored clauses for Sub-to-Sup and Sub-to-Iface. Sup is a class and Iface an interface, so this input alone cannot reject a target-kind heuristic; TestHeritageEdgesKeepExtendsAndImplementsToSameBase supplies the same-target counterpart.
 // @evidence contracts/testing.md#distinguishing-cases Compile `class Sub extends Sup implements Iface` plus the base class and interface; Build the graph; Assert the Sub->Sup heritage edge has Origin "extends" and the Sub->Iface heritage edge has Origin "implements".
-// @evidence contracts/testing.md#execution-ownership TestHeritageEdgesRecordExtendsVersusImplementsOrigin is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build. The local edgeOrigin helper reads the first matching triple; actual Program filename/shared ID formatting select literal endpoints, not an independent ID grammar. A restored empty linked-plugin manifest excludes ambient hooks; no dump serialization, installed consumer or product process runs.
 func TestHeritageEdgesRecordExtendsVersusImplementsOrigin(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Iface {}

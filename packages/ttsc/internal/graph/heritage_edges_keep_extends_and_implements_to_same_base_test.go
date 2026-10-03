@@ -20,11 +20,12 @@ import (
 //  3. Assert both an `extends` and an `implements` heritage edge Derived -> Base,
 //     and that they map to the distinct wire kinds the dump emits.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that a class which both extends and implements the same base records two distinct heritage edges — `extends` and `implements` — rather than collapsing to one. The edge dedup keys on the emitted wire kind, so two relationships to one target that mean different things both survive; a dedup on the internal edge kind alone would drop the second clause and the dump would claim only inheritance or only conformance, never both.
+// @evidence contracts/testing.md#behavioral-verification Build's selected Derived-to-Base heritage edges, passed through actual dumpEdgeKind, must include both extends and implements. This catches collapsing the two clause meanings, but does not assert an exact edge count or serialize a dump.
 // @evidence contracts/testing.md#independent-expectations The expectation is literal: for class Derived extends Base implements Base the heritage edges from Derived to Base, mapped with dumpEdgeKind, must yield both the wire kinds extends and implements. The expected wire names come from the schema vocabulary, but the mapping function is the one under test.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with `class Derived extends Base implements Base`; Build the graph; Assert both an `extends` and an `implements` heritage edge Derived -> Base, and that they map to the distinct wire kinds the dump emits.
-// @evidence contracts/testing.md#execution-ownership TestHeritageEdgesKeepExtendsAndImplementsToSameBase is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build and dumpEdgeKind. Actual Program filename and shared nodeID formatting select literal Derived/Base endpoints; a restored empty linked-plugin manifest excludes ambient hooks. No JSON dump, consumer installation or product process runs.
 func TestHeritageEdgesKeepExtendsAndImplementsToSameBase(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Base {
