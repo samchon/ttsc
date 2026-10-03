@@ -37,6 +37,7 @@ export function createDescriptorEvaluationProject(
   options: { defaultCacheRoot?: boolean } = {},
 ): IDescriptorEvaluationProject {
   const root = TestProject.tmpdir(prefix);
+  TestProject.retainTemporaryDirectory(root, "Descriptor evaluation descendants are not joined");
   const directory = path.join(root, "project");
   const counter = path.join(root, "evaluations.txt");
   writeGoModule(path.join(directory, "go-plugin"));
