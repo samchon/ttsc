@@ -12,7 +12,7 @@ import (
 // helpers. This test pins the real dispatcher path so a fix-all request cannot
 // expose format actions and a format request cannot expose lint fix actions.
 //
-// 1. Seed a project with one lint fix and one format fix.
+// 1. Seed a project with lint and format findings.
 // 2. Run `lsp-code-actions` with `source.fixAll.ttsc`.
 // 3. Run `lsp-code-actions` with `source.format`.
 // 4. Assert each response advertises only its matching command.

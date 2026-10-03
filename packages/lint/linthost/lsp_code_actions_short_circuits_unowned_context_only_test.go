@@ -19,7 +19,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The dispatcher returns exit 0, literal [] JSON and silent stderr for an unrelated context.only even when no tsconfig exists.
 // @evidence contracts/testing.md#independent-expectations The authored unowned action kind and missing disposable tsconfig establish the short-circuit boundary; literal status and JSON expectations do not depend on another command path.
-// @evidence contracts/testing.md#distinguishing-cases The directory has a source file with a violation but no tsconfig and no lint config, so any attempt to load the project would fail with a nonzero status or stderr; success with exactly an empty array for context.only quickfix.other shows the project was never loaded. Owned kinds are covered by other code-action tests.
+// @evidence contracts/testing.md#distinguishing-cases The directory contains a var source but no tsconfig or lint config. Exact success, empty JSON and silent stderr constrain the unowned-kind response; the current dispatcher returns before lspFindings, as confirmed by its control flow. The assertions do not count project loads or detect every possible filesystem read. Owned kinds are covered by other code-action tests.
 // @evidence contracts/testing.md#execution-ownership Calls run lsp-code-actions in process with captured streams on a temporary directory that has no tsconfig; no editor or built host is started.
 func TestLSPCodeActionsShortCircuitsUnownedContextOnly(t *testing.T) {
   root := t.TempDir()
