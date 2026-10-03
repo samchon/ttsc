@@ -7,6 +7,7 @@ import { hostToolDirectory } from "../../../../../../../packages/unplugin/lib/co
 import { projectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { readProjectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
+import type { IRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/IRealNativeEnvelopeFixture";
 
 /**
  * Verifies the Farm adapter hands Farm the project's record alone, whichever
@@ -35,11 +36,11 @@ import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/i
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_farm_is_handed_the_project_record_alone is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Farm wrapper and real native envelope reach captured Farm compilation channel, without live Farm watcher.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds sessions and tracked roots; the linked spelling belongs to a separate TestProject-managed root, so runner cleanup also owns the junction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution creates a private envelope fixture. Supplied shared inputs follow previous record-owner close and restoration of original declaration/candidate/root membership. Farm is terminal for this mutable root: this captured body has no awaited teardown hook and certifies no session or descendant join. Runner exit bounds sessions and tracked roots; the linked spelling belongs to a separate TestProject-managed root, so runner cleanup also owns the junction.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: linked-root config and physical module delivery hand one absolute record under configured Farm root; written record names selected config. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_farm_is_handed_the_project_record_alone(): Promise<void> {
-  const fixture = createRealNativeEnvelopeFixture();
+export async function test_farm_is_handed_the_project_record_alone(prepared?: IRealNativeEnvelopeFixture): Promise<void> {
+  const fixture = prepared ?? createRealNativeEnvelopeFixture();
   const physical = fs.realpathSync.native(fixture.root);
   const linked = path.join(
     TestProject.tmpdir("ttsc-farm-root-alias-"),

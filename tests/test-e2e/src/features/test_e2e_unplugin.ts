@@ -19,6 +19,7 @@ import { test_rollup_disposes_at_the_right_boundary } from "./unplugin/native-pl
 import { test_rollup_transforms_a_cached_module_the_bridge_still_owes } from "./unplugin/native-plugins/adapters/test_rollup_transforms_a_cached_module_the_bridge_still_owes";
 import { test_build_hosts_register_the_project_record_alone } from "./unplugin/native-plugins/adapters/test_build_hosts_register_the_project_record_alone";
 import { test_a_record_that_cannot_be_written_gives_way_to_the_fallback } from "./unplugin/native-plugins/adapters/test_a_record_that_cannot_be_written_gives_way_to_the_fallback";
+import { test_farm_is_handed_the_project_record_alone } from "./unplugin/native-plugins/adapters/test_farm_is_handed_the_project_record_alone";
 import { createRealNativeEnvelopeFixture } from "../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
@@ -74,7 +75,10 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * the original read-only/fallback/restored-permission record profile. Its own
  * awaited closeWatcher gates declaration restoration and build-host channels.
  * Native observer and record literals
- * remain independent of the captured host metadata; mutation profiles end last.
+ * remain independent of the captured host metadata. After record-owner close,
+ * its three created paths and declaration are restored before Farm's original
+ * linked-root/physical-module channel. Farm is terminal for that mutable root;
+ * its captured body has no awaited teardown and certifies no native join.
  * After that bundle closes, esbuild adds its original run-counter configuration.
  * Its completed lifecycle permits the real watcherless startup server, whose actual close gates exact main/config byte restoration and lazy-input removal, then the original raw/url/plain Vite wrapper build; its actual return and entry removal precede the original out-of-program delivery and
  * default-options, plain/reporting project records, explicit prefix,
@@ -480,6 +484,12 @@ export async function test_e2e_unplugin(): Promise<void> {
     const recordFixture = createRealNativeEnvelopeFixture();
     TestProject.retainTemporaryDirectory(recordFixture.root, "Shared real-envelope bridge debt and record channel inputs retained");
     const originalDeclaration = fs.readFileSync(recordFixture.declaration);
+    const recordCreatedPaths = [
+      path.join(recordFixture.root, "node_modules", "typed-dep", "dist", "index.native.d.ts"),
+      path.join(recordFixture.root, "node_modules", "typed-dep", "unrelated.txt"),
+      path.join(recordFixture.root, "src", "membership.d.ts"),
+    ];
+    for (const file of recordCreatedPaths) assert.equal(fs.existsSync(file), false, "record profile path starts absent: " + file);
     await Scenarios.invoke("shared-unplugin", "test_rollup_transforms_a_cached_module_the_bridge_still_owes", test_rollup_transforms_a_cached_module_the_bridge_still_owes, recordFixture);
     fs.writeFileSync(recordFixture.declaration, originalDeclaration);
     assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
@@ -487,6 +497,13 @@ export async function test_e2e_unplugin(): Promise<void> {
     fs.writeFileSync(recordFixture.declaration, originalDeclaration);
     assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
     await Scenarios.invoke("shared-unplugin", "test_build_hosts_register_the_project_record_alone", test_build_hosts_register_the_project_record_alone, recordFixture);
+    for (const file of recordCreatedPaths) {
+      fs.rmSync(file);
+      assert.equal(fs.existsSync(file), false, "record profile path restored absent: " + file);
+    }
+    fs.writeFileSync(recordFixture.declaration, originalDeclaration);
+    assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
+    await Scenarios.invoke("shared-unplugin", "test_farm_is_handed_the_project_record_alone", test_farm_is_handed_the_project_record_alone, recordFixture);
   } catch (cause) {
     failures.push(new Error("real-envelope Rollup bridge debt and host record channels", { cause }));
   }
