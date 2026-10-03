@@ -89,8 +89,10 @@ type LSPLocation struct {
 // answers; see shouldAnswerDocumentSymbolLocally / shouldAnswerReferencesLocally.
 //
 // Implementations may load a compiler Program lazily and must be safe to call
-// from multiple goroutines: the proxy invokes them off its pump goroutine so a
-// slow program load never blocks other traffic.
+// from multiple goroutines. DocumentSymbols and References run in separate
+// query goroutines rather than on the editor pump. Their replies still share
+// frame serialization, and this does not bound custom provider work or the
+// synchronous invalidation call.
 //
 // @evidence contracts/common.md#principled-implementation Hierarchy, usage lookup and invalidation are separate operations over the provider's compiler-backed state.
 // @evidence contracts/common.md#clear-and-simple-design The proxy depends on semantic queries without exposing graph construction or program storage.
