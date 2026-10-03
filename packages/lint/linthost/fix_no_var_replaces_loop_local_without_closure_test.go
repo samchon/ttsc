@@ -5,10 +5,10 @@ import "testing"
 // TestFixNoVarReplacesLoopLocalWithoutClosure verifies no-var still rewrites
 // a loop-local `var` whose references never cross a function boundary.
 //
-// Second negative twin of the loop-closure decline: a plain read in the same
-// iteration observes the identical value under `var` and `let`; only a
-// closure created inside the loop can tell the bindings apart. The
-// loop-local + direct-reference shape must keep its autofix.
+// Second negative twin of the loop-closure decline: each iteration
+// initializes x before its direct read, with no closure, direct eval or
+// post-loop observation. These reads see the same values under `var` and
+// `let`, so this otherwise safe loop-local shape must keep its autofix.
 //
 //  1. Parse a for-of body declaring `var x` and reading it directly.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
