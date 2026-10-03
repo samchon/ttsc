@@ -98,31 +98,35 @@ const (
   GeneratedIdentifierFlagsAllowNameSubstitution  = innerprinter.GeneratedIdentifierFlagsAllowNameSubstitution
 )
 
-// NewPrinter creates an emitter with the supplied options, global-name hook,
-// and emit context. Callers must pass the same EmitContext to all operations
-// in a single emit round.
+// NewPrinter creates an emitter with the supplied options, handlers and emit
+// context. A nil context creates a fresh upstream context; operations that
+// depend on one round's shared node provenance must pass that same context.
+// The returned printer keeps its context and handler references; callers own
+// their lifetimes and must respect the upstream mutable-state contract.
 //
 // @evidence contracts/common.md#principled-implementation Direct delegation preserves upstream printer construction over the supplied options, hook and shared context, so transformed-node provenance remains available during emission.
 // @evidence contracts/common.md#clear-and-simple-design One constructor keeps printer state with the emitter while the caller explicitly supplies the context shared by the round.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported constructor accepts dependencies directly without replacing printer internals or injecting a consumer-specific emitter.
-// @evidence contracts/common.md#meaningful-documentation Native prose states the actual hook and one-round context identity requirement.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewPrinter acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewPrinter performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewPrinter computes one result per call, so there is no repeated work to share.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies supplied handlers, nil-context allocation, provenance sharing and caller-owned mutable printer state.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned printer retains handlers and its supplied or newly created context, with name-generator closures referencing that printer; later writer and name/mapping state belong to its caller-owned lifetime. Construction opens no handle and supplies no population cap, concurrent-use guard or automatic round disposal.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Initial field setup, nil-context construction and name-generator wiring are upstream printer responsibilities; this adapter chooses no independent initialization or emission strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller controls which printers share a valid emit context, and the upstream printer owns its internal writer and metadata reuse; this constructor coordinates no request cache or shared producer.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewPrinter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewPrinter(options PrinterOptions, handlers PrintHandlers, emitContext *EmitContext) *Printer {
   return innerprinter.NewPrinter(options, handlers, emitContext)
 }
 
 // NewEmitContext allocates a fresh EmitContext for a new emit round.
+// The caller owns its lifetime and the node metadata accumulated by the
+// round; the context is not guaranteed to be thread-safe.
 //
 // @evidence contracts/common.md#principled-implementation The upstream constructor initializes the context's own node factory; each call obtains a separate metadata identity for a separate emit round.
 // @evidence contracts/common.md#clear-and-simple-design One factory creates the context and its coupled factory together rather than exposing partially initialized emit state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Calls acquire real fresh upstream state rather than sharing a process-global context across unrelated emit rounds.
 // @evidence contracts/common.md#meaningful-documentation The comment identifies fresh allocation and its per-round purpose; the context type explains sharing within that round.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewEmitContext acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewEmitContext performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewEmitContext computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned context and its factory reference each other and belong to the caller's emit round; subsequent metadata maps and scope state can retain nodes and provenance until the owning consumers release them. Construction opens no handle and imposes no metadata population cap or automatic round reset.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream constructs the context and factory with their node hooks; this adapter owns no independent allocation or metadata processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context identity and sharing within an emit round belong to the caller; this factory only requests fresh upstream state and owns no cross-request producer or validity coordinator.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewEmitContext computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewEmitContext() *EmitContext {
   return innerprinter.NewEmitContext()
