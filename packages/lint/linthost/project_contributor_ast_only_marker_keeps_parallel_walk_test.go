@@ -9,13 +9,9 @@ import (
 // TestProjectContributorAstOnlyMarkerKeepsParallelWalk verifies a project
 // contributor can decline the standalone checker.
 //
-// The checker decision is engine-wide, not per-rule: one declared project rule
-// previously set needsTypeChecker unconditionally, which forced the serial walk
-// on every file rule in the run even when the project rule never read
-// Context.Checker. A project rule that reads only its own sources or the
-// filesystem paid the whole cost, and a file rule's own
-// `NeedsTypeChecker() bool { return false }` bought nothing while a project
-// contributor was installed.
+// The checker decision is engine-wide. This entry binds a declared project
+// contributor with an explicit false marker and checks that decision directly.
+// It does not execute a walk or measure checker construction and runtime cost.
 //
 //  1. Install a project contributor whose marker returns false.
 //  2. Configure it globally at error severity.
