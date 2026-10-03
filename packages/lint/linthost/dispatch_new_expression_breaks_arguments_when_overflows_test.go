@@ -12,8 +12,8 @@ import (
 //
 // The symmetric partner of the new-expression flat-fits case. Both
 // new and call expressions thread the callee verbatim into the
-// argument list, but they take separate dispatcher branches; this
-// pair makes a regression on either branch visible immediately.
+// argument list. This test calls the new-expression helper directly
+// and does not exercise the dispatcher's branch selection.
 //
 //  1. Parse `new Foo(aaaaaa, bbbbbb, cccccc);` (31 chars wide).
 //  2. Print under printWidth=20.

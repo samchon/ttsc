@@ -13,10 +13,11 @@ import (
 // `printNewExpression` mirrors `printCallExpression` but prepends
 // `new `. A regression that dropped the keyword would convert
 // `new Foo(a)` to `Foo(a)` and silently change runtime semantics.
-// The case pins the keyword and the flat-form shape end-to-end.
+// The case pins the keyword and the flat-form shape in the direct printer
+// output; it does not construct Foo at runtime.
 //
 //  1. Parse `new Foo(a, b);`.
-//  2. Dispatch the NewExpression node directly.
+//  2. Call printNewExpression directly on the node.
 //  3. Assert the rendered output is `new Foo(a, b)`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNewExpression must retain new Foo(a, b) flat at the default budget.
