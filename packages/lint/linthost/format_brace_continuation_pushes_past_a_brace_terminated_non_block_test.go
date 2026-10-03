@@ -4,9 +4,10 @@ import "testing"
 
 // TestFormatBraceContinuationPushesPastABraceTerminatedNonBlock verifies a consequent that ends in a brace but is not a block still pushes down.
 //
-// The one-property-away twin of every pull-up case. A `switch` consequent ends in
-// `}` and Prettier still puts `else` on its own line, so a direction test that
-// read the clause's last byte instead of its kind would join it and diverge.
+// A `switch` consequent has the same final `}` byte as a block but a different
+// AST kind. The full expected source requires a newline before `else`, so
+// always joining after a closing-brace byte cannot satisfy this case and the
+// block-consequent companion together.
 //
 //  1. Parse an `if` whose consequent is a `switch` statement, with `else` inline.
 //  2. Apply format/brace-continuation.

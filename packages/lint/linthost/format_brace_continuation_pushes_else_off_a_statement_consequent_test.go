@@ -4,9 +4,10 @@ import "testing"
 
 // TestFormatBraceContinuationPushesElseOffAStatementConsequent verifies `else` starts its own line when the consequent is not a block.
 //
-// The same decision read the other way. A rule that only pulled keywords up
-// would leave `if (a) x(); else y();` on one line, which Prettier splits, so
-// both directions have to belong to one owner or a source can satisfy neither.
+// This exercises the non-block direction of the same gap operation. The full
+// expected source requires a newline before `else`, in contrast to the block
+// consequent's one-space target; it does not prescribe how many rules a
+// different formatter architecture must use.
 //
 //  1. Parse a one-line `if`/`else` with a statement consequent.
 //  2. Apply format/brace-continuation.

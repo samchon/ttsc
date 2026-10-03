@@ -10,10 +10,11 @@ import (
 // still pushes its continuation keyword down.
 //
 // The abstention for a statement that does not own its line is what keeps a
-// keyword from landing at column zero, and a label prefix trips it. Unlike a
-// preceding statement, a label is never split off onto its own line by any pass,
-// so refusing here would strand the keyword permanently rather than deferring
-// it. The prefix is accepted only when it is whitespace and `identifier :` runs.
+// keyword from landing at column zero. The supported ASCII `outer:` prefix
+// belongs to the labeled statement; the helper accepts that label run when
+// locating its owning indentation. This command fixture requires the label to
+// remain on the if line and observes the completed cascade for this input,
+// without a claim about every label or every hypothetical deferred pass.
 //
 //  1. Seed a project with a labeled one-line `if`/`else` inside a function.
 //  2. Run `ttsc format`.
