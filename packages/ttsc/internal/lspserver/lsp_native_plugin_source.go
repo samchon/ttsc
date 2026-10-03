@@ -455,16 +455,19 @@ func decodeNativeDiagnostics(body []byte) (LSPDiagnosticsResult, error) {
   return LSPDiagnosticsResult{Document: legacy}, nil
 }
 
-// CodeActions asks every LSP-capable sidecar for actions matching the request.
+// CodeActions asks each selected native transport for command-backed actions.
+// Failed queries or invalid replies are logged and skipped; the returned slice
+// does not report whether all producers succeeded. Range/context marshal errors
+// are ignored, so malformed raw context data can leave an empty argument.
 //
-// @evidence contracts/common.md#principled-implementation Range/context are serialized unchanged; direct edits and unowned commands are rejected because native actions execute through advertised ownership.
+// @evidence contracts/common.md#principled-implementation Range/context values are JSON-encoded for the selected transport, with marshal errors currently ignored rather than certified as unchanged payloads. Direct edits, commandless actions and commands owned by another advertised transport are rejected; skipped producer failures do not certify a complete or successfully empty result.
 // @evidence contracts/common.md#clear-and-simple-design Producer queries and ownership validation share the existing transport and command map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Edit rejection is a native ownership boundary, not a success-shaped substitute for implementing an advertised command.
 // @evidence contracts/common.md#meaningful-documentation Native prose states matching inputs; nearby validation comments explain command-only ownership under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation URI remains protocol data while native exec receives separate argv entries; no shell quoting or OS-name-based path folding occurs.
-// @evidence contracts/performance.md#efficient-algorithms Transport deduplication precedes queries; action validation is linear in returned action count with constant-time command owner lookup.
-// @evidence contracts/performance.md#reuse-equivalent-work Resident read verbs share valid compiler state; actions remain specific to URI, range and context instead of sharing by returned shape.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Returned actions transfer to the caller; resident processes terminate on Close and response bytes are capped. There is no independent cap on concurrently waiting callers.
+// @evidence contracts/performance.md#efficient-algorithms Transport selection hashes binary/context-mode key bytes before serial producer queries. Costs include range/context encoding, native work and blocking, reply decoding, raw-edit trimming, command/key hashing and log formatting, not just action counts or constant-time ownership lookup. Fallback can add a one-shot spawn after a resident transport failure; opt-in observation adds serialization and IO.
+// @evidence contracts/performance.md#reuse-equivalent-work Resident requests serialize their pipe and carry queued invalidations, while actual freshness requires caller change notifications and sidecar behavior. Actions remain URI/range/context-specific; this method has no response-shape cache and failed transports can fall back to a fresh command.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each native reply has a byte cap, but aggregate decoded actions across producers, request encoding and concurrently waiting callers are uncapped here. Returned values can retain decoded strings/raw data. Close requests cancellation and attempts resident cleanup without certifying every task's termination; rule computation has no open-session deadline, and caller-owned logging can block.
 func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeActionContext) []LSPCodeAction {
   if s == nil || uri == "" {
     return nil
@@ -520,7 +523,7 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
 // @evidence contracts/common.md#prohibited-implementation-shortcuts This forwarding entry does not maintain a separate command interpretation.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the advertised owner boundary, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation The delegated operation owns executable argv and native working-directory interpretation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ExecuteCommandWithContent owns command processing.
+// @evidence contracts/performance.md#efficient-algorithms Delegation performs the content-aware executor's command-key hashing, raw-argument encoding, native command work and reply decoding. This wrapper adds no duplicate interpretation but does not remove those payload-dependent and blocking costs.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated operation owns the effectful command policy.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native child ownership belongs to the delegated executor and source lifetime.
 func (s *NativePluginSource) ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error) {
@@ -533,18 +536,18 @@ func (s *NativePluginSource) ExecuteCommand(command string, args []json.RawMessa
 // adding the --content-stdin flag and piping content to the sidecar's stdin, so
 // the proxy can format dirty editor buffers (formatOnSave) without first writing
 // them to disk. hasContent — not content != "" — gates the in-memory path: an
-// empty buffer the user cleared is a valid document state and must still format
-// in-memory (to a no-op) rather than falling through to stale disk content.
+// empty buffer the user cleared still travels through stdin rather than falling
+// through to stale disk content. The sidecar determines the returned edits.
 // Decoding of the returned WorkspaceEdit is identical to ExecuteCommand.
 //
 // @evidence contracts/common.md#principled-implementation Advertised ownership selects the producer; hasContent distinguishes an empty live buffer from absent buffer input. Invalid raw argument JSON is rejected before a process starts.
-// @evidence contracts/common.md#clear-and-simple-design One executor handles disk and stdin modes, then decodes the supported WorkspaceEdit shape.
+// @evidence contracts/common.md#clear-and-simple-design One executor handles disk and stdin modes, accepts null or decodes the changes-only WorkspaceEdit shape, and rejects non-null documentChanges. Decoding does not certify edit coordinates, URI ownership or semantic correctness.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty content does not trigger a stale-disk fallback; unknown commands return the ownership sentinel.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain empty-buffer semantics and shared decoding, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation exec receives binary and separate flags; live buffer text travels through stdin without shell interpolation or newline rewriting.
-// @evidence contracts/performance.md#efficient-algorithms Argument encoding and edit decoding scale with payload bytes; strings.Reader supplies existing content without creating a concatenated command string.
+// @evidence contracts/performance.md#efficient-algorithms Costs include command-string hashing, raw argument validation/encoding and copies, native execution and IO, then two JSON passes for non-null edit replies. strings.Reader shares existing content rather than concatenating it into argv, but transport still consumes its bytes; opt-in observation adds serialization and trace writes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Executing a workspace command may cause external effects, so matching inputs do not authorize shared execution.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Each child is waited and tied to source cancellation; stdout/stderr caps bound retained output and WaitDelay limits inherited-pipe draining after exit. Concurrent command count is not capped.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Cmd.Run waits a successfully started direct child and uses the source cancellation context; output buffers have per-child byte caps and WaitDelay applies after cancellation or process exit rather than imposing a computation deadline. Argument/content inputs, concurrent calls and aggregate decoded edit ownership are not independently capped here. Source.Close does not join these calls or certify descendant termination; returned edits remain caller-owned.
 func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*LSPWorkspaceEdit, error) {
   if s == nil {
     return nil, ErrCommandNotHandled
