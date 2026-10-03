@@ -67,7 +67,7 @@ type ConfigCandidate struct {
 // DiscoverConfigFile walks upward from base looking for any of names in each
 // directory, stopping at the first directory that contains at least one.
 //
-// The walk is the one every first-party utility plugin runs for its
+// Banner and strip use this shared walk for their
 // `<plugin>.config.*` file. It is shared here so the set of superseding
 // candidates is derived by the same rule everywhere, since that set is the part
 // a consumer needs and the part each plugin was most likely to leave out.
@@ -78,9 +78,9 @@ type ConfigCandidate struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Names are caller policy; the search has no repository-specific branch or fabricated missing-file result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states search stopping, shared observation ownership and the absolute-base precondition under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Join and Dir handle native ancestry and root termination; os.Stat obtains actual directory state without an OS case guess.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources os.Stat opens no handle; the function keeps only the candidate slices it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Walks from the base directory to the filesystem root probing each config name once per directory with os.Stat, so it costs O(depth x names) stat calls.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Every probed candidate is returned for the caller's proof so the caller does not stat it again.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native stat owns its temporary resources; the function keeps no handles or historical search state. Candidate slices and path strings are transferred to the caller, whose lifetime is not controlled here.
+// @evidence contracts/performance.md#efficient-algorithms Each visited directory probes every supplied name before deciding whether to stop: O(depth x names) native stat calls plus candidate-path construction and retained rejected-path bytes. This preserves same-directory ambiguity and nearer rejected candidates without enumerating directory contents.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation owns no cross-search cache or coordinator; it returns observed candidate states, while callers own later validation and any repeated native observations.
 func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
   out := ConfigDiscovery{}
   directory := base

@@ -319,16 +319,18 @@ func (p *Program) emitsBuildInfo() bool {
 }
 
 // DefaultWriteFile is the default disk writer used when EmitAll's caller does not
-// supply a custom WriteFile callback.
+// supply a custom WriteFile callback. Existing files are truncated; a failed
+// write can leave partial output. Requested creation modes are subject to the
+// native platform and umask, and do not replace existing file permissions.
 //
 // @evidence contracts/common.md#principled-implementation Parent directories are created before the output is written, and native errors remain visible to emit callers.
 // @evidence contracts/common.md#clear-and-simple-design One directory-creation step precedes one file write.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The writer uses actual requested filenames without suppressing filesystem failures or relying on shell commands.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the default callback role following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Dir, os.MkdirAll, and os.WriteFile supply OS-neutral native operations without separator or command assumptions.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Standard filesystem APIs own the single requested write; this adapter chooses no traversal algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Native parent creation can walk missing ancestors and query existing entries; path length/depth and output bytes drive delegated work. The text-to-byte conversion and file write process the supplied output without a directory enumeration or intermediate output collection.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emit write is requested independently; this writer owns no reuse coordinator.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources os.WriteFile owns descriptor acquisition and closure; this adapter retains no resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources os.WriteFile opens one output handle and attempts its closure after the write, including write failure; open failure acquires no handle. The adapter retains no handle or historical output buffer after returning, but created directories and partial or completed files remain on disk without rollback.
 func DefaultWriteFile(fileName, text string) error {
   if dir := filepath.Dir(fileName); dir != "" {
     if err := os.MkdirAll(dir, 0o755); err != nil {
