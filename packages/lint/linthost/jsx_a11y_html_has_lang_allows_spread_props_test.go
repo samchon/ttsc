@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yHtmlHasLangAllowsSpreadProps verifies spread props satisfy html-has-lang.
+// TestJsxA11yHtmlHasLangAllowsSpreadProps verifies html-has-lang abstains
+// when an unknown spread may supply lang.
 //
 // The lang attribute may come through the `{...props}` spread. Upstream
 // eslint-plugin-jsx-a11y still reports `<html {...props} />`, but `@ttsc/lint`

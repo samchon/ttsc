@@ -4,8 +4,9 @@ import "testing"
 
 // TestJsxA11yAutocompleteValidRejectsUnknownToken verifies autocomplete tokens are checked.
 //
-// Browser autocomplete values are a finite token vocabulary. The rule should
-// flag known literal typos while avoiding dynamic expressions.
+// Registered autofill purposes have a defined vocabulary. This case
+// contrasts an unknown literal purpose with name, without certifying
+// all autocomplete values or dynamic expressions.
 //
 // 1. Parse an input with an invalid autocomplete token.
 // 2. Enable only `jsx-a11y/autocomplete-valid`.
