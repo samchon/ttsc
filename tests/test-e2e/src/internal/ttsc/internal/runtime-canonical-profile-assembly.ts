@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
+import { Scenarios } from "../../Scenarios";
 
 type Receipt = ReturnType<typeof TestProject.spawn>;
 type Files = Readonly<Record<string, string>>;
@@ -180,7 +181,8 @@ export async function runCanonicalRuntimeProfiles(
           };
         };
         try {
-          await profile.run(root, persistent, spawn, ownAsyncProcess);
+          await Scenarios.invoke("runtime-canonical", profile.name, profile.run,
+            root, persistent, spawn, ownAsyncProcess);
         } finally {
           // A callback acknowledges only its real owned join. Failure or absence
           // of that acknowledgment retains the exact live input graph.
