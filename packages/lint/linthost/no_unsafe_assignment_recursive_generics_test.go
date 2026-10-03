@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestNoUnsafeAssignmentRecursiveGenerics covers arbitrary-depth same-target
+// TestNoUnsafeAssignmentRecursiveGenerics covers three-level same-target
 // type argument comparison and the recursive `unknown` exception.
 //
 // 1. Assign `Set<Set<Set<any>>>` to matching string and unknown targets.
