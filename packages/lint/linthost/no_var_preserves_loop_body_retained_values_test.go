@@ -9,15 +9,15 @@ import "testing"
 // keeps the prior value; a fresh let would change the result from [0,0] to
 // [0,1].
 //
-//  1. Fix for, while and do loop bodies that declare an uninitialized var and assign
-//     it conditionally.
+//  1. Attempt fixes for for, while and do bodies plus an inner for header that
+//     declare an uninitialized var and assign it conditionally.
 //  2. Fix an initialized body declaration and a for-of header var assigned a value.
 //  3. Assert the uninitialized declarations stay as var and the initialized ones
 //     become let.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual no-var edits retain uninitialized repeated body declarations and still rewrite an initialized body declaration and assigned for-of header.
 // @evidence contracts/testing.md#independent-expectations Var is one function binding; fresh let bindings would change the authored two-iteration result from [0,0] to [0,1]. Initializers and for-of assignments reset values independently.
-// @evidence contracts/testing.md#distinguishing-cases For, while and do bodies decline without initializers; an initialized body and value-assigned header remain positive controls.
+// @evidence contracts/testing.md#distinguishing-cases For, while and do bodies plus a for header nested in a repeated outer body decline without initializers; an initialized body and value-assigned for-of header remain positive controls.
 // @evidence contracts/testing.md#execution-ownership Disk-backed parser, rule Engine and edit applier run in this Go unit without a product artifact or subprocess.
 func TestNoVarPreservesLoopBodyRetainedValues(t *testing.T) {
   for _, source := range []string{
