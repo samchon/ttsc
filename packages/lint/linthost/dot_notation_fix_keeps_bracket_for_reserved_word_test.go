@@ -3,12 +3,10 @@ package linthost
 import "testing"
 
 // TestFixDotNotationKeepsBracketForReservedWordKey verifies a reserved-
-// word key (`box["class"]`) is detected but NOT rewritten.
+// word key (`box["class"]`) is detected but not automatically rewritten.
 //
-// Even though modern parsers accept dot access to keywords, minifiers
-// and older engines can break — the safe choice is to keep bracket
-// syntax for reserved-word keys, mirroring ESLint's
-// `allowKeywords: false` mode. This pin is independent of the main
+// The rule's conservative automatic-edit policy keeps bracket syntax for
+// reserved-word keys while still reporting the access. This pin is independent of the main
 // rewrite branch and exercises the "detect but impose nothing" arm; the
 // rewrite is still offered as an opt-in suggestion, pinned by
 // `TestDotNotationOffersReservedWordCollapseAsSuggestion`.
