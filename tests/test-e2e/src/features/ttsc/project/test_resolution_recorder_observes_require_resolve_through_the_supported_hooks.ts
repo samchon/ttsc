@@ -15,9 +15,10 @@ import { RuntimeLoaderCapabilities } from "../../../../../../packages/ttsc/lib/l
  * The banner and strip config loaders each replaced `Module._resolveFilename`
  * to record resolutions a resolve hook missed (samchon/ttsc#1523). A resolve
  * hook sees every `import` and `require()`; only `require.resolve` bypasses it,
- * and only on some releases. The recorder now registers the hook and, where the
- * runtime's own probe finds `require.resolve` bypassing it, records that one
- * entry point too.
+ * and only on some releases. The maintained recorder uses the public hook and
+ * marks observations incomplete when its capability probe cannot establish
+ * that `require.resolve` consults it. This historical test still expects a
+ * private wrapper on that branch; its supported disposition remains pending.
  *
  * 1. In a child process, create a recorder and let it observe resolutions.
  * 2. Resolve a present file and a missing candidate through `require.resolve`.
@@ -25,20 +26,20 @@ import { RuntimeLoaderCapabilities } from "../../../../../../packages/ttsc/lib/l
  *    input proven absent, and the resolver was wrapped exactly where
  *    `require.resolve` does not consult the hooks.
  *
- * @evidence contracts/testing.md#behavioral-verification The recorder proves the present require.resolve file and absent candidate and wraps the resolver only when the runtime hook probe requires it.
- * @evidence contracts/testing.md#independent-expectations Authored present/missing files establish resolution outcomes; the runtime capability probe independently establishes hook visibility on this Node release.
+ * @evidenceExclude contracts/testing.md#behavioral-verification Historical private-wrapper expectation conflicts with current public-hook/incomplete-observation contract when the capability is false. Original present/missing and wrapper assertions remain, but no completed supported behavioral verification is certified on that branch.
+ * @evidenceExclude contracts/testing.md#independent-expectations Authored present/missing bytes are independent inputs, but the inverse parent capability is not a supported private-wrapper expectation. Parent and child probe anchors differ, and the original returned payload omits completeness; no unknown observation is certified as capability success.
  * @evidence contracts/testing.md#distinguishing-cases 1. In a child process, create a recorder and let it observe resolutions. 2. Resolve a present file and a missing candidate through `require.resolve`. 3. Assert the present file is an input with its content, the missing one an input proven absent, and the resolver was wrapped exactly where `require.resolve` does not consult the hooks.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner starts an actual Node child loading maintained recorder.cjs and separately calls the parent built capability owner. Original child-owned hooks end with the child; actual supported-disposition/body linkage remains pending, not certified by source existence.
  * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
- * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage The recorder proves the present require.resolve file and absent candidate and wraps the resolver only when the runtime hook probe requires it. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution One actual child resolver interval and separate parent capability probe share the selected runtime and authored fixture. They are not one total process, compiler/Go preparation, cache-hit proof or a false-capability branch execution certificate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Exact tracked allocation is retained before the physical root spelling is taken. Child sync success checks error/signal separately; returned output is not arbitrary descendant join. Source public hooks leave private slots unchanged; historical wrapper assertion disposition remains pending.
+ * @evidence contracts/e2e.md#preserved-coverage Original present hash typeof string, missing own null hash and inverse-parent-capability wrapper assertion remain. Original payload has no completeness and no exact digest assertion. Unsupported historical premise is disclosed, not erased through skip/API/false success; needed disposition/body/runtime/survival pending and donor retained.
  */
 export const test_resolution_recorder_observes_require_resolve_through_the_supported_hooks =
   () => {
-    const root = fs.realpathSync.native(
-      TestProject.tmpdir("ttsc-recorder-require-resolve-"),
-    );
+    const allocatedRoot = TestProject.tmpdir("ttsc-recorder-require-resolve-");
+    TestProject.retainTemporaryDirectory(allocatedRoot, "Resolution observer descendants are not joined");
+    const root = fs.realpathSync.native(allocatedRoot);
     fs.writeFileSync(path.join(root, "present.js"), "module.exports = 1;\n");
     const recorder = path.resolve(
       import.meta.dirname,
@@ -62,6 +63,8 @@ export const test_resolution_recorder_observes_require_resolve_through_the_suppo
       cwd: root,
       encoding: "utf8",
     });
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
     assert.equal(result.status, 0, result.stderr);
     const { hashes, wrapped } = JSON.parse(result.stdout) as {
       hashes: Record<string, string | null>;

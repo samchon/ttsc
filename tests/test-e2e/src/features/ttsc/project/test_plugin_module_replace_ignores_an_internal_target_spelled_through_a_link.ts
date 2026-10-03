@@ -21,15 +21,16 @@ import { resolveGoCompiler } from "../../../../../../packages/ttsc/lib/plugin/in
  * @evidence contracts/testing.md#behavioral-verification pluginModuleReplaceDirectories returns no external directory for an internal replacement reached through an alias.
  * @evidence contracts/testing.md#independent-expectations The authored replacement resolves inside the same real module, so lexical alias differences cannot create an external source.
  * @evidence contracts/testing.md#distinguishing-cases 1. Create a Go module and link another path to that module. 2. Name one of its own directories through the link in `go.mod`. 3. Assert no external replacement directory is reported.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner directly calls the built owning reader with the actual configured Go tool and native directory alias. Go mod-edit JSON is product grammar transport, not an independent language oracle or a plugin build/installed consumer.
  * @evidence contracts/e2e.md#necessary-boundary The existing real Go tool parses the authored replace directive through go mod edit -json before physical containment is checked; a surrogate manifest parser cannot prove the product's supported Go grammar/transport connection.
- * @evidence contracts/e2e.md#shared-execution One existing Go mod-edit request and one linked module fixture own the original internal-target exclusion assertion; this case performs no Go build, download or installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage pluginModuleReplaceDirectories returns no external directory for an internal replacement reached through an alias. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution One logical mod-edit request and native linked module fixture own the internal-target exclusion. The body requests no Go build or consumer installation; selected-tool preparation, environment/capture and fallback attempts are separate observed populations, not one certified process or zero download cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before native link/go.mod preparation. Tool selection/default env remain actual caller authorities; no ambient mutation occurs. Synchronous command result does not establish arbitrary descendant join or immutable executable ownership.
+ * @evidence contracts/e2e.md#preserved-coverage pluginModuleReplaceDirectories returns no external directory for an internal replacement reached through an alias. Original junction/directory link, linked internal replace path and exact empty-array expectation remain; no Windows short-alias input is added or certified. Runtime/manifest/survival unverified and donor retained.
  */
 export const test_plugin_module_replace_ignores_an_internal_target_spelled_through_a_link =
   (): void => {
     const root = TestProject.tmpdir("ttsc-internal-replace-link-");
+    TestProject.retainTemporaryDirectory(root, "Go directive reader descendants are not joined");
     const module = path.join(root, "module");
     const linked = path.join(root, "linked-module");
     const internal = path.join(module, "internal");
