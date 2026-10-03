@@ -7,6 +7,7 @@ import { fallbackToolDirectory } from "../../../../../../../packages/unplugin/li
 import { hostToolDirectory } from "../../../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
+import type { IRealNativeEnvelopeFixture } from "../../../../internal/unplugin/internal/real-native-envelope/IRealNativeEnvelopeFixture";
 
 /**
  * Verifies a project record the adapter cannot write for a new generation gives
@@ -37,11 +38,11 @@ import { createRealNativeEnvelopeFixture } from "../../../../internal/unplugin/i
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_a_record_that_cannot_be_written_gives_way_to_the_fallback is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real native envelope, filesystem permissions and built Rollup hook file handover; host context is captured.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. chmod is restored and case-created fallback record/root removed in finally. Primary record has private project identity. Runner removes .ttsc at exit; tracked roots end at process exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution prepares a private envelope fixture; supplied shared inputs follow prior closeWatcher and original declaration restoration. chmod is restored and case-created fallback record/root removed in finally; outer finally awaits closeWatcher before parent restoration. Primary record has this project identity. Tracked roots end at process exit; arbitrary descendants remain unobserved.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: read-only record retains old bytes after declaration edit, delivery hands written changed fallback, and restored write permission makes second module update primary record. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_a_record_that_cannot_be_written_gives_way_to_the_fallback(): Promise<void> {
-  const fixture = createRealNativeEnvelopeFixture();
+export async function test_a_record_that_cannot_be_written_gives_way_to_the_fallback(prepared?: IRealNativeEnvelopeFixture): Promise<void> {
+  const fixture = prepared ?? createRealNativeEnvelopeFixture();
   const root = fs.realpathSync.native(fixture.root);
   const at = (file: string) =>
     path.join(root, path.relative(fixture.root, file));
@@ -77,6 +78,7 @@ export async function test_a_record_that_cannot_be_written_gives_way_to_the_fall
     return handed;
   };
 
+  try {
   await invoke(plugin.buildStart, {});
   assert.deepEqual(await deliver(first), [record], "the record is handed over");
   const before = fs.readFileSync(record);
@@ -126,4 +128,7 @@ export async function test_a_record_that_cannot_be_written_gives_way_to_the_fall
     before,
     "and writes the generation's state",
   );
+  } finally {
+    await invoke(plugin.closeWatcher, {});
+  }
 }

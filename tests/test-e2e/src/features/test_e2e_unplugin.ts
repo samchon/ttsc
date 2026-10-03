@@ -18,6 +18,7 @@ import { test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge } fro
 import { test_rollup_disposes_at_the_right_boundary } from "./unplugin/native-plugins/adapters/test_rollup_disposes_at_the_right_boundary";
 import { test_rollup_transforms_a_cached_module_the_bridge_still_owes } from "./unplugin/native-plugins/adapters/test_rollup_transforms_a_cached_module_the_bridge_still_owes";
 import { test_build_hosts_register_the_project_record_alone } from "./unplugin/native-plugins/adapters/test_build_hosts_register_the_project_record_alone";
+import { test_a_record_that_cannot_be_written_gives_way_to_the_fallback } from "./unplugin/native-plugins/adapters/test_a_record_that_cannot_be_written_gives_way_to_the_fallback";
 import { createRealNativeEnvelopeFixture } from "../internal/unplugin/internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
@@ -70,7 +71,9 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * awaits closeWatcher before any owner can complete.
  * A separate real-envelope root serves captured Rollup bridge debt, followed
  * only after its awaited closeWatcher by exact declaration restoration and
- * the original build-host record channels. Native observer and record literals
+ * the original read-only/fallback/restored-permission record profile. Its own
+ * awaited closeWatcher gates declaration restoration and build-host channels.
+ * Native observer and record literals
  * remain independent of the captured host metadata; mutation profiles end last.
  * After that bundle closes, esbuild adds its original run-counter configuration.
  * Its completed lifecycle permits the real watcherless startup server, whose actual close gates exact main/config byte restoration and lazy-input removal, then the original raw/url/plain Vite wrapper build; its actual return and entry removal precede the original out-of-program delivery and
@@ -478,6 +481,9 @@ export async function test_e2e_unplugin(): Promise<void> {
     TestProject.retainTemporaryDirectory(recordFixture.root, "Shared real-envelope bridge debt and record channel inputs retained");
     const originalDeclaration = fs.readFileSync(recordFixture.declaration);
     await Scenarios.invoke("shared-unplugin", "test_rollup_transforms_a_cached_module_the_bridge_still_owes", test_rollup_transforms_a_cached_module_the_bridge_still_owes, recordFixture);
+    fs.writeFileSync(recordFixture.declaration, originalDeclaration);
+    assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
+    await Scenarios.invoke("shared-unplugin", "test_a_record_that_cannot_be_written_gives_way_to_the_fallback", test_a_record_that_cannot_be_written_gives_way_to_the_fallback, recordFixture);
     fs.writeFileSync(recordFixture.declaration, originalDeclaration);
     assert.deepEqual(fs.readFileSync(recordFixture.declaration), originalDeclaration);
     await Scenarios.invoke("shared-unplugin", "test_build_hosts_register_the_project_record_alone", test_build_hosts_register_the_project_record_alone, recordFixture);
