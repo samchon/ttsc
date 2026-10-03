@@ -13,7 +13,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification The owning optimizer and range helpers retain finite zero while ordinary open ranges shorten.
 // @evidence contracts/testing.md#independent-expectations A closed zero repetition consumes nothing; adding one makes exactly one, whereas an absent upper bound remains unbounded.
-// @evidence contracts/testing.md#distinguishing-cases Closed zero/zero-zero, lazy zero, adjacent repetition, open zero and positive one cover each upper-bound reader.
+// @evidence contracts/testing.md#distinguishing-cases Closed zero/zero-zero, lazy zero, adjacent repetition, open zero and positive one exercise the optimizer; direct assertions additionally check extraction, open-range classification and increment.
 // @evidence contracts/testing.md#execution-ownership This direct Go source unit calls the maintained optimizer and helpers without a producer process.
 func TestRegexOptimizerDistinguishesAZeroUpperBoundFromAnOpenRange(t *testing.T) {
   for _, pair := range [][2]string{
