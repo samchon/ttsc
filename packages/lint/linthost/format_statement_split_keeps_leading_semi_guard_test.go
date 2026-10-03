@@ -7,8 +7,9 @@ import "testing"
 // (`;(expr)`).
 //
 // format/orphan-semi merges a lone `;` guard onto the statement it
-// protects; statement-split must leave that line alone, or the two rules
-// oscillate forever and the format cascade never converges. The `;` is a
+// protects. This direct entry starts with that authored merged shape and
+// checks statement-split alone; it does not run orphan-semi or a cascade.
+// Preserving the shape avoids proposing a competing split. The `;` is a
 // guard (not a `foo();bar()` terminator) when only whitespace precedes it
 // to the start of its line.
 //
