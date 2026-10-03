@@ -9,11 +9,10 @@ import (
 // TestFormatClauseJoinLeavesATemplateLiteralTypeUntouched verifies a template
 // literal in TYPE position is protected like one in value position.
 //
-// `collectTemplateRanges` matched the expression forms only, so a
-// `TemplateLiteralType` fell through and the shift rewrote bytes inside the
-// declared type's own text. It is the same content-versus-layout class as the
-// string and the block comment, and the helper is shared with
-// `format/whitespace`, so the gap reached further than this rule.
+// collectTemplateRanges includes TemplateLiteralType as well as value-template
+// forms. The declared template's text is protected content while the labeled
+// block's structural indentation changes. This command case requires the final
+// payload bytes, without claiming a past corruption was reproduced.
 //
 //  1. Seed a project with a labeled block declaring a multi-line template type.
 //  2. Run `ttsc format`.

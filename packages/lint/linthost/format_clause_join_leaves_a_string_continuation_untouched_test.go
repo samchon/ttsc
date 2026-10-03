@@ -9,9 +9,10 @@ import (
 // TestFormatClauseJoinLeavesAStringContinuationUntouched verifies the shift never rewrites bytes inside a string literal.
 //
 // A string literal with a line continuation carries its own newline, and the
-// spaces after it are part of the value. Shifting that line collapsed the run
-// of spaces inside the value, changing what the program prints rather than how
-// it reads. Only the template literal was guarded; a string is the same hazard.
+// spaces after it are part of the value. The protected-range collector includes
+// StringLiteral nodes, so this line must not receive a continuation-indent edit.
+// The complete source assertion preserves its payload bytes without executing
+// the program or claiming a historical corruption was reproduced.
 //
 //  1. Seed a project with a label whose body holds a line-continued string.
 //  2. Run `ttsc format`.
