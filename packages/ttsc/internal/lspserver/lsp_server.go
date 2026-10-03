@@ -50,8 +50,8 @@ func RecoverPanicAs(fn func() error) (err error) {
 
 // LSPServerOptions wires ttscserver to its three channels of state:
 // editor stdio for the LSP transport, an optional ttsc PluginSource for
-// merging plugin diagnostics into the stream, and the tsgo binary that
-// provides the upstream LSP server.
+// local contributions, and an upstream runner. The default upstream is the
+// selected tsgo executable; an embedding can supply its own runner/validator.
 //
 // @evidence contracts/common.md#principled-implementation Editor transport, plugin source and invocation-scoped upstream dependency pair distinguish owned local contributions from external compiler service.
 // @evidence contracts/common.md#clear-and-simple-design One invocation value supplies streams, project context and supported advertisement policy without global runner replacement.
@@ -63,8 +63,9 @@ func RecoverPanicAs(fn func() error) (err error) {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The serving operation acquires pipes and tasks; options only provide their dependencies.
 type LSPServerOptions struct {
   // In is the editor-side reader; ttscserver reads JSON-RPC frames from
-  // it and forwards or handles them. RunLSPServer closes it on shutdown
-  // if it also implements io.Closer so blocked frame reads can unblock.
+  // it and forwards or handles them. Shutdown attempts Close when supported,
+  // ignoring its error; whether that interrupts a blocked read belongs to the
+  // supplied stream's implementation.
   In io.Reader
 
   // Out is the editor-side writer; ttscserver writes both upstream
@@ -79,8 +80,8 @@ type LSPServerOptions struct {
   // directory. An empty string is rejected before any process starts.
   Cwd string
 
-  // TsgoBinary is the absolute path to the project-selected
-  // native TypeScript (typescript) executable.
+  // TsgoBinary is the absolute path required by the default native runner.
+  // A custom runner/validator owns its own use and admission policy.
   TsgoBinary string
 
   // Source contributes ttsc plugin diagnostics / code actions /
@@ -163,20 +164,25 @@ type LSPUpstreamRunner func(ctx context.Context, in io.Reader, out io.Writer, op
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Implementations own any temporary prerequisite probes.
 type LSPUpstreamValidator func(opts LSPServerOptions) error
 
-// LSPUpstream is the immutable dependency pair captured by RunLSPServer for
+// LSPUpstream is the dependency pair copied by RunLSPServer for
 // one invocation. Its zero value selects the production tsgo runner and
 // validation policy.
 //
 // @evidence contracts/common.md#principled-implementation A runner and its validator form one invocation dependency; the zero pair selects the production default and a validator-only pair is invalid.
-// @evidence contracts/common.md#clear-and-simple-design Capturing the pair prevents validation policy drifting independently of execution.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts A supported pair replaces global process hooks without compensating for incompatible prerequisites.
-// @evidence contracts/common.md#meaningful-documentation Native prose states zero-value selection, following the documentation skill.
+// @evidence contracts/common.md#clear-and-simple-design Copying the function pair ties admission and execution to the selected dependencies for that invocation; it does not freeze state captured by their closures or shared option fields.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Invocation-scoped selection changes no global process hook. A custom runner owns its prerequisites when no custom validator is supplied.
+// @evidence contracts/common.md#meaningful-documentation Native prose and members state copied-pair, zero-value and custom admission meaning under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native validation belongs to the native runner; the representation also supports in-process execution.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The captured functions choose their algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The pair coordinates no execution across invocations.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The serving owner invokes and releases runner resources.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function-pair value acquires no running task or native handle; the serving operation and concrete runner own their respective resource boundaries.
 type LSPUpstream struct {
-  Runner    LSPUpstreamRunner
+  // Runner performs the invocation. Nil with a nil Validator selects the
+  // default native runner; nil with a non-nil Validator is rejected.
+  Runner LSPUpstreamRunner
+
+  // Validator optionally checks the selected custom runner's prerequisites.
+  // Nil for a custom Runner leaves those prerequisites with the runner.
   Validator LSPUpstreamValidator
 }
 
