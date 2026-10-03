@@ -10,7 +10,7 @@ import (
 //
 // ttsc serialises the full plugin manifest and passes it to the lint sidecar
 // via --plugins-json. The lint binary uses FindLintEntry to select its own
-// descriptor; if the function were position-sensitive or skipped non-lint check
+// descriptor; if the function were position-sensitive or stopped at a non-lint check
 // entries, multi-plugin projects would produce "no lint entry" errors.
 //
 //  1. Build a payload with a leading check plugin, @ttsc/lint in the middle,
