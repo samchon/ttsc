@@ -26,4 +26,134 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: npm install --global yarn
       - run: pnpm run build
+        id: build
       - run: pnpm run test:e2e
+      - name: Prepare compiler subset measurement inputs
+        id: compiler-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = process.cwd();
+          const traceRoot = process.env.TTSC_E2E_TRACE;
+          const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
+          assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
+          fs.mkdirSync(traceRoot);
+          fs.mkdirSync(cacheRoot);
+          const { resolveBinary } = require('./packages/ttsc/lib/internal/nativeBinary.js');
+          const { resolveTsgo } = require('./packages/ttsc/lib/compiler/internal/resolveTsgo.js');
+          const native = resolveBinary();
+          assert.ok(native && path.isAbsolute(native));
+          const tsgo = resolveTsgo({ cwd: path.join(root, 'packages/ttsc') }).binary;
+          assert.equal(fs.realpathSync.native(tsgo),
+            fs.realpathSync.native(resolveTsgo({ cwd: root }).binary));
+          const assets = [
+            { label: 'prepared-node', role: 'executable', file: process.execPath },
+            { label: 'prepared-native-host', role: 'executable', file: native },
+            { label: 'prepared-native-typescript', role: 'executable', file: tsgo },
+          ];
+          const files = [
+            'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+            'config/register-typescript-loader.mjs', 'config/typescript-loader.mjs',
+            'tests/utils/src/internal/E2eProcessTraceRuntime.cjs',
+            'tests/utils/src/E2eProcessTrace.ts', 'tests/utils/src/TestExecutor.ts',
+            'tests/utils/src/TestProject.ts',
+            'tests/test-e2e/src/measureLegacyE2e.ts',
+            'tests/test-e2e/src/legacyE2eTraceEntry.ts',
+            'tests/test-e2e/src/index.ts', 'tests/test-e2e/src/consolidatedE2eIndex.ts',
+            'tests/test-e2e/src/features/test_e2e_compiler.ts',
+            'tests/test-e2e/src/features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts',
+            'tests/test-e2e/src/features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts',
+            'packages/ttsc/driver/program.go', 'packages/ttsc/internal/e2etrace/e2etrace.go',
+          ];
+          function selectTree(relative) {
+            for (const entry of fs.readdirSync(path.join(root, relative), { withFileTypes: true })) {
+              const child = relative + '/' + entry.name;
+              if (entry.isDirectory()) selectTree(child);
+              else if (entry.isFile()) files.push(child);
+              else throw new Error('Non-regular selected producer input: ' + child);
+            }
+          }
+          for (const directory of [
+            'packages/ttsc/lib',
+            'tests/test-e2e/src/internal/ttsc/internal',
+            'tests/test-e2e/fixtures/ttsc/api',
+            'tests/test-e2e/fixtures/ttsc/compiler/corpus',
+            'tests/test-e2e/fixtures/ttsc/compiler/watch',
+            'tests/test-e2e/fixtures/ttsc/compiler/subprojects',
+            'tests/test-e2e/fixtures/ttsc/compiler/negative',
+          ]) selectTree(directory);
+          for (const file of [...new Set(files)].sort())
+            assets.push({ label: file, role: file.includes('/fixtures/') ? 'fixture' :
+              file.endsWith('.yaml') ? 'configuration' : 'loaded-module', file: path.join(root, file) });
+          const input = {
+            assets, cacheRoots: [cacheRoot],
+            producerLabels: Object.fromEntries(assets.map(asset => [asset.label, asset.label])),
+            boundaries: [
+              { boundary: 'selected-runner', writerPid: 'runner', event: 'runner-admission',
+                data: { runner: 'legacy-index' },
+                producerAssets: ['prepared-node', 'tests/utils/src/internal/E2eProcessTraceRuntime.cjs'] },
+              { boundary: 'native-driver-create', writerPid: 'observed', event: 'program-construction',
+                data: { origin: 'driver-create', outcome: 'constructor-returned' },
+                producerAssets: ['prepared-native-host', 'packages/ttsc/driver/program.go',
+                  'packages/ttsc/internal/e2etrace/e2etrace.go'] },
+            ],
+            commandFiles: [
+              { boundary: 'actual-node-command', event: 'selected-file-observation',
+                producerAsset: 'prepared-node', minimumCalls: 1 },
+            ],
+          };
+          fs.writeFileSync(path.join(traceRoot, 'measurement-input.json'),
+            JSON.stringify(input, null, 2) + '\n', { flag: 'wx' });
+          NODE
+      - name: Measure retained legacy compiler owners
+        id: compiler-baseline
+        if: ${{ !cancelled() && steps.compiler-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual retained baseline report
+        id: compiler-baseline-report
+        if: ${{ !cancelled() && steps.compiler-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = process.env.TTSC_E2E_TRACE;
+          const reports = fs.readdirSync(root).filter(name => /^legacy-report-[1-9][0-9]*\.json$/.test(name));
+          assert.equal(reports.length, 1, 'Exactly one actual baseline report is required');
+          const inputFile = path.join(root, 'measurement-input.json');
+          fs.copyFileSync(inputFile, path.join(root, 'legacy-measurement-input.json'), fs.constants.COPYFILE_EXCL);
+          const input = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+          input.baselineReport = path.join(root, reports[0]);
+          input.boundaries.find(boundary => boundary.boundary === 'selected-runner').data.runner = 'consolidated-index';
+          fs.writeFileSync(inputFile, JSON.stringify(input, null, 2) + '\n');
+          NODE
+      - name: Measure consolidated compiler subset
+        if: ${{ !cancelled() && steps.compiler-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-compiler-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-compiler-cache
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts,features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=compiler
+      - name: Retain actual compiler comparison observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-compiler-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-compiler-comparison
+          if-no-files-found: error
