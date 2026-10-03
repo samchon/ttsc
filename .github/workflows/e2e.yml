@@ -48,7 +48,7 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph'].includes(family));
+          assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph', 'metro'].includes(family));
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -134,6 +134,8 @@ jobs:
             ] : family === 'compiler-stub' ? [
               'tests/test-e2e/fixtures/ttsc/compiler/consumer-fake',
               'tests/test-e2e/fixtures/ttsc/compiler/consumer-provenance',
+            ] : family === 'metro' ? [
+              'tests/test-e2e/fixtures/metro', 'tests/test-e2e/fixtures/unplugin',
             ] : family === 'unplugin' ? ['tests/test-e2e/fixtures/unplugin'] :
               ['tests/test-e2e/fixtures/graph']),
             ...JSON.parse(process.env.E2E_COHORT_ASSET_TREES ?? '[]'),
@@ -151,7 +153,7 @@ jobs:
               ...(family === 'compiler' ? [{ boundary: 'native-driver-create', writerPid: 'observed', event: 'program-construction',
                 data: { origin: 'driver-create', outcome: 'constructor-returned' },
                 producerAssets: ['prepared-native-host', 'packages/ttsc/driver/program.go',
-                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : family === 'graph' ? [] : [{
+                  'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : ['graph', 'metro'].includes(family) ? [] : [{
                 boundary: 'runtime-native-wrapper', writerPid: 'observed', event: 'process-attempt',
                 data: { origin: 'spawnSyncResilient' },
                 producerAssets: [...(family === 'compiler-stub' ? [
@@ -395,4 +397,40 @@ jobs:
         with:
           name: e2e-converted-provenance-process-control-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-converted-provenance-process-control
+          if-no-files-found: error
+      - name: Prepare Metro shared-parent control inputs
+        id: metro-control-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &metro-control-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-metro-shared-parent-control
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-metro-shared-parent-control-cache
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-metro-shared-parent-control-cache
+          E2E_MEASUREMENT_FAMILY: metro
+          TTSC_TEST_DIRS: features/test_e2e_metro_host.ts
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src","tests/test-e2e/src/internal/metro","tests/test-e2e/src/internal/unplugin","tests/test-e2e/src/features/metro/scenes","packages/metro/lib","packages/unplugin/lib","packages/banner/lib","packages/banner/driver"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/Scenarios.ts","tests/test-e2e/src/internal/FixtureFiles.ts","packages/metro/package.json","packages/metro/src/core/fingerprint.ts","packages/metro/lib/core/fingerprint.mjs","packages/unplugin/package.json","packages/banner/package.json"]'
+        run: *prepare-measurement-input
+      - name: Measure retained Metro shared-parent control
+        id: metro-control-baseline
+        if: ${{ !cancelled() && steps.metro-control-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *metro-control-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual Metro shared-parent control report
+        id: metro-control-baseline-report
+        if: ${{ !cancelled() && steps.metro-control-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-metro-shared-parent-control
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Metro shared-parent control
+        if: ${{ !cancelled() && steps.metro-control-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *metro-control-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=metro
+      - name: Retain actual Metro shared-parent control observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-metro-shared-parent-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-metro-shared-parent-control
           if-no-files-found: error
