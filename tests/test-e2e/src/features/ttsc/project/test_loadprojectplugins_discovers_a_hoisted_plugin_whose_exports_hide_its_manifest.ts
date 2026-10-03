@@ -27,15 +27,16 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#behavioral-verification loadProjectPlugins selects the hoisted declaring package and omits the nondeclaring dependency, preserving the declaring package manifest inputs.
  * @evidence contracts/testing.md#independent-expectations Authored root ttsc.plugin metadata and a nested nondeclaring CommonJS manifest distinguish the package owner from the closest manifest to its runtime entry.
  * @evidence contracts/testing.md#distinguishing-cases 1. Hoist two scoped dependencies of that shape to the workspace root, one declaring a plugin and one declaring none, and depend on both from a package that configures no plugin. 2. Load the package's plugins. 3. Assert the declared plugin is loaded, the other is not, and the recorded manifests of the declaring package stop at the workspace root.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner calls the workspace loadProjectPlugins owner, actual package-owner discovery and isolated descriptor return. Scripted Go publication does not certify real Go compiler or packed-consumer semantics.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage loadProjectPlugins selects the hoisted declaring package and omits the nondeclaring dependency, preserving the declaring package manifest inputs. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution One load uses one fresh private fixture/cache with declaring and nondeclaring hoisted dependencies. The scripted Go inventory is reused within that setup; no warm hit, avoided load, Program reuse or actual child total is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root is retained before package/evaluator preparation. Actual synchronous returns do not establish arbitrary descendant join. Independent physical spelling permits missing or not-directory ancestor fallback only, not permission errors as absence.
+ * @evidence contracts/e2e.md#preserved-coverage Exact native plugin names [hoisted], declaring root manifest membership and no selected-package manifests above the workspace root remain. Neither every plain manifest nor runtime entry bytes are asserted; runtime/manifest/survival remain unverified.
  */
 export const test_loadprojectplugins_discovers_a_hoisted_plugin_whose_exports_hide_its_manifest =
   () => {
     const root = TestProject.tmpdir("ttsc-hoisted-plugin-discovery-");
+    TestProject.retainTemporaryDirectory(root, "Hoisted descriptor descendants are not joined");
     const project = path.join(root, "packages", "app");
     const declaring = path.join(root, "node_modules", "@scope", "plug");
     const plain = path.join(root, "node_modules", "@scope", "plain");
@@ -125,8 +126,12 @@ export const test_loadprojectplugins_discovers_a_hoisted_plugin_whose_exports_hi
 function physical(file: string): string {
   try {
     return fs.realpathSync.native(file);
-  } catch {
-    return path.join(physical(path.dirname(file)), path.basename(file));
+  } catch (error) {
+    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+      throw error;
+    const parent = path.dirname(file);
+    if (parent === file) throw error;
+    return path.join(physical(parent), path.basename(file));
   }
 }
 
