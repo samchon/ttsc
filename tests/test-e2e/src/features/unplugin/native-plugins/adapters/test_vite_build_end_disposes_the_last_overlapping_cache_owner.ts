@@ -27,25 +27,29 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/testing.md#distinguishing-cases Unstarted owner, overlapping replacement, old end, final end and later delivery.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_end_disposes_the_last_overlapping_cache_owner is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Vite lifecycle hooks drive native generations with simulated container identities; real restart scheduling is complementary.
- * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter. The shared family borrows the closed four-module Vite project after restoring its descriptor and staging the original graphCandidates1/graphFanout1 plus native dependency bytes. Standalone preparation is unchanged.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. The finally block releases modeled lifecycle owner; tracked roots end at process exit. Captured host does not establish live-host cancellation cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: unstarted and old lifecycle buildEnd keep live generation at counts one and two; replacement buildEnd forces count three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_build_end_disposes_the_last_overlapping_cache_owner(): Promise<void> {
+export async function test_vite_build_end_disposes_the_last_overlapping_cache_owner(
+  prepared?: { root: string; runLog: string },
+): Promise<void> {
   const plugin = await loadViteAdapterPlugin();
   const unstartedLifecycle = {};
   const oldLifecycle = {};
   const replacementLifecycle = {};
-  const project = createCacheProject({
+  const project = prepared ?? createCacheProject({
     fileCount: 4,
     graphCandidates: 1,
     graphFanout: 1,
   });
   const modules = projectModules(project.root);
+  assert.equal(modules.length, 4);
+  const baseline = fs.existsSync(project.runLog) ? fs.readFileSync(project.runLog, "utf8").length : 0;
   const runCount = () =>
-    fs.existsSync(project.runLog)
+    (fs.existsSync(project.runLog)
       ? fs.readFileSync(project.runLog, "utf8").length
-      : 0;
+      : 0) - baseline;
   const deliver = async (file: string) =>
     invokeVitePluginHook(
       plugin.transform,

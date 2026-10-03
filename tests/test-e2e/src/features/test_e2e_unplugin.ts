@@ -17,6 +17,7 @@ import { test_webpack_filesystem_cache_control_serves_stale_without_a_graph } fr
 import { test_vite_serve_with_a_watcher_keeps_persistent_validation } from "./unplugin/native-plugins/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_turbopack_loader_workers_share_one_compile } from "./unplugin/native-plugins/adapters/test_turbopack_loader_workers_share_one_compile";
+import { test_vite_build_end_disposes_the_last_overlapping_cache_owner } from "./unplugin/native-plugins/adapters/test_vite_build_end_disposes_the_last_overlapping_cache_owner";
 import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { test_vite_serve_reports_errors_at_the_authored_line } from "./unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line";
 import { test_vite_build_serves_wrapper_queries_from_the_host } from "./unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host";
@@ -361,6 +362,32 @@ export async function test_e2e_unplugin(): Promise<void> {
       fs.writeFileSync(plugin, prepared.originalPlugin);
       assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
       await Scenarios.invoke("shared-unplugin", "test_vite_serve_with_a_watcher_keeps_persistent_validation", test_vite_serve_with_a_watcher_keeps_persistent_validation, prepared);
+      fs.writeFileSync(plugin, prepared.originalPlugin);
+      assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
+      const configPath = path.join(prepared.root, "tsconfig.json");
+      const originalConfig = fs.readFileSync(configPath);
+      const overlapConfig = JSON.parse(originalConfig.toString("utf8"));
+      assert.equal(overlapConfig.compilerOptions.plugins.length, 1);
+      const overlapOptions = overlapConfig.compilerOptions.plugins[0];
+      assert.equal(overlapOptions.graphCandidates, 0);
+      assert.equal(overlapOptions.graphFanout, 0);
+      overlapOptions.graphCandidates = 1;
+      overlapOptions.graphFanout = 1;
+      const dependency = path.join(prepared.root, "node_modules", "dep0");
+      assert.equal(fs.existsSync(dependency), false);
+      fs.mkdirSync(dependency, { recursive: true });
+      const dependencyBytes = "export declare const dep0: number;\n";
+      fs.writeFileSync(path.join(dependency, "index.d.ts"), dependencyBytes);
+      fs.writeFileSync(configPath, JSON.stringify(overlapConfig, null, 2));
+      await Scenarios.invoke("shared-unplugin", "test_vite_build_end_disposes_the_last_overlapping_cache_owner", test_vite_build_end_disposes_the_last_overlapping_cache_owner, prepared);
+      // Every modeled lifecycle has ended before returning; restore the
+      // original input contract before handing the root to real workers.
+      fs.writeFileSync(plugin, prepared.originalPlugin);
+      assert.deepEqual(fs.readFileSync(plugin), prepared.originalPlugin);
+      fs.writeFileSync(configPath, originalConfig);
+      assert.deepEqual(fs.readFileSync(configPath), originalConfig);
+      assert.equal(fs.readFileSync(path.join(dependency, "index.d.ts"), "utf8"), dependencyBytes);
+      fs.renameSync(dependency, path.join(prepared.root, "overlap-dependency-observed"));
       // Successful return includes awaited hook close. Restore the descriptor,
       // then retain the surplus modules outside the original include root.
       fs.writeFileSync(plugin, prepared.originalPlugin);
