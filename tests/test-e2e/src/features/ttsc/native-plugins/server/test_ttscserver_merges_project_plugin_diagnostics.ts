@@ -1,5 +1,5 @@
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { TestLint } from "@ttsc/testing";
+import { TestLint, TestProject, retainNativeLintProducer } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -61,11 +61,11 @@ type PublishDiagnosticsParams = {
  * @evidence contracts/testing.md#behavioral-verification One real launcher publishes the original no-var diagnostic, returns cascade fix-all and format actions, and resolves both commands into exact edits without writing their source file.
  * @evidence contracts/testing.md#independent-expectations The original diagnostic message, fix cascade string, formatter-only string, action identifiers/kinds, UTF-16 end range and unchanged disk source literals during each command independently prescribe all three responses.
  * @evidence contracts/testing.md#distinguishing-cases Three original source phases separate diagnostic publication, no-var/prefer-const/eqeqeq cascade and formatting with a retained var keyword; both edit commands must leave disk untouched.
- * @evidence contracts/testing.md#execution-ownership The named server entry owns all three original native manifest/sidecar/LSP command connections in one temporary consumer and launcher; rule and format decision matrices remain in the shared Go units.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor selects this named generic server entry, which owns three native manifest/sidecar/LSP observations in one temporary consumer/launcher. Direct rule/format decision units own separate contributions requiring their own selection/execution evidence.
  * @evidence contracts/e2e.md#necessary-boundary Owning rule units cannot establish JavaScript manifest loading, native diagnostics publication or editor-facing codeAction and executeCommand WorkspaceEdit routing across the actual proxy.
- * @evidence contracts/e2e.md#shared-execution One immutable lint producer and one initialized LSP session serve three original source phases; no second launcher or contributor build is used for the independent scenarios.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each phase closes the preceding document and writes its original source bytes to the same configured root file before reopening it, shared configuration enables their original policies, and failures are collected before session shutdown and project cleanup; no workspace source is edited.
- * @evidence contracts/e2e.md#preserved-coverage Original publication/message, two action identifiers/kinds, exact cascade/format edits, range checks and both disk nonmutation assertions remain; the shared native success shutdown remains mandatory after every scenario.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer and initialized LSP session serve three source phases with the explicit suite cache. The request sharing does not assert contributor build totals, cache hits, packed installation or identical Program objects across rewritten sources.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each phase sends didClose and writes its original source to the same configured root before reopening; didClose alone is not a native generation-release acknowledgement. Phase failures are collected, and successful supported shutdown/direct close precedes cleanup with a separate PLUGIN_BUILD_TIMEOUT shutdown bound. Startup/body/shutdown failure retains consumer/already-owned snapshot/cache and aggregates errors; timeout does not certify termination/descendants. Workspace source remains unchanged.
+ * @evidence contracts/e2e.md#preserved-coverage Original publication/message, two action identifiers/kinds, exact cascade/format edits, UTF-16 range checks and both disk nonmutation assertions remain. Phase failures are collected before the one shared shutdown; shutdown errors remain failures and cannot authorize cleanup.
  */
 export async function test_ttscserver_merges_project_plugin_diagnostics() {
   const project = TestLint.createProject({
@@ -76,11 +76,10 @@ export async function test_ttscserver_merges_project_plugin_diagnostics() {
   });
   const file = path.join(project.tmpdir, "src", "main.ts");
   const uri = pathToFileURL(file).href;
-  const client = TtscserverClient.startLauncher(project.tmpdir, {
-    env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
-  });
-
   try {
+    const client = TtscserverClient.startLauncher(project.tmpdir, {
+      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+    });
     await runTtscserverSession(client, async () => {
       await initializeTtscserverClient(client, project.tmpdir);
       const failures: unknown[] = [];
@@ -229,10 +228,17 @@ export async function test_ttscserver_merges_project_plugin_diagnostics() {
         client.notify("textDocument/didClose", { textDocument: { uri } });
       }
       if (failures.length) throw new AggregateError(failures, "Project plugin LSP boundary scenarios failed");
-    });
-  } finally {
-    project.cleanup();
+    }, PLUGIN_BUILD_TIMEOUT);
+  } catch (error) {
+    const failures: unknown[] = [error];
+    const reason = "project-plugin server startup, body or shutdown failed";
+    try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
+    catch (retentionError) { failures.push(retentionError); }
+    try { retainNativeLintProducer(reason); }
+    catch (retentionError) { failures.push(retentionError); }
+    throw new AggregateError(failures, reason);
   }
+  project.cleanup();
 }
 
 function applyWorkspaceEdits(
