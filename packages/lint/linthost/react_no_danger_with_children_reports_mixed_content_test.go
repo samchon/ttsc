@@ -5,7 +5,7 @@ import "testing"
 // TestReactNoDangerWithChildrenReportsMixedContent verifies dangerous HTML
 // injection is not combined with normal children.
 //
-// React ignores children when dangerouslySetInnerHTML is present, so keeping
+// React disallows children and dangerouslySetInnerHTML together, so keeping
 // both in source is contradictory.
 //
 // 1. Parse a JSX element with dangerous HTML and text children.

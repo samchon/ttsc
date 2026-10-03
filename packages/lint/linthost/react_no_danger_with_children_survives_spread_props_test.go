@@ -2,16 +2,13 @@ package linthost
 
 import "testing"
 
-// TestReactNoDangerWithChildrenSurvivesSpreadProps verifies react rules
+// TestReactNoDangerWithChildrenSurvivesSpreadProps verifies the selected rule
 // survive JSX spread attributes.
 //
-// The shared reactJSXAttrs helper used to cast every attribute-list member
-// with AsJsxAttribute, so a `{...props}` member (a JsxSpreadAttribute)
-// crashed element-scanning react rules with "interface conversion:
-// ast.nodeData is *ast.JsxSpreadAttribute, not *ast.JsxAttribute" — the
-// engine surfaced the recovered panic as a finding on real-world shadcn/ui
-// components. Spread members are now skipped like the nextjs/solid helpers
-// do.
+// The shared reactJSXAttrs helper skips JsxSpreadAttribute members before
+// AsJsxAttribute. This entry checks that narrowing through the selected
+// no-danger-with-children rule and its full zero-finding result; it does not
+// execute a component library or the other React rules.
 //
 // 1. Parse an element with a spread attribute and children.
 // 2. Enable only `react/no-danger-with-children`.
