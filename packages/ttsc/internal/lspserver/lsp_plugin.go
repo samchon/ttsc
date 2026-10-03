@@ -160,11 +160,21 @@ type LSPCodeDescription struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCodeAction struct {
-  Title       string          `json:"title"`
-  Kind        string          `json:"kind,omitempty"`
-  Command     *LSPCommand     `json:"command,omitempty"`
-  Edit        json.RawMessage `json:"edit,omitempty"`
-  IsPreferred bool            `json:"isPreferred,omitempty"`
+  // Title is the action's editor-visible label, not its dispatch identity.
+  Title string `json:"title"`
+
+  // Kind is an optional action category used by client selection filters.
+  Kind string `json:"kind,omitempty"`
+
+  // Command names the command-backed action; nil omits that alternative.
+  Command *LSPCommand `json:"command,omitempty"`
+
+  // Edit carries opaque edit JSON for sources that own direct-edit policy.
+  // The native sidecar source rejects a non-null edit instead of applying it.
+  Edit json.RawMessage `json:"edit,omitempty"`
+
+  // IsPreferred marks the producer's preferred action; false is omitted.
+  IsPreferred bool `json:"isPreferred,omitempty"`
 }
 
 // LSPCommand is the wire shape of a workspace/executeCommand target.
@@ -179,8 +189,14 @@ type LSPCodeAction struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCommand struct {
-  Title     string            `json:"title"`
-  Command   string            `json:"command"`
+  // Title is the editor-visible command label; it does not select the owner.
+  Title string `json:"title"`
+
+  // Command is the source-advertised identity used by execution dispatch.
+  Command string `json:"command"`
+
+  // Arguments preserves ordered raw JSON values without numeric decoding;
+  // an empty list is omitted from the wire value.
   Arguments []json.RawMessage `json:"arguments,omitempty"`
 }
 
@@ -198,9 +214,15 @@ type LSPCommand struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCodeActionContext struct {
+  // Diagnostics retains the editor's diagnostic objects as raw JSON values.
   Diagnostics []json.RawMessage `json:"diagnostics,omitempty"`
-  Only        []string          `json:"only,omitempty"`
-  TriggerKind int               `json:"triggerKind,omitempty"`
+
+  // Only contains requested action categories; an empty list is unrestricted
+  // by this field, and the proxy uses it when selecting local routing.
+  Only []string `json:"only,omitempty"`
+
+  // TriggerKind carries the editor's trigger code; zero omits the field.
+  TriggerKind int `json:"triggerKind,omitempty"`
 }
 
 // LSPWorkspaceEdit is the wire shape ttscserver returns from custom
