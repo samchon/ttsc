@@ -14,8 +14,8 @@ import (
 // minting the semicolon would silently drop any token other than `;` in that
 // position. An expression statement like `foo() /* note */;` has a comment
 // between `foo()` and `;`, so the printer cannot safely reconstruct the tail
-// and must emit the whole statement verbatim instead. Without this guard the
-// comment would be lost on the first `ttsc format` pass.
+// and must emit the whole statement verbatim instead. This test checks the
+// direct printer output, not a `ttsc format` pass.
 //
 //  1. Parse `foo() /* note */;` as an expression statement.
 //  2. Dispatch the ExpressionStatement through PrintNode.

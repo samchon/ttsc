@@ -14,8 +14,8 @@ import (
 // calling PrintNode on a nil expression. A synthetic ExpressionStatement
 // built without an inner expression hits this guard; the printer emits the
 // source bytes verbatim, which for a node without a source range is nothing.
-// The parser substitutes a missing-expression node rather than leaving the
-// field nil, so only a factory-built node reaches this branch.
+// This test explicitly supplies the factory-built node; it does not
+// establish how a parser or another producer represents a missing expression.
 //
 //  1. Create a synthetic ExpressionStatement with Expression=nil via factory.
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.
