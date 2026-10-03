@@ -10,9 +10,9 @@ import (
 // not trip the runtime noVar rule.
 //
 // TypeScript declaration files use `var` to describe globals and namespace
-// exports. ESLint's noVar does not report those ambient declarations, so the
-// native rule must preserve that behavior now that lint walks user-authored
-// `.d.ts` roots from tsconfig.
+// exports. This unit pins the native declaration-file allowance rather than
+// upstream ESLint parity. It directly supplies the classification used for
+// declaration sources; it does not discover `.d.ts` roots through tsconfig.
 //
 // 1. Parse a declaration-like source containing `var`.
 // 2. Mark the source file as a declaration file.
