@@ -1406,7 +1406,7 @@ func IsConst(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsConst
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler BlockScoped mask covers resource declarations without invented keyword strings or fixture-specific fallback classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the variable-declaration precondition and why unrelated unflagged nodes are unsuitable, followed by tags separated under the documentation skill.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsVar acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsVar performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsVar computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms One BlockScoped-mask test follows the shared combined-flags helper. Its upstream root search follows H binding parents and then reads at most three declaration/list/statement flag values, costing O(H) time and O(1) temporary space without collecting ancestors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This mask query owns no completed-result cache or in-flight coordination; compiler-tree owners establish whether variable flags and parent links remain valid across calls.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsVar computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsVar(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsBlockScoped == 0 }
