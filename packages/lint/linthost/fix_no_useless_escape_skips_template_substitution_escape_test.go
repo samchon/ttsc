@@ -14,7 +14,7 @@ import "testing"
 // “ `${${k}}` “ which is a syntax error. This case pins the rule's
 // silence for every template-literal shape that can carry the escape:
 // `NoSubstitutionTemplateLiteral`, `TemplateHead`, `TemplateMiddle`, and
-// `TemplateTail`. The companion finding for `\n` / `\\` stays unflagged
+// `TemplateTail`. The companion control escapes `\n` / `\\` stay unflagged
 // because both characters live in `templateValidEscapes`, so the
 // regression test also guards that the surrounding whitelist is intact.
 //
