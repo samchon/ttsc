@@ -10,11 +10,9 @@ import (
 // type arguments (`foo<A, B>(x)`) emits the `<A, B>` type-argument list
 // verbatim between the callee and the argument list.
 //
-// The TypeArguments branch inside printCallExpression, together with the
-// shared typeArgsStart/typeArgsEnd helpers, was uncovered by existing
-// tests because all prior fixtures used unparameterised calls. Dropping
-// the type-argument range would silently corrupt the emitted source for
-// any generic function call.
+// This fixture exercises the TypeArguments branch and its
+// typeArgsStart/typeArgsEnd boundaries with two explicit type arguments.
+// The full expected source distinguishes dropped names or delimiters.
 //
 // 1. Parse `foo<A, B>(x);` — a CallExpression with TypeArguments.
 // 2. Print under default options.
