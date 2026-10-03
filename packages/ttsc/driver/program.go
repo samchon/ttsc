@@ -408,7 +408,7 @@ func (p *Program) Close() error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native parse diagnostics are returned instead of accepting a partial config or special-casing project files.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state JSONC support, path anchoring and the struct-overlay reset limitation under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation tspath resolves the config against cwd; the supplied FS and host own native file access and case behavior.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The adapter selects the supported native parser rather than implementing a separate parsing algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Native path resolution and the existence check precede delegated config reads/parsing, extends processing and include/exclude directory matching; config bytes, inherited configs, spec/path text and visited entries govern cost. Diagnostic conversion also copies and formats the reported findings rather than making this a constant-time wrapper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This parse invocation coordinates no completed or in-flight config cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The supplied filesystem and host are borrowed; returned config and diagnostics become caller-owned values.
 func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
@@ -547,16 +547,17 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // It parses the tsconfig, creates a program and a type-checker, and returns
 // the wrapped facade.
 //
-// cwd must be absolute; tsconfigPath may be relative to cwd.
+// Relative cwd is resolved against the process cwd when filepath.Abs succeeds;
+// callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
-// @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade records the exact filesystem observations and checker for that generation.
+// @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade associates the observing VFS and borrowed checker with that generation; this is not a certificate of every filesystem access by plugins or their host.
 // @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; private helpers each own one policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid configuration or CLI input returns before construction; an explicitly empty argument list does not fall through to an ancestor's flags.
 // @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, force overrides and checker ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution uses filepath/tspath and the chosen VFS provides actual case and path capabilities; semantic wrapper ownership uses an explicit config path.
-// @evidence contracts/performance.md#efficient-algorithms One load composes filesystem observation with native parsing/checker creation; byte hashing covers read content once per observation rather than a post-load project scan.
+// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This one-shot factory does not coordinate callers; Session and resident hosts own cross-request compiler reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before acquisition return no lease; success transfers the acquired checker lease and generation state to Program, whose Close releases it.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease. Success transfers the lease, generation trees and input/plugin ledgers to Program without a byte cap; Close releases only the checker callback, while caller reachability controls facade state and separately retained plugin callbacks.
 func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program, []Diagnostic, error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
