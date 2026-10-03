@@ -1556,8 +1556,8 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
   edit := TextEdit{Pos: editPos, End: node.End(), Text: template}
   // A comment in an operator seam (`"a" + /* c */ b`) is dropped by the
   // template rebuild, so the autofix declines and the rendered literal is
-  // offered as an opt-in suggestion that names the loss. Mirrors ESLint
-  // prefer-template's `commentsExistBetween` guard. Only the seams are scanned:
+  // offered as an opt-in suggestion that names the loss. The native guard
+  // scans only the seams:
   // operand interiors are copied verbatim (their comments survive) and string
   // contents are cooked, so scanning the whole span would misread a `//` or
   // `/*` inside a string literal (`"https://" + host`) as a comment.

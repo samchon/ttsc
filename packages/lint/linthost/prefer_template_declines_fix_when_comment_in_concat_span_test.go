@@ -8,9 +8,9 @@ import "testing"
 // is preserved instead of dropped.
 //
 // The fix replaces the whole `+` chain span with one template literal, so a
-// comment anywhere inside (`"hi " + /* keep */ who`) would be erased. ESLint's
-// prefer-template declines via `commentsExistBetween`; the port imposes no edit
-// either and routes the rendered literal to the opt-in suggestion channel
+// comment at the seam (`"hi " + /* keep */ who`) would be erased.
+// The native rebuild withholds the automatic edit over this comment
+// and routes the rendered literal to the opt-in suggestion channel
 // instead (pinned by `TestPreferTemplateOffersWithheldTemplateAsSuggestion`).
 // The negative twin — the same concatenation
 // with no comment — must still become a template literal, proving the guard is

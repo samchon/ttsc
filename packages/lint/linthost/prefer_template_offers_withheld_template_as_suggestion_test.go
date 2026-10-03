@@ -6,11 +6,9 @@ import "testing"
 // template literal withheld from a seam-commented concatenation is offered as
 // an opt-in suggestion that discards the seam comment.
 //
-// The rebuild replaces the whole `+` chain with one literal, so a comment in
-// an operator seam has nowhere to land and the autofix declines. Throwing the
-// finished literal away was the waste: the renderer already produced the exact
-// text the diagnostic is asking for, and only the imposition — not the
-// rewrite — was ever unsafe.
+// The native rebuild replaces the whole `+` chain with one literal and
+// drops an operator-seam comment. Automatic fixing is withheld; the suggestion
+// title discloses that loss, and this test applies the authored edits explicitly.
 //
 //  1. Report on `"hi " + /* keep */ who` and assert nothing auto-applies.
 //  2. Assert the single suggestion yields the template literal `hi ${"" + (who)}`.
