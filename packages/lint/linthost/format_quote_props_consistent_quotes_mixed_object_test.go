@@ -5,9 +5,9 @@ import "testing"
 // TestFormatQuotePropsConsistentQuotesMixedObject verifies that `consistent`
 // quotes an unquoted object key when a sibling requires quotes.
 //
-// The prior no-op fixture began in the final form and therefore could not
-// detect the missing add-quote direction. Prettier's consistent mode chooses
-// one spelling for the entire object key group.
+// This changing fixture distinguishes the add-quote direction from a
+// no-op on an already quoted group. The supported consistent policy
+// chooses one spelling for the entire object key group.
 //
 // 1. Parse an object with an identifier key and a punctuation-bearing key.
 // 2. Apply format/quote-props with mode `consistent`.

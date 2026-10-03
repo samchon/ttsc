@@ -5,9 +5,9 @@ import "testing"
 // TestFormatQuotePropsUnquotesInterfaceMember verifies interface members use
 // the as-needed quote policy.
 //
-// Interface members are not object-literal properties, so the former visited
-// set left their redundant quoted names untouched despite Prettier rewriting
-// them.
+// Interface members are a distinct supported holder from object literals.
+// This positive requires the interface visitor to reach and unquote the
+// redundant name while preserving its type annotation.
 //
 // 1. Parse an interface with a quoted property name.
 // 2. Apply format/quote-props with mode `as-needed`.
