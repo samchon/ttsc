@@ -14,7 +14,7 @@ import (
 // Without that lexical boundary, a string value
 // like `"// eslint-disable-next-line no-var"` would suppress the next real statement.
 // This pins the comment-boundary guard in the directive extractor so a refactor that
-// removes the guard reactivates a real regression.
+// removes the guard cannot let string content suppress actual code.
 //
 // 1. Parse a source file where a string literal contains a disable directive.
 // 2. Run the no-var engine.

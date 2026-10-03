@@ -11,7 +11,7 @@ import (
 // or close an inline lint range while expression-container comments still can.
 //
 // JSX text has a parser-owned lexical goal in which slash-shaped bytes are
-// ordinary text. Treating those bytes as a block comment silently suppressed a
+// ordinary text. Treating those bytes as a block comment would suppress a
 // real diagnostic, whereas `{/* ... */}` is genuine JavaScript comment trivia.
 //
 //  1. Put fake and real range-disable markers before separate `debugger` statements.
