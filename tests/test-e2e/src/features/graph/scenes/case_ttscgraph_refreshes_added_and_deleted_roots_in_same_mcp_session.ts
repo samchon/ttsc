@@ -48,31 +48,64 @@ const lookup = async (
  * 2. Add `AddedRoot` in a second file and assert it is immediately searchable.
  * 3. Delete the original file and assert its declaration disappears.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP lookup sees Original, then a newly added Added root, and finally stops returning Original after its source file is deleted, all through one client.
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup sees OriginalRoot, then a newly added AddedRoot, and finally stops returning OriginalRoot after its source file is deleted, all through one client.
  * @evidence contracts/testing.md#independent-expectations Literal fixture names and physical add/delete operations independently specify the expected root set; stale snapshots cannot satisfy both changes.
  * @evidence contracts/testing.md#distinguishing-cases An included root is added and another removed without reopening MCP, contrasting both expansion and contraction of the compiler project.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Resident compiler root discovery, refreshed snapshot transport and application lookup must reflect filesystem changes; direct lookup over fixed nodes cannot exercise that connection.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
- * @evidence contracts/e2e.md#preserved-coverage All baseline Original, added Added and deleted Original-absence assertions remain here; a new-session result would not preserve the resident refresh distinction.
+ * @evidence contracts/e2e.md#shared-execution OriginalRoot baseline, physical AddedRoot appearance and original-file deletion are queried through the same identity MCP/native client. These actual root transitions require refreshed responses, not another client; client reuse does not prove Program object reuse or construction counts. Neighboring cached CLI facts do not supply these lookup results.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original file bytes and added-file bytes or actual ENOENT absence are captured before requests. Actual client authority is required before add/delete and each independent finally restoration. Operation and all reset failures are collected; failed reset withdraws reuse. Unconfirmed transport forbids further edits/reset and retains inputs until owned joins establish cleanup authority.
+ * @evidence contracts/e2e.md#preserved-coverage All baseline OriginalRoot, added AddedRoot and deleted OriginalRoot-absence assertions remain here; a new-session result would not preserve the resident refresh distinction.
  */
 export const case_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session =
   async () => {
     await withIdentityBoundary(async (client, root) => {
+      const originalFile = path.join(root, "src", "original.ts");
+      const addedFile = path.join(root, "src", "added.ts");
+      const originalSource = fs.readFileSync(originalFile);
+      let addedSource: Buffer | undefined;
+      try {
+        addedSource = fs.readFileSync(addedFile);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const failures: unknown[] = [];
+      try {
 
-      assert.ok(
-        (await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
-      );
-      fs.writeFileSync(
-        path.join(root, "src", "added.ts"),
-        "export class AddedRoot {}\n",
-      );
-      assert.ok((await lookup(client, "AddedRoot")).includes("AddedRoot"));
+        assert.ok(
+          (await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
+        );
+        client.assertInputMutationAllowed();
+        fs.writeFileSync(
+          path.join(root, "src", "added.ts"),
+          "export class AddedRoot {}\n",
+        );
+        assert.ok((await lookup(client, "AddedRoot")).includes("AddedRoot"));
 
-      fs.rmSync(path.join(root, "src", "original.ts"));
-      assert.ok(
-        !(await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
-      );
+        client.assertInputMutationAllowed();
+        fs.rmSync(path.join(root, "src", "original.ts"));
+        assert.ok(
+          !(await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
+        );
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        for (const [file, bytes] of [
+          [originalFile, originalSource],
+          [addedFile, addedSource],
+        ] as const) {
+          try {
+            client.assertInputMutationAllowed();
+            if (bytes === undefined) fs.rmSync(file, { force: true });
+            else fs.writeFileSync(file, bytes);
+          } catch (error) {
+            client.preventInputReuse("Added/deleted root restoration failed");
+            failures.push(error);
+          }
+        }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Root refresh requests and resets failed");
     });
   };

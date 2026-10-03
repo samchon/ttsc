@@ -51,50 +51,69 @@ const lookupNames = (result: ToolResult): string[] => {
  * @evidence contracts/testing.md#behavioral-verification MCP citation lookup initially finds subject under one address, then a comment-only edit moves it to the new address and removes the old hit in the same session.
  * @evidence contracts/testing.md#independent-expectations The two literal tag addresses and unchanged executable body define the independent expectation; content hashing only semantic code would miss this edit.
  * @evidence contracts/testing.md#distinguishing-cases Only documentation changes, contrasting new-target presence with old-target absence while declaration identity and body stay fixed.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session borrows the experiment's shared installed MCP/native session and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native incremental comment extraction, generation replacement and resident citation reindexing must respond to a non-code edit without a new MCP client.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and installed decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
+ * @evidence contracts/e2e.md#shared-execution The original and replaced tag addresses are queried through the same identity MCP/native session over this one scoped source. Comment edits trigger actual refreshed responses without creating another client; client reuse does not certify identical Program objects, construction count or packed installation. Neighboring cached CLI facts are not these lookup results.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The original tag source bytes are captured before requests. Actual client authority is required before the edit and finally byte restoration; operation and reset failures are collected, and reset failure withdraws reuse. The scope owner separately restores config bytes after settled requests. Unconfirmed transport forbids further edits/reset and retains inputs until owned joins establish cleanup authority.
  * @evidence contracts/e2e.md#preserved-coverage Original subject membership, new address membership and empty old address assertions remain, preserving tag-only invalidation rather than replacing it with a cold run.
  */
 export const case_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
   async () => {
     await withIdentityBoundary(async (client, root) => {
+      const sourceFile = path.join(root, "src", "tag-refresh.ts");
+      const originalSource = fs.readFileSync(sourceFile);
+      const failures: unknown[] = [];
+      try {
 
-      const lookup = async (query: string): Promise<string[]> =>
-        lookupNames(
-          (await client.request("tools/call", {
-            name: "inspect_typescript_graph",
-            arguments: lookupArguments(query),
-          })) as ToolResult,
+        const lookup = async (query: string): Promise<string[]> =>
+          lookupNames(
+            (await client.request("tools/call", {
+              name: "inspect_typescript_graph",
+              arguments: lookupArguments(query),
+            })) as ToolResult,
+          );
+
+        assert.deepStrictEqual(
+          await lookup("docs/one.md#first"),
+          ["subject"],
+          "the original address must answer before the edit",
         );
 
-      assert.deepStrictEqual(
-        await lookup("docs/one.md#first"),
-        ["subject"],
-        "the original address must answer before the edit",
-      );
+        client.assertInputMutationAllowed();
+        // Only the comment changes: the declaration below it is byte-identical.
+        fs.writeFileSync(
+          path.join(root, "src", "tag-refresh.ts"),
+          [
+            "/** @evidence docs/two.md#second The section this implements. */",
+            "export function subject(): void {}",
+            "",
+          ].join("\n"),
+          "utf8",
+        );
 
-      // Only the comment changes: the declaration below it is byte-identical.
-      fs.writeFileSync(
-        path.join(root, "src", "tag-refresh.ts"),
-        [
-          "/** @evidence docs/two.md#second The section this implements. */",
-          "export function subject(): void {}",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-
-      assert.deepStrictEqual(
-        await lookup("docs/two.md#second"),
-        ["subject"],
-        "the new address must answer without restarting the session",
-      );
-      assert.deepStrictEqual(
-        await lookup("docs/one.md#first"),
-        [],
-        "the replaced address must stop answering",
-      );
+        assert.deepStrictEqual(
+          await lookup("docs/two.md#second"),
+          ["subject"],
+          "the new address must answer without restarting the session",
+        );
+        assert.deepStrictEqual(
+          await lookup("docs/one.md#first"),
+          [],
+          "the replaced address must stop answering",
+        );
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        try {
+          client.assertInputMutationAllowed();
+          fs.writeFileSync(sourceFile, originalSource);
+        } catch (error) {
+          client.preventInputReuse("Tag-only source restoration failed");
+          failures.push(error);
+        }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1)
+        throw new AggregateError(failures, "Tag-only requests and reset failed");
     }, ["src/tag-refresh.ts"]);
   };
