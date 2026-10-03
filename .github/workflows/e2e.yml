@@ -93,6 +93,7 @@ jobs:
             'tests/utils/src/E2eProcessTrace.ts', 'tests/utils/src/TestExecutor.ts',
             'tests/utils/src/TestProject.ts',
             'tests/test-e2e/src/measureLegacyE2e.ts',
+            'tests/test-e2e/src/internal/compareE2ePhaseObservations.ts',
             'tests/test-e2e/src/legacyE2eTraceEntry.ts',
             'tests/test-e2e/src/index.ts', 'tests/test-e2e/src/consolidatedE2eIndex.ts',
             ...(family === 'native-consumer' ? [
