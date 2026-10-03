@@ -856,8 +856,9 @@ function runWatch(
       "type" in message && message.type === "ttsc.watch.stop" &&
       "id" in message && typeof message.id === "string" && message.id.length !== 0
     ) {
-      E2ETrace.watchShutdown("ipc-stop-received", { stopId: message.id });
-      void finish(message.id);
+      const id = message.id;
+      E2ETrace.watchShutdown("ipc-stop-received", { stopId: id });
+      void finish(id);
     }
   };
   const startRun = () => {
