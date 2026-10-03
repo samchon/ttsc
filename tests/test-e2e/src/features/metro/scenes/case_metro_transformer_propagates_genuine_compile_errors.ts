@@ -19,13 +19,13 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  * 3. Assert it rejects with the plugin's own error.
  *
  * @evidence contracts/testing.md#behavioral-verification A real native plugin applied to an in-program source without goUpper rejects with the actual goUpper diagnostic.
- * @evidence contracts/testing.md#independent-expectations The authored input omits the call required by the plugin; its named diagnostic independently rejects vacuous infrastructure errors.
+ * @evidence contracts/testing.md#independent-expectations The authored input omits the plugin-required call and the original goUpper message predicate rejects unrelated errors without that word. The predicate does not independently certify a unique producer, exact diagnostic/status/stack or exclude another error containing goUpper.
  * @evidence contracts/testing.md#distinguishing-cases True plugin failure contrasts out-of-program pass-through, so broad error swallowing cannot satisfy both boundaries.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected rejection scenario through the default built transformer unless TTSC_TEST_LAYER=unit. The authored echo upstream is not a real Metro host/OS worker and source override is not built-boundary proof; direct failure helpers do not replace native producer delivery.
  * @evidence contracts/e2e.md#necessary-boundary The actual plugin compiler failure must cross the native host and adapter without being swallowed as project exclusion.
- * @evidence contracts/e2e.md#shared-execution One malformed project uses the suite shared plugin producer; only its native transform runs and no successful replacement generation masks the failure. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity  Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage The original rejection predicate naming goUpper remains unchanged.
+ * @evidence contracts/e2e.md#shared-execution One malformed owned fixture invokes one adapter transform through the selected shared producer and no success replacement is supplied. This parent rejection does not count native child/Program/cache outcomes; no per-error producer is deliberately prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Slot replacement drops prior recorded inputs; assert.rejects awaits settlement and runtime option env restoration, then parent collection/aggregate cleanup owns remaining resources. Settlement alone does not certify arbitrary descendant joins or loaded-image equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original broken number source without goUpper and the unchanged regex rejection remain. Its marker-only limitation is explicit without replacing native producer delivery by a portable throw; registration/built-layer binding/runtime survival/measurement remain unverified.
  */
 export async function case_metro_transformer_propagates_genuine_compile_errors(
   workspace: MetroWorkspace.IWorkspace,
@@ -41,8 +41,9 @@ export async function case_metro_transformer_propagates_genuine_compile_errors(
         options: { projectRoot: root },
       },
     }),
-    // Load-bearing: must reject with the actual plugin error (mentions
-    // goUpper) rather than a vacuous environment failure. A module the program
+    // Load-bearing: the rejection must mention goUpper rather than match an
+    // unrelated environment failure without that word; this marker alone is
+    // not unique producer/status/stack attribution. A module the program
     // does not contain no longer reaches this path at all: the shared core
     // returns `undefined` for it, so there is no swallow string left to
     // distinguish from a real failure (samchon/ttsc#1308).

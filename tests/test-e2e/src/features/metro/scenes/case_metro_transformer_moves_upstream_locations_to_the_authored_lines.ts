@@ -23,12 +23,12 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  *
  * @evidence contracts/testing.md#behavioral-verification Actual banner compilation shifts the upstream parsed value location, then Metro remaps the returned AST start exactly to authored line1 and preserves a valid same-line end.
  * @evidence contracts/testing.md#independent-expectations Literal authored source locates value at source.indexOf(value) on line1; the shifted-line control proves the native transformation actually changed the upstream coordinate system.
- * @evidence contracts/testing.md#distinguishing-cases Positive banner shift contrasts exact restored start and valid end; source-only map reducers retain their separate decision matrix.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the built adapter and actual producer and process connection, and its body retains every named assertion.
+ * @evidence contracts/testing.md#distinguishing-cases Positive banner shift contrasts exact restored start and same-line end at or after start. End-token length and all AST node coordinates are not asserted; portable map reducers do not replace this producer-to-returned-location observation.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected native banner/adapter scenario. The default built transformer is used unless TTSC_TEST_LAYER=unit; a source override is not built-boundary proof. An authored locating upstream returns one node rather than starting a real Metro server/OS worker.
  * @evidence contracts/e2e.md#necessary-boundary The real linked banner host must emit both changed code and a usable map which the built adapter applies to its upstream AST; fabricated mapping pairs cannot establish producer assembly.
- * @evidence contracts/e2e.md#shared-execution One project and banner native host produce code/map together, using the suite shared cache. One locating upstream module and one transform supply all location assertions, without per-node compilation. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity  Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage Original shifted-line, exact start and bounded same-line end assertions remain. Source remapping units own portable map behavior; this boundary retains the real producer-to-AST connection.
+ * @evidence contracts/e2e.md#shared-execution One copied authored fixture, linked workspace banner package and locating upstream serve one awaited transform through the selected shared producer. This parent call does not count native child, Program or cache populations, and no producer is prepared per AST position.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fixture slot replacement drops earlier recorded inputs; the case creates its own package link and waits for the transform before runtime option env restoration and parent aggregate cleanup. The selected link/path is not an independent loaded-image or descendant witness; no alternate installed package is claimed.
+ * @evidence contracts/e2e.md#preserved-coverage Original shifted-line positive, exact authored line1/value-column start and same-line end-column bound remain; no exact end length or broader portable-owner runtime is invented. Real producer-to-AST observation is retained, while registration/built-layer binding/survivor execution/measurement remain unverified.
  */
 export async function case_metro_transformer_moves_upstream_locations_to_the_authored_lines(
   workspace: MetroWorkspace.IWorkspace,
@@ -71,4 +71,3 @@ export async function case_metro_transformer_moves_upstream_locations_to_the_aut
       `the end stays on the authored line, at or after the start: ${JSON.stringify(end)}`,
     );
   }
-

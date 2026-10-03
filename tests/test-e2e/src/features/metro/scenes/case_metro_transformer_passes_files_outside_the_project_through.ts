@@ -23,14 +23,14 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  * 2. Transform the stray file (relative path + projectRoot).
  * 3. Assert the upstream received the original, untransformed source.
  *
- * @evidence contracts/testing.md#behavioral-verification An actual out-of-program native transform preserves source, records exact external config-selection candidates and taint, then a config inclusion edit changes the guarded key.
+ * @evidence contracts/testing.md#behavioral-verification Actual native admission passes the authored stray source to echo upstream unchanged, records taint and the two asserted external config candidates, then fresh-epoch and config-inclusion keys differ. The candidate assertions are membership checks, not an exhaustive exact set.
  * @evidence contracts/testing.md#independent-expectations The authored stray file belongs to a separate config that initially excludes scripts; literal original source and selection paths independently establish pass-through and future inclusion.
- * @evidence contracts/testing.md#distinguishing-cases Out-of-program pass-through contrasts true plugin failure; later include mutation exercises recovery from that earlier admission decision.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#distinguishing-cases Out-of-program pass-through contrasts genuine rejection; later include mutation checks key invalidation, not a second native admission/output recovery. Stable-key controls at each fixed run/input state reject upstream fallback nonce as the cause of inequality.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected scenario through the default built transformer unless TTSC_TEST_LAYER=unit. The authored echo upstream exposes source bytes, not a real Metro server/OS worker; source override execution does not certify built assembly.
  * @evidence contracts/e2e.md#necessary-boundary Only actual compiler program membership can establish this module was excluded while the adapter retains its project-selection dependency guards.
- * @evidence contracts/e2e.md#shared-execution The same external project and bare Metro root serve pass-through and later key checks using the suite native producer cache. Including scripts requires a fresh fingerprint; no unnecessary second native transform is used. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the external config include changes; run IDs, worker compaction and option restoration maintain explicit generation ownership. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage Original source equality, taint, every external selection candidate, fresh-epoch inequality and config-inclusion invalidation remain.
+ * @evidence contracts/e2e.md#shared-execution One bare adapter root and one separate mutable plugin project serve the single native admission call and later key-only comparisons, reusing the selected shared producer. No second transform is requested after inclusion; parent calls/run IDs do not count compiler generations, processes or cache hits, and query imports are not OS workers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit run IDs separate initial taint, guarded epoch and changed include input; each key is stable while its state is fixed. Runtime options env is restored after awaited calls, both slots reset prior state, and parent aggregate cleanup owns remaining files. Returned results/path removals do not certify arbitrary descendants or loaded-image equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original echo/source equality, taint, root+scripts config membership, fresh-epoch and inclusion key inequalities remain, strengthened by stable-key controls. No exhaustive candidate set or second-transform recovery is inferred; registration/built-layer binding/runtime survival/measurement remain unverified.
  */
 export async function case_metro_transformer_passes_files_outside_the_project_through(
   workspace: MetroWorkspace.IWorkspace,
@@ -45,7 +45,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
   const runId = await prepareSnapshot(root);
   const before = await TestMetroRuntime.withTransformerEnv(
     options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
+    (mod) => {
+      const key = mod.getCacheKey({ projectRoot: root });
+      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed initial run/input must retain its key");
+      return key;
+    },
     runId,
   );
   const result = await TestMetroRuntime.runTransform({
@@ -94,7 +98,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
   const guardedRunId = await prepareSnapshot(root);
   const guardedBeforeEdit = await TestMetroRuntime.withTransformerEnv(
     options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
+    (mod) => {
+      const key = mod.getCacheKey({ projectRoot: root });
+      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed guarded run/input must retain its key");
+      return key;
+    },
     guardedRunId,
   );
   assert.notEqual(
@@ -111,7 +119,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
   const nextRunId = await prepareSnapshot(root);
   const after = await TestMetroRuntime.withTransformerEnv(
     options,
-    (mod) => mod.getCacheKey({ projectRoot: root }),
+    (mod) => {
+      const key = mod.getCacheKey({ projectRoot: root });
+      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed included run/input must retain its key");
+      return key;
+    },
     nextRunId,
   );
   assert.notEqual(
