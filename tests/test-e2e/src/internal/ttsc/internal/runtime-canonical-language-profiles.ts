@@ -13,7 +13,7 @@ import fixture from "./runtime-decorator-fixture.json" with { type: "json" };
 import type { runCanonicalRuntimeProfiles } from "./runtime-canonical-profile-assembly";
 import { STANDARD_DECORATOR_OUTPUT, STANDARD_DECORATOR_SOURCE } from "./ttsx-decorators";
 import { JSX_COMPONENT_OUTPUT, JSX_COMPONENT_SOURCE, JSX_RUNTIME_PACKAGE } from "./ttsx-jsx";
-import { TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
+import { MOCHA_BIN, TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 import { spawnNodeWorker } from "./source-build";
 import { WAITING_PROGRAM, forceTerminate, isRunning, runDirectory, runtimeRunsDirectory, startWaitingRun, stopWaitingRun, type IWaitingRun } from "./ttsx-run";
@@ -31,14 +31,14 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Up to eighty-four original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Up to eighty-five original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Up to eighty-four original roots become staged configurations on the one canonical allocation; up to one hundred thirty-five authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement. The compiled owner preload uses three original Node lifetimes for existing-run admission, missing-run rejection and empty-manifest independence.
+ * @evidence contracts/e2e.md#shared-execution Up to eighty-five original roots become staged configurations on the one canonical allocation; up to one hundred thirty-six authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement. The compiled owner preload uses three original Node lifetimes for existing-run admission, missing-run rejection and empty-manifest independence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
  * @evidence contracts/e2e.md#preserved-coverage Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs; test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it exact typed-to-mistyped writes/status/value/root diagnostic/no-output transition; and test_ttsx_runs_a_source_file_the_entry_generates_at_runtime extensionless VALUE:42; and test_ttsx_preserves_custom_node_builtin_remaps child-local actual user hooks and both custom-remap/non-builtin-exact-strip values; and test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options distinct same-name dep-b:3 owning-option witness. Actual surviving execution and donor removal remain pending.
  */
@@ -1653,6 +1653,62 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
         throw cleanupError;
       }
     }
+    },
+  });
+  const mochaConfig = JSON.stringify({ compilerOptions: {
+    module: "commonjs", outDir: "dist", rootDir: "src", strict: true, target: "ES2022",
+  }, include: ["src"] });
+  const mochaSource = (suite: string, expected: string, assertCoexistence = false): string => {
+    const coexistence = !assertCoexistence ? "" : [
+      `    const fs = require("node:fs");`,
+      `    const path = require("node:path");`,
+      `    const cache = path.join(process.cwd(), "node_modules", ".cache", "ttsc", "ttsx", "project");`,
+      `    if (fs.readdirSync(cache).length !== 3) throw new Error("expected three roots in the shared workspace cache");`,
+    ].join("\n");
+    return [
+      `declare function describe(name: string, body: () => void): void;`,
+      `declare function it(name: string, body: () => void): void;`,
+      `declare function require(name: string): any;`,
+      `declare const process: { cwd(): string };`,
+      `enum Expected { Value = ${JSON.stringify(expected)} }`,
+      `describe(${JSON.stringify(suite)}, () => {`,
+      `  it("uses the checked emit", () => {`,
+      `    if (Expected.Value !== ${JSON.stringify(expected)}) throw new Error("wrong value");`,
+      coexistence,
+      `  });`,
+      `});`,
+      "",
+    ].join("\n");
+  };
+  profiles.push({
+    name: "public-register-mocha-keeps-three-excluded-roots-live-until-exit",
+    files: {
+      "package.json": JSON.stringify({ name: "ttsx-register-mocha", type: "commonjs", version: "1.0.0" }),
+      "one/tsconfig.json": mochaConfig,
+      "one/src/value.ts": `export enum Value { One = "one" }\n`,
+      "one/test/first/index.ts": mochaSource("first", "one"),
+      "one/test/second/index.ts": mochaSource("second", "one"),
+      "two/tsconfig.json": mochaConfig,
+      "two/src/value.ts": `export enum Value { Two = "two" }\n`,
+      "two/test/third/index.ts": mochaSource("third", "two", true),
+    },
+    run: (root, _persistent, spawn) => {
+      linkTtscPackage(root);
+      const result = spawn(process.execPath, [MOCHA_BIN, "--require", TTSX_REGISTER, "--extension", "ts",
+        "one/test/first/index.ts", "one/test/second/index.ts", "two/test/third/index.ts"],
+        { cwd: root, env: { TTSC_CACHE_DIR: "" } });
+      const failures: unknown[] = [];
+      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
+      try { assert.match(result.stdout, /3 passing/); } catch (error) { failures.push(error); }
+      for (const suite of ["first", "second", "third"]) {
+        try { assert.match(result.stdout, new RegExp(`\\b${suite}\\b`)); } catch (error) { failures.push(error); }
+      }
+      const runtime = path.join(root, "node_modules", ".cache", "ttsc", "ttsx", "project");
+      try { assert.deepEqual(fs.existsSync(runtime) ? fs.readdirSync(runtime) : [], []); } catch (error) { failures.push(error); }
+      for (const project of ["one", "two"]) {
+        try { assert.equal(fs.existsSync(path.join(root, project, "node_modules")), false); } catch (error) { failures.push(error); }
+      }
+      if (failures.length) throw new AggregateError(failures, "register multiple out-of-include Mocha roots assertions failed");
     },
   });
   for (const entry of [

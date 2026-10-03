@@ -27,7 +27,7 @@ import {
  * @evidence contracts/testing.md#execution-ownership The named test_ttsx_register_runs_multiple_out_of_include_mocha_roots E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
  * @evidence contracts/e2e.md#necessary-boundary The public register preload, real Mocha module loading, native root emits and runtime directory ownership must agree across one host. Direct ownership planning cannot prove Mocha keeps all emitted roots usable.
  * @evidence contracts/e2e.md#shared-execution One consumer/link and one Mocha host serve three actual TS test entries and two owning configs. Distinct excluded roots need separate checked emits, but no Mocha process or consumer installation repeats per root.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The third fixture test checks coexistence while the host is live; outer assertions inspect cleanup only after synchronous exit. TestProject owns root/link and runtime owns generation directories.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The third fixture test checks coexistence while the host is live; outer assertions inspect cleanup only after synchronous exit. Child-local empty TTSC_CACHE_DIR selects the workspace-local cache required by that literal oracle even when the measurement coordinator has an external cache override. Parent environment is unchanged. TestProject owns root/link and runtime owns generation directories.
  * @evidence contracts/e2e.md#preserved-coverage Original status, three suite names, 3 passing, in-host generation count, empty exit index and absent nested node_modules remain. Runtime import of one/src or two/src enums is not an existing assertion.
  */
 export function test_ttsx_register_runs_multiple_out_of_include_mocha_roots() {
@@ -59,7 +59,7 @@ export function test_ttsx_register_runs_multiple_out_of_include_mocha_roots() {
         "one/test/second/index.ts",
         "two/test/third/index.ts",
       ],
-      { cwd: root },
+      { cwd: root, env: { TTSC_CACHE_DIR: "" } },
     );
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /3 passing/);
