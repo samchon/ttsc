@@ -8,10 +8,10 @@ import (
 // TestLSPPreferAsConstSuggestionExecutesSelectedRange verifies the editor path
 // exposes a range-scoped manual quick fix and executes only its stored target.
 //
-// @evidence contracts/testing.md#behavioral-verification Quickfix range selects the second literal annotation and the signed action rewrites only that declaration to as const.
+// @evidence contracts/testing.md#behavioral-verification Quickfix range selects the second literal annotation and the source/edit-fingerprint-checked action rewrites only that declaration to as const.
 // @evidence contracts/testing.md#independent-expectations The authored complete two-declaration text retains the first annotation and both stringify references while specifying the second rewrite.
 // @evidence contracts/testing.md#distinguishing-cases Two eligible declarations and a range covering only the second declaration's line (zero-based line 1) reject a whole-file rewrite or execution of the wrong stored target.
-// @evidence contracts/testing.md#execution-ownership Discovery and suggestion execution run in the native Go host and checker within the unit process; no editor or installed consumer is launched.
+// @evidence contracts/testing.md#execution-ownership Discovery and suggestion execution run in the native Go host with a Program within the unit process; this AST-only rule requests no type checker, and no editor or installed consumer is launched.
 func TestLSPPreferAsConstSuggestionExecutesSelectedRange(t *testing.T) {
   source := "let first: (\"one\") = \"one\";\nlet second: (\"two\") = \"two\";\nJSON.stringify(first, second);\n"
   root := seedLintProject(t, source)
