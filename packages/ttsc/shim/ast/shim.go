@@ -1390,8 +1390,8 @@ func IsPropertyDeclaration(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No module names or consumer-specific namespaces are special-cased.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains module-body purpose and kind/parent validation limits.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsModuleBlock acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsModuleBlock performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsModuleBlock computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent module-block classifier. Upstream compares one node kind in O(1) time and space without inspecting parent or body statements.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsModuleBlock computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsModuleBlock(node *Node) bool {
   return innerast.IsModuleBlock(node)

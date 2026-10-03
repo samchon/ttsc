@@ -1376,8 +1376,8 @@ func IsPartOfTypeNode(node *Node) bool { return innerast.IsPartOfTypeNode(node) 
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The mask is the upstream Let constant, with no name-based declaration exception or compensating flag mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states input provenance and the using distinction, followed by separated tags under the documentation guidance.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsLet acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsLet performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsLet computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms One Let-bit test follows the shared combined-flags helper. Its upstream root search follows H binding parents and then reads at most three declaration/list/statement flag values, costing O(H) time and O(1) temporary space without collecting ancestors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This mask query owns no completed-result cache or in-flight coordination; compiler-tree owners determine whether declaration flags and parent links remain valid across calls.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsLet computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsLet(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsLet != 0 }
 
