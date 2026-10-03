@@ -30,16 +30,16 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../internal/ttsc/internal/plugin-
  * @evidence contracts/testing.md#behavioral-verification Transforms a real compiler project, reads its boolean graph policy, and compares compilerUsesCaseSensitiveFileNames in the same and sibling cache roots while process.platform is changed.
  * @evidence contracts/testing.md#independent-expectations The real native compiler graph is an independent producer for the JavaScript helper answer; the test checks agreement rather than hardcoding an OS policy.
  * @evidence contracts/testing.md#distinguishing-cases Shared-cache and project-local sibling-cache answers are compared with the native report under opposite apparent process.platform. Their equal policy/volume premise is not independently asserted; the comparison does not establish cross-volume, per-directory, Unicode or arbitrary-executable classifier accuracy.
- * @evidence contracts/testing.md#execution-ownership The exported API feature executes native transform and direct helper calls through TestExecutor.
+ * @evidence contracts/testing.md#execution-ownership The exported API feature executes native transform and direct helper calls through TestExecutor. The consolidated compiler entry instead supplies the actual asserted baseline transform response and its physical project root; the same success, boolean and equality assertions execute here.
  * @evidence contracts/e2e.md#necessary-boundary Actual native transform reporting supplies a reference distinct from the helper's root proxy. Agreement checks this selected fixture observation, not an external OS specification or proof that every future executable matches the proxy.
- * @evidence contracts/e2e.md#shared-execution One transform invocation supplies the report for two helper calls; the sibling helper uses filesystem probing, not a second transform. Internal child starts, Program constructions, cache hits and executable-byte identity are separate observations, not inferred from these call counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project is fresh and the exact process.platform descriptor is restored in finally after the controlled helper call. Shared cache/module state and the helper's per-root answer memo persist; TestProject tracks fixture paths. This does not certify arbitrary descendant shutdown or equivalent native directory policies for both roots.
+ * @evidence contracts/e2e.md#shared-execution Standalone execution obtains one transform report for two helper calls; consolidated execution borrows the real API baseline response and its same physical root. Both helper queries remain and the sibling helper uses filesystem probing. The borrowed response assumes root filesystem policy stays stable while the API changes owned source/config contents; it does not establish arbitrary directory equivalence. Internal child starts, Program constructions, cache hits and executable-byte identity are separate observations, not inferred from these call counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution owns a fresh project; consolidated execution borrows the API root before its inputs are moved for CLI staging. The exact process.platform descriptor is restored in finally after the controlled helper call. Shared cache/module state and the helper's per-root answer memo persist; TestProject tracks fixture paths. This does not certify arbitrary descendant shutdown or equivalent native directory policies for both roots.
  * @evidence contracts/e2e.md#preserved-coverage Original success, boolean policy and both equality assertions remain; equality can expose disagreement but cannot prove both components follow an external case specification.
  */
 export const test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports =
-  (): void => {
-    const root = createProject();
-    const result = new TtscCompiler({
+  (prepared?: { root: string; result: { type: string; graph?: { useCaseSensitiveFileNames?: boolean } } }): void => {
+    const root = prepared?.root ?? createProject();
+    const result = prepared?.result ?? new TtscCompiler({
       cacheDir: SHARED_PLUGIN_CACHE_DIR,
       cwd: root,
     }).transform();
