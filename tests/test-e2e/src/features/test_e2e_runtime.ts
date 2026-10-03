@@ -9,13 +9,15 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * alone instead of recursively preparing all retained legacy runtime donors.
  * Consolidated mode also stages the five original response-file decorator
  * inputs on that root, retaining each native target/order and output verdict.
- * Thirty-eight more staged language profiles retain four ordinary publication/runtime
+ * Thirty-nine more staged language profiles retain four ordinary publication/runtime
  * pairs, ESM member initialization, public JSX register and both forwarded CLI
  * modes, five diagnostic/effect rejections, three CLI/library option profiles
  * dynamic package exports and both excluded direct/public-register formats;
  * project/entry diagnostic effect gating and missing -r value;
  * dynamic ESM-to-CommonJS import rescuing an emitted .js request from TSX;
- * preserve/forwarded module and response entry transport; package-store format precedence, invalid config and empty-project fallback; installed-root/dependency noEmitOnError emission; nested references/cycles, explicit project and configDir resolution; native main/terminal behavior and dependency/orphan JSX; runtime-generated source and changed type-gate inputs; child-local native user-hook remaps; omitted same-name dependency own options; fifty-six real requests keep their original
+ * JavaScript CommonJS default/named/re-export imports retaining ordinary Node
+ * require properties and both typed-source spellings through CLI and register;
+ * preserve/forwarded module and response entry transport; package-store format precedence, invalid config and empty-project fallback; installed-root/dependency noEmitOnError emission; nested references/cycles, explicit project and configDir resolution; native main/terminal behavior and dependency/orphan JSX; runtime-generated source and changed type-gate inputs; child-local native user-hook remaps; omitted same-name dependency own options; fifty-eight real requests keep their original
  * transport and oracles. The dynamic import keeps its launcher
  * request and exact default RESCUED object; no host or Program is inferred.
  *
