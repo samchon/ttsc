@@ -26,17 +26,22 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  *
  * @evidence contracts/testing.md#behavioral-verification Actual service constructed with a linked cwd returns banner-bearing output for the linked source, accepts its update and returns the LINKED_EDIT marker.
  * @evidence contracts/testing.md#independent-expectations An explicit directory link and literal marker independently establish the request alias and updated content; the utility combo banner proves real linked transform execution.
- * @evidence contracts/testing.md#distinguishing-cases Owns logical linked project-root construction and linked absolute requests, contrasting the normal-root/nested-link session in the shared resident survivor.
- * @evidence contracts/testing.md#execution-ownership The matching named service-incremental export calls the actual public resident API over a native directory link in the Linux boundary batch.
+ * @evidence contracts/testing.md#distinguishing-cases Owns linked project-root construction and linked absolute requests, distinct from the normal-root/nested-link named case whose actual execution requires separate evidence.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic named service-incremental entry, calling the actual built workspace public resident API over a native directory link.
  * @evidence contracts/e2e.md#necessary-boundary The constructor project identity and client file keys must agree with the physical Program loaded by the native child; direct path normalization does not prove that client-to-host framing.
- * @evidence contracts/e2e.md#shared-execution The immutable linked utility producer shares the batch plugin cache and Go objects; a distinct resident process is necessary to exercise the constructor with linked cwd rather than normal cwd.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The linked root and consumer source belong to private fixture directories, intentional update affects only this service, and try/finally disposes the child before TestProject cleanup.
+ * @evidence contracts/e2e.md#shared-execution Linked utility inputs and explicit suite cache remain available, with a distinct constructed service selected by linked cwd. This does not certify hits, no rebuild, identical Program generations or total native process counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Linked root/source belong to private tracked directories and updates affect this service. Root/link-parent/shared cache are retained before preparation because supported void disposal provides no awaited close acknowledgement. Body and disposal errors are aggregated; disposal/retention do not certify OS close or arbitrary descendants.
  * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, successful update, nonempty edited output and LINKED_EDIT assertions remain; normal-root nested alias behavior is consolidated separately without deleting this constructor distinction.
  */
 export async function test_ttscservice_answers_a_file_named_through_a_linked_project_root(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
+  const retentionReason = "linked-root service has no awaited disposal acknowledgement";
+  TestProject.retainTemporaryDirectory(root, retentionReason);
+  TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
-  const link = path.join(TestProject.tmpdir("ttsc-service-link-"), "project");
+  const linkParent = TestProject.tmpdir("ttsc-service-link-");
+  TestProject.retainTemporaryDirectory(linkParent, retentionReason);
+  const link = path.join(linkParent, "project");
   fs.symlinkSync(root, link, "junction");
   const service = new TtscService({
     binary: tsgo,
@@ -44,10 +49,11 @@ export async function test_ttscservice_answers_a_file_named_through_a_linked_pro
     env: {
       PATH: TestUtilityPlugins.goPath(),
       // The case observes path resolution, not a cold build, so it shares the
-      // suite's plugin cache instead of compiling one more host.
+      // suite's available plugin cache without asserting an avoided build.
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     },
   });
+  const failures: unknown[] = [];
   try {
     const file = path.join(link, "src", "main.ts");
     const before = await service.transformFile(file);
@@ -62,7 +68,11 @@ export async function test_ttscservice_answers_a_file_named_through_a_linked_pro
     const after = await service.transformFile(file);
     assert.ok(after, "resident host returned no output after the update");
     assert.match(after, /LINKED_EDIT/);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    service.dispose();
+    try { service.dispose(); }
+    catch (error) { failures.push(error); }
   }
+  if (failures.length) throw new AggregateError(failures, "linked-root resident observation or disposal failed");
 }
