@@ -11,7 +11,7 @@ import (
 // The compiler resolution asks for `@typescript/typescript-<platform>-<arch>`,
 // a name npm publishes in `process.platform` / `process.arch` spelling. Go says
 // `windows` and `amd64` where Node says `win32` and `x64`, so a missed mapping
-// resolves nothing on every Windows or x64 host while every fixture built from
+// can miss the intended package while fixtures whose names are built from
 // the same function keeps agreeing with itself. Expectations come from Node's
 // documented values and the `@ttsc/{os}-{arch}` package names in
 // packages/ttsc/build/platform-package.cjs, not from this function's own output.
@@ -20,9 +20,9 @@ import (
 //  2. Assert the divergent members are translated and the rest pass through.
 //  3. Assert the host pair does not retain the renamed Go spellings.
 //
-// @evidence contracts/testing.md#behavioral-verification nodePlatformPairFor maps Go platform and architecture spellings to npm package vocabulary and nodePlatformPair never leaks the renamed host spellings.
+// @evidence contracts/testing.md#behavioral-verification nodePlatformPairFor matches eleven literal npm target pairs; nodePlatformPair rejects windows, amd64 and 386 spellings in the native host result.
 // @evidence contracts/testing.md#independent-expectations The authored table follows process.platform/process.arch spellings including win32, sunos, x64, ia32 and ppc64, independent of the mapping implementation.
-// @evidence contracts/testing.md#distinguishing-cases Renamed OS and architectures contrast with unchanged arm/arm64 and unknown freebsd/s390x passthrough; cross-product cases cover Windows, Darwin and Linux.
+// @evidence contracts/testing.md#distinguishing-cases Renamed OS and architectures contrast with unchanged arm/arm64 and non-published freebsd/s390x passthrough; cross-product cases cover Windows, Darwin and Linux.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Eleven literal Go/npm target pairs reach nodePlatformPairFor and the native host pair reaches nodePlatformPair in-process; mapping is observed without cross-compilation or an OS matrix.
 func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
   cases := []struct{ goos, goarch, platform, arch string }{
