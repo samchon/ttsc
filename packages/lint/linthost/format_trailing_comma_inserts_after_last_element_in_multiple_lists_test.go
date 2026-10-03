@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatTrailingCommaInsertsAfterLastElementInMultipleLists verifies
-// `applyTextEditsToFile`'s reverse-splice invariant when two independent
+// `applyTextEditsToFile`'s original-offset preservation when two independent
 // multi-line lists in the same source each need a trailing comma.
 //
 // Multiple edits must preserve the original position of each final item. Applying an insertion against already shifted offsets can damage a later list, so the complete two-array output verifies their combined application.
