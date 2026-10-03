@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspect } from "node:util";
@@ -32,7 +33,7 @@ import { pairE2eInvocationOutcomes } from "./internal/pairE2eInvocationOutcomes"
  * @evidence contracts/common.md#meaningful-documentation States external preparation input, fixed opt-in root, legacy selection preservation, observation overhead and remaining join/completeness limitations.
  * @evidence contracts/portability.md#os-neutral-implementation Uses the actual coordinator Node executable and explicit absolute loader/entry paths, native cwd and unchanged caller environment. Returned status/signal/error remain distinct without OS-name interpretation.
  * @evidence contracts/performance.md#efficient-algorithms Launches one runner and encodes one actual metadata report; capture/pairing costs follow explicit asset bytes, cache entries and trace rows. Report serialization allocates its complete text before its256MiB admission check.
- * @evidence contracts/performance.md#reuse-equivalent-work The default preserves baseline preparations; consolidated mode selects explicit shared-family owners only after current producer identity matches the actual baseline, and uses its observed sequence cursor without borrowing behavioral outcomes.
+ * @evidence contracts/performance.md#reuse-equivalent-work The default preserves baseline preparations; consolidated mode selects explicit shared-family owners only after retained writer, cold-artifact, command-file and actual invocation pairings have no recorded problems and current producer identity matches the baseline. It uses the observed sequence cursor without converting nonzero baseline semantic outcomes to PASS or certifying whole-population coverage.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Awaits the owned runner close before reading trace/report data; report writes close synchronously. Unknown descendants remain uncertified and the external root is retained, never recursively cleaned by this entry.
  */
 export async function measureLegacyE2e(): Promise<void> {
@@ -59,7 +60,47 @@ export async function measureLegacyE2e(): Promise<void> {
       throw new Error("Consolidated measurement requires an actual baseline report and producer-label correspondence");
     const baseline = JSON.parse(fs.readFileSync(input.baselineReport, "utf8")) as {
       phase: Parameters<typeof requireE2eBaselinePreparation>[0];
+      pairing: ReturnType<typeof pairE2eTraceWriterManifest>;
+      coldArtifacts: {
+        problems: string[];
+        writers: { pairing: ReturnType<typeof pairE2eColdCommandArtifact> }[];
+      }[];
+      commandFiles: {
+        problems: string[];
+        writers: { pairing: ReturnType<typeof pairE2eCommandFileObservation> }[];
+      }[];
+      invocations: ReturnType<typeof pairE2eInvocationOutcomes>;
     };
+    // Completed runner metadata alone does not admit an incomplete measurement.
+    // Semantic failure remains a measured failure, not a fabricated baseline PASS.
+    assert.ok(baseline.pairing && Array.isArray(baseline.pairing.boundaries));
+    assert.ok(baseline.pairing.boundaries.length > 0);
+    for (const boundary of baseline.pairing.boundaries)
+      assert.deepEqual(boundary.problems, []);
+    assert.ok(Array.isArray(baseline.coldArtifacts));
+    for (const boundary of baseline.coldArtifacts) {
+      assert.deepEqual(boundary.problems, []);
+      assert.ok(Array.isArray(boundary.writers));
+      for (const writer of boundary.writers) {
+        assert.deepEqual(writer.pairing.problems, []);
+        assert.ok(Array.isArray(writer.pairing.artifacts));
+        for (const artifact of writer.pairing.artifacts)
+          assert.deepEqual(artifact.problems, []);
+      }
+    }
+    assert.ok(Array.isArray(baseline.commandFiles));
+    for (const boundary of baseline.commandFiles) {
+      assert.deepEqual(boundary.problems, []);
+      assert.ok(Array.isArray(boundary.writers));
+      for (const writer of boundary.writers)
+        assert.deepEqual(writer.pairing.problems, []);
+    }
+    assert.ok(baseline.invocations && Array.isArray(baseline.invocations.invocations));
+    assert.deepEqual(baseline.invocations.problems, []);
+    let observedTest = false;
+    for (const invocation of baseline.invocations.invocations)
+      if (invocation.kind === "test") observedTest = true;
+    assert.ok(observedTest, "Baseline lacks an actual selected test invocation");
     requireE2eBaselinePreparation(
       baseline.phase,
       traceRoot,
