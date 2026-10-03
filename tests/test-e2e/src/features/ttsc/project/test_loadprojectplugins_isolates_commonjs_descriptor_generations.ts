@@ -15,15 +15,16 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#behavioral-verification A failed descriptor load recovers after edits, reports lazy dependencies and preserves the application singleton with its original bad selection.
  * @evidence contracts/testing.md#independent-expectations The authored bad/good dependency versions and the separately retained application object distinguish descriptor reload from eviction of application require cache.
  * @evidence contracts/testing.md#distinguishing-cases A failed descriptor load recovers after edits, reports lazy dependencies and preserves the application singleton with its original bad selection.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner owns the application createRequire singleton while workspace loadProjectPlugins evaluates the descriptor in isolation. Scripted Go publication supplies artifacts, not real Go compiler semantics or a packed consumer.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
- * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage A failed descriptor load recovers after edits, reports lazy dependencies and preserves the application singleton with its original bad selection. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ * @evidence contracts/e2e.md#shared-execution Three loads keep the same project/cache and parent singleton: thrown bad factory, edited recovery and unchanged good result. No external-read declaration is supplied, so unchanged good alone is not a persistent evaluator-cache hit or a measured native publication/process reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root is retained before setup. Parent require cache intentionally keeps the original singleton throughout all three loads and remains process-owned afterward; this case does not certify cache release or arbitrary descendant join. Call-local env leaves ambient env unchanged.
+ * @evidence contracts/e2e.md#preserved-coverage Original bad throw, shared/JSON/absent-JS memberships, two independent native realpaths, two good names, application object identity and bad value remain. Actual runtime/manifest/parent cache release/survival are unverified; donor retained.
  */
 export const test_loadprojectplugins_isolates_commonjs_descriptor_generations =
   () => {
     const root = TestProject.tmpdir("ttsc-cjs-descriptor-isolation-");
+    TestProject.retainTemporaryDirectory(root, "Descriptor isolation descendants are not joined");
     const project = path.join(root, "project");
     const shared = path.join(root, "shared.cjs");
     const getterSelectionBase = path.join(root, "getter-selection");
