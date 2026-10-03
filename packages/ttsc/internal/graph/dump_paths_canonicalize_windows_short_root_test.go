@@ -11,17 +11,18 @@ import (
 )
 
 // TestDumpPathMapperCanonicalizesWindowsShortRoot verifies that a project
-// selected through an 8.3 path still owns checker sources reported through the
-// expanded physical spelling.
+// selected through a native 8.3 alias maps two absent child paths relative to
+// the same directory, using expanded and short root spellings respectively.
+// No checker source file is created or loaded by this entry.
 //
 //  1. Obtain the owned temporary directory's real Windows 8.3 spelling.
 //  2. Confirm distinct spellings name the same native directory; report unavailable capability.
-//  3. Require a physical child source to retain a project-relative identity.
+//  3. Require both absent child coordinates to retain project-relative identity.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls Windows GetShortPathNameW, native SameFile checks and the actual dump path mapper; a real alternate spelling must still own physical-source and missing-child coordinates.
+// @evidence contracts/testing.md#behavioral-verification Calls Windows GetShortPathNameW, native SameFile checks and the actual dump path mapper; the same native root's expanded-spelling src/main.ts and short-spelling future/main.ts, neither created, must map to their literal relative coordinates without a latched error.
 // @evidence contracts/testing.md#independent-expectations The native API supplies the short spelling of this owned directory, SameFile proves its physical identity, and literal src/main.ts and future/main.ts define the three original mapping/error oracles.
-// @evidence contracts/testing.md#distinguishing-cases Distinct 8.3 versus expanded spellings, a physical source coordinate and a missing lexical child exercise alias-root handling. Unavailable or nondistinct 8.3 capability is reported as skipped coverage.
-// @evidence contracts/testing.md#execution-ownership This Windows-only Go unit entry calls the owning path mapper against actual temporary filesystem identities and GetShortPathName metadata, without an installed consumer, product host or artifact build. It is absent from non-Windows discovery; a skip does not prove the mapping assertions executed.
+// @evidence contracts/testing.md#distinguishing-cases Distinct 8.3 versus expanded root spellings are authenticated by native SameFile; two absent children exercise existing-ancestor fallback under each spelling. Existing child sources are not tested. Unavailable or nondistinct 8.3 capability is reported as skipped coverage.
+// @evidence contracts/testing.md#execution-ownership This Windows-build-tagged Go unit invokes the owning mapper against one actual temporary directory and GetShortPathName metadata, without a compiler Program, installed consumer, product host or artifact build. Non-Windows Go test builds exclude this entry; source inventory selection is separate, and a capability skip does not prove mapping assertions executed.
 func TestDumpPathMapperCanonicalizesWindowsShortRoot(t *testing.T) {
   owned := t.TempDir()
   long, err := syscall.UTF16PtrFromString(owned)
