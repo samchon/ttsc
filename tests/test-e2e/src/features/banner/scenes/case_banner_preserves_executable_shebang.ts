@@ -19,7 +19,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; output ordering is observed in real emitted bytes.
  * @evidence contracts/e2e.md#necessary-boundary Emit-time preamble insertion and the compiler's hashbang handling meet in the native host.
  * @evidence contracts/e2e.md#shared-execution One external-map compiler Program emits the ordinary and shebang sources together; the map scenario reads the same output rather than starting another compiler.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This scenario prepares the external-map output and the map scenario only reads it after the compiler joins. Missing output fails, and no previous fixture output is copied.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This scenario prepares the external-map output and the map scenario reads it only after the actual synchronous emit result returns. Missing output fails and no previous fixture output is copied; synchronous return does not certify arbitrary descendant shutdown or a reused Program object.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former shebang-first and single-banner assertions; the banner text is now the shared configuration's.
  */
 export function case_banner_preserves_executable_shebang(
