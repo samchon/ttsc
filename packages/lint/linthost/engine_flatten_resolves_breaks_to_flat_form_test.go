@@ -9,7 +9,8 @@ import "testing"
 // the flat IfBreak arm. Separate cases reject mandatory line breaks,
 // a suffix, multiline Text, a nested mandatory break and a forced
 // Group. Other cases admit an empty ConditionalGroup, select the first
-// alternative and remove Indent/Align wrappers. These literal fixtures
+// alternative and retain text beneath Indent/Align wrappers. The text-only
+// wrapper fixture observes output, not the returned Doc variant. These fixtures
 // do not exercise parsing or a complete hugged argument-list layout.
 //
 // @evidence contracts/testing.md#behavioral-verification flatten must yield a by for flat Line, Softline and IfBreak while rejecting the mandatory breaks, suffix, multiline Text, nested break and forced Group exercised here.
