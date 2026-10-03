@@ -6,8 +6,8 @@ import "testing"
 // jsx-a11y/anchor-has-content reports empty paired and self-closing anchors
 // and accepts an anchor with text.
 //
-// Empty links are invisible to assistive technology, and both JSX element
-// syntaxes can omit their content.
+// These links have neither content nor an explicit accessible label.
+// Both paired and self-closing JSX can omit those name sources.
 //
 // 1. Run only `jsx-a11y/anchor-has-content` over `<a href="/home"></a>` and
 //    over `<a href="/home" />`, expecting one finding each whose message
