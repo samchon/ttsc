@@ -37,8 +37,10 @@ type CompilerOptions = innercore.CompilerOptions
 type JsxEmit = innercore.JsxEmit
 
 // ModuleResolutionKind selects TypeScript-Go's module resolver.
+// The alias also retains unknown and deprecated parsing values; retaining a
+// discriminator does not certify that every value can run a resolver.
 //
-// @evidence contracts/common.md#principled-implementation Aliasing the upstream resolver enum preserves each compiler-supported mode and its identity in CompilerOptions.
+// @evidence contracts/common.md#principled-implementation Aliasing the upstream enum preserves its declared resolver-selection and parsing values exactly in CompilerOptions. Runtime admission and dispatch remain with compiler owners, including refusal of unsupported values.
 // @evidence contracts/common.md#clear-and-simple-design Resolver selection remains one compiler discriminator instead of a parallel shim policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Selection uses upstream constants without guessing a resolver from a consumer name or host OS.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies resolver selection rather than merely repeating the type name.
@@ -48,12 +50,14 @@ type JsxEmit = innercore.JsxEmit
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ModuleResolutionKind = innercore.ModuleResolutionKind
 
-// ResolutionMode is the CommonJS or ESM lookup mode for one module use.
+// ResolutionMode represents None, CommonJS or ESM lookup for one module use.
+// Upstream aliases ModuleKind for this role; it is not a distinct Go type or a
+// validated three-value set. Per-use lookup differs from project resolver policy.
 //
 // @evidence contracts/common.md#principled-implementation The alias preserves per-use CommonJS/ESM discrimination independently from the project's overall module resolution strategy.
-// @evidence contracts/common.md#clear-and-simple-design A separate upstream enum expresses the per-module lookup decision without overloading ModuleResolutionKind.
+// @evidence contracts/common.md#clear-and-simple-design The upstream alias exposes the per-use role independently from ModuleResolutionKind while preserving its actual ModuleKind type identity and None/CommonJS/ESM constants.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Modes remain compiler facts rather than a file-extension heuristic in the shim.
-// @evidence contracts/common.md#meaningful-documentation The comment identifies the per-use scope and the two semantic modes.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies per-use scope, None and CommonJS/ESM constants, the actual upstream type alias and absence of value validation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
