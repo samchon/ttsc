@@ -1,5 +1,6 @@
 import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import { readProjectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
@@ -36,11 +37,14 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_registers_the_project_record_alone is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Native envelope reaches built loader and its file channel; record contents are observed on disk.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls keep the original separate plain/reporting projects. Shared calls start with exact baseline plugins, await and assert the plain delivery, then set only config plugins to the original empty list before explicit reporting options. Actual reporting return gates later options; unresolved delivery prevents that mutation. The same record path is observed before and after its changed generation without copying a prior record verdict, and retained root ownership remains with the shared caller.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: plain and reporting plugins each register one record without directory dependencies; written record names normalized reported paths and project identity. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_registers_the_project_record_alone(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
+export async function test_turbopack_loader_registers_the_project_record_alone(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const plain = await runTurbopackLoaderWithContext({
     resourcePath: TestUnpluginProject.mainFile(root),
     source: TestUnpluginProject.mainSource(root),
@@ -54,7 +58,13 @@ export async function test_turbopack_loader_registers_the_project_record_alone()
     "the record lives in the project's own tool directory",
   );
 
-  const reporting = TestUnpluginProject.createProject({ plugins: [] });
+  const reporting = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
+  if (preparedRoot) {
+    const configFile = path.join(reporting, "tsconfig.json");
+    const config = JSON.parse(fs.readFileSync(configFile, "utf8"));
+    config.compilerOptions.plugins = [];
+    fs.writeFileSync(configFile, JSON.stringify(config));
+  }
   const absolute = path.join(reporting, "types", "model.d.ts");
   const reported = await runTurbopackLoaderWithContext({
     resourcePath: TestUnpluginProject.mainFile(reporting),
@@ -68,6 +78,7 @@ export async function test_turbopack_loader_registers_the_project_record_alone()
       ]),
     },
   });
+  observeReturned?.();
   TestUnpluginProject.assertTransformedToPlugin(reported.content);
   assert.deepEqual(reported.dependencies, [projectRecordOf(reporting)]);
   const record = readProjectRecordFile(projectRecordOf(reporting));
