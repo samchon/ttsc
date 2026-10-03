@@ -44,6 +44,8 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * while both requested roots retain their legacy-decorator arity; actual forced
  * launcher death/live-program preservation/final reclamation with owned async join;
  * same-PID remote-owner preservation and both public dead-owner sweeping routes;
+ * a joined real lock-holder seed followed by native ESRCH and public clean
+ * recovery/removal, before original conservative/explicit owner cleanup;
  * preserve/forwarded module and response entry transport; package-store format precedence, invalid config and empty-project fallback; installed-root/dependency noEmitOnError emission; nested references/cycles, explicit project and configDir resolution; native main/terminal behavior and dependency/orphan JSX; runtime-generated source and changed type-gate inputs; child-local native user-hook remaps; omitted same-name dependency own options; up to one hundred twenty-five public/worker requests plus two bounded departed-owner setup sequences keep their original
  * transport and oracles. The dynamic import keeps its launcher
  * request and exact default RESCUED object; no host or Program is inferred.

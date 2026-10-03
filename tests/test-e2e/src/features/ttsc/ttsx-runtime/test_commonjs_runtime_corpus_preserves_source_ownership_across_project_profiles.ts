@@ -684,7 +684,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         ).root,
         expectedCache,
       );
-      verifyRuntimeCleanOwnerAssembly(root, retainInputs);
+      verifyRuntimeCleanOwnerAssembly(root, retainInputs, includeLanguageProfiles);
     });
   if (failures.length)
     throw new AggregateError(failures, "CommonJS runtime corpus failed");
