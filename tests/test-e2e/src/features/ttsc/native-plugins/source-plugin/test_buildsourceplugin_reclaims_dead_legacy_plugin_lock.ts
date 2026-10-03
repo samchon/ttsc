@@ -25,16 +25,17 @@ import {
  * 3. Assert the binary is published and the replacement v3 lock is released.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual buildSourcePlugin must retire an old legacy lock with an exited same-host owner, publish its binary through a fresh v3 acquisition and leave inspection released.
- * @evidence contracts/testing.md#independent-expectations A synchronously completed child establishes the recorded dead PID; an explicitly aged legacy path and a crashed candidate establish recovery inputs, and filesystem existence plus the literal released observation define success.
- * @evidence contracts/testing.md#distinguishing-cases A legacy owner and orphan candidate precede a missing-binary build; the exited-child status, published binary and released successor assertions distinguish recovered admission from an uncompleted attempt. Live and remote owner controls belong to inspector cases.
- * @evidence contracts/testing.md#execution-ownership The exported entry calls the shipped builder and inspector with a scripted Go executable over actual filesystem locks and a native exited PID; the stub is an admission fixture, not proof of Go compilation.
+ * @evidence contracts/testing.md#independent-expectations A completed child with error absent, signal null, status0 and positive safe PID supplies the owner input; native process.kill(pid,0) must independently yield ESRCH before recording it. Aged legacy path/candidate and binary existence/literal released prescribe recovery observations.
+ * @evidence contracts/testing.md#distinguishing-cases Legacy owner/candidate precede a missing-binary build; exited-child/native-absence guards, publication and released inspection distinguish completed recovery. Candidate removal is not asserted. Live/remote inspector controls have separate owners and require their own execution evidence.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic export, invoking the built workspace builder/inspector with scripted Go admission over actual native filesystem locks/PID absence. The fixture does not prove real Go compilation or packed installation.
  * @evidence contracts/e2e.md#necessary-boundary The builder must connect native PID absence, legacy fence retirement, process-backed tool invocation and v3 finalization. The assertion concerns that admission/publication connection rather than contributor compiler semantics.
- * @evidence contracts/e2e.md#shared-execution One fake executable, module and cache entry are reused for key computation and the recovery build; only the intentionally absent binary requires payload production, and no real contributor rebuild is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private source/cache paths own the aged legacy lock and crashed candidate. TTSC_GO_BINARY and three cache variables are restored in finally; the seed child has exited before ownership is recorded, and the synchronous build owns finalization.
+ * @evidence contracts/e2e.md#shared-execution One scripted executable/module/private cache supplies key computation and actual recovery build, separate from real-Go producer profiles. Missing publication and recovery results are observed, not native process/build totals or shared hits.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked source/cache/root hold the aged lock/candidate; the seed child is independently ESRCH-absent before its owner record. TTSC_GO_BINARY/three cache variables restore their exact original absence/value in finally. Root is conservatively retained because sync builder return/lock finalization does not certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Exited-child success, binary existence and exact released inspection remain the original assertions. The stub verifies copied fixture inputs while its literal binary only witnesses publication, not compiler validity.
  */
 export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
+  TestProject.retainTemporaryDirectory(root, "legacy lock native graph has no descendant join acknowledgement");
   const plugin = path.join(root, "plugin");
   writePluginSource(plugin);
   const cacheDir = path.join(root, "cache");
@@ -68,7 +69,14 @@ export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
     const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
       windowsHide: true,
     });
+    assert.equal(exited.error, undefined, "owner setup child launch error");
+    assert.equal(exited.signal, null, "owner setup child terminated by signal");
     assert.equal(exited.status, 0);
+    assert.ok(Number.isSafeInteger(exited.pid) && exited.pid > 0, "owner setup child must supply a positive safe PID");
+    let absence: unknown;
+    try { process.kill(exited.pid, 0); }
+    catch (error) { absence = error; }
+    assert.equal((absence as NodeJS.ErrnoException | undefined)?.code, "ESRCH", "only native ESRCH proves the owner PID absent");
     fs.writeFileSync(
       path.join(lockDir, "owner.json"),
       `${JSON.stringify({ hostname: os.hostname(), pid: exited.pid })}\n`,
