@@ -10,20 +10,21 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  *
  * The end-to-end proof that the adapter actually applies ttsc plugins inside a
  * Metro build: the source handed to the upstream transformer must be the
- * plugin-transformed output, not the original. Exercises the real native
+ * plugin-transformed output through an authored echo upstream. This calls the
+ * adapter rather than starting an actual Metro server. Exercises the real native
  * compiler and a Go source plugin, so it runs in CI (Go toolchain present).
  *
  * 1. Create the shared fixture project whose tsconfig declares the Go plugin.
  * 2. Run the transformer on its TypeScript entrypoint with the fake upstream.
  * 3. Assert the source the upstream received was plugin-transformed.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual native plugin uppercases the TypeScript fixture and forwards ios options and Babel plugin descriptors through the upstream result.
+ * @evidence contracts/testing.md#behavioral-verification Actual native output contains PLUGIN and no goUpper, the authored echo upstream marks its result, and ios plus the exact Babel descriptor array survive forwarding. The helper does not compare the entire generated source or an exact uppercase token.
  * @evidence contracts/testing.md#independent-expectations The fixture operation defines the uppercase output marker independently; literal platform and Babel descriptors must survive the supported transform parameter spread.
  * @evidence contracts/testing.md#distinguishing-cases Project-relative filename reaches the real compiler, contrasting source-unit gating/passthrough and sibling parameter preservation.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected relative-filename/native delivery scenario through default built transformer modules unless TTSC_TEST_LAYER=unit. Source override is not built-boundary proof, and the echo upstream is not a Metro server or OS worker.
  * @evidence contracts/e2e.md#necessary-boundary The built Metro transformer must connect relative project routing, actual native transform output and upstream delivery.
- * @evidence contracts/e2e.md#shared-execution One default project transform uses the suite shared immutable Go source and plugin cache. Output and sibling parameter assertions share that request and do not install another consumer. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project root anchors src/main.ts, fresh worker options are restored, and the immutable shared producer remains untouched. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
+ * @evidence contracts/e2e.md#shared-execution One default fixture and awaited transform share selected producer artifacts for marker/source-call absence and sibling parameter assertions. One parent request does not count native processes, Programs or cache hits; no consumer installation or per-parameter producer is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project root anchors src/main.ts; slot reset drops old records and runtime options env restores after awaited transformation. Parent collection separately retains workspace cleanup errors. Query module freshness/results/paths do not certify arbitrary descendant joins or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage Original plugin-output, upstream identity, ios option and Babel plugin-array assertions remain.
  */
 export async function case_metro_transformer_runs_the_ttsc_plugin_pass_on_typescript_sources(

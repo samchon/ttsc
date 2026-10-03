@@ -27,13 +27,13 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  * 2. Assert both received the plugin-transformed source from one compile.
  *
  * @evidence contracts/testing.md#behavioral-verification The real built config forks two actual worker processes; both receive native plugin output and their shared compile log is exactly one byte.
- * @evidence contracts/testing.md#independent-expectations The count-runs plugin appends one byte per actual compile; literal two outputs and the independent log width distinguish shared compilation from two correct but redundant builds.
+ * @evidence contracts/testing.md#independent-expectations The authored count-runs fixture appends a byte for its compilation effect; two output strings each contain PLUGIN and no goUpper, and log size1 independently checks one recorded fixture effect. That effect is not total Program construction, raw compiler load or native child count.
  * @evidence contracts/testing.md#distinguishing-cases Concurrent workers with one inherited session contrast ordinary single-worker transforms; each worker output is validated, not just the aggregate count.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the built adapter and actual producer and process connection, and its body retains every named assertion.
  * @evidence contracts/e2e.md#necessary-boundary Separate process workers must inherit and consume a shared transform session; an in-process cache test cannot prove that transport and contention connection.
- * @evidence contracts/e2e.md#shared-execution One config process opens one session and forks exactly two workers concurrently for one project/native plugin generation. Both reuse the suite immutable source/build cache; separate processes are required to exercise cross-worker sharing. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The runLog belongs only to this project. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage Original two-output, per-output plugin marker and one-compile-byte assertions remain. Portable cache reuse and admission source tests cannot replace this actual concurrency boundary.
+ * @evidence contracts/e2e.md#shared-execution One actual config Node process opens the private session and launches two concurrent worker Nodes on one fixture. Those three Node lifetimes and their native children require actual separate trace observations; log size1 is not a substitute population. Selected immutable producer inputs may be shared, while each worker loads the explicitly built transformer rather than a query-only in-process stand-in.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh slot owns runLog and the config process inherits a separate tracked TEMP/TMP/TMPDIR with no prior session. allSettled waits for both execFile callback results before output or aggregate failure, retaining original child errors as causes. Parent synchronous config result and workspace cleanup do not certify arbitrary grandchildren or loaded-image equality.
+ * @evidence contracts/e2e.md#preserved-coverage Original two-output/per-output PLUGIN/no-goUpper and byte1 assertions remain, with both worker callback outcomes joined even if one fails. The actual shared-session process connection is retained; registration/runtime survival, observed process/Program totals and baseline remain unverified.
  */
 export async function case_metro_transformer_workers_share_one_compile_per_session(
   workspace: MetroWorkspace.IWorkspace,
@@ -64,8 +64,12 @@ export async function case_metro_transformer_workers_share_one_compile_per_sessi
       `const { execFile } = (await import("node:module")).createRequire(import.meta.url)(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
       "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
       "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
-      'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr)) : resolve(stdout))));',
-      "process.stdout.write(JSON.stringify(await Promise.all([run(), run()])));",
+      'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr, { cause: error })) : resolve(stdout))));',
+      "const settled = await Promise.allSettled([run(), run()]);",
+      "const outputs = [], failures = [];",
+      'for (const result of settled) { if (result.status === "fulfilled") outputs.push(result.value); else failures.push(result.reason); }',
+      'if (failures.length !== 0) throw new AggregateError(failures, "Metro worker callbacks failed after both settled");',
+      "process.stdout.write(JSON.stringify(outputs));",
     ].join("\n");
     const outputs = JSON.parse(
       execFileSync(
