@@ -20,12 +20,12 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsc must reject the prohibited JavaScript transform descriptor with nonzero status and the unsupported-transform diagnostic.
  * @evidence contracts/testing.md#independent-expectations The descriptor explicitly authors a transformOutput function; the literal diagnostic and nonzero exit are independent expected public error outcomes.
- * @evidence contracts/testing.md#distinguishing-cases Owns loader guard to CLI error transport; source/contributor distinctions now execute directly against their authored production guards.
- * @evidence contracts/testing.md#execution-ownership The matching named native export owns one real CLI invocation and is selected once by the shared Linux boundary runner.
+ * @evidence contracts/testing.md#distinguishing-cases Owns loader guard to CLI error transport; source/contributor distinctions have the separate authored direct owner test_descriptor_validation_preserves_source_and_contributor_rejections; that body does not certify its current execution or native transport.
+ * @evidence contracts/testing.md#execution-ownership The matching named native export owns one real CLI invocation and is selected by the generic corpus-misc runner without a platform filter in this body.
  * @evidence contracts/e2e.md#necessary-boundary Production guard units cannot observe the isolated descriptor evaluator returning an object to the host guard and its error reaching the public CLI.
- * @evidence contracts/e2e.md#shared-execution No native producer is built for this preflight rejection; one consumer process retains common error transport rather than one per validation decision.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temporary descriptor and project files are fresh and no native cache state or mutable descriptor result is shared.
- * @evidence contracts/e2e.md#preserved-coverage Keeps both original public exit and diagnostic assertions; five removed descriptor cases retain stricter exact messages and all meaningful value/path/duplicate distinctions in the authored validation unit.
+ * @evidence contracts/e2e.md#shared-execution One CLI request retains this distinct prohibited-function error transport. No successful native build is asserted or earlier runtime/tool preparation counted; remaining preparation minimality is a measurement obligation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Descriptor/project files are fresh, with no explicit private plugin-cache override here. Direct synchronous result and TestProject cleanup do not prove cache absence or arbitrary descendant shutdown.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps both original public exit and diagnostic assertions; the authored tests/test-ttsc/src/features/compiler/test_descriptor_validation_preserves_source_and_contributor_rejections.ts retains absent/empty/nonstring source, missing path, contributor order/name/duplicate/source cases with exact messages and native temporary inputs, selected by the ordinary unit runner. Its body is not a current PASS or removal authorization. Generated evaluator-to-serialization key preservation has separate owner test_plugin_descriptor_shims_reject_js_transform_properties_before_serializing; that unit does not execute module loading/native transport.
  */
 export function test_plugin_corpus_js_transform_functions_are_rejected(): void {
   const root = pluginProject(
@@ -43,6 +43,9 @@ export function test_plugin_corpus_js_transform_functions_are_rejected(): void {
   );
 
   const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
+  assert.ifError(result.error);
+  assert.equal(result.signal, null, result.stderr);
+  assert.equal(typeof result.status, "number", result.stderr);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /unsupported JS transform functions/);
 }
