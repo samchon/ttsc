@@ -6,10 +6,10 @@ import "testing"
 // mergeable imports of one module produce a finding on the second AND
 // the third declaration.
 //
-// Locks the recording rule: a declaration is appended to the module's
-// entry list even after being reported, so every later occurrence still
-// finds a mergeable predecessor. Dropping reported declarations from the
-// bookkeeping would silence the third import.
+// Locks one finding per later declaration, rather than one finding for the
+// module or one per earlier pairing. Each later named import can already
+// merge with the first, so this fixture does not prove reported declarations
+// remain recorded for comparisons with different declaration categories.
 //
 // 1. Import named bindings from the same module three times.
 // 2. Run the rule with default options.
