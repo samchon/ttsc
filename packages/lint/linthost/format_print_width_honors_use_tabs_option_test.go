@@ -11,7 +11,7 @@ import "testing"
 //  3. Compare the entire output with one tab per child line.
 //
 // @evidence contracts/testing.md#behavioral-verification format/print-width must emit tab-indented children for the overflowing three-property object while retaining its keys, values and statement suffix.
-// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 independently yields the literal tab-indented output for this source and options. Full-string equality distinguishes spaces, misplaced braces or lost members.
+// @evidence contracts/testing.md#independent-expectations The supported useTabs contract determines one literal tab for each child indentation level. Full-string equality distinguishes spaces, misplaced braces or lost members.
 // @evidence contracts/testing.md#distinguishing-cases This host owns the enabled-tab positive. TestFormatPrintWidthBreaksLongObjectLiteral supplies the identical source with default space indentation; TestFormatPrintWidthHonorsTabLeadingSource owns input tabs rather than only output tabs.
 // @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHonorsUseTabsOption invokes the registered owning rule through assertFixSnapshotWithOptions and the same-process engine. Its selected public Go entry owns the literal case without installation, native build or product-host children.
 func TestFormatPrintWidthHonorsUseTabsOption(t *testing.T) {
