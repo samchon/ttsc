@@ -189,16 +189,18 @@ func programResolutionContext(program *Program, source ast.HasFileName) (module.
 // resolver and reports whether every result still matches the resident Program.
 // Tasks must share compiler options, current directory and project-reference
 // context. An empty group, nil filesystem or missing options returns false.
-// All tasks are replayed even after a mismatch so observation sees every input.
+// Every supported task is submitted even after a mismatch; group-local caches
+// can satisfy equivalent lookups without repeating native reads. Equality is
+// over the projected result fields, not a complete filesystem snapshot proof.
 //
 // @evidence contracts/common.md#principled-implementation A fresh upstream resolver replays each kind with its original name, mode, lexical containing file and redirect, then compares the complete projected result including unresolved, package and symlink identity; tasks require one coherent originating context.
-// @evidence contracts/common.md#clear-and-simple-design One resolver and project-reference filesystem view belong to a group, while result projection centralizes equality and the loop preserves complete input observation after a mismatch.
+// @evidence contracts/common.md#clear-and-simple-design One resolver and project-reference filesystem view belong to a group, while result projection centralizes equality and the loop continues submitting tasks after a mismatch instead of stopping at the first changed result.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Virtual declaration existence follows actual project-reference source mappings; unsupported resolver write operations panic rather than silently fabricating effects, and full result equality is not weakened to hide changed identities.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains coherent-group premises, invalid-input refusal and why replay continues after a mismatch, with separate descriptive and acknowledgment sections.
 // @evidence contracts/portability.md#os-neutral-implementation The supplied filesystem determines case sensitivity, existence and realpaths; the virtual declaration view uses canonical compiler paths and tracks native symlinks while preserving lexical resolver inputs.
-// @evidence contracts/performance.md#efficient-algorithms Each of R tasks is resolved once with a group-local resolver/cache; project declaration membership uses maps, while virtual declaration directory and known-link fallback scans grow with D directories and L links and are limited to fallback existence queries.
+// @evidence contracts/performance.md#efficient-algorithms Each supported task makes one resolver call and compares projected string/scalar fields, with group-local caches sharing eligible lookups. Actual resolver work includes ancestor/package probing, manifest bytes and path processing; tracing can bypass result-cache hits. Virtual declaration and known-link fallback scans can multiply directory/link population across existence queries, with native source-existence and realpath work in addition to map membership.
 // @evidence contracts/performance.md#reuse-equivalent-work One fresh resolver and cached virtual filesystem share equivalent lookups within a coherent group; a new replay filesystem prevents prior observation results from hiding changed native inputs.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Resolver caches, filesystem observations and known-link state are group-local and reclaimed after synchronous replay; retained entries grow with observed files/directories and links, with no historical cache or spawned task owned here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Fresh resolver and optional virtual/cached filesystem state retain entries, manifest buffers, projected results and known links for the synchronous group. This adapter keeps no historical registry or spawned task after return, making otherwise-unreferenced local state eligible for collection without promising immediate reclamation. Borrowed task/config graphs and observations retained by the supplied filesystem stay under their owners, with no fixed population or byte cap imposed here.
 func ReplayProgramResolutions(tasks []ProgramResolutionTask, filesystem vfs.FS) bool {
   if len(tasks) == 0 || filesystem == nil || tasks[0].compilerOptions == nil {
     return false
