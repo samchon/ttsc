@@ -13,7 +13,7 @@ import "testing"
 // 3. Assert the trailing comma lands after the spread.
 //
 // @evidence contracts/testing.md#behavioral-verification The value array must gain a comma after its spread while preserving aa and rest. Full output detects incorrectly applying assignment-rest exclusion to all spread elements.
-// @evidence contracts/testing.md#independent-expectations ECMAScript array value spread legally accepts a following comma, and installed Prettier 3.8.3 adds it in a broken value list. The authored expected array preserves element order and spread meaning.
+// @evidence contracts/testing.md#independent-expectations ECMAScript array-value grammar permits a trailing comma after an element list ending in spread. The independently authored expected array preserves aa, rest, their order and spread meaning while specifying the final comma; this entry does not execute a reference formatter.
 // @evidence contracts/testing.md#distinguishing-cases The value-position spread is positive, contrasting SkipsArrayRestAssignmentTarget and its nested/loop negatives. NonRestArrayAssignmentTarget separately establishes legal target insertion.
 // @evidence contracts/testing.md#execution-ownership TestFormatTrailingCommaInsertsAfterArraySpreadInValueLiteral owns every authored source, no-finding or complete-output assertion in the public Go unit population. The syntax-only owning rule and edit harness execute in one Go process without consumer installation, native product builds or a product-host child.
 func TestFormatTrailingCommaInsertsAfterArraySpreadInValueLiteral(t *testing.T) {
