@@ -3,8 +3,8 @@ package linthost
 import "testing"
 
 // TestFormatDeclarationHeaderIdempotentOnBrokenClauses verifies the rule
-// reproduces an already-correct multi-clause header byte-for-byte so the
-// cascade converges.
+// reports no finding for an already-correct multi-clause header. This direct
+// canonical-input case does not run or certify the complete cascade.
 //
 //  1. Parse a class header already in the Prettier multi-clause shape.
 //  2. Run format/declaration-header at printWidth 50.

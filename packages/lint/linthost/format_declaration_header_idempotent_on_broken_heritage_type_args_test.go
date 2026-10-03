@@ -3,9 +3,9 @@ package linthost
 import "testing"
 
 // TestFormatDeclarationHeaderIdempotentOnBrokenHeritageTypeArgs verifies the
-// rule reproduces the broken-type-argument shape as a fixed point so the
-// cascade converges: the rewritten type spans multiple lines, so the rule
-// abstains on the second pass.
+// rule abstains on the already-multiline generic heritage. The element-text
+// guard returns before rebuilding a header; this direct canonical-input case
+// observes no finding rather than a second pass or complete cascade run.
 //
 //  1. Parse a class header already in the broken-type-argument shape.
 //  2. Run format/declaration-header.

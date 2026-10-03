@@ -3,8 +3,9 @@ package linthost
 import "testing"
 
 // TestFormatDeclarationHeaderIdempotentOnExplodedClassBody verifies the rule
-// reproduces its most complex output shape byte-for-byte so the cascade
-// converges: tier-two one-type-per-line plus a class brace on its own line.
+// emits no finding for the canonical tier-two one-type-per-line header with a
+// class brace on its own line. This direct case does not run the full cascade
+// or compare transformed output bytes.
 //
 //  1. Parse a class header already in the exploded + own-line-brace shape.
 //  2. Run format/declaration-header at printWidth 80.
