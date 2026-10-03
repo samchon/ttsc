@@ -9,7 +9,7 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * alone instead of recursively preparing all retained legacy runtime donors.
  * Consolidated mode also stages the five original response-file decorator
  * inputs on that root, retaining each native target/order and output verdict.
- * Up to eighty more staged language profiles retain four ordinary publication/runtime
+ * Up to eighty-one more staged language profiles retain four ordinary publication/runtime
  * pairs, ESM member initialization, public JSX register and both forwarded CLI
  * modes, five diagnostic/effect rejections, three CLI/library option profiles
  * dynamic package exports and both excluded direct/public-register formats;
@@ -48,9 +48,11 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * cleanup, with exact kept/removal reports and awaited owned pair closure;
  * native unreadable-index fail-closed cleanup, with original capability skips
  * observed as skips and exact permission restoration before input reuse;
+ * actual compiled owner preload admission before user code, missing-run
+ * rejection without effects and independent empty-manifest execution;
  * a joined real lock-holder seed followed by native ESRCH and public clean
  * recovery/removal, before original conservative/explicit owner cleanup;
- * preserve/forwarded module and response entry transport; package-store format precedence, invalid config and empty-project fallback; installed-root/dependency noEmitOnError emission; nested references/cycles, explicit project and configDir resolution; native main/terminal behavior and dependency/orphan JSX; runtime-generated source and changed type-gate inputs; child-local native user-hook remaps; omitted same-name dependency own options; up to one hundred twenty-five public/worker requests plus two bounded departed-owner setup sequences keep their original
+ * preserve/forwarded module and response entry transport; package-store format precedence, invalid config and empty-project fallback; installed-root/dependency noEmitOnError emission; nested references/cycles, explicit project and configDir resolution; native main/terminal behavior and dependency/orphan JSX; runtime-generated source and changed type-gate inputs; child-local native user-hook remaps; omitted same-name dependency own options; up to one hundred thirty-two public/worker requests plus two bounded departed-owner setup sequences keep their original
  * transport and oracles. The dynamic import keeps its launcher
  * request and exact default RESCUED object; no host or Program is inferred.
  *
