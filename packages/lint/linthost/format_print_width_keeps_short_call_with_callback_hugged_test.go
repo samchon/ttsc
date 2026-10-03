@@ -7,13 +7,10 @@ import "testing"
 // hugging the parens — it is reflowed for consistent indentation but
 // the argument list is not exploded.
 //
-// This is the headline corruption fix. Before last-argument hugging and
-// the function-body printers landed, `new Singleton(() => { … })` was
-// rewritten to garbage: the callback's verbatim body kept its source
-// columns while the argument list re-indented around it, so `() =>`
-// and the body drifted to different indents. The rule must now produce
-// the Prettier-style hugged shape with a body indented exactly two
-// spaces under the `=>` header.
+// The constructor argument printer and structured arrow block compose
+// the supported hugged layout. The authored result requires each body
+// statement to use two spaces despite different original indents; it
+// does not execute an earlier printer or a subsequent type-check pass.
 //
 //  1. Feed a `new` expression whose argument is an arrow callback whose
 //     block body is mis-indented in the source.

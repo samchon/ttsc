@@ -6,12 +6,10 @@ import "testing"
 // the rule keeps a user-authored blank line inside a hugged callback
 // body instead of deleting it.
 //
-// The formatPrintWidth print engine rebuilds a block body from fresh
-// Hardline separators. Before the Literalline fix the rebuild collapsed
-// every inter-statement blank line, so the first `ttsc format` pass
-// silently rewrote a developer's spacing. With the fix the canonical
-// blank-line shape is a fixed point: the rule renders it back
-// byte-for-byte and reports no finding.
+// The block printer uses fresh statement separators and preserves a
+// single authored blank line. This direct rule assertion requires no
+// finding on that layout; it does not execute an earlier revision or
+// a full format pass, or separately compare a returned printer doc.
 //
 //  1. Feed a `new Singleton(() => { … })` whose body has a blank line
 //     between two statements.
