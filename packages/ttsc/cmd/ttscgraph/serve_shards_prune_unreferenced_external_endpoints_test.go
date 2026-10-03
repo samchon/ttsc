@@ -40,6 +40,9 @@ func TestServeShardsPruneUnreferencedExternalEndpoints(t *testing.T) {
     t.Fatal("fixture source was absent from resident program")
   }
   sourceKey := session.graphStore.sourceKeys[source.FileName()]
+  if sourceKey == "" || len(session.graphStore.sourceExternal[sourceKey]) != 1 {
+    t.Fatalf("fixture source must own one external endpoint: key=%q targets=%v", sourceKey, session.graphStore.sourceExternal[sourceKey])
+  }
   var externalID string
   for id := range session.graphStore.sourceExternal[sourceKey] {
     externalID = id
@@ -47,6 +50,10 @@ func TestServeShardsPruneUnreferencedExternalEndpoints(t *testing.T) {
   }
   if externalID == "" {
     t.Fatal("fixture did not produce an external endpoint")
+  }
+  endpoint, exists := session.graphStore.externalNodes[externalID]
+  if !exists || !endpoint.External || endpoint.Name != "external" || session.graphStore.externalReferences[externalID] != 1 {
+    t.Fatalf("fixture endpoint is not the singly referenced external callable: id=%q node=%#v references=%d", externalID, endpoint, session.graphStore.externalReferences[externalID])
   }
 
   if err := os.WriteFile(index, []byte("import { external } from './api';\nexport function run(): number { return 1; }\n"), 0o644); err != nil {
