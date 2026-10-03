@@ -14,25 +14,27 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  *
  * @evidence contracts/testing.md#behavioral-verification The built descriptor evaluates real CJS configs and rejects scalar, source-less object and source-less required module entries with the declaring demo contributor named in the error.
  * @evidence contracts/testing.md#independent-expectations Contributor registration requires a source path; the three authored invalid values deliberately omit that requirement and the literal contributor/source error pattern is independent of validation code.
- * @evidence contracts/testing.md#distinguishing-cases Scalar 42, empty object and a relative string loading an empty module exercise distinct CJS evaluator registration paths; namespace normalization cases have direct source-unit ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Scalar 42, empty object and a relative string loading an empty module exercise distinct CJS evaluator registration paths. All three named rows are attempted and failures identify their row; direct namespace normalization does not own these malformed evaluator inputs.
  * @evidence contracts/testing.md#execution-ownership This named entry calls the emitted factory with the exact subdirectory configFile and original declaring project context, then asserts each actual failure.
  * @evidence contracts/e2e.md#necessary-boundary CJS isolated evaluation and relative module loading must return actionable contributor errors through the real result protocol; direct normalization tests do not establish this connection.
- * @evidence contracts/e2e.md#shared-execution The three invalid config inputs reuse the emitted factory and compiler artifacts and never compile contributors or run a native host. Each evaluator must observe a distinct module/config population rather than retain prior require state.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each case has a fresh project and config subdirectory removed in finally; the malformed relative module is created only for its case, with no cached successful descriptor reused.
- * @evidence contracts/e2e.md#preserved-coverage All three original invalid shapes, the relative string module and contributor/source diagnostic assertion remain executable; none is replaced by a generic namespace collision result.
+ * @evidence contracts/e2e.md#shared-execution The three invalid config inputs reuse the workspace-built factory and selected evaluator/compiler artifacts, never compiling contributors or running a native lint rule host. Three parent factory calls do not certify inner child, cache or Program counts; each fresh config/module population keeps require state separate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each row owns a fresh project and config subdirectory, with its malformed relative module created only there. Observation and cleanup errors are independently retained before advancing to the next row. Artifact paths are not loaded-image or descendant-join witnesses; no cached successful descriptor substitutes for the error assertion.
+ * @evidence contracts/e2e.md#preserved-coverage All three original invalid shapes, the relative module, explicit subdirectory config and contributor/source error pattern remain and each named row is attempted. No generic collision result replaces them; consolidated registration, actual evaluator observations and survivor execution remain unverified.
  */
 export function test_descriptor_rejects_malformed_cjs_contributors(): void {
+  const failures: unknown[] = [];
   for (const [name, pluginValue, moduleBody] of [
     ["scalar", "42", undefined],
     ["missing-source", "{}", undefined],
     ["malformed-module", '"../bad-contributor.cjs"', "module.exports = {};"],
   ] as const) {
-    const project = createLintProject({
-      name: `malformed-cjs-contributor-${name}`,
-      source: "export const value = 1;\n",
-      pluginConfig: { configFile: "./configs/lint.config.cjs" },
-    });
+    let project: ReturnType<typeof createLintProject> | undefined;
     try {
+      project = createLintProject({
+        name: `malformed-cjs-contributor-${name}`,
+        source: "export const value = 1;\n",
+        pluginConfig: { configFile: "./configs/lint.config.cjs" },
+      });
       fs.mkdirSync(path.join(project.tmpdir, "configs"), { recursive: true });
       fs.writeFileSync(
         path.join(project.tmpdir, "configs", "lint.config.cjs"),
@@ -46,13 +48,23 @@ export function test_descriptor_rejects_malformed_cjs_contributors(): void {
           "utf8",
         );
       }
+      const projectRoot = project.tmpdir;
       assert.throws(
-        () => loadContributors(project.tmpdir),
+        () => loadContributors(projectRoot),
         /contributor "demo".*source/i,
       );
+    } catch (error) {
+      failures.push(new AggregateError([error], `Malformed CJS contributor ${name} observation failed`));
     } finally {
-      project.cleanup();
+      try {
+        project?.cleanup();
+      } catch (error) {
+        failures.push(new AggregateError([error], `Malformed CJS contributor ${name} owned cleanup failed`));
+      }
     }
+  }
+  if (failures.length !== 0) {
+    throw new AggregateError(failures, "Malformed CJS contributor observations or owned cleanup failed");
   }
 }
 

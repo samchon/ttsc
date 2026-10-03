@@ -22,12 +22,12 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  *
  * @evidence contracts/testing.md#behavioral-verification Real ttsx evaluation supplies react-hooks and react_hooks contributor objects to the emitted descriptor, which must throw an error naming the TS config, both namespaces and their common Go name.
  * @evidence contracts/testing.md#independent-expectations Go contributor names replace hyphens with underscores, so these independently authored distinct namespaces collide at react_hooks; literal error fragments verify the preserved input vocabulary.
- * @evidence contracts/testing.md#distinguishing-cases This TS evaluator connection complements the CJS connection; direct normalizeContributors units own ordering, three-way collisions, duplicate source handling and independent names.
+ * @evidence contracts/testing.md#distinguishing-cases This TS evaluator connection complements the CJS connection; tests/test-lint/src/features/plugin/test_contributor_namespace_normalization_preserves_every_registration.ts directly owns ordering, three-way collisions, repeated first-source handling and independent names, without executing this transport. Its authored body is not current runtime proof.
  * @evidence contracts/testing.md#execution-ownership The named entry loads the emitted factory and real ttsx launcher; the source normalization unit does not claim to execute this evaluator connection.
  * @evidence contracts/e2e.md#necessary-boundary The typed-config evaluator must serialize both distinct contributor registrations before common normalization; a CJS-only or direct normalization test cannot detect loss in that subprocess connection.
- * @evidence contracts/e2e.md#shared-execution One typed config and one evaluator invocation preserve this connection. The case reuses emitted compiler/launcher artifacts and creates only source directories, never compiling their Go code.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project owns both immutable contributor directories; the launcher override is restored and the project removed in finally. No previous successful descriptor masks the collision.
- * @evidence contracts/e2e.md#preserved-coverage The original TS filename, ordered two namespace names and normalized Go-name error assertions remain; source units preserve additional normalization decisions without repeating this evaluator preparation.
+ * @evidence contracts/e2e.md#shared-execution One factory call selects the typed config through the workspace-built evaluator/compiler route; that parent call does not count actual evaluator children, cache outcomes or compiler Programs. The case reuses built artifacts and creates only source directories, never compiling their Go code or starting a native lint rule host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project owns both immutable contributor directories; the exact absent/value launcher override is restored before project cleanup, and original observation plus cleanup failures are retained. Selected artifact paths do not certify loaded-image equality or descendant joins; no previous successful descriptor masks the collision.
+ * @evidence contracts/e2e.md#preserved-coverage The original TS filename, ordered two namespace names and normalized Go-name error assertions remain. The named direct normalization entry is complementary policy ownership; consolidated registration, actual survivor execution and evaluator transport preservation remain unverified.
  */
 export function test_descriptor_rejects_colliding_contributor_namespaces_from_typescript_config() {
     const project = createLintProject({
@@ -37,6 +37,7 @@ export function test_descriptor_rejects_colliding_contributor_namespaces_from_ty
     });
     const previousTtsxBinary = process.env.TTSC_TTSX_BINARY;
     process.env.TTSC_TTSX_BINARY = TestProject.TTSX_BIN;
+    const failures: unknown[] = [];
     try {
       const first = createContributorSource(project.tmpdir, "first");
       const second = createContributorSource(project.tmpdir, "second");
@@ -71,13 +72,22 @@ export function test_descriptor_rejects_colliding_contributor_namespaces_from_ty
           return true;
         },
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
       if (previousTtsxBinary === undefined) {
         delete process.env.TTSC_TTSX_BINARY;
       } else {
         process.env.TTSC_TTSX_BINARY = previousTtsxBinary;
       }
-      project.cleanup();
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length !== 0) {
+      throw new AggregateError(failures, "Typed contributor collision observation or owned cleanup failed");
     }
   }
 
