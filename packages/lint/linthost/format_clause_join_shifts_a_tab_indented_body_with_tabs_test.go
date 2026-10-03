@@ -8,10 +8,10 @@ import (
 
 // TestFormatClauseJoinShiftsATabIndentedBodyWithTabs verifies the shift renders columns in the project's own indentation unit.
 //
-// Rendering the new column as spaces silently respaced a tab-indented file, and
-// `format/indent` cedes braceless bodies so nothing converted it back. The rule
-// now builds the indent through the shared layout helper the other structural
-// rules use.
+// The continuation renderer uses the shared layout's tab unit and any residual
+// spaces. This fixture leaves an over-width body on its own line, requiring its
+// final indent to remain a tab. It does not reproduce earlier respacing or
+// isolate whether a later formatter pass repaired an intermediate indent.
 //
 //  1. Seed a tab-indented project with `useTabs` and an `else if` chain.
 //  2. Run `ttsc format`.

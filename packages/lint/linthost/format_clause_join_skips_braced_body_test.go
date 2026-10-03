@@ -2,12 +2,13 @@ package linthost
 
 import "testing"
 
-// TestFormatClauseJoinSkipsBracedBody verifies a braced clause body is
-// never collapsed onto the header line.
+// TestFormatClauseJoinSkipsBracedBody verifies ordinary if Block bodies are
+// excluded from this rule's header join.
 //
 // Prettier keeps `if (a) {\n  b();\n}` block form; only an unbraced
-// single statement is a join candidate. The rule abstains on a Block
-// body, so a brace-on-next-line style (not this rule's concern) is left
+// single statement is a join candidate for this ordinary if target. Labeled
+// Block bodies have a separate alwaysJoin exception. Here a brace-on-next-line
+// style (not this rule's concern) is left
 // for the block/print-width machinery.
 //
 //  1. Parse if with a multiline block and a next-line single-line block.
