@@ -22,15 +22,15 @@ import path from "node:path";
  * 2. Run an entry that requires both through a logging compiler wrapper.
  * 3. Assert both files got the project's options and the project was built once.
  * @evidence contracts/testing.md#behavioral-verification One ttsx run requires tools/a.ts and b.ts, must print a=3 b=3, and the real-compiler wrapper log must contain exactly one tools/tsconfig.json project build.
- * @evidence contracts/testing.md#independent-expectations Legacy method decorators receive three arguments, and the authored log filter counts actual -p invocations of the tools config independently of runtime memo state.
+ * @evidence contracts/testing.md#independent-expectations Legacy method decorators receive three arguments, and the authored log filter counts actual nonterminal -p invocations of the tools config independently of runtime memo state; enabled showConfig/listFilesOnly requests are print-and-exit inspections and all their argv remain recorded.
  * @evidence contracts/testing.md#distinguishing-cases The empty files list yields no project output while two excluded roots still inherit experimentalDecorators. Windows returns before this POSIX wrapper scenario.
  * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
  *
  * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_builds_a_failing_project_once_for_every_file_it_owns entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
  * @evidence contracts/e2e.md#necessary-boundary Actual root compilation, decorator execution and compiler-process invocation recording jointly expose duplicate failed-project builds; a memo unit alone cannot prove one real compiler request.
- * @evidence contracts/e2e.md#shared-execution One consumer, one tools config and two roots share one host; the wrapper delegates every call to the real compiler. The asserted tools project request occurs once, while each required root still needs its own checked emit.
+ * @evidence contracts/e2e.md#shared-execution One consumer, one tools config and two roots share one host; the wrapper delegates every call to the real compiler. The asserted nonterminal tools project emit occurs once; native option/source-list inspection calls retain separate costs, while each required root still needs its own checked emit.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The log belongs to the private fixture and accumulates only this host invocation. TestProject tracks the fixture until test-process exit; wrapper/host children are synchronous. Hard termination can leave tracked temp state.
- * @evidence contracts/e2e.md#preserved-coverage Original two decorator outputs and exact one-project log count remain. The early Windows return remains an explicit execution limitation.
+ * @evidence contracts/e2e.md#preserved-coverage Original two decorator outputs and exact one-project emit count remain; terminal native inspection calls remain in the full log and trace instead of being misclassified as duplicate emits. The early Windows return remains an explicit execution limitation.
  */
 export function test_ttsx_builds_a_failing_project_once_for_every_file_it_owns(): void | false {
     if (process.platform === "win32") return false;
@@ -112,10 +112,16 @@ export function test_ttsx_builds_a_failing_project_once_for_every_file_it_owns()
       .map((line) => JSON.parse(line) as string[])
       .filter((args) => {
         const tsconfig = args[args.indexOf("-p") + 1];
+        // Native terminal inspection calls are still recorded and measured,
+        // but do not attempt the failed project emit whose memo is asserted.
+        const showConfig = args.lastIndexOf("--showConfig");
+        const listFilesOnly = args.lastIndexOf("--listFilesOnly");
+        const inspection = (showConfig >= 0 && args[showConfig + 1] !== "false") ||
+          (listFilesOnly >= 0 && args[listFilesOnly + 1] !== "false");
         return (
           tsconfig !== undefined &&
           path.basename(tsconfig) === "tsconfig.json" &&
-          path.basename(path.dirname(tsconfig)) === "tools"
+          path.basename(path.dirname(tsconfig)) === "tools" && !inspection
         );
       });
     assert.equal(projectBuilds.length, 1, JSON.stringify(projectBuilds));
