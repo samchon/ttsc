@@ -30,13 +30,13 @@ import {
  * 4. Launch the viewer on port zero and request every served asset.
  * 5. Prove it remains alive until the test explicitly stops it.
  *
- * @evidence contracts/testing.md#behavioral-verification The installed viewer rejects an occupied localhost port with one owned diagnostic, then a separate port-zero viewer stays alive while index, viewer script and graph JSON return correct statuses and content types.
+ * @evidence contracts/testing.md#behavioral-verification The workspace-built viewer rejects an occupied localhost port with one owned diagnostic, then a separate port-zero viewer stays alive while index, viewer script and graph JSON return correct statuses and content types.
  * @evidence contracts/testing.md#independent-expectations An actual occupying server and literal HTTP/status/content-type/diagnostic assertions independently require real binding behavior; script length checks asset delivery without asserting its complete contents.
  * @evidence contracts/testing.md#distinguishing-cases Port conflict contrasts successful ephemeral binding; three routes share one live viewer, and unhandled stack/error duplication must be absent.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_view_owns_http_server_lifecycle runs installed viewer processes and actual HTTP or dump-validation boundaries; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_view_owns_http_server_lifecycle runs workspace-built viewer processes with an explicit selected native binary and actual HTTP/dump-validation boundaries, not a consumer-local packed SDK installation; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native dump loading, bundled assets and a real HTTP listening socket must assemble through the CLI; direct reducer or route calls cannot certify binding and process lifetime.
- * @evidence contracts/e2e.md#shared-execution Both launches borrow the target-installed project also used by empty-artifact discovery and resident lifetime checks. Occupied and successful server states still require two viewer lifetimes; all three assets and readiness/alive assertions share the successful viewer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original viewer config temporarily applies and restores after owned server/child cleanup. Ephemeral ports avoid conflicts; the occupying socket closes and successful viewer is killed and its process/stdio close joined before reuse. An unjoined child retains its project and blocks dependent reuse; restoration failure also blocks reuse. Startup/exit deadlines remain sixty/ten seconds and HTTP responses own a ten-second deadline with error/abort rejection.
+ * @evidence contracts/e2e.md#shared-execution Both launches borrow the authored target-layout project also used by empty-artifact discovery and resident lifetime checks, but explicitly select the workspace native binary rather than proving target-installed native resolution. Occupied and successful server states still require two viewer lifetimes; all three assets and readiness/alive assertions share the successful viewer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original viewer config temporarily applies and restores after owned server/child cleanup; operation, socket-cleanup and config-reset failures are collected together. Ephemeral ports avoid conflicts; the occupying socket receives a close attempt even when initial listen setup fails, and the successful viewer is killed and its process/stdio close joined before reuse. An unjoined child retains its project and blocks dependent reuse; restoration failure also blocks reuse. Startup/exit deadlines remain sixty/ten seconds and HTTP responses own a ten-second deadline with error/abort rejection.
  * @evidence contracts/e2e.md#preserved-coverage Original status-one/error-count/stack exclusions, URL observation, three HTTP routes, asset length, arrays and live-child checks remain. This genuine native success also retains the removed canned-dump viewer readiness, alive-until-stop and joined-exit assertions; malformed dump schema/diagnostic/code controls remain at the actual generated viewer decoder owner.
  */
 export const case_ttscgraph_view_owns_http_server_lifecycle =
@@ -55,12 +55,11 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
         )["tsconfig.json"]!,
       );
       const occupied = net.createServer();
-      await new Promise<void>((resolve, reject) => {
-        occupied.once("error", reject);
-        occupied.listen(0, "127.0.0.1", resolve);
-      });
-
       try {
+        await new Promise<void>((resolve, reject) => {
+          occupied.once("error", reject);
+          occupied.listen(0, "127.0.0.1", resolve);
+        });
         const address = occupied.address();
         assert.ok(address && typeof address === "object");
         const result = TestProject.spawn(
@@ -201,6 +200,8 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
           }
         });
       }
+    } catch (error) {
+      failures.push(error);
     } finally {
       if (joined) {
         try {
