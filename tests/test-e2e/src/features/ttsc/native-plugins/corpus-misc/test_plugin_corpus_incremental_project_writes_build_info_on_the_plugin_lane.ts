@@ -32,13 +32,13 @@ import {
  * 3. Assert the transformed JavaScript and a versioned build-information document
  *    at exactly the configured path.
  *
- * @evidence contracts/testing.md#behavioral-verification Exercises native emit with incremental build-information publication; asserts transformed JavaScript and a configured build-information document with a string version, distinguishing lost delivery or incorrect assembly from valid compilation.
+ * @evidence contracts/testing.md#behavioral-verification Exercises native emit with incremental build-information publication; asserts transformed JavaScript and a newly published configured JSON document with a string version, without certifying compatible compiler-version bytes or a subsequent incremental reuse, distinguishing lost delivery or incorrect assembly from valid compilation.
  * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
- * @evidence contracts/testing.md#distinguishing-cases This case pins incremental enables publication outside outDir at the configured path; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
- * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_incremental_project_writes_build_info_on_the_plugin_lane entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/testing.md#distinguishing-cases This case pins incremental enables publication outside outDir at the configured path, contrasted with its absence before launch; this body does not exercise a later incremental load. Other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_incremental_project_writes_build_info_on_the_plugin_lane entry executes from native-plugins/corpus-misc in the generic E2E population without a platform filter in this body; it starts the actual launcher and native producer.
  * @evidence contracts/e2e.md#necessary-boundary The real connection is native emit with incremental build-information publication; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
- * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; the compiler-option payload is a distinct boundary input. This body does not measure hits/build totals or prove independent preparation per input is minimal.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build/invalidation assertion or observed warm hit is claimed. Direct synchronous return and TestProject cleanup do not certify arbitrary descendant termination or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage Retains transformed JavaScript and a configured build-information document with a string version with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
 export function test_plugin_corpus_incremental_project_writes_build_info_on_the_plugin_lane() {
@@ -71,23 +71,25 @@ export function test_plugin_corpus_incremental_project_writes_build_info_on_the_
       },
     );
 
+    const buildInfoPath = path.join(root, ".cache", "app.tsbuildinfo");
+    assert.equal(fs.existsSync(buildInfoPath), false);
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr || result.stdout);
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
     assert.match(js, /GO DRIVER EMIT PLUGIN/);
 
-    const buildInfoPath = path.join(root, ".cache", "app.tsbuildinfo");
     assert.ok(
       fs.existsSync(buildInfoPath),
       "tsBuildInfoFile was not written by the native plugin emit lane",
     );
-    // A file a consumer can read back, not merely a file that exists: tsgo
-    // rejects build information whose recorded compiler version it cannot
-    // match, so the version field is what makes the artifact usable.
+    // Require readable JSON and a version string. This shape alone does not
+    // prove selected compiler-version equality or subsequent incremental reuse.
     const buildInfo = JSON.parse(
       fs.readFileSync(buildInfoPath, "utf8"),
     ) as Record<string, unknown>;

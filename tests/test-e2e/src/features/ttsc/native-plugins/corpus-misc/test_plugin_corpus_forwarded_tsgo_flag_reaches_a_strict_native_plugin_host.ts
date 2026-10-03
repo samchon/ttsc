@@ -38,10 +38,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Exercises forwarded sourceMap environment delivery; asserts zero exit, no unknown-flag error, transformed JavaScript, its map trailer and emitted map, distinguishing lost delivery or incorrect assembly from valid compilation.
  * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
  * @evidence contracts/testing.md#distinguishing-cases This case pins a project lacking sourceMap receives the requested side product through native compiler options; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
- * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_forwarded_tsgo_flag_reaches_a_strict_native_plugin_host entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_forwarded_tsgo_flag_reaches_a_strict_native_plugin_host entry executes from native-plugins/corpus-misc in the generic E2E population without a platform filter in this body; it starts the actual launcher and native producer.
  * @evidence contracts/e2e.md#necessary-boundary The real connection is forwarded sourceMap environment delivery; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
- * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; the compiler-option payload is a distinct boundary input. This body does not measure hits/build totals or prove independent preparation per input is minimal.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build/invalidation assertion or observed warm hit is claimed. Direct synchronous return and TestProject cleanup do not certify arbitrary descendant termination or loaded-image equality.
  * @evidence contracts/e2e.md#preserved-coverage Retains zero exit, no unknown-flag error, transformed JavaScript, its map trailer and emitted map with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
 export function test_plugin_corpus_forwarded_tsgo_flag_reaches_a_strict_native_plugin_host() {
@@ -69,10 +69,15 @@ export function test_plugin_corpus_forwarded_tsgo_flag_reaches_a_strict_native_p
       },
     );
 
+    const config = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"));
+    assert.equal(Object.hasOwn(config.compilerOptions, "sourceMap"), false);
+    assert.equal(fs.existsSync(path.join(root, "dist", "main.js.map")), false);
     const result = spawn(ttscBin, ["--cwd", root, "--emit", "--sourceMap"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr || result.stdout);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.doesNotMatch(
       `${result.stdout}${result.stderr}`,
