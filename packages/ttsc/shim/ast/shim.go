@@ -1562,8 +1562,8 @@ func IsDeclarationNameOrImportPropertyName(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The object/array alternatives are language syntax rather than fixture-specific pattern names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies both forms and input/element validation limits with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsBindingPattern acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsBindingPattern performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsBindingPattern computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent pattern classifier. Upstream compares the node kind against two binding kinds in O(1) time and space without inspecting elements.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsBindingPattern computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsBindingPattern(node *Node) bool {
   return innerast.IsBindingPattern(node)
