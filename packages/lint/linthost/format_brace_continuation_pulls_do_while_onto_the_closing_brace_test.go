@@ -4,9 +4,9 @@ import "testing"
 
 // TestFormatBraceContinuationPullsDoWhileOntoTheClosingBrace verifies a do-loop's `while` joins the closing brace of a block body.
 //
-// The `while` of a do-loop is a continuation keyword like `else`, not a loop
-// header, and it is the one whose own statement kind differs from the clause it
-// continues.
+// The `while` of a do-loop is a continuation keyword like `else`, not a
+// separate while-statement node. The rule reads the DoStatement's block body
+// and locates the following keyword while preserving its condition.
 //
 //  1. Parse a `do` whose `while` starts its own line after a block body.
 //  2. Apply format/brace-continuation.
