@@ -22,11 +22,14 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_marks_volatile_modules_uncacheable is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built loader propagates native volatility to captured host channel; actual host cache reuse is not run.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original empty-plugin project; shared calls borrow it after prefix options return. The original volatile then hermetic options and source are unchanged. Actual hermetic callback return gates subsequent dependency options; failed volatile assertions conservatively block that transition. Completion is not descendant closure and retained inputs remain owned by the shared caller.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: volatile output carries PLUGIN with numeric suffix and exactly cacheable(false); ordinary PLUGIN invokes no cacheability toggle. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_marks_volatile_modules_uncacheable(): Promise<void> {
-  const root = TestUnpluginProject.createProject({ plugins: [] });
+export async function test_turbopack_loader_marks_volatile_modules_uncacheable(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
   const volatileRun = await runTurbopackLoaderWithContext({
     resourcePath: TestUnpluginProject.mainFile(root),
     source: TestUnpluginProject.mainSource(root),
@@ -57,6 +60,7 @@ export async function test_turbopack_loader_marks_volatile_modules_uncacheable()
       ],
     },
   });
+  observeReturned?.();
   TestUnpluginProject.assertTransformedToPlugin(hermeticRun.content);
   assert.deepEqual(hermeticRun.cacheableCalls, []);
 }
