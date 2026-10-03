@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { inspect } from "node:util";
 
 import { E2eProcessTrace } from "../../utils/src/E2eProcessTrace";
-import { captureE2eTracePhase, type TracePhaseInput } from "./internal/captureE2eTracePhase";
+import { captureE2eTracePhase, type TracePhaseInput, type TracePhaseObservation } from "./internal/captureE2eTracePhase";
+import { compareE2ePhaseObservations } from "./internal/compareE2ePhaseObservations";
 import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "./internal/pairE2eTraceWriterManifest";
 import { pairE2eColdCommandArtifact } from "./internal/pairE2eColdCommandArtifact";
 import { pairE2eCommandFileObservation } from "./internal/pairE2eCommandFileObservation";
@@ -38,6 +39,7 @@ import { pairE2eInvocationOutcomes } from "./internal/pairE2eInvocationOutcomes"
  */
 export async function measureLegacyE2e(): Promise<void> {
   const consolidated = process.argv.includes("--consolidated");
+  let retainedBaselinePhase: TracePhaseObservation<unknown> | undefined;
   const traceRoot = process.env.TTSC_E2E_TRACE;
   if (!traceRoot || !path.isAbsolute(traceRoot))
     throw new Error("Legacy measurement requires the fixed absolute TTSC_E2E_TRACE root");
@@ -119,6 +121,7 @@ export async function measureLegacyE2e(): Promise<void> {
     );
     // Use the actual completed baseline cursor, never an authored event count.
     input.afterSequences = { ...baseline.phase.traces!.lastWriterSequences };
+    retainedBaselinePhase = baseline.phase;
   }
   if (input.coldArtifacts !== undefined && !Array.isArray(input.coldArtifacts))
     throw new Error("Cold artifact requirements must be an explicitly selected array");
@@ -239,7 +242,10 @@ export async function measureLegacyE2e(): Promise<void> {
     };
   });
   const invocations = pairE2eInvocationOutcomes(phase.traces);
-  const report = JSON.stringify({ phase, pairing, coldArtifacts, commandFiles, invocations, descendantJoinCertified: false }, (_key, value) =>
+  const comparison = retainedBaselinePhase && phase.traces
+    ? compareE2ePhaseObservations(retainedBaselinePhase, phase)
+    : undefined;
+  const report = JSON.stringify({ phase, pairing, coldArtifacts, commandFiles, invocations, comparison, descendantJoinCertified: false }, (_key, value) =>
     value instanceof Error ? { name: value.name, message: value.message, stack: value.stack,
       diagnostic: inspect(value, { depth: null, customInspect: false, getters: false,
         maxArrayLength: null, maxStringLength: null }) } : value, 2);
