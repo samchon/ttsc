@@ -15,7 +15,7 @@ import (
 //
 // Checker.IsContextSensitive intentionally tracks nested untyped functions,
 // not every expression affected by contextual typing. Plain literals, wrapper
-// expressions, annotated callback returns, and generic calls with contextual
+// expressions, callback return literals, and generic calls with contextual
 // return inference must therefore remain uncertain in candidate proofs.
 //
 // @evidence contracts/testing.md#behavioral-verification Candidate selection must not accept evidence widened by another signature's context.

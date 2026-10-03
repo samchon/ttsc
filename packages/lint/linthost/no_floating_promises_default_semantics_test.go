@@ -6,7 +6,7 @@ import (
 )
 
 // TestNoFloatingPromisesDefaultSemantics verifies the scalar defaults reject
-// every unhandled built-in Promise form without opting structural thenables in.
+// the four authored unhandled Promise forms without opting structural thenables in.
 //
 // The regression combines missing rejection handlers, a still-floating
 // finally chain, and a Promise-bearing array with a custom thenable control.
