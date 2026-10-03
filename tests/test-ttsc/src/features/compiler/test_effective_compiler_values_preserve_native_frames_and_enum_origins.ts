@@ -21,15 +21,19 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * effective reader. The actual safety inspector tokenizes one authored response
  * file and records its observation. Unsafe response extensions fail inspection
  * before compiler selection; absent binary paths are independent controls.
+ * Authored map settings and forwarded booleans feed both ordinary profile
+ * resolution and an actual supplied effective reader. Explicit null observes
+ * provisional config fallback only; it does not establish compiler rejection.
  * No native compiler expansion is executed.
  *
  * 1. Collect every native-padding case across five downstream decisions.
  * 2. Distinguish CLI normalization from JSON data, Unicode folds and resets.
  * 3. Preserve scalar operands, ordered assignments and caller-owned inputs.
  * 4. Inspect one actual response frame and reject unsafe trailing extensions.
+ * 5. Distinguish effective map flags from explicit null's provisional config fallback.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual effective reader, runtime arguments/profile, module classifier and positional output resolver preserve native frames and enum origins. Scalar @data remains an operand; CompilerArgumentsInspection tokenizes an authored response file into a literal vector and records one observation. Unsafe trailing response extensions return null with unchanged argv and no available native compiler; actual native expansion is unobserved.
- * @evidence contracts/testing.md#independent-expectations Literal native whitespace code points, authored commonjs/ESNext/JSX settings, native simple İ-to-i folding and ordinary CLI null/empty reset semantics define expected formats, suffixes and runtime overrides independently of generated metadata or product outputs.
+ * @evidence contracts/testing.md#independent-expectations Literal native whitespace code points, authored commonjs/ESNext/JSX settings, native simple İ-to-i folding and ordinary CLI null/empty reset semantics define expected formats, suffixes and runtime overrides independently of generated metadata or product outputs. Literal map-policy booleans distinguish missing/off maps, configured/forwarded maps, false/null resets and config-only fallback independently of the profile result.
  * @evidence contracts/testing.md#distinguishing-cases All 27 native whitespace characters on either or both sides, raw JSON whitespace, leading-dash invalid values, Unicode native folding, absence versus null and empty resets, repeated assignments, aliases, config-only rejected assignments, dash/@ scalar operands and genuine response frames distinguish the verified causes. Every observation is collected before failure is reported.
  * @evidence contracts/testing.md#execution-ownership This source unit invokes authored operations and reads real temporary config/source/response files in one process. The two selected native binary paths are independently absent; it starts no compiler, consumer host, SDK build or OS observer. Existing watch units and native boundary cases retain event delivery and compiler integration ownership.
  */
@@ -347,6 +351,97 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
         true,
       );
     });
+  }
+  const mapPolicies: readonly {
+    name: string;
+    options: Record<string, boolean>;
+    args: readonly string[];
+    expected: boolean;
+    fallbackExpected?: boolean;
+  }[] = [
+    { name: "omitted", options: {}, args: [], expected: true },
+    {
+      name: "both off",
+      options: { sourceMap: false, inlineSourceMap: false },
+      args: [],
+      expected: true,
+    },
+    {
+      name: "configured external map",
+      options: { sourceMap: true },
+      args: [],
+      expected: false,
+    },
+    {
+      name: "configured inline map",
+      options: { inlineSourceMap: true },
+      args: [],
+      expected: false,
+    },
+    {
+      name: "forwarded inline map",
+      options: { sourceMap: false, inlineSourceMap: false },
+      args: ["--inlineSourceMap"],
+      expected: false,
+      fallbackExpected: true,
+    },
+    {
+      name: "forwarded false overrides configured inline map",
+      options: { inlineSourceMap: true },
+      args: ["--inlineSourceMap", "false"],
+      expected: true,
+      fallbackExpected: false,
+    },
+    {
+      name: "present null resets configured inline map",
+      options: { inlineSourceMap: true },
+      args: ["--inlineSourceMap", "null"],
+      expected: true,
+    },
+  ];
+  for (const [index, policy] of mapPolicies.entries()) {
+    const mapConfig = path.join(root, `map-policy-${index}.json`);
+    let parsed: ReturnType<typeof readProjectConfig> | undefined;
+    observe(`runtime map input ${policy.name}`, () => {
+      fs.writeFileSync(
+        mapConfig,
+        JSON.stringify({ compilerOptions: policy.options, files: ["view.tsx"] }),
+      );
+      parsed = readProjectConfig({ cwd: root, tsconfig: mapConfig });
+    });
+    if (parsed === undefined) continue;
+    const mapProject = parsed;
+    observe(`runtime map policy ${policy.name}`, () => {
+      assert.equal(
+        runtimeEmitProfile(mapProject, policy.args).forceRuntimeSourceMap,
+        policy.expected,
+      );
+    });
+    observe(`supplied actual map reader ${policy.name}`, () => {
+      const effective = readEffectiveCompilerOptions(mapProject, policy.args);
+      assert.ok(effective !== null);
+      assert.equal(
+        runtimeEmitProfile(mapProject, policy.args, undefined, effective)
+          .forceRuntimeSourceMap,
+        policy.expected,
+      );
+      if (policy.name === "present null resets configured inline map") {
+        assert.equal(effective("inlineSourceMap"), null);
+        assert.equal(
+          readCompilerOptionValues(policy.args).values.has("inlineSourceMap"),
+          true,
+        );
+      }
+    });
+    if (policy.fallbackExpected !== undefined)
+      observe(`explicit null provisional map policy ${policy.name}`, () => {
+        // Supplying null observes the supported fallback, not a compiler rejection.
+        assert.equal(
+          runtimeEmitProfile(mapProject, policy.args, undefined, null)
+            .forceRuntimeSourceMap,
+          policy.fallbackExpected,
+        );
+      });
   }
   if (failures.length !== 0)
     throw new AggregateError(
