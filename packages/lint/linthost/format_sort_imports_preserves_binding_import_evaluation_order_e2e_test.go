@@ -13,15 +13,16 @@ import (
 // named, and namespace imports retain their observable module evaluation order.
 //
 // Every binding import evaluates its dependency even though it is not a bare
-// side-effect import. The old bare-import-only guard sorted `b` before `a` into
-// `a` before `b`, so this executable ESM witness locks the runtime semantics,
-// not merely the formatter's source text.
+// side-effect import. The literal dependency trace distinguishes preserving
+// authored b-before-a order from alphabetical a-before-b reordering. This
+// entry owns a direct rule observation followed by a separate actual Node
+// ESM witness; it does not execute an installed product host.
 //
 //  1. Format binding imports whose lexical order differs from source order.
 //  2. Execute dependency modules that append their names to shared state.
 //  3. Assert the formatter emits no declaration edit and Node observes `b,a`.
 //
-// @evidence contracts/testing.md#behavioral-verification Exercises the native sort-imports rule followed by actual ESM dependency execution in Node; asserts zero formatter findings and the literal b,a dependency evaluation trace, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#behavioral-verification Exercises the in-process owning sort-imports rule followed by actual ESM dependency execution in a separate Node child; asserts zero formatter findings and the literal b,a dependency evaluation trace, distinguishing the named lost connection or changed behavior from valid execution.
 // @evidence contracts/testing.md#independent-expectations ECMAScript binding imports execute modules in authored order; independent dependency modules append their own identities.
 // @evidence contracts/testing.md#distinguishing-cases This case owns default/named and namespace bindings are all effectful despite not being bare side-effect imports; portable rule decisions remain in the shared Go unit population.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestFormatSortImportsPreservesBindingImportEvaluationOrder by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
@@ -52,7 +53,12 @@ export const bNamed = 0;
 globalThis.__sortImportsTrace.push("a");
 export const aNamed = 0;
 `)
-  output, err := exec.Command("node", filePath).CombinedOutput()
+  cmd := exec.Command("node", filePath)
+  observation := newLintTraceInvocation()
+  observeLintCommandArtifact(observation, cmd.Path, "sort-imports-node-evaluation-oracle", "sort-imports-node-artifact")
+  lower := recordLintCommandAttempt(observation, cmd, "sort-imports-node-evaluation-oracle")
+  output, err := cmd.CombinedOutput()
+  recordLintCommandResult(observation, cmd, "sort-imports-node-evaluation-oracle", "CombinedOutput", lower, err)
   if err != nil {
     t.Fatalf("node failed: %v\n%s", err, output)
   }
