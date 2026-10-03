@@ -6,13 +6,10 @@ import "testing"
 // prefer:"always" treats a single parameter followed by a legal trailing comma
 // (`(x,) => x`) as already parenthesized.
 //
-// Pins the wrappedness detection in
-// `rules_format_arrow_parens.go::formatArrowParens.Check`: the forward paren
-// scan used to start at the parameter *name*'s end, where the `,` byte aborted
-// the whitespace-only scan, misclassified the parameter as bare, and wrapped
-// the name a second time into invalid `((x),) => x` (a parenthesized pattern
-// is not a valid parameter). Scanning from the parameter list's end — whose
-// span covers the trailing comma — classifies it as wrapped.
+// `rules_format_arrow_parens.go::formatArrowParens.Check` starts its forward
+// paren scan at the parameter list's end rather than the name's end. These
+// three sources independently require no finding for the existing wrapper;
+// no earlier implementation or malformed rewritten output is executed here.
 //
 //  1. Parse a trailing-comma single-parameter arrow (plain, async, and
 //     multiline variants).
