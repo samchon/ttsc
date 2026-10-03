@@ -23,9 +23,12 @@ const viteBuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").build;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real Vite build output chunks contain PLUGIN, detecting missing adapter transform in bundle assembly. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
+export async function test_vite_adapter_runs_the_configured_ttsc_source_transform(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const root = TestUnpluginProject.createProject();
+  const root = preparedRoot ?? TestUnpluginProject.createProject();
   const output = await viteBuild({
     root,
     build: {
@@ -38,6 +41,7 @@ export async function test_vite_adapter_runs_the_configured_ttsc_source_transfor
     logLevel: "silent",
     plugins: [unpluginVite()],
   });
+  observeReturned?.();
 
   const chunks = Array.isArray(output)
     ? output.flatMap((entry) => entry.output)
