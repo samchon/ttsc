@@ -3,12 +3,12 @@ package linthost
 import "testing"
 
 // TestNoDuplicateImportsTrimsModuleSpecifierWhitespace verifies module
-// specifiers are compared after trimming surrounding whitespace.
+// specifiers are compared after trimming the authored surrounding ASCII spaces.
 //
-// Locks `duplicateImportsModule` parity with the official `getModule`,
-// which compares `source.value.trim()`. Without trimming, `" m "` and
-// `"m"` would silently count as different modules and the pair would
-// escape the duplicate comparison.
+// Pins the authored ASCII-space case shared by `duplicateImportsModule`
+// and the official `getModule`, which compares `source.value.trim()`.
+// Without trimming, `" m "` and `"m"` would count as different modules,
+// and the pair would escape the duplicate comparison.
 //
 // 1. Import from `"m"`, then from `" m "`, then from the different module `" n "`.
 // 2. Run the rule with default options.
