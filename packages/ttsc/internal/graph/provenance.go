@@ -307,7 +307,7 @@ type Diagnostic struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No expected checksum or consumer-specific encoding branch replaces the input sum.
 // @evidence contracts/common.md#meaningful-documentation Native prose states algorithm and wire encoding, with documentation-skill tag separation.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Encoding a fixed byte array owns no native boundary.
-// @evidence contracts/performance.md#efficient-algorithms The SHA-256-size output has constant schema-defined length and one string allocation.
+// @evidence contracts/performance.md#efficient-algorithms The 32-byte input encodes to 64 lowercase hex bytes; the standard encoder constructs a temporary byte buffer and converts it to the returned string, with schema-fixed work rather than a measured allocation-count guarantee.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The formatter coordinates no repeated computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The string transfers to the caller and no cache is retained.
 func Digest(sum [sha256.Size]byte) string { return hex.EncodeToString(sum[:]) }

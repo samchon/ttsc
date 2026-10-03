@@ -16,9 +16,9 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design This adapter centralizes the compiler-to-graph integer representation so consumers share the same line model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts All supported source text uses the compiler API; no fixture-specific terminator table or foreign mutation is introduced.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains byte units and the compiler authority for line terminators, following the documentation skill's separated prose and tags.
-// @evidence contracts/performance.md#efficient-algorithms Computing boundaries is linear in source bytes and copying is linear in line count, with one output allocation.
+// @evidence contracts/performance.md#efficient-algorithms The compiler first counts LF bytes for initial capacity, then scans all ECMA terminators into its own line slice, which may grow for other terminators. This adapter allocates and copies a second integer slice; total work includes both source scans and line-count copying.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure adapter does not coordinate requests; source-snapshot owners retain its resulting line index.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice transfers to the caller and this function retains no source text or index.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Compiler and output line slices coexist during conversion and scale with the supplied line population without an adapter cap. The temporary compiler slice is call-local; the caller owns the returned index and its lifetime, with no separate retained source/cache or native handle.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ECMALineStarts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ECMALineStarts(text string) []int {
   compilerStarts := shimcore.ComputeECMALineStarts(text)
@@ -72,7 +72,7 @@ func LineEnd(text string, starts []int, line int) int {
 // @evidence contracts/common.md#clear-and-simple-design One guarded adapter delegates lexical policy to the compiler instead of maintaining a partial parallel scanner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported scanner API handles all source trivia without a declaration-banner exception or foreign parser mutation.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains the leading-trivia adjustment; tags remain separated as required by the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Each traversed trivia byte is visited at most once and no intermediate text is allocated.
+// @evidence contracts/performance.md#efficient-algorithms The delegated scanner advances through trivia with UTF-8 decoding and bounded conflict-marker lookahead; boundary bytes may be inspected again. Work follows the scanned range without copying intermediate source text, rather than guaranteeing exactly one inspection per byte.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This span calculation does not own a request cache; its text and starting offset determine a single result.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function retains no text, indices or tasks after returning.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation FirstCodeOffset computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
