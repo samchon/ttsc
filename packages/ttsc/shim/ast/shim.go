@@ -1207,16 +1207,17 @@ func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
 }
 
 // GetNextJSDocCommentLocation returns the next enclosing JSDoc attachment host,
-// or nil when no supported host remains. node must be nonnil; only the first
-// declaration in a variable declaration list advances through that list.
+// or nil when no supported host remains. Supply a nonnil node from a valid
+// parent-linked tree; a variable declaration list must have a first declaration.
+// Only that first declaration advances through its list.
 //
 // @evidence contracts/common.md#principled-implementation The upstream parent-kind and first-declaration checks preserve JSDoc attachment semantics rather than treating every ancestor as a comment host.
 // @evidence contracts/common.md#clear-and-simple-design One traversal step exposes upstream ownership; callers control repeated traversal and termination.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter follows real AST parents without fabricated attachment nodes or foreign method replacement.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the endpoint, nil termination, nonnil input and first-declaration boundary.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetNextJSDocCommentLocation acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetNextJSDocCommentLocation performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetNextJSDocCommentLocation computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent attachment-search algorithm. Upstream checks one parent kind and, for a declaration list, its first element in O(1) time and space; repeated ascent belongs to the caller.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding step owns no cache or in-flight coordination; tree owners and traversal callers establish validity across changes to parent links or declaration order.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetNextJSDocCommentLocation computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetNextJSDocCommentLocation(node *Node) *Node {
   return innerast.GetNextJSDocCommentLocation(node)
@@ -1325,8 +1326,8 @@ func GetCombinedModifierFlags(node *Node) ModifierFlags {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed precedence constants or fixture-specific parenthesis outcomes are substituted.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains binding-level use and input validity, with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetExpressionPrecedence acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetExpressionPrecedence performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetExpressionPrecedence computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim selects no independent precedence algorithm. Upstream reads kind/operator/optional-chain flags and uses fixed switch tables without traversing expression children; valid node payloads cost O(1) time and space.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding call owns no cache or in-flight coordination; compiler-tree owners establish whether a node's operator and flags remain equivalent across calls.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetExpressionPrecedence computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetExpressionPrecedence(expression *Expression) OperatorPrecedence {
   return innerast.GetExpressionPrecedence(expression)
