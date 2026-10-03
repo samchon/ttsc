@@ -24,14 +24,15 @@ import (
 // same reason: these facts did not come from this Program, and the dump's
 // one-generation contract stays honest by saying so rather than by hiding it.
 //
-//  1. Dump a project with no `--artifacts`, and assert neither the claim nor the
-//     second producer appears, and that the citation stays a token.
-//  2. Dump the same project with a published set, and assert both appear and the
+//  1. Dump without --artifacts and require no claim, producer metadata or section node.
+//  2. Supply an empty published set and require the claim and producer metadata,
+//     while the section node and resolved citation edge remain absent.
+//  3. Dump the same project with a populated set, and assert both appear and the
 //     citation resolved to a node carrying its heading and its line.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that the artifact capability is a statement about what this producer did, not about what it found.
+// @evidence contracts/testing.md#behavioral-verification Actual dump preparation and encoding distinguish no publisher input, an explicitly empty published set, and a populated set. Only requested sets declare artifact collection and producer metadata; only the populated set supplies the section node and resolved citation edge. Metadata presence does not authenticate an actual publisher Program.
 // @evidence contracts/testing.md#independent-expectations The expected values are literals taken from the published-artifact fixture the test writes (address docs/sale.md#pricing, readable Pricing, parent docs/sale.md, line 7) and from the capability contract that a producer never pointed at a publisher must not claim artifact nodes or name a second producer; none are computed by the dump code. A dump that claims unconditionally, or that leaves the citation as a bare token after the artifact exists, fails.
-// @evidence contracts/testing.md#distinguishing-cases Dump a project with no `--artifacts`, and assert neither the claim nor the second producer appears, and that the citation stays a token; Dump the same project with a published set, and assert both appear and the citation resolved to a node carrying its heading and its line.
+// @evidence contracts/testing.md#distinguishing-cases No --artifacts requires absent collection claim, producer metadata and section node. An empty JSON set requires the claim and producer metadata but no section or resolved citation edge. A populated set additionally requires literal Pricing, document parent, heading line 7 and a doc_ref edge to that section.
 // @evidence contracts/testing.md#execution-ownership TestRunDumpClaimsArtifactsOnlyWhenItAsked is a Go source-unit entry. runSourceDumpCommand exercises the real prepareDumpCommand grammar and encode operation; it supplies the dispatch word and does not execute the top-level dispatcher. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestRunDumpClaimsArtifactsOnlyWhenItAsked(t *testing.T) {
   root := t.TempDir()
@@ -57,6 +58,25 @@ export function priced(): void {}
     }
   }
 
+  emptyPublished := filepath.Join(root, "empty-artifacts.json")
+  if err := os.WriteFile(emptyPublished, []byte("[]"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  empty := decodeArtifactDump(t, runDumpForArtifacts(t, root, emptyPublished))
+  if !slices.Contains(empty.Provenance.Capabilities, graph.CapabilityArtifactNodes) || empty.Provenance.ArtifactProducer == nil {
+    t.Fatal("an explicitly empty published set lost its collection claim or producer metadata")
+  }
+  for _, node := range empty.Nodes {
+    if node.ID == "docs/sale.md#pricing" {
+      t.Fatal("an empty published set fabricated the section node")
+    }
+  }
+  for _, edge := range empty.Edges {
+    if edge.Kind == "doc_ref" && edge.To == "docs/sale.md#pricing" {
+      t.Fatal("an empty published set fabricated the resolved citation edge")
+    }
+  }
+
   published := filepath.Join(root, "artifacts.json")
   if err := os.WriteFile(published, []byte(`[
   {"address":"docs/sale.md","kind":"markdown_document","readable":"Sale","file":"docs/sale.md","line":1},
@@ -71,7 +91,7 @@ export function priced(): void {}
       indexed.Provenance.Capabilities, graph.CapabilityArtifactNodes)
   }
   if indexed.Provenance.ArtifactProducer == nil {
-    t.Fatal("the artifact nodes came from another Program and the dump did not say so")
+    t.Fatal("the named published set has no artifact producer metadata")
   }
 
   var section *graph.DumpNode
