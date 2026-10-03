@@ -39,7 +39,7 @@ func TestDispatchFunctionLikeReturnsVerbatimForOutOfRangeBody(t *testing.T) {
   // nodeStart = SkipTrivia(ctx.Source, -1) = -1 < 0 → guard fires.
   doc, covered := printFunctionLike(ctx, syntheticArrow, syntheticBlock)
   // verbatim of a synthetic node → empty Doc; covered = !nodeSpansMultipleLines
-  // where the synthetic node has zero range → false → covered = true.
+  // where the synthetic node has an undefined negative range → false → covered = true.
   if !covered {
     t.Fatalf("printFunctionLike with synthetic nodes should return covered=true, got false")
   }

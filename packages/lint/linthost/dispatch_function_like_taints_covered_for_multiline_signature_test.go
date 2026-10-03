@@ -13,16 +13,14 @@ import (
 // The prefix (everything from the function start up to the body's first byte)
 // is emitted verbatim because it almost never contains a newline. When it
 // does — a multi-line parameter list, a long return-type annotation — that
-// verbatim slice freezes its interior columns. Any reflow of the body would
-// then produce inconsistently indented output, so printFunctionLike taints
-// covered to false. The formatPrintWidth rule checks this flag and abstains
-// rather than emitting a half-reflowed edit.
+// verbatim slice keeps its original interior columns, so printFunctionLike
+// reports covered false. This test observes that flag only; it does not
+// run formatPrintWidth or assert a rewritten output.
 //
 //  1. Parse an arrow function whose parameter list spans several lines (the `=>`
 //     is on a separate line from the opening paren).
 //  2. Dispatch the ArrowFunction through PrintNode.
-//  3. Assert covered is false, signalling that the rule must not reflow this
-//     node.
+//  3. Assert covered is false for this multiline prefix.
 //
 // @evidence contracts/testing.md#behavioral-verification PrintNode must report an arrow with a multiline signature uncovered even though its return body could be reflowed.
 // @evidence contracts/testing.md#independent-expectations The independently authored parameter lines remain verbatim, so reindenting the body alone would leave frozen signature columns.
