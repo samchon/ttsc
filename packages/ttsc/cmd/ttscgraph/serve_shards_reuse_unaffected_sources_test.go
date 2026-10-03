@@ -8,15 +8,16 @@ import (
 )
 
 // TestServeShardsReuseUnaffectedSources verifies a private body edit advances
-// only the changed content-addressed source shard. TypeScript's forced
-// declaration output proves the public shape stayed fixed, so neither the
-// dependent nor unrelated source is re-extracted or retransmitted.
+// the authored changed source's shard key while the consumer and unrelated
+// peer keep their keys and are neither extracted nor upserted. The owner uses
+// declaration-shape comparison to select this closure; this unit observes the
+// selected files and publication, not declaration output or every public type.
 //
 //  1. Commit a project where one source has a dependent and an unrelated peer.
 //  2. Change only the source's private function body and request another shard snapshot.
 //  3. Require one extracted source and no dependent or unrelated shard replacement.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies a private body edit advances only the changed content-addressed source shard. TypeScript's forced declaration output proves the public shape stayed fixed, so neither the dependent nor unrelated source is re-extracted or retransmitted.
+// @evidence contracts/testing.md#behavioral-verification Verifies the authored private-body edit changes and upserts the value source key, extracts only that source, and preserves the consumer/unrelated keys without their upserts. The forced declaration output and general public-type equivalence are not independently observed.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over value.ts, a dependent consumer.ts and an unrelated peer: a private body edit must give mode incremental with BaseSequence and BaseGeneration equal to the initial snapshot, a new key for value.ts whose old key is in Deletes, unchanged keys for the other two, exactly one extracted file (value.ts), preserved wire provenance for the unrelated source, and no upsert of the dependent or unrelated key. The test overwrites the unrelated source's physical provenance path with a foreign-looking path to prove the wire path is carried rather than recomputed.
 // @evidence contracts/testing.md#distinguishing-cases Commit a project where one source has a dependent and an unrelated peer; Change only the source's private function body and request another shard snapshot; Require one extracted source and no dependent or unrelated shard replacement.
 // @evidence contracts/testing.md#execution-ownership TestServeShardsReuseUnaffectedSources is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
@@ -57,7 +58,11 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   initialValueKey := session.graphStore.sourceKeys[valueKeyFile]
   initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
   initialUnrelatedKey := session.graphStore.sourceKeys[unrelatedKeyFile]
+  if initialValueKey == "" || initialConsumerKey == "" || initialUnrelatedKey == "" {
+    t.Fatal("initial generation omitted a fixture source key")
+  }
   unrelatedWireFile := session.graphStore.wireSources[unrelatedKeyFile]
+  alteredUnrelatedProvenance := false
   for index := range session.graphStore.provenance.Sources {
     if session.graphStore.provenance.Sources[index].File != unrelatedKeyFile {
       continue
@@ -71,9 +76,10 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
     } else {
       session.graphStore.provenance.Sources[index].File = "//foreign/share/unrelated.ts"
     }
+    alteredUnrelatedProvenance = true
     break
   }
-  if unrelatedWireFile == "" {
+  if unrelatedWireFile == "" || !alteredUnrelatedProvenance {
     t.Fatal("unrelated source was absent from physical/wire provenance")
   }
   if err := os.WriteFile(valueFile, []byte("export function value(): number { return 2; }\n"), 0o644); err != nil {
@@ -87,8 +93,11 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
     t.Fatalf("incremental coordinates: snapshot=%#v mode=%q changed=%v", delta, mode, changed)
   }
   nextValueKey := session.graphStore.sourceKeys[valueKeyFile]
-  if nextValueKey == initialValueKey {
+  if nextValueKey == "" || nextValueKey == initialValueKey {
     t.Fatal("changed source retained its content-addressed shard key")
+  }
+  if !containsUpsertedShardKey(delta, nextValueKey) {
+    t.Fatal("changed source's new shard key was not upserted")
   }
   if !containsString(delta.Deletes, initialValueKey) {
     t.Fatalf("delta did not delete superseded source shard %q: %v", initialValueKey, delta.Deletes)
