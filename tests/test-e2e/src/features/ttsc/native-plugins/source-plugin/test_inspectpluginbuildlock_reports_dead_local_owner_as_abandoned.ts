@@ -22,23 +22,31 @@ import {
  * 3. Assert inspection reports `abandoned` with a "no longer running" reason.
  *
  * @evidence contracts/testing.md#behavioral-verification Shipped inspection must classify a completed same-host child owner as abandoned and report that exact PID as no longer running.
- * @evidence contracts/testing.md#independent-expectations Synchronous child exit status establishes the native completed-process premise, and the explicitly recorded local hostname scopes its PID; the literal abandoned state and PID-specific reason specify the expected proof.
- * @evidence contracts/testing.md#distinguishing-cases Confirmed same-host absence is the positive abandonment control; the remote-host active case and live/ambiguous owner units own its negative authority distinctions. PID reuse remains a limitation of numeric process identity.
- * @evidence contracts/testing.md#execution-ownership The exported entry observes an actually completed Node child through the shipped legacy lock inspector and its native signal-zero ownership path.
- * @evidence contracts/e2e.md#necessary-boundary The connection between a recorded local PID and real native absence is required here; a supplied absent-PID decision would only prove policy, not this process observation.
- * @evidence contracts/e2e.md#shared-execution One short-lived child, one private owner record and one inspection establish the native absence connection without Go compilation, a plugin host or separate installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The child is synchronously complete before its PID is recorded and the legacy lock is private. A later PID reuse can make absence inconclusive; the test does not claim startedAt proves process incarnation.
- * @evidence contracts/e2e.md#preserved-coverage The original child success, abandoned state and exact PID reason assertions remain; no stale age or invalid PID constant substitutes for the exited child witness.
+ * @evidence contracts/testing.md#independent-expectations Actual setup child error/signal/status and positive safe PID precede an independent native ESRCH check. Explicit hostname/record and literal abandoned/PID-specific reason prescribe the owning inspector result; no age or arbitrary error substitutes for absence.
+ * @evidence contracts/testing.md#distinguishing-cases Actual same-host absence is this positive control; the exact direct counterpart also authors a live-PID contrast but is UNEXECUTED. Remote/ambiguous controls require their separate owner evidence. Numeric PID reuse remains an acknowledged limitation.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic entry, which directly calls the built workspace owning inspector. Real child/filesystem inputs do not by themselves make it an installed-consumer/native-producer protocol test.
+ * @evidenceExclude contracts/e2e.md#necessary-boundary Direct inspector ownership with actual native PID/record inputs is unit-first; it requires no installed artifact, plugin host or product protocol. Exact counterpart is tests/test-ttsc/src/features/source-plugin/test_inspectpluginbuildlock_reports_dead_local_owner_as_abandoned.ts, authored but not actually executed.
+ * @evidence contracts/e2e.md#shared-execution Existing one-child/one-record/one-inspection preparation remains only until exact direct counterpart selection/execution/survival permits duplicate-call removal. This is not a claimed E2E family preparation or Go build/process reduction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before setup; native child success/ESRCH precede owner recording. Inspector returns before any further mutation. A later PID reuse remains possible and startedAt does not certify incarnation; root retention is not arbitrary descendant closure.
+ * @evidence contracts/e2e.md#preserved-coverage Original child status0, local record, abandoned state and exact PID reason remain alongside strengthened setup guards. The exact authored direct counterpart preserves these native inputs rather than synthetic absence; actual selection/runtime/survival remains unverified and donor stays.
  */
 export const test_inspectpluginbuildlock_reports_dead_local_owner_as_abandoned =
   () => {
     const root = TestProject.tmpdir("ttsc-lock-observe-");
+    TestProject.retainTemporaryDirectory(root, "direct inspector native setup has no descendant join acknowledgement");
     const lockDir = path.join(root, "entry.lock");
     fs.mkdirSync(lockDir);
     const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
       windowsHide: true,
     });
+    assert.equal(exited.error, undefined, "inspector setup child launch error");
+    assert.equal(exited.signal, null, "inspector setup child terminated by signal");
     assert.equal(exited.status, 0);
+    assert.ok(Number.isSafeInteger(exited.pid) && exited.pid > 0, "inspector setup requires a positive safe PID");
+    let absence: unknown;
+    try { process.kill(exited.pid, 0); }
+    catch (error) { absence = error; }
+    assert.equal((absence as NodeJS.ErrnoException | undefined)?.code, "ESRCH", "only ESRCH proves the recorded PID absent");
     const deadPid = exited.pid;
     fs.writeFileSync(
       path.join(lockDir, "owner.json"),

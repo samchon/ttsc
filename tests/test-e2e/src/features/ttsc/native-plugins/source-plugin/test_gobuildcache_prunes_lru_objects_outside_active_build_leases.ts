@@ -7,6 +7,7 @@ import {
   path,
   pruneGoBuildCacheRoot,
   resolvePluginCacheRoot,
+  waitForCondition,
   withGoBuildCacheLease,
 } from "../../../../internal/ttsc/internal/source-build";
 
@@ -33,16 +34,17 @@ import {
  *    maintenance metadata remain untouched at the exact resolved roots.
  * @evidence contracts/testing.md#behavioral-verification Actual lease/GC/layout operations preserve objects under an active lease, prune older objects to the literal budget, bound a recent cohort, recover stale/completed/future records and refuse link escapes without rewriting external data or metadata.
  * @evidence contracts/testing.md#independent-expectations Fixture object bytes and explicitly ordered mtimes define the independent LRU/budget results; hard-linked external contents/mtime and junction targets establish ownership boundaries. Literal callback/record assertions and a timed child mutation expose maintenance arbitration.
- * @evidence contracts/testing.md#distinguishing-cases Active versus released lease, equal/unequal recent sizes, future marker, stale/completed/future intent, fresh/expired orphan, hard links, root/coordination junctions and user/explicit cache layouts retain their original cases. Permission-supported Node hosts also exercise the denied-Worker IPC heartbeat fallback.
+ * @evidence contracts/testing.md#distinguishing-cases Active/released lease, recent sizes, future marker, stale/completed/future records, fresh/expired synthetic-PID lease, hard links, junctions and cache layouts retain original controls. Synthetic PID is not OS-death proof; collection uses status/heartbeat age. Permission-supported Node hosts retain the original conditional IPC-heartbeat fallback input.
  * @evidence contracts/testing.md#execution-ownership The exported entry invokes shipped cache owners on real files and heartbeats, creates a native timestamp-release child and conditionally runs a permission-mode Node child; it runs no Go compiler or contributor host.
- * @evidence contracts/e2e.md#necessary-boundary Real heartbeat workers/IPC permissions, cross-process timestamp release and hard-link/junction effects are necessary native connections for those subcases. The LRU budget and layout-policy portions themselves are portable transfer candidates, not justification for repeating a native producer.
+ * @evidence contracts/e2e.md#necessary-boundary Actual product heartbeat worker/IPC permissions and cross-process timestamp release retain their native connection. Native hard-link/junction inputs alone do not make owning policy operations E2E. Direct collector status/age ownership is separately mapped to test-ttsc; LRU/layout/physical-policy contributions still require exact unit ownership and survival before removal.
  * @evidence contracts/e2e.md#shared-execution One fixture tree and cached object-writing helper serve the entire lease/GC corpus. Ordinary objects are seeded directly rather than Go-built; only future-intent release and permission-mode heartbeat need their own child roles, and shared Go compiler objects are not touched.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate cache subroots isolate coordination epochs and link targets; product lease finally releases each heartbeat. The future-release child has immediately registered close/error observers and is killed and joined in finally around arbitration, including an earlier lease failure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate cache subroots isolate epochs/link targets. Future-release close/error observers register immediately; arbitration/kill/close-wait failures aggregate without masking the original. A bounded wait requires actual close or reports unjoined failure; tracked root remains retained. Product lease release alone is not all-descendant closure, and permission-process launch error/signal are distinct from status/marker assertions.
  * @evidence contracts/e2e.md#preserved-coverage Every original file-presence/cohort, callback, grace-time, external-byte/mtime, permission status/marker/empty-lease and resolved-cache assertion remains. No fake successful maintenance or removed negative link control is introduced; conditional permission execution is unchanged.
  */
 export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
   async (): Promise<void> => {
     const root = TestProject.tmpdir("ttsc-go-cache-gc-");
+    TestProject.retainTemporaryDirectory(root, "Go cache heartbeat/arbitration graph has unresolved descendant ownership");
     const goCache = path.join(root, "go-build");
     const now = Date.now();
     const files = [
@@ -218,24 +220,35 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
       ],
       { stdio: "ignore", windowsHide: true },
     );
+    let futureDidClose = false;
     const futureClosed = new Promise<void>((resolve) => {
-      futureRelease.once("close", () => resolve());
+      futureRelease.once("close", () => { futureDidClose = true; resolve(); });
     });
     let futureProcessError: Error | undefined;
     futureRelease.once("error", (error) => { futureProcessError = error; });
     let futureIntentYielded = false;
     const futureWaitStarted = Date.now();
+    const arbitrationErrors: unknown[] = [];
     try {
       withGoBuildCacheLease(goCache, true, () => {
         futureIntentYielded = true;
       });
+    } catch (error) {
+      arbitrationErrors.push(error);
     } finally {
       try {
         futureRelease.kill();
-      } finally {
+      } catch (error) {
+        arbitrationErrors.push(error);
+      }
+      try {
+        await waitForCondition(() => futureDidClose, "future-intent child actual close", 120_000);
         await futureClosed;
+      } catch (error) {
+        arbitrationErrors.push(error);
       }
     }
+    if (arbitrationErrors.length) throw new AggregateError(arbitrationErrors, "future-intent arbitration or close failed");
     assert.equal(futureProcessError, undefined);
     assert.equal(futureIntentYielded, true);
     assert.ok(
@@ -374,6 +387,8 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
         ],
         { encoding: "utf8" },
       );
+      assert.equal(permissionRun.error, undefined, "permission heartbeat child launch error");
+      assert.equal(permissionRun.signal, null, "permission heartbeat child terminated by signal");
       assert.equal(
         permissionRun.status,
         0,
