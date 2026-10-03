@@ -13,9 +13,9 @@ import (
 // 2. Create types/fixture-types/index.d.ts declaring FixtureType.
 // 3. Require a changed reload dump.
 //
-// @evidence contracts/testing.md#behavioral-verification Creating types/fixture-types/index.d.ts under the configured typeRoots satisfies a triple-slash types reference that was unresolved and reloads a resident session.
-// @evidence contracts/testing.md#independent-expectations The expectation is literal: the types directive names fixture-types, typeRoots is ./types, and creating types/fixture-types/index.d.ts must yield mode reload, changed, with a dump. The FixtureType declaration itself is not asserted.
-// @evidence contracts/testing.md#distinguishing-cases Load a triple-slash fixture-types reference with explicit ./types roots. Create types/fixture-types/index.d.ts declaring FixtureType. Require a changed reload dump.
+// @evidence contracts/testing.md#behavioral-verification Creating types/fixture-types/index.d.ts behind the source's triple-slash reference reports reload, changed and a nonnil dump. Initial diagnostic disappearance and the FixtureType node are not asserted.
+// @evidence contracts/testing.md#independent-expectations The literal directive names fixture-types and typeRoots is ./types. Creating the named package must report reload, changed and a dump. The pinned source-type-reference replay supplies this freshness path; the diagnostic contents and FixtureType node are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases Load the missing triple-slash fixture-types reference with ./types roots; create its index.d.ts declaring FixtureType; require a changed reload dump without an importer edit.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedTypeReference is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedTypeReference(t *testing.T) {
   root := t.TempDir()

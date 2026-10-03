@@ -6,8 +6,9 @@ import (
   "testing"
 )
 
-// TestServeSessionReloadsRootFileSet verifies include-glob additions and
-// deletions replace the compiler session rather than leaving stale roots.
+// TestServeSessionReloadsRootFileSet checks reported reloads after include-glob
+// addition and deletion, with the added name present and deleted name absent.
+// Compiler-session identity and construction counts are not observed.
 //
 // A one-file UpdateProgram cannot add or remove config roots. The session must
 // re-evaluate the tsconfig file set before source hashing and reload whenever
@@ -17,7 +18,7 @@ import (
 // 2. Delete the original `BeforeEdit` root.
 // 3. Assert another reload removes the deleted declaration.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies include-glob additions and deletions replace the compiler session rather than leaving stale roots.
+// @evidence contracts/testing.md#behavioral-verification Adding src/added.ts reports reload with AddedRoot; deleting src/index.ts reports reload without BeforeEdit. The test owns these names and modes rather than compiler-session object identity, construction counts or the complete surviving node set.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over an include-based fixture: creating src/added.ts must give mode reload, changed, with a node named AddedRoot; deleting src/index.ts must give another mode reload, changed, whose dump no longer contains BeforeEdit. A session that kept stale roots would report incremental or unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Add `AddedRoot` under an included directory and assert reload plus presence; Delete the original `BeforeEdit` root; Assert another reload removes the deleted declaration.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsRootFileSet is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
