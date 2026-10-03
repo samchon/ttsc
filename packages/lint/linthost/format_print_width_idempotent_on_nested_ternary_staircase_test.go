@@ -2,13 +2,10 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthIdempotentOnNestedTernaryStaircase verifies the
-// printer reproduces an already-correct staircase byte-for-byte, so the
-// format cascade converges.
-//
-// Re-rendering the broken form must equal the source; otherwise the
-// "no diff -> no edit" invariant breaks and the cascade loops. This pins
-// the round-trip for the nested-alternate staircase.
+// TestFormatPrintWidthIdempotentOnNestedTernaryStaircase verifies zero
+// findings on the authored nested-alternate staircase.
+// This direct rule preservation assertion does not execute the whole
+// format cascade or separately compare a returned printer doc.
 //
 //  1. Parse a correctly-staircased ternary chain (printWidth 40).
 //  2. Run format/print-width.

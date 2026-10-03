@@ -2,13 +2,10 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthIdempotentOnFirstHuggedCall verifies the printer
-// reproduces an already first-hugged call byte-for-byte so the cascade
-// converges.
-//
-// Re-rendering the hugged shape must equal the source; otherwise the
-// "no diff -> no edit" invariant breaks. Pins the round-trip for
-// first-argument hugging.
+// TestFormatPrintWidthIdempotentOnFirstHuggedCall verifies no findings
+// on the authored first-hugged callback plus trailing identifier.
+// This is the registered rule preservation boundary, not an executed
+// round-trip or convergence assertion for the whole format command.
 //
 //  1. Parse an already first-hugged call (printWidth 40).
 //  2. Run format/print-width.

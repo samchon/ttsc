@@ -2,16 +2,10 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthIdempotentOnHuggedCallbackCall verifies a second
-// formatPrintWidth pass over an already-hugged callback call emits
-// zero findings.
-//
-// `ttsc format` runs a convergence cascade; a rule whose render output
-// drifted from its own previous output — even by a stray space or a
-// shifted indent — would burn passes and eventually trip the "did not
-// converge" guard. The hugged-callback shape this rule now produces
-// must be a fixed point: feeding the canonical hugged form back in must
-// reflow to itself byte-for-byte.
+// TestFormatPrintWidthIdempotentOnHuggedCallbackCall verifies zero
+// findings on the authored already-hugged constructor callback.
+// Its no-edit assertion owns this single-rule preservation boundary;
+// it does not run the format cascade or compare a returned printer doc.
 //
 //  1. Feed an already-hugged `new Singleton(() => { … })` whose body is
 //     correctly indented two spaces.

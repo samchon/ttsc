@@ -2,17 +2,10 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthIdempotentOnAlreadyReflowedInput verifies a
-// second `ttsc format` pass over an already-reflowed file emits zero
-// findings.
-//
-// `ttsc format` runs a cascade up to ten passes and refuses to converge
-// when fixes keep getting applied. A rule whose render output drifted
-// from the original even slightly would burn passes and eventually
-// trip the "did not converge" stderr message. The case asserts the
-// post-reflow shape is a fixed point of the rule by feeding the
-// broken form directly and configuring the same width that produced
-// it.
+// TestFormatPrintWidthIdempotentOnAlreadyReflowedInput verifies the
+// registered rule reports no findings on the authored broken object.
+// This direct rule boundary does not execute a second format command
+// or prove convergence of the whole formatter cascade.
 //
 //  1. Use printWidth=20, the same width that breaks the source-form
 //     test fixture.
