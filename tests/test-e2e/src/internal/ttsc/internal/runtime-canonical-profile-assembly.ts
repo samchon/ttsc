@@ -16,7 +16,7 @@ type Profile = {
 };
 
 /**
- * Runs ten owning runtime profiles sequentially in one already joined
+ * Runs supplied owning runtime profiles sequentially in one already joined
  * canonical consumer root. The original graph is held by shallow rename and
  * exact authored inputs select each profile. Ordinary launcher metadata permits
  * transitions; uncertain launches retain current and held inputs through the
@@ -36,7 +36,7 @@ type Profile = {
  * @evidence contracts/testing.md#distinguishing-cases Ordinary status zero and negative exits permit independent later profiles; error, null status, signal and invalid process identity retain inputs. Collision and staged-move failures remain failures.
  * @evidence contracts/testing.md#execution-ownership The existing discoverable CommonJS corpus owns callers, authored maps and native launch lifetimes. This exported helper allocates no replacement consumer or hidden test host.
  * @evidence contracts/e2e.md#necessary-boundary Native compilation, runtime loading and output ownership must pass through real launchers; source metadata classification alone cannot prove those connections.
- * @evidence contracts/e2e.md#shared-execution Ten former consumer allocations become one borrowed canonical root while all nineteen original consumer requests remain; Programs and nested children are unmeasured.
+ * @evidence contracts/e2e.md#shared-execution The default parent supplies ten former consumer allocations and nineteen original requests; consolidated selection adds five response-file decorator profiles and five separate requests on the same root. Programs and nested children are independently measured, not inferred from callback totals.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Shallow holding removes prior profile config/cache aliases from active authority. Unknown processes keep the current graph and held originals without restoring or deleting inputs.
  * @evidence contracts/e2e.md#preserved-coverage Each owning callback retains its original literal assertions and failure identity; the assembler does not replace compiler, source-race, map or output evidence.
  */

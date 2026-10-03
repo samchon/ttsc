@@ -11,6 +11,7 @@ import { canonicalCheckedOutputProfiles } from "../../../internal/ttsc/internal/
 import { canonicalCommonJsOrphanProfiles } from "../../../internal/ttsc/internal/runtime-canonical-commonjs-orphan-profiles";
 import { canonicalDecoratorMapProfile } from "../../../internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile";
 import { runCanonicalRuntimeProfiles } from "../../../internal/ttsc/internal/runtime-canonical-profile-assembly";
+import { canonicalResponseDecoratorProfiles } from "../../../internal/ttsc/internal/runtime-canonical-response-decorator-profiles";
 import { runCanonicalReadonlyCorpus } from "../../../internal/ttsc/internal/runtime-canonical-readonly-corpus";
 import { verifyRuntimeCleanOwnerAssembly } from "../../../internal/ttsc/internal/runtime-clean-owner-assembly";
 import {
@@ -70,7 +71,7 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every synchronous child exits before the root config changes. Central packages and source identities stay immutable, the stale JavaScript remains present, CommonJS profiles overwrite only tsconfig.json; the final NodeNext phase also replaces package.json with an authored module package after all CommonJS hosts finish, and TestProject owns the single corpus through process cleanup. The configured children join before its synchronous launcher closes, and the linked index is observed only after that closure. Readonly transitions hold and restore original src, node_modules, package and config only after prior host closure. Every phase collects failures and verifies effective write restoration; an unresolved child or failed restoration retains the root and blocks clean. After all thirty-four runtime requests finish, an authored nonempty workspace package establishes owned default-clean authority; conservative then explicit clean operates only on the completed canonical cache. No warm-cache equivalence is asserted.
  * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and post-exit emptiness, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close empty physical index; all eight conservative-versus-explicit legacy/malformed clean assertions, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status, marker and unchanged root entries, plus excluded failure, entry path, remedy and no execution followed by included success and marker remain; genuine write-refusal and restoration probes strengthen those boundaries. Standalone originals remain until this final corpus has passed and its actual preparation counts are reviewed.
  */
-export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles() {
+export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles(includeResponseDecorators = false) {
   const root = TestProject.createProject(
     E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/runtime-commonjs-corpus")),
   );
@@ -619,6 +620,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
           publication?.binary,
         ),
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),
+        ...(includeResponseDecorators ? canonicalResponseDecoratorProfiles() : []),
         ...canonicalCheckedOutputProfiles(
           {
             installed: readProfile("output-installed-package"),
