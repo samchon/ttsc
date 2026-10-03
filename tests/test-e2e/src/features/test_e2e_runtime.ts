@@ -9,6 +9,9 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * alone instead of recursively preparing all retained legacy runtime donors.
  * Consolidated mode also stages the five original response-file decorator
  * inputs on that root, retaining each native target/order and output verdict.
+ * Seven more staged language profiles retain four ordinary publication/runtime
+ * pairs, ESM member initialization, public JSX register and both forwarded CLI
+ * modes; their twelve real requests keep their original transport and oracles.
  *
  * 1. Prepare the canonical CommonJS consumer once through its owning body.
  * 2. Run its configured, NodeNext, descendant, readonly and staged profiles.
@@ -21,7 +24,7 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * @evidence contracts/e2e.md#necessary-boundary The actual compiler and Node hook execute authored imports, native publication and process protocols; portable classifier results do not replace those connections.
  * @evidence contracts/e2e.md#shared-execution The one existing canonical consumer owns all its profiles instead of recreating each donor project. Different requests and Program constructions remain measured independently; this entry is not a wrapper around the original donor list.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The owning corpus and assembler preserve configuration transitions, explicit cold or changed inputs, joined descendants, restoration failures and retained uncertainty. The coordinator admits consolidated execution only after its actual compatible legacy baseline.
- * @evidence contracts/e2e.md#preserved-coverage The named canonical profiles keep their original literal assertions, including the five extension fields and implicit-module contrary-manifest output. Five response-file decorator requests retain original argv/config/source, complete effects and optional-chain true/false, plus invalid TS6046/nonzero/empty stdout. Other unmapped Runtime donations are not certified by this entry; actual selected coverage and reduced preparation remain remote measurement obligations.
+ * @evidence contracts/e2e.md#preserved-coverage The named canonical profiles keep their original literal assertions, including the five extension fields and implicit-module contrary-manifest output. Five response-file decorator requests retain original argv/config/source, complete effects and optional-chain true/false, plus invalid TS6046/nonzero/empty stdout. Four ordinary decorator publication/runtime pairs retain syntax and three byte snapshots; ESM member initialization, JSX registration HTML/config bytes and both automatic/forwarded-preserve CLI HTML retain their actual transports. Other unmapped Runtime donations are not certified by this entry; actual selected coverage and reduced preparation remain remote measurement obligations.
  */
 export async function test_e2e_runtime(): Promise<void> {
   await Scenarios.invoke("shared-family", "test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles", test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles, true);
