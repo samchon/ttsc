@@ -10,13 +10,11 @@ import (
 // arrow-function printer re-indents a block body so the header, body
 // statements, and closing brace land at consistent columns.
 //
-// This pins the headline corruption fix. Before the arrow-function
-// printer existed, an arrow fell through to verbatim and its body lines
-// kept the source columns they were written at, while the enclosing
-// call re-indented the `() =>` header — leaving the header and body at
-// mismatched indents. The block printer now re-emits every statement at
-// the engine-controlled indent, so a reflow can never strand a body
-// line at the wrong column.
+// The authored one-line signature and two-statement body are fully covered.
+// This case checks the complete rendered arrow, including the body order and
+// closing-brace column. Multiline verbatim signatures or uncovered children
+// can retain their source columns and propagate an uncovered result; this case
+// does not establish safe reflow for every arrow shape or an enclosing call.
 //
 //  1. Parse `const run = () => { doStuff(); return 1; };`.
 //  2. Dispatch the ArrowFunction through PrintNode.
