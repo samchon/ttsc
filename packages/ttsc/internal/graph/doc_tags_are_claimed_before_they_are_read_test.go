@@ -11,24 +11,26 @@ import (
 )
 
 // TestDocTagsAreClaimedBeforeTheyAreRead verifies that the projection carries a
-// tag onto the wire and that a project with no tag is unchanged beside it.
+// tag onto the wire and that the selected node/edge projection matches the
+// otherwise identical untagged fixture after removing its tag facts.
 //
 // The capability the shipped commands declare is asserted where it is made, in
 // `cmd/ttscgraph`: a test that hands a capability list to the marshaller and
 // reads it back proves only that the slice was copied, and would leave the
 // production list free to lose the member with nothing failing. What this one
-// owns is the other half — that a tag reaches the document, and that a project
-// using no convention pays nothing for the feature.
+// owns is tag delivery and equality of its parsed probe fields. It measures no
+// runtime cost and does not compare source hashes or every wire field.
 //
 // 1. Load identical tagged and untagged declarations with the literal docs/a.md#x citation.
 // 2. Build and serialize both graphs with their declared doc-tag capability.
-// 3. Require one Cited doc tag, none on the untagged declaration, and identical structural dumps after removing doc tags.
+// 3. Require one Cited doc tag, none on the untagged declaration, and equal parsed probe fields after removing doc tags.
 //
-// @evidence contracts/testing.md#behavioral-verification Build and MarshalDump carry the tag of a declaration documented with an unrecognized @evidence tag onto the wire as one doc tag and carry none for an otherwise identical untagged declaration, and the two documents are equal once the tags are removed. The docTags capability is passed to the provenance but its presence is not asserted here; the commands' own tests assert it.
-// @evidence contracts/testing.md#independent-expectations The literal docs/a.md#x annotation supplies the expected citation text docs/a.md#x Cited., and the control is separately built tagged and untagged dumps that must be structurally equal after the tags are stripped. The control does not validate every structural graph fact.
-// @evidence contracts/testing.md#distinguishing-cases A tagged declaration and otherwise identical untagged declaration contrast one retained citation, no untagged citation and structural equality after omitting doc tags.
-// @evidence contracts/testing.md#execution-ownership This source-unit entry loads actual authored compiler inputs and directly calls Build and MarshalDump in the Go test process; it installs no consumer and starts no product host.
+// @evidence contracts/testing.md#behavioral-verification Build and MarshalDump deliver one literal doc tag for the tagged declaration and none for its untagged counterpart. After tag removal their parsed probe fields are equal; omitted wire fields and runtime costs are not compared. The docTags capability is supplied by the fixture and not independently asserted here; the command capability case owns that assertion.
+// @evidence contracts/testing.md#independent-expectations The authored annotation requires exactly docs/a.md#x Cited. The comparison retains only capabilities, the declared node ID/kind/name/signature/evidence fields, and edge endpoint/kind/evidence fields. Expected equality of those probe fields does not certify the full wire document or independently validate every graph fact.
+// @evidence contracts/testing.md#distinguishing-cases A tagged declaration and otherwise identical untagged declaration contrast one retained citation, no untagged citation and equality of the retained probe fields after omitting doc tags.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes two native temporary projects, constructs and closes their driver compiler Programs in-process, and directly calls Build and MarshalDump. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or product host command runs.
 func TestDocTagsAreClaimedBeforeTheyAreRead(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   tagged := dumpDocTagFixture(t, `/** @evidence docs/a.md#x Cited. */
 export function subject(): void {}
 `)
@@ -43,9 +45,8 @@ export function subject(): void {}
     t.Fatalf("untagged dump carried %v", got)
   }
 
-  // The rest of the untagged document is what it was: the feature costs a
-  // project using no convention exactly nothing. Compared structurally rather
-  // than by count, because equal counts survive a changed id, name, or span.
+  // Compare the retained probe fields rather than counts. Fields omitted by
+  // dumpDocTagProbe, including source hashes, are outside this comparison.
   if !reflect.DeepEqual(strippedDocTags(tagged), untagged) {
     t.Fatalf("the two documents differ beyond the tag: tagged %+v, untagged %+v",
       strippedDocTags(tagged), untagged)

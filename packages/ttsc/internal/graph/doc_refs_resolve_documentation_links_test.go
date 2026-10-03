@@ -9,14 +9,10 @@ import (
 )
 
 // TestDocRefsResolveDocumentationLinks verifies that an inline link in a
-// declaration's documentation becomes a checker-resolved edge, and that the tag
-// it sits under changes nothing.
-//
-// The checker already resolves such a name and counts it as a use — the
-// companion negative case is a project where `noUnusedLocals` keeps an import
-// that only a link supports — so this was the one class of resolved reference
-// the graph held no edge for, and the citation-only `import type` a citation
-// convention recommends is exactly the form nothing else in the module records.
+// declaration's documentation becomes a checker-resolved edge across the
+// authored tag/prose forms. Its literal
+// suffix expectations distinguish the imported ISale from two resident rivals;
+// it does not independently certify the checker's full language semantics.
 //
 //  1. Build a fixture linking one type from a tag, one from ordinary prose, one
 //     through `{@linkcode}`, one qualified, and one that resolves to nothing.
@@ -29,18 +25,20 @@ import (
 //     imports the name from — the claim the rest of the file now rests on,
 //     since three declarations of `ISale` exist here.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that an inline link in a declaration's documentation becomes a checker-resolved edge, and that the tag it sits under changes nothing.
+// @evidence contracts/testing.md#behavioral-verification Build records the asserted spanned doc-ref pairs for the authored tag, prose, linkcode/linkplain, qualified and supported host forms. Negative helper checks reject the specified unresolved, self, line-comment, unlinked and namespace/member-misattribution relations; the selected Promise endpoint must be external.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over a fixture in which three modules declare ISale: each resolvable link (from a tag, prose, linkcode, linkplain, see, qualified name, namespace member, closure, class, interface and class member) must produce exactly one doc-ref edge with a span to the declaration the importing module resolves; an unresolved link, a self link, a line-comment link, a namespace's own documentation and known param/returns tags must produce none; and the library type Promise must resolve to an external leaf. A text matcher that picked a rival ISale fails the ambiguousName checks.
 // @evidence contracts/testing.md#distinguishing-cases Resolvable links under a tag and in prose, in linkcode, qualified and member forms, and in a flanked three-way same-name case, contrast an unresolvable link, a self-link, a line-comment link, a namespace host with no node and an untagged declaration, each asserted by the doc-ref helpers over the one built graph.
-// @evidence contracts/testing.md#execution-ownership TestDocRefsResolveDocumentationLinks is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native project, constructs and closes a driver compiler Program in-process, and calls Build. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or native product command runs. Literal ID suffixes distinguish the expected declaration rather than deriving that target from Build.
 func TestDocRefsResolveDocumentationLinks(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   // Two rivals, one sorting before `sale` and one after, each imported so the
   // program holds it. One rival is not enough: a text matcher has to break the
   // tie somehow, and whichever end it picks — lowest id, highest id, first or
-  // last in program order — a single rival leaves half of those choices landing
-  // on the right answer by luck. Flanking the real module closes every one.
+  // last in program order — a single rival leaves some ordering choices landing
+  // on the right answer by luck. The two authored rivals constrain those choices,
+  // not every possible text-matching algorithm.
   writeFile(t, filepath.Join(root, "src", "archive.ts"), `export interface ISale {
   archived: boolean;
 }
@@ -172,7 +170,8 @@ export namespace Documented2 {
   assertDocRef(t, g, "#fromCode:function", "sale.ts#ISale:interface")
   assertDocRef(t, g, "#fromPlain:function", "sale.ts#ISale:interface")
   // Distinct targets each get an edge; a target named twice collapses under the
-  // uniqueness rule every edge kind shares, keeping the first span.
+  // uniqueness expectation for this pair. The helper requires a positive span,
+  // not the exact first occurrence's offsets.
   assertDocRef(t, g, "#severalLinks:function", "sale.ts#ISale:interface")
   assertDocRef(t, g, "#severalLinks:function", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#fromQualified:function", "#Shopping.ICoupon:interface")
@@ -181,8 +180,8 @@ export namespace Documented2 {
   // instead, so this case and the one below are one fix and one regression.
   assertDocRef(t, g, "#fromSee:function", "sale.ts#ISale:interface")
 
-  // A name the checker cannot resolve is not a relation, and must not
-  // fabricate a node to point at.
+  // A name the checker cannot resolve contributes no outgoing doc-ref here.
+  // This helper does not separately assert the absence of an unused ghost node.
   assertNoDocRef(t, g, "#fromUnresolved:function")
   // A declaration naming itself is not an edge, the same rule typeRefEdge keeps.
   assertNoDocRef(t, g, "#selfLinked:function")
@@ -214,12 +213,12 @@ export namespace Documented2 {
 
   // A member's link belongs to the member. The same walk hands a property's
   // subtree to its class as well, which is right for dependency edges and wrong
-  // here: the class's own documentation names nothing.
+  // here: the class's own documentation names ISale, not Shopping.ICoupon.
   assertDocRef(t, g, "#Documented.coupon:variable", "#Shopping.ICoupon:interface")
   assertNoDocRefTo(t, g, "#Documented:class", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#Documented.run:method", "sale.ts#ISale:interface")
 
-  // Two modules declare `ISale`, and only the checker knows which one a link
+  // Three modules declare `ISale`, and checker resolution selects which one a link
   // means: it resolves the name through this module's imports. A text match on
   // the written token could not tell them apart, and would have to guess.
   assertNodeExists(t, g, "archive.ts#ISale:interface")
