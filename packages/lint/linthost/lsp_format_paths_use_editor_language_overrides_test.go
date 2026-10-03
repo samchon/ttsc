@@ -16,7 +16,7 @@ import (
 //  1. Seed conflicting top-level, combined-language and exact TypeScript settings.
 //  2. Require four-space LSP output and three-space project format output.
 //
-// @evidence contracts/testing.md#behavioral-verification Editor code actions and disk/buffer formatting use four-space TypeScript indentation while format dispatch uses the three-space project setting.
+// @evidence contracts/testing.md#behavioral-verification Editor code actions offer the format command; disk/buffer formatting returns four-space TypeScript indentation while format dispatch returns the three-space project setting. The action itself carries no formatted text.
 // @evidence contracts/testing.md#independent-expectations Separately authored four-space editor and three-space CLI texts require their exact indentation and semicolons independently of each other.
 // @evidence contracts/testing.md#distinguishing-cases Conflicting top-level 3, combined-language 6 and exact-language 4 values reject defaults, scope merging in the wrong order and CLI leakage of editor context.
 // @evidence contracts/testing.md#execution-ownership The native Go editor-settings resolver and formatter execute in process against JSON fixtures; the CLI path is Go command dispatch rather than an installed subprocess.
