@@ -9,16 +9,12 @@ import (
 // the `ttsc format` resolver honors `files` on every non-IgnoreOnly entry —
 // the symmetric guard to the existing `ignores` check.
 //
-// `ConfigStore.ResolveRules` only sets `ResolvedRuleConfig.Ignored = true`
-// for `IgnoreOnly` entries. An entry that restricts `files` to e.g.
-// `["src/**/*.ts"]` simply has its rule contributions skipped via
-// `ConfigEntry.matchesFile` for files outside that scope, leaving
-// `Ignored = false`. Without a symmetric guard the format resolver would
-// upgrade every registered format rule to `warn` for files no entry actually
-// targets — so `ttsc format` would rewrite e.g. a `.json` resolved into the
-// program via `resolveJsonModule`, even when the only entry targets
-// `src/**/*.ts`. This case pins the resolver-side guard that closes that
-// gap.
+// A path outside the ordinary entry's files selector has no contribution from
+// that entry. With no other match, ConfigStore returns OutOfScope, which the
+// format resolver preserves. The direct .json path is an admission fixture;
+// this case does not load it through resolveJsonModule or observe disk writes.
+// It also does not isolate the early flag guard from the later undeclared-rule
+// promotion guard.
 //
 //  1. Build a `*ConfigStore` whose single non-IgnoreOnly entry restricts
 //     `files` to `src/**/*.ts` and declares a `format/*` option tuple.
@@ -29,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification ResolveRules upgrades the in-scope path to format/semi warn and marks the outside-files path OutOfScope with the rule off.
 // @evidence contracts/testing.md#independent-expectations The authored files restriction and literal off/warn expectations establish admission independently of resolver matching output.
 // @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry restricted to src/**/*.ts is resolved for an in-scope path (format/semi upgraded to warn) and for a .json path outside the entry's files (must be OutOfScope with format/semi off), the symmetric twin of the ignores case; an entry with ignores instead of files is owned by the sibling test.
-// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles owns its authored ConfigStore entries and direct resolver assertions in the public Go unit population. It starts no consumer install, native build or separately built product host.
 func TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles(t *testing.T) {
   store := &ConfigStore{
     entries: []ConfigEntry{

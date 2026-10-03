@@ -9,15 +9,11 @@ import (
 // `ttsc format` resolver honors `ignores` on entries that also carry a `rules`
 // block.
 //
-// `ConfigStore.ResolveRules` only sets `ResolvedRuleConfig.Ignored = true` for
-// `IgnoreOnly` entries — the ones with no `files` and no `rules`. An entry
-// that carries both `rules` and `ignores` simply has its rule contributions
-// skipped via `ConfigEntry.matchesFile`, leaving `Ignored = false`. Before
-// this fix the format resolver only inspected the `Ignored` flag, so it
-// re-upgraded every registered format rule to `warn` for files the user had
-// explicitly listed in an entry's `ignores`. The engine's lint walk skipped
-// those files but `ttsc format` rewrote them anyway. This case pins the
-// resolver-side guard that closes that gap.
+// The ordinary entry's ignore match excludes its contributions. With no other
+// ordinary entry matching, ConfigStore returns OutOfScope rather than the
+// global Ignored state. The format resolver preserves that result; a matched
+// file instead receives the configured format severity upgrade. This direct
+// case does not reproduce historical engine walks or source rewrites.
 //
 //  1. Build a `*ConfigStore` whose single entry has both `rules` and an
 //     `ignores` list plus a `format/*` option tuple.
@@ -27,8 +23,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification ResolveRules marks the entry-ignored path OutOfScope with format/semi off while upgrading a matched unrelated path to warn.
 // @evidence contracts/testing.md#independent-expectations The authored ignore path and literal off/warn severities express entry applicability independently of ConfigStore flag computation.
-// @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry carrying both rules and an ignores glob is resolved for the ignored path (must be OutOfScope with format/semi still off) and for an unrelated path (format/semi upgraded off to warn); the pair separates an entry-ignored file from a normal one, and a resolver that only read the Ignored flag would upgrade both.
-// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry carrying both rules and an ignores glob is resolved for the ignored path (must be OutOfScope with format/semi still off) and for an unrelated path (format/semi upgraded off to warn). The pair separates entry applicability; it does not isolate the early OutOfScope guard from the later undeclared-rule promotion guard.
+// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile owns its authored ConfigStore entries and direct resolver assertions in the public Go unit population. It starts no consumer install, native build or separately built product host.
 func TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile(t *testing.T) {
   store := &ConfigStore{
     entries: []ConfigEntry{
