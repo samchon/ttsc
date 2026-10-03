@@ -8,9 +8,10 @@ import (
 // TestFormatBlockRejectsEmptySortImportsOrder verifies an empty `order` array
 // is rejected with an instructive error.
 //
-// An empty `order` is the rule's "no groups configured" state and would
-// silently enable a no-op grouping; the boundary check steers the user to omit
-// the field to fall back on the default order instead.
+// The format-block boundary distinguishes an explicitly empty `order` from
+// omission and rejects the former with a remedy. The sorter itself falls back
+// to its default order when the decoded order is empty; this test observes the
+// stricter format-block admission policy rather than executing that fallback.
 //
 //  1. Build `sortImports: { order: [] }`.
 //  2. Parse it through parseExternalConfigStore.
