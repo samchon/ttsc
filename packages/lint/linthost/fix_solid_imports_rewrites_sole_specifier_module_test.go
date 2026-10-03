@@ -6,16 +6,14 @@ import "testing"
 // names the canonical module it already computed and rewrites the specifier
 // when that rewrite moves nothing else.
 //
-// The rule looked the correct entry point up in `solidPreferredSource` and
-// then reported a message that did not say which symbol or which module it
-// meant. Naming both is the point.
+// The rule obtains the supported entry point from `solidPreferredSource`.
+// The independently authored message must name both the symbol and module.
 //
 // This case owns the narrowest repair: a declaration whose sole binding is the
 // misplaced specifier is fixed by rewriting the module specifier, moving no
 // other text. The shapes that need the specifier cut out and relocated are
-// pinned by `solid_imports_relocates_a_misrouted_specifier_test.go`; they used
-// to be negative twins here, asserting the absence of a fix that the rule now
-// has.
+// pinned by `solid_imports_relocates_a_misrouted_specifier_test.go` rather than
+// this sole-binding test. No installed Solid execution is asserted here.
 //
 //  1. Fix `import { render } from "solid-js"`, whose sole binding belongs to
 //     `solid-js/web`, and assert the module is rewritten and the message names
