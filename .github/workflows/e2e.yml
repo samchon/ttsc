@@ -44,7 +44,7 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'runtime', 'native-consumer', 'unplugin', 'graph'].includes(family));
+          assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph'].includes(family));
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -82,7 +82,7 @@ jobs:
             ...(family === 'native-consumer' ? [
               'tests/test-e2e/src/features/test_e2e_native.ts',
               'tests/test-e2e/src/features/test_e2e_consumer.ts',
-            ] : ['tests/test-e2e/src/features/test_e2e_' + family + '.ts']),
+            ] : ['tests/test-e2e/src/features/test_e2e_' + family.replace('-', '_') + '.ts']),
             ...(family === 'compiler' ? [
               'tests/test-e2e/src/features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts',
               'tests/test-e2e/src/features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts',
@@ -119,6 +119,9 @@ jobs:
               'tests/test-e2e/fixtures/evidence',
               'tests/test-e2e/fixtures/lint',
               'tests/test-e2e/fixtures/utilities',
+            ] : family === 'compiler-stub' ? [
+              'tests/test-e2e/fixtures/ttsc/compiler/consumer-fake',
+              'tests/test-e2e/fixtures/ttsc/compiler/consumer-provenance',
             ] : family === 'unplugin' ? ['tests/test-e2e/fixtures/unplugin'] :
               ['tests/test-e2e/fixtures/graph']),
             ...JSON.parse(process.env.E2E_COHORT_ASSET_TREES ?? '[]'),
@@ -139,7 +142,10 @@ jobs:
                   'packages/ttsc/internal/e2etrace/e2etrace.go'] }] : family === 'graph' ? [] : [{
                 boundary: 'runtime-native-wrapper', writerPid: 'observed', event: 'process-attempt',
                 data: { origin: 'spawnSyncResilient' },
-                producerAssets: ['prepared-native-typescript', 'packages/ttsc/lib/internal/E2ETrace.js',
+                producerAssets: [...(family === 'compiler-stub' ? [
+                    'tests/test-e2e/src/internal/ttsc/internal/toolchain.ts',
+                    'tests/test-e2e/fixtures/ttsc/compiler/consumer-provenance/recorder.cjs',
+                  ] : ['prepared-native-typescript']), 'packages/ttsc/lib/internal/E2ETrace.js',
                   'packages/ttsc/lib/internal/spawnSyncResilient.js',
                   ...(family === 'runtime' ? ['packages/ttsc/lib/launcher/internal/runtime/installRuntimeHooks.js'] :
                     ['packages/ttsc/lib/compiler/internal/spawnNative.js'])],
@@ -341,4 +347,40 @@ jobs:
         with:
           name: e2e-graph-comparison-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-graph-comparison
+          if-no-files-found: error
+      - name: Prepare converted provenance process control inputs
+        id: converted-provenance-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &converted-provenance-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-converted-provenance-process-control
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-converted-provenance-process-control-cache
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-converted-provenance-process-control-cache
+          E2E_MEASUREMENT_FAMILY: compiler-stub
+          TTSC_TEST_DIRS: features/ttsc/compiler/test_compiler_consumer_local_native_compiler_receives_the_launcher_contract.ts,features/ttsc/compiler/test_consumer_compiler_preserves_external_emit_provenance_process_control.ts
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/FixtureFiles.ts","tests/test-e2e/src/features/ttsc/compiler/case_consumer_compiler_preserves_external_emit_provenance.ts","packages/ttsc/src/internal/E2ETrace.ts","packages/ttsc/src/internal/spawnSyncResilient.ts","packages/ttsc/src/compiler/internal/spawnNative.ts","packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance.ts"]'
+        run: *prepare-measurement-input
+      - name: Measure unconsolidated converted provenance process control
+        id: converted-provenance-baseline
+        if: ${{ !cancelled() && steps.converted-provenance-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *converted-provenance-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual converted provenance process control report
+        id: converted-provenance-baseline-report
+        if: ${{ !cancelled() && steps.converted-provenance-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-converted-provenance-process-control
+        run: *bind-measurement-baseline
+      - name: Measure shared converted provenance process control
+        if: ${{ !cancelled() && steps.converted-provenance-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *converted-provenance-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=compiler-stub
+      - name: Retain actual converted provenance process control observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-converted-provenance-process-control-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-converted-provenance-process-control
           if-no-files-found: error
