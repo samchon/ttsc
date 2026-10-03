@@ -5,11 +5,11 @@ import (
   "testing"
 )
 
-// TestNoLossOfPrecisionHandlesEveryNumberSyntax verifies full Number literal coverage.
+// TestNoLossOfPrecisionHandlesEveryNumberSyntax verifies the authored Number literal families.
 //
 // Precision loss depends on the requested coefficient and the exact IEEE-754
 // rounding result, not only on decimal safe-integer bounds. These twins cover
-// every JavaScript Number spelling and the boundaries where rounding changes.
+// the authored JavaScript Number spellings and boundaries where rounding changes.
 //
 // 1. Check exact and inexact decimal integers, fractions, and exponents.
 // 2. Check binary, octal, hexadecimal, legacy octal, and separator spellings.
