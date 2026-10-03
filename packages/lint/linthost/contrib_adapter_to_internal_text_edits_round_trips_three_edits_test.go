@@ -7,14 +7,12 @@ import (
 )
 
 // TestContribAdapterToInternalTextEditsRoundTripsThreeEdits verifies the
-// rule.TextEdit → main.TextEdit conversion at
+// rule.TextEdit to linthost.TextEdit conversion at
 // contrib_adapter.go::toInternalTextEdits.
 //
-// The adapter is the single point where contributor types are widened to
-// the engine's internal types. A bug in the loop (off-by-one, reordering,
-// or field drop) would silently misapply contributor fixes; no other test
-// in the corpus exercises the conversion in isolation. Three edits are
-// enough to surface order regressions while staying small.
+// The adapter copies contributor edit fields into the engine's edit records.
+// Three distinct edits expose truncation, reordering and field loss in this
+// conversion without relying on a contributor process or an applied rewrite.
 //
 // 1. Build a rule.TextEdit slice with three distinct, non-overlapping edits.
 // 2. Call `toInternalTextEdits` directly.
