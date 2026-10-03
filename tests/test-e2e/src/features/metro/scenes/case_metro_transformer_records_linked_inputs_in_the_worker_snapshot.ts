@@ -20,12 +20,12 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
  *
  * @evidence contracts/testing.md#behavioral-verification An actual native reporter dependency through a directory link retains the lexical linked path plus exact config/descriptor inputs and Go source tree.
  * @evidence contracts/testing.md#independent-expectations The authored link spelling and literal expected fixture paths independently specify compiler-visible identity outside the static walk.
- * @evidence contracts/testing.md#distinguishing-cases Linked in-project spelling contrasts ordinary in-walk sources and an external unlinked helper.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_metro, which is discovered under src/features and selected by the E2E Evidence claim; this exported scenario executes the compiled Metro package, while source units own its portable decisions.
+ * @evidence contracts/testing.md#distinguishing-cases Linked in-project spelling contrasts in-walk sources and the external unlinked sibling case. Native realpath equality verifies its authored external target and lexical inequality verifies the alias premise before transform; original exact recorded paths reject replacing the link spelling by canonical target.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_metro invokes this selected actual directory-link/native reporter input through default built transformer modules unless TTSC_TEST_LAYER=unit. Authored echo upstream is not a Metro server/OS worker; source override is not built-boundary proof and direct link/recorder units do not replace native delivery.
  * @evidence contracts/e2e.md#necessary-boundary Compiler-derived dependency spelling must survive the real transform callback and be recorded under its lexical link identity.
- * @evidence contracts/e2e.md#shared-execution One linked fixture and native reporter compile use the suite shared immutable producer/cache; exact input assertions share that single worker observation. Its project is a slot of the experiment's single workspace, written or copied by MetroWorkspace instead of being created as a separate temporary directory.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A case-local link targets a separate tracked declaration directory, and the worker options restore after the call. Entering the slot replaces it, which removes any earlier snapshot, epoch and recorded input, and the experiment removes the whole workspace and verifies its absence once, after the last scenario.
- * @evidence contracts/e2e.md#preserved-coverage All original exact worker-file and Go source-tree membership assertions remain.
+ * @evidence contracts/e2e.md#shared-execution One actual junction on Windows or directory symlink elsewhere and one reporter transform share selected producer artifacts. Parent calls do not certify compiler generation/native child/cache totals; exact recorded set and source-tree assertions share the one observation without per-input producer preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh project/external slots isolate the linked target; native link creation/realpath premise failures propagate, not skip. Runtime options env restores after the awaited transform, parent aggregate cleanup removes slots/link after case settlement. Paths and Promise return do not certify loaded-image equality or arbitrary descendants.
+ * @evidence contracts/e2e.md#preserved-coverage Original lexical linked path plus exact package/descriptor/two config files and Go tree membership remain, with native target/alias premise checks. No retarget/restart outcome or broader unit runtime is inferred; registration/built-layer binding/survival/measurement remain unverified.
  */
 export async function case_metro_transformer_records_linked_inputs_in_the_worker_snapshot(
   workspace: MetroWorkspace.IWorkspace,
@@ -42,6 +42,9 @@ export async function case_metro_transformer_records_linked_inputs_in_the_worker
     process.platform === "win32" ? "junction" : "dir",
   );
   const linked = path.join(linkedDirectory, "types.d.ts");
+  const physicalTarget = fs.realpathSync.native(target);
+  assert.equal(fs.realpathSync.native(linked), physicalTarget, "the authored directory link must reach the external declaration");
+  assert.notEqual(path.resolve(linked), physicalTarget, "the dependency must retain a distinct lexical link spelling");
   await prepareSnapshot(root);
   await TestMetroRuntime.runTransform({
     options: {
