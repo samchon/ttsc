@@ -11,9 +11,8 @@ import (
 // `// eslint-disable-next-line @typescript-eslint/<id>` directive does
 // NOT silently suppress a finding from the canonical `typescript/<id>`.
 //
-// The clean-break migration removed the legacy alias normalization;
-// users with stale suppression comments must see their findings fire
-// again so the migration cliff is visible. Pairs with
+// The directive parser does not normalize the unsupported legacy namespace;
+// its suppression must leave canonical findings visible. Pairs with
 // `TestEngineDirectiveAcceptsTypescriptNamespacePrefix` (which pins the
 // positive case) and
 // `TestEngineDirectiveRecordsUnknownRuleInUnknownChannel` (which pins
