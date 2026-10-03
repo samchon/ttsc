@@ -15,7 +15,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification A captured switch action is executed after an unrelated same-width source edit and must return no WorkspaceEdit, rejecting selection rebinding to changed content.
 // @evidence contracts/testing.md#independent-expectations The authored old action and explicit changed source determine the stale fingerprint boundary. A nil edit follows the fail-closed contract, independently of any newly generated action.
-// @evidence contracts/testing.md#distinguishing-cases The captured action is valid against the original source and is executed only after one character of an unrelated string literal changes while keeping every offset identical, so only a content fingerprint, not a position check, can reject it. The positive execution of the same action is covered by the switch-exhaustiveness suggestion test.
+// @evidence contracts/testing.md#distinguishing-cases The command-backed action is captured against the original source and executed after one unrelated string character changes without shifting offsets. This distinguishes stale-content rejection from shifted-position rejection. The switch-exhaustiveness suggestion test covers successful execution of the same command path on its separate authored inputs; this entry does not positively execute its captured action before the change.
 // @evidence contracts/testing.md#execution-ownership Calls run lsp-code-actions and lsp-execute-command in process through the shared helpers on a temporary project and rewrites the source file between the two calls; no editor or built host is started.
 func TestLSPApplySuggestionRejectsStaleSource(t *testing.T) {
   source := `const marker = "a";
