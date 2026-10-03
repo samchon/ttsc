@@ -26,13 +26,13 @@ import {
  * 3. Call `clean()` and assert the entire `cacheDir` is removed.
  *
  * @evidence contracts/testing.md#behavioral-verification Prepares a descriptor-backed Go plugin under explicit cacheDir, checks the built binary exists below plugins, then checks clean returns and removes the chosen cache.
- * @evidence contracts/testing.md#independent-expectations The explicit context cache contract determines the root and plugin subdirectory; actual binary creation and later disappearance establish producer and cleanup behavior.
+ * @evidence contracts/testing.md#independent-expectations The explicit context cache contract independently determines the root and plugin subdirectory. Returned count/path, filesystem presence and later root absence establish selected artifact location and deletion, not independent binary bytes, loaded image or invocation-local build provenance.
  * @evidence contracts/testing.md#distinguishing-cases One plugin and explicit cacheDir pin prepare-to-clean ownership; relative environment routing and multi-instance isolation are owned by adjacent entries.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named feature and runs actual Go plugin preparation plus API clean.
- * @evidence contracts/e2e.md#necessary-boundary The prepare result must identify a native artifact the compiler really produced, and clean must remove its owning cache; an in-memory path test cannot prove either effect.
- * @evidence contracts/e2e.md#shared-execution One preparation supplies every existence/path check and one clean supplies deletion checks. A private cache is necessary because this case destroys its prepared artifact.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The registered project and private cache isolate deletion from the suite shared plugin cache; synchronous preparation finishes before cleanup, with residual fixture resources released at suite exit.
- * @evidence contracts/e2e.md#preserved-coverage Count, binary existence/location, exact removed-root list and cache absence remain. The minimal Go program is built but not executed as a transform.
+ * @evidence contracts/testing.md#execution-ownership The named feature calls checkout built TtscCompiler through the existing shared subclass and selected resolveTsgo binary. Explicit cacheDir bypasses default shared-cache injection; this is actual descriptor/source preparation and cleanup, not packed installation.
+ * @evidence contracts/e2e.md#necessary-boundary Actual source-plugin preparation followed by native cache removal checks selected ownership across the API. Presence/path alone do not prove a fresh native build or execution, while a pure path function cannot establish removal of that selected root.
+ * @evidence contracts/e2e.md#shared-execution One preparation supplies original count/existence/path checks and one clean supplies deletion checks. The private explicit root preserves destructive ownership; API and returned path counts do not certify process, Program or cache-hit totals.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The registered project and private cache isolate deletion from the suite shared plugin cache; direct synchronous preparation returns before clean, and normal residual fixture cleanup is tracked. Neither direct return nor tracked cleanup certifies arbitrary descendant closure or forced-interruption cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Count, binary existence/location, exact removed-root list and cache absence remain. The minimal Go input is submitted to preparation but its binary is not executed as a transform; fresh build provenance and executable image identity are not independently asserted.
  */
 export const test_ttsccompiler_prepare_builds_source_plugins_and_clean_removes_context_cache =
   () => {
