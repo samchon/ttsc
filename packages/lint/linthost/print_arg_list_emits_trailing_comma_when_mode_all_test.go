@@ -10,12 +10,9 @@ import (
 // call-argument shape keeps its trailing comma under
 // `trailingComma: "all"`.
 //
-// `"all"` is the engine default and the historical hard-coded shape:
-// every multi-line argument list ends with `,\n)`. The test pins the
-// default arm of the new `printArgList` AddComma plumbing so a later
-// refactor — once the trailingComma plumbing exists — cannot silently
-// flip the default to `none` and strip a comma rxjs (configured for
-// `"all"`) and every other Prettier-default project depend on.
+// This entry explicitly selects `"all"` and checks the final comma in
+// one overflowing three-argument call. The same input under `"es5"`
+// and `"none"` is checked by the neighboring mode entries.
 //
 //  1. Parse `process(aaaaaaaaa, bbbbbbbbb, ccccccccc);`.
 //  2. Print under PrintWidth=20 with TrailingComma="all".

@@ -10,12 +10,9 @@ import (
 // call-argument shape drops its trailing comma under
 // `trailingComma: "none"`.
 //
-// `"none"` is the strictest mode: every list position — calls,
-// arrays, objects, named imports / exports — must render without a
-// trailing comma. The `format/trailing-comma` rule short-circuits at
-// the top of `Check` when the option resolves to "none", so the
-// printer must agree on the same shape or the printer would keep
-// reinserting the comma on every cascade pass.
+// This entry explicitly selects the no-trailing-comma policy for one
+// overflowing call. It checks the complete result directly; other list
+// positions and command formatting cascades are outside this test.
 //
 //  1. Parse `process(aaaaaaaaa, bbbbbbbbb, ccccccccc);`.
 //  2. Print under PrintWidth=20 with TrailingComma="none".

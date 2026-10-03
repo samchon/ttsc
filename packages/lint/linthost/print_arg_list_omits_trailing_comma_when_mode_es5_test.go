@@ -10,14 +10,9 @@ import (
 // call-argument shape drops its trailing comma under
 // `trailingComma: "es5"`.
 //
-// Trailing commas in call arguments arrived in ES2017, so Prettier's
-// `es5` mode excludes them — the `format/trailing-comma` rule's
-// `KindCallExpression` arm has always honored that. The printer used
-// to add the comma back on every reflow, which oscillated against
-// Prettier on every benchmark pass (rxjs hit this on `ajax.ts`,
-// `bindCallbackInternals.ts`, several operators, and the
-// `testing/Cold|HotObservable.ts` files). This test pins the new
-// `printArgList` branch that consults `PrintOptions.TrailingComma`.
+// Prettier's `es5` policy excludes call-argument trailing commas.
+// This entry explicitly selects that policy for an overflowing call
+// and checks the complete output, including the absent final comma.
 //
 //  1. Parse `process(aaaaaaaaa, bbbbbbbbb, ccccccccc);`.
 //  2. Print under PrintWidth=20 with TrailingComma="es5".
