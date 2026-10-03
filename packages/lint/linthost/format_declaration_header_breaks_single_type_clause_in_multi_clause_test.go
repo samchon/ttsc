@@ -2,13 +2,11 @@ package linthost
 
 import "testing"
 
-// TestFormatDeclarationHeaderBreaksSingleTypeClauseInMultiClause pins Prettier's
-// handling of a multi-clause class header (`extends` + `implements`) where the
-// `implements` clause carries a single type that overflows on the keyword line:
-// Prettier breaks after the keyword and drops the lone type to the next indent
-// level, generic or not. Earlier the rule kept any single-type clause inline,
-// leaving an over-wide `  implements ITreeRenderer<…>` line (the dominant vscode
-// renderer-header divergence).
+// TestFormatDeclarationHeaderBreaksSingleTypeClauseInMultiClause verifies the
+// supported multi-clause class layout when a singleton implements type exceeds
+// its keyword-line width. The generic and nongeneric over-width types break
+// after the keyword; a fitting singleton stays inline. These independently
+// authored cases do not measure past failures or external corpus frequency.
 //
 // @evidence contracts/testing.md#behavioral-verification The declaration-header rule must break generic and nongeneric over-width singleton implements types after the keyword while leaving fitting singleton clauses inline; the complete format cascade must retain each canonical result.
 // @evidence contracts/testing.md#independent-expectations The three independently authored complete canonical literals specify width-eighty singleton clause layout and preserve base types, implemented type arguments and x=1 bodies. Flat input fixtures make each expected canonical result an actual change.

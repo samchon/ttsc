@@ -6,9 +6,9 @@ import "testing"
 // `extends` clause with multiple types breaks before the keyword and
 // lists one type per line, matching Prettier 3.
 //
-// ttsc previously left such an over-width header verbatim (Prettier-2
-// "break before extends only" shape). The rule reflows only the header
-// up to `{`; the body is untouched.
+// The full independent output requires both the keyword break and all six
+// separate heritage lines. The rule reflows only the header up to `{`; the
+// body is untouched. This case does not reproduce a past formatter version.
 //
 //  1. Parse an interface whose extends list overflows printWidth 50.
 //  2. Apply format/declaration-header.
