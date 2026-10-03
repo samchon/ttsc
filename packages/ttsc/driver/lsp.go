@@ -510,7 +510,7 @@ type LSPUpstreamValidator = lspserver.LSPUpstreamValidator
 // LSPUpstream pairs a runner with its validation policy for one invocation.
 // Its zero value selects the production upstream behavior.
 //
-// @evidence contracts/common.md#principled-implementation Alias identity preserves the server's immutable dependency pair and zero-value selection.
+// @evidence contracts/common.md#principled-implementation Alias identity preserves the dependency pair copied for one server invocation and its zero-value selection.
 // @evidence contracts/common.md#clear-and-simple-design Execution and prerequisites travel together without separate mutable driver settings.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit dependency injection avoids test-only branches in production startup.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains pairing and zero-value behavior following the documentation skill.
