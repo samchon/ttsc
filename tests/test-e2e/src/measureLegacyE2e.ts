@@ -6,12 +6,16 @@ import { inspect } from "node:util";
 import { E2eProcessTrace } from "../../utils/src/E2eProcessTrace";
 import { captureE2eTracePhase, type TracePhaseInput } from "./internal/captureE2eTracePhase";
 import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "./internal/pairE2eTraceWriterManifest";
+import { pairE2eColdCommandArtifact } from "./internal/pairE2eColdCommandArtifact";
 
 /**
  * Runs the unchanged legacy index in one owned, instrumented Node process.
  * This is a measurement entry, not an activated consolidation runner. The fixed
  * external trace root must contain measurement-input.json with explicit assets,
- * cacheRoots and independently selected boundary requirements. Producer/tool
+ * cacheRoots and independently selected boundary requirements. Optional named
+ * coldArtifacts requirements must follow the actual legacy CLI selection; they
+ * bind build-owner rows to observed writer PIDs, not certified process ancestry.
+ * A cold output is observed after its actual build, never prewarmed. Producer/tool
  * paths are supplied by the prepared manifest, never resolved by a version probe.
  *
  * The final report is observed-only. This process close joins the runner's own
@@ -38,9 +42,25 @@ export async function measureLegacyE2e(): Promise<void> {
     cacheRoots: string[];
     afterSequences?: Record<string, number>;
     boundaries: (Omit<TraceBoundaryRequirement, "writerPid"> & { writerPid: number | "coordinator" | "runner" })[];
+    coldArtifacts?: (Omit<Parameters<typeof pairE2eColdCommandArtifact>[1], "writerPid"> & { boundary: string })[];
   };
   if (!Array.isArray(input.assets) || !Array.isArray(input.cacheRoots) || !Array.isArray(input.boundaries) || input.boundaries.length === 0)
     throw new Error("Measurement input requires explicit asset/cache/boundary arrays");
+  if (input.coldArtifacts !== undefined && !Array.isArray(input.coldArtifacts))
+    throw new Error("Cold artifact requirements must be an explicitly selected array");
+  const coldNames = new Set<string>();
+  for (const requirement of input.coldArtifacts ?? []) {
+    if (!requirement || typeof requirement.boundary !== "string" || !requirement.boundary ||
+      coldNames.has(requirement.boundary) || typeof requirement.buildOwner !== "string" || !requirement.buildOwner ||
+      typeof requirement.useOwner !== "string" || !requirement.useOwner ||
+      typeof requirement.rawLabel !== "string" || !/^[a-z0-9-]+$/i.test(requirement.rawLabel) ||
+      !Number.isSafeInteger(requirement.minimumUses) || requirement.minimumUses < 1 ||
+      ![requirement.buildPrefix, requirement.buildSuffix, requirement.usePrefix, requirement.producerAssets]
+        .every(values => Array.isArray(values) && values.every(value => typeof value === "string")) ||
+      requirement.producerAssets.length === 0)
+      throw new Error("Invalid or duplicate independently selected cold artifact requirement");
+    coldNames.add(requirement.boundary);
+  }
   const entry = fileURLToPath(new URL("./legacyE2eTraceEntry.ts", import.meta.url));
   const index = fileURLToPath(new URL("./index.ts", import.meta.url));
   const loader = fileURLToPath(new URL("../../../config/register-typescript-loader.mjs", import.meta.url));
@@ -82,7 +102,20 @@ export async function measureLegacyE2e(): Promise<void> {
     writerPid: boundary.writerPid === "coordinator" ? process.pid :
       boundary.writerPid === "runner" ? runnerPid ?? 0 : boundary.writerPid,
   })));
-  const report = JSON.stringify({ phase, pairing, descendantJoinCertified: false }, (_key, value) =>
+  const coldArtifacts = (input.coldArtifacts ?? []).map(requirement => {
+    const actualWriterPids = new Set((phase.traces?.writerObservations ?? [])
+      .filter(row => row.observation.event === "native-artifact" &&
+        row.observation.data?.owner === requirement.buildOwner)
+      .map(row => row.observation.writerPid));
+    return {
+      boundary: requirement.boundary,
+      writerAdmission: "observed-artifact-owner-not-ancestry-certified",
+      problems: actualWriterPids.size ? [] : ["Missing explicitly required cold artifact writer"],
+      writers: [...actualWriterPids].map(writerPid => ({ writerPid,
+        pairing: pairE2eColdCommandArtifact(phase, { ...requirement, writerPid }) })),
+    };
+  });
+  const report = JSON.stringify({ phase, pairing, coldArtifacts, descendantJoinCertified: false }, (_key, value) =>
     value instanceof Error ? { name: value.name, message: value.message, stack: value.stack,
       diagnostic: inspect(value, { depth: null, customInspect: false, getters: false,
         maxArrayLength: null, maxStringLength: null }) } : value, 2);
@@ -92,7 +125,9 @@ export async function measureLegacyE2e(): Promise<void> {
   if (!phase.outcome.returned || phase.outcome.value.status === null || phase.outcome.value.signal !== null ||
     phase.observationErrors.length !== 0 || phase.traces?.integrityProblems.length !== 0 ||
     phase.traces?.incompleteProcessInvocations.length !== 0 ||
-    pairing.boundaries.some(boundary => boundary.problems.length !== 0)) process.exitCode = 1;
+    pairing.boundaries.some(boundary => boundary.problems.length !== 0) ||
+    coldArtifacts.some(boundary => boundary.problems.length !== 0 || boundary.writers.some(writer =>
+      writer.pairing.problems.length !== 0 || writer.pairing.artifacts.some(artifact => artifact.problems.length !== 0)))) process.exitCode = 1;
   else process.exitCode = phase.outcome.value.status;
 }
 
