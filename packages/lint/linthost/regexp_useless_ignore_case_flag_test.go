@@ -8,10 +8,9 @@ import (
 
 // TestRegexpUselessIgnoreCaseFlag verifies regexp/no-useless-flag on the `i` flag.
 //
-// The `i` decision used to run on `scanRegexpPattern`, whose visit callback
-// fires only outside a character class, so `/[a-z]/i` looked letter-free and the
-// rule ordered a load-bearing flag deleted (issue #576). The predicate now walks
-// the regexp AST, and the negatives below pin every shape that keeps the flag
+// The `i` decision walks the regexp AST rather than judging only characters
+// visited outside classes by `scanRegexpPattern`. The negatives include the
+// load-bearing flag in `/[a-z]/i` and authored shapes that keep the flag
 // alive: class members and ranges, negated classes, escapes that decode to cased
 // characters, non-ASCII and astral case pairs, letters reachable only through a
 // group, and the Unicode-mode widening of `\w`/`\b`. The positives pin the other
@@ -54,7 +53,7 @@ func TestRegexpUselessIgnoreCaseFlag(t *testing.T) {
     {`/[\d\s]|[.,]/i`, true, "both alternatives are case-invariant"},
     {`/(?:)/i`, true, "an empty pattern matches no character at all"},
 
-    // Live `i`: the flag widens what the pattern matches.
+    // Retained `i`: case-variant elements or conservative analysis keep the flag.
     {`/[a-z]/i`, false, "the reported regression: i extends [a-z] to A-Z"},
     {`/[A-Z]/i`, false, "and [A-Z] to a-z"},
     {`/[abc]/i`, false, "plain class members re-case too"},
