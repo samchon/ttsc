@@ -36,6 +36,9 @@ func assertLSPFormatPaths(t *testing.T, root string, source string, want string)
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
 
   actions := runLSPCodeActionsForTest(t, root, uri, `{"only":["source.format"]}`)
+  if len(actions) != 1 {
+    t.Fatalf("format actions = %#v, want exactly one", actions)
+  }
   if got := actionCommandsForTest(actions); len(got) != 1 || got[0] != commandFormatDocument {
     t.Fatalf("format actions = %#v, want [%q]", got, commandFormatDocument)
   }
