@@ -16,10 +16,10 @@ import (
 //
 //  1. Seed one producer's last-good project publication.
 //  2. Make the current document diagnostic invocation fail before publication.
-//  3. Assert document diagnostics omit Project while the cache remains intact.
+//  3. Assert document diagnostics omit Project while one stale-coded cache entry remains.
 //
-// @evidence contracts/testing.md#behavioral-verification When the current document diagnostic invocation fails before publication the result omits Project while the producer's last-good cache stays intact.
-// @evidence contracts/testing.md#independent-expectations The expected absent Project and retained cache are literal state checks.
+// @evidence contracts/testing.md#behavioral-verification When the unresolved producer cannot publish a current result, actual Diagnostics returns Project=nil while the separately queried cache snapshot is nonnil and contains exactly one diagnostic with literal code stale. Other cached fields and successful/parse-failure publications are not asserted.
+// @evidence contracts/testing.md#independent-expectations Absent Project, nonnil snapshot, one cached diagnostic and its code stale are independent literal state checks.
 // @evidence contracts/testing.md#distinguishing-cases The failing run and the seeded cache are the two states that a stale-cache return would conflate.
 // @evidence contracts/testing.md#execution-ownership This Go unit seeds the actual NativePluginSource cache and calls actual Diagnostics and projectDiagnosticsSnapshot. A native LookPath premise requires its supplied binary to be unresolvable before Diagnostics attempts the resident and one-shot command paths; no sidecar is installed or successfully started, and no temporary directory or substituted query operation exists. The asserted cache fields are nonnil snapshot, one entry and literal code stale; selected runtime execution remains unverified.
 func TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone(
