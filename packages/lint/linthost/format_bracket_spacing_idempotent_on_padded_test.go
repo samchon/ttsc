@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatBracketSpacingIdempotentOnPadded verifies spacing:true is a no-op
-// on an already-padded object literal, so the cascade reaches a fixed point.
+// on an already-padded object literal. This direct case does not run the cascade.
 //
 //  1. Parse `{ x: 1 }`.
 //  2. Run format/bracket-spacing with spacing:true.

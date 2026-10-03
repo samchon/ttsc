@@ -3,19 +3,18 @@ package linthost
 import "testing"
 
 // TestFormatBracketSpacingLeavesAPrettierShapedTypeLiteralAlone verifies the
-// same type literal in Prettier's own shape produces no edit.
+// padded type literal produces no finding under the supported spacing policy.
 //
-// The negative twin of the unspaced pad, and the fixed-point half of the
-// guide's claim: a file already formatted by Prettier must come out
-// byte-identical. Without it, the pad case alone would still pass if the rule
-// rewrote every type literal it saw.
+// This is the negative twin of the unspaced pad. The positive alone would still
+// pass if the rule rewrote every type literal it saw. The literal is an
+// independent padding expectation, not a recorded external formatter result.
 //
-//  1. Parse the Prettier 3.8.3 output for the same declaration.
+//  1. Parse the independently authored padded type declaration.
 //  2. Run format/bracket-spacing with spacing:true.
 //  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification format/bracket-spacing must leave the padded alpha/bravo type literal without findings under spacing:true.
-// @evidence contracts/testing.md#independent-expectations The literal type declaration already satisfies the supported brace-padding policy and matches the independently obtained Prettier 3.8.3 shape; no edit is required.
+// @evidence contracts/testing.md#independent-expectations The independently authored literal type declaration already satisfies the supported brace-padding policy; no edit is required. This body does not obtain or compare external formatter output.
 // @evidence contracts/testing.md#distinguishing-cases This canonical type-literal negative complements the unspaced type-literal positive, distinguishing an already-padded interior from an unpadded one without claiming this single rule formats every token.
 // @evidence contracts/testing.md#execution-ownership TestFormatBracketSpacingLeavesAPrettierShapedTypeLiteralAlone is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns its literal source and no-finding assertions; the shared syntax-only harness invokes the owning rule in process without a consumer install, native product build or product host.
 func TestFormatBracketSpacingLeavesAPrettierShapedTypeLiteralAlone(t *testing.T) {
