@@ -11,20 +11,17 @@ import (
 // shim-completeness probe for `Checker_getPropertyNameForKnownSymbolName`: it
 // runs a real Checker over a ttsc-owned fixture and asserts the exposed op
 // composes with `GetPropertyOfType` into a working well-known-symbol member
-// lookup. It is the same traversal used by the `typescript/await-thenable`
+// lookup. It is the known-symbol lookup prefix used by `typescript/await-thenable`
 // rule for `for await...of` (`Symbol.asyncIterator`), Promise aggregator
 // (`Symbol.iterator`), and `await using` (`Symbol.asyncDispose`) arms.
 //
-// The closure auditor only proves the symbol is nameable; this probe proves
-// the RESOLUTION completes: the returned name must be the late-bound name of
-// the real global unique symbol (lib-provided for `iterator` and
-// `asyncIterator`, `declare global`-augmented for `asyncDispose`). Any other
-// string, including the checker's `\xFE@`-prefixed fallback, would silently
-// match nothing. The lint rule would then report every `for await`, skip typed
-// Promise aggregator inputs, or accept no `await using`, depending on the
-// requested symbol.
+// The returned name must resolve the authored unique-symbol member
+// (lib-provided for `iterator` and `asyncIterator`, globally augmented for
+// `asyncDispose`) while rejecting its protocol-free sibling. The test does
+// not require a particular internal spelling or execute the rule's later
+// call-signature checks and diagnostics.
 //
-//  1. Compile a fixture declaring `[Symbol.asyncIterator]`,
+//  1. Load a checker fixture declaring `[Symbol.asyncIterator]`,
 //     `[Symbol.iterator]`, and `[Symbol.asyncDispose]` members, with the
 //     dispose symbols coming from a `declare global` augmentation.
 //  2. Resolve all three protocol property names through the exposed shim op.
