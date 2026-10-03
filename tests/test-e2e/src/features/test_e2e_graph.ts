@@ -45,7 +45,7 @@ import { case_ttscgraph_trace_reports_only_actual_omissions } from "./graph/scen
 import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
 
 /**
- * Verifies the @ttsc/graph package through its installed launcher and native
+ * Verifies the workspace-built @ttsc/graph launcher and selected real native
  * producer.
  *
  * Compiler identity scenarios borrow one project and one resident MCP session,
@@ -54,7 +54,7 @@ import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/c
  * inputs. Its first cold escape temporarily invalidates configuration, and the
  * unlinked-workspace scene renames the existing link with exact input
  * restoration. Target resolution, empty artifacts, resident retirement and HTTP
- * viewer inputs share one installed target project; the uninstalled override
+ * viewer inputs share one authored target package layout; the uninstalled override
  * project and unrelated launcher cwd retain distinct resolution coordinates.
  * Resident abort/replacement and occupied/successful HTTP servers retain their
  * real separate process lifetimes. Scenarios are independent: each reaches its
@@ -67,14 +67,14 @@ import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/c
  * 3. Join the shared MCP process and require a clean exit status.
  * 4. Report every scenario and cleanup failure by name.
  *
- * @evidence contracts/testing.md#behavioral-verification Each scenario drives the installed launcher, native producer, viewer or decoders and asserts graph facts, wire shapes or process behavior; this entry joins the shared MCP and requires a process-and-stdio close receipt for every observed native child before aggregation.
+ * @evidence contracts/testing.md#behavioral-verification Each scenario drives the workspace-built launcher, native producer, viewer or decoders and asserts graph facts, wire shapes or process behavior; this entry joins the shared MCP and requires a process-and-stdio close receipt for each exact native child observed inside that MCP launcher before aggregation. That observer does not establish whole-suite process completeness or arbitrary descendant joins.
  * @evidence contracts/testing.md#independent-expectations Expectations are authored per scenario from the fixture sources and the graph tool contract and are not produced here.
  * @evidence contracts/testing.md#distinguishing-cases Each scenario states its own positive, negative and boundary distinctions; this entry owns none beyond the clean-exit check of the shared session.
- * @evidence contracts/testing.md#execution-ownership test_e2e_graph discovers the exported TypeScript scenarios plus two package-owned Go connection cases by exact name under the e2e build tag. Named case declarations retain their individual checklist answers; the anonymous Go orchestration callback is review-only.
- * @evidence contracts/e2e.md#necessary-boundary The installed launcher, resident native graph, viewer and decoders are real connections that source units cannot exercise; each scenario states its own contribution.
- * @evidence contracts/e2e.md#shared-execution Identity, cold escape and unlinked transition share one project/MCP; immutable dump consumers share one cached dump and unlinked membership retains one separate dump. Installed-target, empty-publication, resident and HTTP scenes share one target root/copy. A distinct uninstalled root and unrelated cwd preserve resolution counterexamples. Two package-owned Git/auxiliary identity cases share one tagged Go binary and retain incompatible filesystem inputs. Resident retirement and occupied/successful HTTP states retain two actual lifetimes each.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The experiment closes shared MCP stdin and awaits exit zero after all scenarios, then compares observed native child spawn/close identities. Temporary config/link profiles restore after settled requests; a lost or timed-out transport forbids edits and reset, withdraws reuse and independently retains project and external receipts. Declaration edits use exclusive source files and tour variants overwrite their closed universe. The supported diagnostics observer leaves calls unchanged and releases subscriptions/listeners with its MCP process; receipt timing is not a race oracle.
- * @evidence contracts/e2e.md#preserved-coverage Every TypeScript scenario retains its assertions and the shared-session join. The actual Git projection and auxiliary native identity connections now execute as two tagged Go cases in this experiment, preserving their Go assertions while portable path-mapper cases remain Go units.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_graph discovers the exported TypeScript scenarios plus two package-owned Go connection cases by exact name under the e2e build tag. Named case declarations retain their individual checklist answers; the anonymous Go orchestration callback adds no independently selected named declaration. These exact calls establish source selection, not actual execution success or complete helper assertion ownership.
+ * @evidence contracts/e2e.md#necessary-boundary The workspace-built launcher, selected resident native graph, viewer and built decoders are real connections that source units cannot exercise; each scenario states its own contribution.
+ * @evidence contracts/e2e.md#shared-execution Identity, cold escape and unlinked transition share one project/MCP; immutable dump consumers share one cached dump and unlinked membership retains one separate dump. Target native-resolution, empty-publication, resident and HTTP scenes share one authored target root/native copy; several facades still use workspace libraries or explicit workspace native overrides, not packed SDK installation. A distinct uninstalled root and unrelated cwd preserve resolution counterexamples. The exact Git/auxiliary Go selection shares its tagged package binary preparation; selecting those Test names does not itself prove their distinct helper semantics or actual joined processes. Resident retirement and occupied/successful HTTP states retain two actual lifetimes each.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The experiment closes shared MCP stdin and awaits exit zero after all scenarios, then compares exact-native child spawn/close identities observed in that MCP process. These receipts are not compiler Program identities or whole-suite process totals. Temporary config/link profiles restore after settled requests; a lost or timed-out transport forbids edits and reset, withdraws reuse and independently retains project and external receipts. Declaration edits use exclusive source files and tour variants overwrite their closed universe. The supported diagnostics observer leaves calls unchanged and releases subscriptions/listeners with its MCP process; receipt timing is not a race oracle.
+ * @evidence contracts/e2e.md#preserved-coverage Every TypeScript scenario retains its assertions and the shared-session join. The registry selects TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters and TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents through the tagged Go boundary. Their exact helper input/assertion mapping remains a separate pending obligation; registry selection alone is not surviving execution or full semantic coverage. Existing TypeScript controls and direct portable path-mapper owners are preserved.
  */
 export async function test_e2e_graph(): Promise<void> {
   const failures: Error[] = [];
