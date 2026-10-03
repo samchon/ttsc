@@ -4,8 +4,8 @@ import (
   "testing"
 )
 
-// TestNoImportAssignIgnoresResolvedShadowsAndDeeperValues prevents every
-// name-based false positive while keeping namespace protection shallow, as the
+// TestNoImportAssignIgnoresResolvedShadowsAndDeeperValues guards the authored
+// local-shadow cases while keeping namespace protection shallow, as the
 // official rule requires. Local Object/Reflect declarations also prove the
 // mutation-function recognition follows the global binding.
 //

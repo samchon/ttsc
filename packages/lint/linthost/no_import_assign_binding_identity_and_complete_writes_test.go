@@ -4,8 +4,8 @@ import (
   "testing"
 )
 
-// TestNoImportAssignBindingIdentityAndCompleteWrites pins every supported write
-// surface to the actual import symbol rather than its spelling. It also verifies
+// TestNoImportAssignBindingIdentityAndCompleteWrites pins the authored write
+// surfaces to the actual import symbol rather than its spelling. It also verifies
 // the ESLint namespace-mutation functions and exact outer mutation ranges.
 //
 // @evidence contracts/testing.md#behavioral-verification The checker-backed no-import-assign engine reports every authored import-binding and shallow namespace mutation with exact full mutation spans, rule/severity/messages and no edits.
