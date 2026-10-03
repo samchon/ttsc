@@ -40,8 +40,8 @@ func (commandProjectInputRule) ProjectInputs(ctx *publicrule.ProjectInputContext
 //  3. Decode stdout and assert config, exact file, glob, and root identity.
 //
 // @evidence contracts/testing.md#behavioral-verification project-inputs publishes config, exact file, glob and root identities from a registered publisher without any project Program.
-// @evidence contracts/testing.md#independent-expectations Authored fixture paths and glob values establish the literal JSON identity expectations; absence of a tsconfig rules out accidental compiler loading.
-// @evidence contracts/testing.md#distinguishing-cases The directory holds only lint.config.json and no tsconfig, so any Program load would fail; the decoded snapshot must list the missing exact file and the config file as watched files, only the config as the reload file, one glob, and the physical root, each compared with an exact literal list. One publishing rule is used, so ordering across several rules is not covered.
+// @evidence contracts/testing.md#independent-expectations Authored relative file and glob literals are joined to the independently filesystem-resolved fixture root; expected paths do not call publisher normalizers. No tsconfig is supplied.
+// @evidence contracts/testing.md#distinguishing-cases No tsconfig is supplied and the command must still succeed; the decoded snapshot must list the missing exact file and the config file as watched files, only the config as the reload file, one glob, and the physical root, each compared with an exact literal list. One publishing rule is used, so ordering across several rules is not covered.
 // @evidence contracts/testing.md#execution-ownership Registers a project rule that publishes inputs, then calls run project-inputs in process with captured streams and decodes the snapshot; no Program is loaded and no host process is started.
 func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testing.T) {
   root := t.TempDir()
@@ -82,10 +82,17 @@ func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testin
   if err := json.Unmarshal([]byte(stdout), &snapshot); err != nil {
     t.Fatalf("decode project-inputs stdout: %v\n%s", err, stdout)
   }
-  physicalRoot := realProjectPath(root)
+  physicalRoot, err := filepath.EvalSymlinks(root)
+  if err != nil {
+    t.Fatalf("resolve fixture root: %v", err)
+  }
+  physicalRoot, err = filepath.Abs(physicalRoot)
+  if err != nil {
+    t.Fatalf("absolute fixture root: %v", err)
+  }
   wantFiles := []string{
-    filepath.ToSlash(realProjectPath(filepath.Join(root, "docs", "missing.md"))),
-    filepath.ToSlash(realProjectPath(filepath.Join(root, "lint.config.json"))),
+    filepath.ToSlash(filepath.Join(physicalRoot, "docs", "missing.md")),
+    filepath.ToSlash(filepath.Join(physicalRoot, "lint.config.json")),
   }
   if snapshot.Root != filepath.ToSlash(physicalRoot) {
     t.Fatalf("root = %q, want %q", snapshot.Root, physicalRoot)
@@ -94,13 +101,13 @@ func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testin
     t.Fatalf("files = %#v, want %#v", snapshot.Files, wantFiles)
   }
   wantReloadFiles := []string{
-    filepath.ToSlash(realProjectPath(filepath.Join(root, "lint.config.json"))),
+    filepath.ToSlash(filepath.Join(physicalRoot, "lint.config.json")),
   }
   if !reflect.DeepEqual(snapshot.ReloadFiles, wantReloadFiles) {
     t.Fatalf("reload files = %#v, want %#v", snapshot.ReloadFiles, wantReloadFiles)
   }
   wantGlobs := []string{
-    filepath.ToSlash(realProjectGlob(filepath.Join(root, "api", "**", "*.yaml"))),
+    filepath.ToSlash(filepath.Join(physicalRoot, "api", "**", "*.yaml")),
   }
   if !reflect.DeepEqual(snapshot.Globs, wantGlobs) {
     t.Fatalf("globs = %#v, want %#v", snapshot.Globs, wantGlobs)
