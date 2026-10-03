@@ -187,6 +187,15 @@ function scriptLauncher(): string {
   if (builtScriptLauncher !== undefined) return builtScriptLauncher;
   const directory = TestProject.tmpdir("ttsc-script-launcher-");
   const source = path.join(directory, "launcher.go");
+  // Reuse the maintained private observer as fixture-local Go source. Only
+  // its package declaration changes; the original Cmd still runs once.
+  const traceSource = path.join(directory, "trace.go");
+  const maintainedTrace = fs.readFileSync(
+    path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "internal", "e2etrace", "e2etrace.go"),
+    "utf8",
+  );
+  assert.match(maintainedTrace, /^package e2etrace\r?$/m);
+  fs.writeFileSync(traceSource, maintainedTrace.replace(/^package e2etrace\r?$/m, "package main"), "utf8");
   fs.writeFileSync(
     source,
     [
@@ -211,7 +220,10 @@ function scriptLauncher(): string {
       '\tscript := strings.TrimSuffix(self, filepath.Ext(self)) + ".cjs"',
       "\tcommand := exec.Command(node, append([]string{script}, os.Args[1:]...)...)",
       "\tcommand.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr",
-      "\tif err := command.Run(); err != nil {",
+      '\ttrace := BeginCommand(command, "Run")',
+      "\trunErr := command.Run()",
+      "\ttrace.Result(runErr)",
+      "\tif err := runErr; err != nil {",
       "\t\tvar exit *exec.ExitError",
       "\t\tif errors.As(err, &exit) {",
       "\t\t\tos.Exit(exit.ExitCode())",
@@ -239,6 +251,7 @@ function scriptLauncher(): string {
       "-o",
       output,
       source,
+      traceSource,
     ],
     { cwd: directory, encoding: "utf8", windowsHide: true },
   );
