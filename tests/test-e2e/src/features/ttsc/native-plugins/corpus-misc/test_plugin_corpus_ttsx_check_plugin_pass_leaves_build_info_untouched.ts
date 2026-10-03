@@ -31,8 +31,8 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Included and excluded entries require different compile paths; both have an incremental project plus a check child requiring a separate type check.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary ttsx connects runtime output isolation to both the emitting compiler and separate fallback no-emit compiler invoked beside the real check child. Running the included and orphan entry detects build-info writes from either compile path while proving runtime execution still succeeds.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution Included and orphan requests share one authored incremental consumer/check-plugin source and the suite producer cache. Both real launcher invocations remain required by their distinct entry paths. Cache-hit, total process/build counts and minimum preparation are not measured. Each original row is attempted with independently named failures collected.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the consumer and authored check source; shared cache remains suite-owned. The project build directory is initially absent and inspected after each direct synchronous request, without erasing a failed row's writes. Equivalent source/host/toolchain inputs are required for reuse; child-specific environment remains local, direct return does not certify arbitrary descendants or loaded images.
  * @evidence contracts/e2e.md#preserved-coverage ttsx runs both included entry and orphan script, asserts their distinct stdout, and leaves no build directory. These assertions stay in test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched =
@@ -73,27 +73,36 @@ export const test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouch
       },
     );
 
+    assert.equal(fs.existsSync(path.join(root, "build")), false);
+    const errors: unknown[] = [];
     for (const [entry, expected] of [
       ["src/main.ts", "entry ran"],
       ["scripts/tool.ts", "tool ran"],
     ] as const) {
-      const result = TestProject.spawn(
-        TestProject.TTSX_BIN,
-        ["--cwd", root, entry],
-        {
-          cwd: root,
-          env: {
-            PATH: goPath(),
-            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      try {
+        const result = TestProject.spawn(
+          TestProject.TTSX_BIN,
+          ["--cwd", root, entry],
+          {
+            cwd: root,
+            env: {
+              PATH: goPath(),
+              TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+            },
           },
-        },
-      );
-      assert.equal(result.status, 0, `${entry}: ${result.stderr}`);
-      assert.equal(result.stdout.trim(), expected, entry);
-      assert.equal(
-        fs.existsSync(path.join(root, "build")),
-        false,
-        `${entry} wrote build information into the project`,
-      );
+        );
+        assert.ifError(result.error);
+        assert.equal(result.signal, null);
+        assert.equal(result.status, 0, `${entry}: ${result.stderr}`);
+        assert.equal(result.stdout.trim(), expected, entry);
+        assert.equal(
+          fs.existsSync(path.join(root, "build")),
+          false,
+          `${entry} wrote build information into the project`,
+        );
+      } catch (error) {
+        errors.push(new Error(`ttsx isolation entry ${entry}`, { cause: error }));
+      }
     }
+    if (errors.length) throw new AggregateError(errors, "ttsx build-info isolation entries");
   };

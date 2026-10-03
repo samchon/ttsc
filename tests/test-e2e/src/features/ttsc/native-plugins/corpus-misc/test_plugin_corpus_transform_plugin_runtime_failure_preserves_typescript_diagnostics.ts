@@ -26,8 +26,8 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Both emitting and no-emit lanes cover a transform crash; the check crash case retains deduplicated check-stage diagnostics.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_transform_plugin_runtime_failure_preserves_typescript_diagnostics entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary The compiled transform host crashes before ordinary diagnostics. Both emitting and no-emit launcher routes must retain its status/message and run independent TypeScript checking, which portable rule calls do not exercise.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#shared-execution Both original emit/noEmit requests use one authored failing-transform consumer/source and the same suite producer cache. They remain distinct real launcher invocations; available cache does not measure hits, total source builds/processes or minimum preparation. Each original lane is attempted and its assertion failures are collected before the aggregate failure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the consumer and authored plugin source; shared cache remains suite-owned and valid reuse requires equivalent source, host and toolchain inputs. Each synchronous request returns before the next lane, without proving arbitrary descendant retirement or loaded-image equality. Child-specific environment does not mutate ambient state. TypeScript fallback output is a separate same-product compiler result, not an independent compiler implementation.
  * @evidence contracts/e2e.md#preserved-coverage Normal emit and explicit no-emit invocations retain transform exit 3, crash output, and TS2322. These assertions stay in test_plugin_corpus_transform_plugin_runtime_failure_preserves_typescript_diagnostics with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_transform_plugin_runtime_failure_preserves_typescript_diagnostics =
@@ -62,20 +62,28 @@ export const test_plugin_corpus_transform_plugin_runtime_failure_preserves_types
         },
       },
     );
+    const errors: unknown[] = [];
     for (const args of [
       ["--cwd", root],
       ["--cwd", root, "--noEmit"],
     ]) {
-      const result = spawn(ttscBin, args, {
-        cwd: root,
-        env: {
-          PATH: goPath(),
-          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        },
-      });
+      try {
+        const result = spawn(ttscBin, args, {
+          cwd: root,
+          env: {
+            PATH: goPath(),
+            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+          },
+        });
 
-      assert.equal(result.status, 3);
-      assert.match(result.stderr, /transform plugin crashed/);
-      assert.match(result.stderr, /TS2322/);
+        assert.ifError(result.error);
+        assert.equal(result.signal, null);
+        assert.equal(result.status, 3);
+        assert.match(result.stderr, /transform plugin crashed/);
+        assert.match(result.stderr, /TS2322/);
+      } catch (error) {
+        errors.push(new Error(`transform failure lane ${args.join(" ")}`, { cause: error }));
+      }
     }
+    if (errors.length) throw new AggregateError(errors, "transform failure diagnostic lanes");
   };
