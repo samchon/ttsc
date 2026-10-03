@@ -29,10 +29,10 @@ import (
   "github.com/microsoft/typescript-go/internal/execute/incremental"
 )
 
-// EmitFreshWithBuildInfo runs a full emit through tsgo's own incremental
-// program, so an `incremental` or `composite` project gets the `.tsbuildinfo`
-// tsgo would have written, in the exact format and location
-// `outputpaths.GetBuildInfoFileName` resolves from the compiler options.
+// EmitFreshWithBuildInfo emits through a new upstream incremental wrapper
+// around the supplied checked Program, with no previous wrapper/snapshot.
+// Its build-information format and candidate location come from upstream
+// snapshot serialization and outputpaths.GetBuildInfoFileName.
 //
 // This is the emit half of `tsc.go::performIncrementalCompilation`, which the
 // tsgo CLI takes whenever `CompilerOptions.IsIncremental()`. A host that builds
@@ -40,23 +40,28 @@ import (
 // emitting through it) never reaches that CLI path, so without this the build
 // information is silently dropped even though the options parsed cleanly.
 //
-// "Fresh" is the load-bearing word: no previous snapshot is supplied, so
-// `programToSnapshot` marks every file changed and this emits the whole program
-// exactly as `Program.Emit` does, then writes the build info. A ttsc plugin's
+// "Fresh" in EmitFreshWithBuildInfo means no previous snapshot is supplied.
+// When upstream incremental-state tracking is enabled, initial construction
+// tracks loaded files and makes their applicable output pending rather than
+// reusing prior emit signatures or diagnostics. TargetSourceFile still selects
+// single-file emission; noEmit/noEmitOnError, cancellation, blocked output and
+// write failure retain their upstream behavior. A whole-program eligible emit
+// attempts pending build info, but a record is not guaranteed on every call.
+// The supplied Program and context must be valid for this emit round. A plugin's
 // output is not a pure function of the source text a build info records — it
 // also depends on the plugin binary, its config file, and its contributors —
 // so reusing a previous snapshot to skip a file would serve stale transformed
-// output. Producing the record is sound; consuming it needs plugin identity in
-// the invalidation key first.
+// output. Using a record to skip plugin effects requires a reuse identity that
+// covers every relevant input and effect, not source text alone.
 //
-// @evidence contracts/common.md#principled-implementation A nil previous snapshot makes the upstream incremental program treat every file as changed while still producing the compiler's build-information record; this is necessary because source-only snapshot identity cannot represent plugin inputs.
+// @evidence contracts/common.md#principled-implementation A nil previous wrapper prevents reuse of old snapshot emit signatures/diagnostics and initializes applicable pending output under upstream emit controls; source-only prior state cannot establish plugin-effect equivalence.
 // @evidence contracts/common.md#clear-and-simple-design One upstream incremental-program construction owns full emit and build-info output, avoiding a separate record serializer or a partially reused emit path.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Fresh emission is grounded in absent plugin identity in the snapshot key, not a blanket retry masking stale output; no fake build-info or consumer-specific cache key is introduced.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the missing CLI path, fresh snapshot meaning and plugin-input invalidation limitation rather than promising incremental reuse.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the in-process build-info connection, fresh pending state, emit/cancellation/write limits and plugin-effect invalidation rather than unconditional output or incremental reuse.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This wrapper chooses snapshot reuse, while Program.Host and the upstream incremental emitter own native output-path and filesystem decisions.
-// @evidence contracts/performance.md#efficient-algorithms The upstream engine traverses the files and emitted text of the whole program because no prior snapshot can prove plugin-equivalent output; using its emitter avoids a second traversal just to serialize build information.
-// @evidence contracts/performance.md#reuse-equivalent-work The existing checked Program is reused, but skipping effectful file emission from source-only prior build information is invalid until plugin binary, configuration and contributor inputs enter the snapshot identity.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The incremental wrapper is invocation-local and retains the supplied Program during synchronous emission; no historical snapshot cache or new running task is kept by this adapter, while program and output lifetime remain with the caller and host.
+// @evidence contracts/performance.md#efficient-algorithms The fresh wrapper reuses the checked Program but builds snapshot file hashes, references and semantic metadata; eligible output then incurs emission and additional build-info table traversal/JSON serialization. File, reference, source/output-byte and diagnostic populations drive this work. Delegating the actual engine avoids a separate record implementation, not those traversals; prior snapshot skipping is unsafe without plugin-equivalent inputs/effects.
+// @evidence contracts/performance.md#reuse-equivalent-work The supplied checked Program is reused, while no previous incremental wrapper is admitted. Skipping effectful emission requires identity and invalidation covering all plugin/runtime/configuration/contributor dependencies and effects; quiet source text alone cannot authorize it.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The invocation acquires an incremental snapshot with file/reference/pending/diagnostic state plus temporary emission and build-info serialization storage. It retains the supplied Program while upstream work runs; returned results and WriteFile callback data may retain output or semantic references afterward. This adapter keeps no historical snapshot registry or independent running-task owner, and caller/host/upstream own result, callback and Program lifetimes on success, error or cancellation.
 func EmitFreshWithBuildInfo(ctx context.Context, program *Program, options EmitOptions) *EmitResult {
   incrementalProgram := incremental.NewProgram(
     program,
@@ -158,20 +163,22 @@ func getSourceFileFromReference(program *Program, file *innerast.SourceFile, ref
   return nil
 }
 
-// FileAffectsGlobalScope reports whether editing `file` can change the global
-// scope: global-scope module augmentations, ambient declaration files, and
-// script (non-module) files. Mirrors the predicate tsgo's incremental engine
-// uses to decide that a change must invalidate every file in the program.
+// FileAffectsGlobalScope reports the upstream incremental engine's global
+// impact classification, first ensuring the source file is bound. A global
+// augmentation is true; otherwise external/CommonJS modules and JSON are false.
+// A remaining script is true only when it has a statement other than a
+// string-literal-named module declaration. Empty or ambient-external-only
+// scripts are not automatically global-impact files.
 // file must be a nonnil compiler source file.
 //
 // @evidence contracts/common.md#principled-implementation The wrapper delegates the pinned incremental engine's global-scope predicate, preserving the same distinction used for program-wide semantic invalidation.
 // @evidence contracts/common.md#clear-and-simple-design One predicate exposes compiler-owned classification without an independent global-scope analysis.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No path, project name or expected invalidation result is special-cased; the foreign predicate remains unchanged.
-// @evidence contracts/common.md#meaningful-documentation Native prose lists relevant global-scope cases, explains invalidation significance and states the nonnil source-file premise.
+// @evidence contracts/common.md#meaningful-documentation Native prose states binding, augmentation/module/JSON/script distinctions, empty/ambient-only limits and the nonnil source-file premise without certifying every edit's runtime invalidation result.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Global-scope syntax classification has no native filesystem or process boundary.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This direct predicate exposes upstream classification without choosing an independent algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate does not coordinate computation across requests or consumers.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate owns no retained cache, handle or running task.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream binding and global-impact classification own their algorithms: an unbound file can incur AST binding, then augmentation/statement scans short-circuit according to the classification. This direct bridge chooses no independent traversal or impact analysis.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Upstream IsBound/BindOnce and its binder pool own binding reuse; this bridge coordinates no separate impact-result cache or cross-generation producer/invalidation policy.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Binding can acquire a pooled binder and populate source-owned symbols, flow and classification state; its defer returns and resets the binder while that bound AST state survives under the file owner. The bridge returns only a boolean and keeps no independent state registry or handle, but does not equate that with absence of delegated retention.
 func FileAffectsGlobalScope(file *innerast.SourceFile) bool {
   return incrementalFileAffectsGlobalScope(file)
 }
