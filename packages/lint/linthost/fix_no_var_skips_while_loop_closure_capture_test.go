@@ -8,7 +8,7 @@ import "testing"
 // The loop-closure decline must cover every loop statement kind, not only the
 // for-family: a while-loop body also re-creates closures per iteration, so
 // `var`→`let` changes which binding those closures share. This pins the
-// while/do arm of the enclosing-loop classifier alongside the for-of case.
+// while arm of the enclosing-loop classifier alongside the for-of case.
 //
 //  1. Parse a while body declaring `var x` and pushing `() => x`.
 //  2. Run the no-var fixer through the disk-backed applier.
