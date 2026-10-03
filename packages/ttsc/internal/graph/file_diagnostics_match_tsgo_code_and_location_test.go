@@ -8,21 +8,21 @@ import (
 )
 
 // TestFileDiagnosticsMatchTsgoCodeAndLocation verifies that FileDiagnostics
-// surfaces the same semantic error code and line tsgo emits, scoped to one file.
-// This is validation gate 4 from issue #259: a deliberate type error must yield
-// the exact tsc code/location from the graph's shared Program, proving the
-// diagnostics path is the real checker and not a re-implementation.
+// retains the selected Program finding's literal code, line and queried file,
+// while an absent file returns none. FileDiagnostics queries whole-Program
+// diagnostics before exact-file filtering; this entry runs no reference CLI.
 //
 //  1. Compile a fixture whose only file assigns a string to a number binding.
 //  2. Ask FileDiagnostics for that file.
 //  3. Assert a TS2322 (not assignable) diagnostic on line 1, and that an
 //     unrelated path yields none.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the same semantic error code and line tsgo emits, scoped to one file. This is validation gate 4 from issue #259: a deliberate type error must yield the exact tsc code/location from the graph's shared Program, proving the diagnostics path is the real checker and not a re-implementation.
-// @evidence contracts/testing.md#independent-expectations The oracle is the compiler's own diagnostic for assigning a string to a number binding: FileDiagnostics must return a TS2322 on line 1 whose file is the queried file, and a path with no source file (src/absent.ts) must return none.
+// @evidence contracts/testing.md#behavioral-verification The actual FileDiagnostics result must include TS2322 at line 1 with File equal to the queried resident source; querying the absent src/absent.ts must return no records. Column, message, severity and complete finding count are not asserted here.
+// @evidence contracts/testing.md#independent-expectations The authored string-to-number assignment has literal TS2322 and line 1 expectations, while the absent-path expectation is zero findings. The queried resident filename is supplied by the actual Program; no separate tsgo process or complete independent diagnostic oracle authenticates acquisition.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert a TS2322 (not assignable) diagnostic on line 1, and that an unrelated path yields none.
-// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsMatchTsgoCodeAndLocation is a Go source-unit entry. It loads a one-file project with driver.LoadProgram in the test process and calls FileDiagnostics on the resident Program; no consumer is installed and no native binary is built or launched.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native one-file project, loads/closes its driver Program in-process and calls FileDiagnostics twice. The adapter acquires whole-Program diagnostics before exact File filtering, so the query path is not a checker-work boundary. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or product process runs.
 func TestFileDiagnosticsMatchTsgoCodeAndLocation(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export const broken: number = "not a number";

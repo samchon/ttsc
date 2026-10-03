@@ -9,14 +9,14 @@ import (
 )
 
 // TestFileDiagnosticsReportCodeColumnAndMessage verifies that FileDiagnostics
-// surfaces the full tsgo-reported location and text of a type error, not just
-// its code and line: the column points at the offending initializer and the
-// message carries the human-readable reason.
+// reports the literal code, line, binding column and message fragment expected
+// for the authored bad assignment. It does not compare complete diagnostic text
+// or invoke a separate tsgo reference process.
 //
 // The existing match-code-and-location probe pins Line and Code; this one
 // strengthens the contract to Column and Message so a regression that kept the
-// right code but lost the precise span (or the text) is caught. The oracle is
-// the real checker: tsgo attributes the assignability error to the declared
+// right code but lost the binding column or message fragment is caught.
+// The expected assignability location is the declared
 // binding, so on `export const broken: number = "nope";` the diagnostic sits at
 // `broken` — 1-based column 14 (`export const ` is 13 characters).
 //
@@ -25,11 +25,12 @@ import (
 //  3. Assert the TS2322 diagnostic sits at line 1 / column 14 and its message
 //     contains "not assignable".
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the full tsgo-reported location and text of a type error, not just its code and line: the column points at the offending initializer and the message carries the human-readable reason.
-// @evidence contracts/testing.md#independent-expectations The oracle is the compiler's own diagnostic for export const broken: number = "nope": the TS2322 must be on line 1 at column 14 (the binding, after the 13 characters of export const) with a message containing not assignable. The column and text are literals, not read from the diagnostics code.
+// @evidence contracts/testing.md#behavioral-verification Actual FileDiagnostics must include TS2322 at line 1 column 14 with a not assignable message fragment. Complete text, end positions, severity, record count and independent CLI equivalence are not asserted.
+// @evidence contracts/testing.md#independent-expectations Literal TS2322, line 1, column 14 and not assignable expectations follow the authored string-to-number assignment; the binding broken follows 13 source characters. They are not computed from FileDiagnostics, but this entry has no separate reference compiler output and cannot independently authenticate its entire acquisition path.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert the TS2322 diagnostic sits at line 1 / column 14 and its message contains "not assignable".
-// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsReportCodeColumnAndMessage is a Go source-unit entry. It loads a one-file project with driver.LoadProgram in the test process and calls FileDiagnostics on the resident Program; no consumer is installed and no native binary is built or launched.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native one-file project, loads/closes its driver Program in-process and calls FileDiagnostics, which acquires whole-Program diagnostics then filters exact File. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation or product process runs. The match-code-and-location entry owns the absent-path counterpart.
 func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export const broken: number = "nope";
