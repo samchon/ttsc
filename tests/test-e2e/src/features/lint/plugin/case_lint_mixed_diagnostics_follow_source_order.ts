@@ -1,9 +1,9 @@
 import { assert, runLint } from "../../../internal/lint/internal/config-file";
 
 /**
- * Verifies mixed CLI diagnostics: lint and TypeScript errors share source order
- * instead of retaining the order in which their separate producers collected
- * them.
+ * Verifies the authored mixed CLI diagnostics appear in source order. This
+ * input's lint-then-TypeScript order does not independently distinguish a
+ * producer concatenation that already has that same order.
  *
  * 1. Run a project with no-var on line 1, prefer-const on line 2, and a TypeScript
  *    assignment error on line 5.
@@ -13,12 +13,12 @@ import { assert, runLint } from "../../../internal/lint/internal/config-file";
  *
  * @evidence contracts/testing.md#behavioral-verification The actual launcher renders no-var on line 1, prefer-const on line 2 and a TypeScript assignment error on line 5 in source order; the independently parsed lint view retains the exact two rule/line records.
  * @evidence contracts/testing.md#independent-expectations Literal source positions and the TypeScript number/string incompatibility establish expected ordering independently of either diagnostic producer or renderer.
- * @evidence contracts/testing.md#distinguishing-cases Two lint producers precede a distinct TypeScript diagnostic, so missing findings, retained producer order and parser reordering are independently observable.
+ * @evidence contracts/testing.md#distinguishing-cases Two lint diagnostics precede the distinct TypeScript diagnostic; missing markers, either asserted order inversion or changed parsed lint rows are observable. Because this input also permits a producer collection order already matching source order, it does not independently reject every unsorted concatenation or establish interleaving for other source positions.
  * @evidence contracts/testing.md#execution-ownership This named entry runs the real ttsc launcher and examines both rendered stderr and the lint parser view, rather than asserting only an internal diagnostic sort helper.
  * @evidence contracts/e2e.md#necessary-boundary Actual TypeScript and native lint diagnostics must merge through the launcher renderer into one ordered output; direct rule units cannot establish the cross-producer wire and parsing connection.
- * @evidence contracts/e2e.md#shared-execution One project and one launcher call cover all three diagnostics together; its builtin lint producer uses the existing content-keyed shared cache, with no rule-specific native builds.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The source and rule map are immutable for this owned temporary project; only unchanged builtin compiler/plugin artifacts are reusable, and TestLint owns project cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Original nonzero exit, presence of all three rendered errors, both ordering inequalities and the exact parsed lint rule/line list remain executable.
+ * @evidence contracts/e2e.md#shared-execution One runLint call shares the actual project/launcher route for all three diagnostics and uses the configured shared producer cache. Parent calls do not establish actual cache hits, native child or Program counts; no rule-specific producer is deliberately prepared here.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original source and rule inputs remain unchanged through the call. runLint retains a thrown launcher operation alongside an owned project cleanup error; LintWorkspace retains the parent root until release. A sync result is not descendant-join or loaded-image proof, and cache validity is not inferred from a selected path.
+ * @evidence contracts/e2e.md#preserved-coverage Original nonzero status, all three markers, both ordering inequalities and exact no-var1/prefer-const2 parser rows remain. This input's already-aligned producer-order limitation is explicit; consolidated registration, runtime survival and cost measurement remain unverified.
  */
 export function test_lint_mixed_diagnostics_follow_source_order(): void {
   const result = runLint({

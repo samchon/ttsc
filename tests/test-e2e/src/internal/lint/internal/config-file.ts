@@ -18,13 +18,22 @@ const SOURCE = fs.readFileSync(path.resolve(import.meta.dirname, "../../../../fi
 type ILintDiagnostic = TestLint.ILintDiagnostic;
 type IRunLintOptions = TestLint.IRunLintOptions;
 
-/** Run a one-shot lint operation and return the result synchronously. */
+/** Return the unchanged synchronous lint result; retain operation errors if owned cleanup also fails. */
 function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
   const project = createLintProject(options);
+  const failures: unknown[] = [];
   try {
     return runLintProject(project.tmpdir);
+  } catch (error) {
+    failures.push(error);
+    throw error;
   } finally {
-    project.cleanup();
+    try {
+      project.cleanup();
+    } catch (error) {
+      failures.push(error);
+      throw new AggregateError(failures, "Lint operation or owned project cleanup failed");
+    }
   }
 }
 
