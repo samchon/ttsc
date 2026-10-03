@@ -8,8 +8,8 @@ import (
 // TestLoadRuleConfigLoadsJSONConfigFile verifies that a `configFile` pointing to a .json file
 // is loaded natively and its severities are parsed correctly.
 //
-// JSON config loading is the zero-subprocess path: no Node child process is spawned, making it
-// the fastest option for CI. LoadRuleConfig must route .json extensions through the native JSON
+// JSON config loading is the zero-subprocess path: no Node child process is spawned.
+// LoadRuleConfig must route .json extensions through the native JSON
 // loader and correctly handle string severity aliases like "warning" (which maps to SeverityWarn).
 //
 // 1. Write tsconfig.json and a ttsc-lint.config.json with two rules under `rules`.
