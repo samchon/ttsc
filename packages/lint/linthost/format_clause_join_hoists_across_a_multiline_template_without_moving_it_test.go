@@ -6,11 +6,10 @@ import "testing"
 // body joins while the lines inside a template literal keep their exact bytes.
 //
 // The newlines inside a template carry string content, so the column shift must
-// step over them. Abandoning the whole join instead is strictly worse: the join
-// is what `format/indent` keys off, so the body's interior moves anyway and the
-// file settles on a hybrid layout Prettier never emits, which is the property
-// the shift exists to remove. Prettier 3.8.3 joins this label and leaves the
-// template untouched, and so does the rule.
+// step over them while still joining the label-to-call gap. The complete
+// independent output detects either refusing this supported join or changing
+// its template payload. This direct rule case does not run the format cascade
+// or obtain external formatter output.
 //
 //  1. Parse a label whose body passes a multi-line template literal.
 //  2. Apply format/clause-join with printWidth 80.
