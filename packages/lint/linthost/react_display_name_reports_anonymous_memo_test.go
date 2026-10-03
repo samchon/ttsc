@@ -6,11 +6,11 @@ import "testing"
 // arrow passed directly to `React.memo(...)` — without a surrounding
 // named binding — is flagged for missing displayName.
 //
-// React DevTools and stack traces fall back on the inner function's
-// name; when that name is empty and the wrapper is consumed inline,
-// the resulting component is unnamed at runtime.
+// The anonymous arrow and named function expression provide opposite
+// AST naming controls for the wrapper policy. The unit does not execute
+// React or inspect a runtime component name.
 //
-// 1. Parse `React.memo(() => <div />)` as a standalone expression.
+// 1. Parse `React.memo(() => <div />)` inside a JSON.stringify argument.
 // 2. Enable only `react/display-name`.
 // 3. Assert the wrapper call is reported.
 //

@@ -9,7 +9,7 @@ import (
 // TestReactExhaustiveDepsReportsMissingIdentifiers verifies missing dependency detection.
 //
 // Dependency checks are intentionally scoped to high-confidence identifier reads in hook callbacks.
-// This pins the source-order pass for both effect hooks and memo hooks without requiring type-aware
+// This pins two missing-dependency reports for effect and memo hooks without requiring type-aware
 // closure analysis.
 //
 // 1. Parse a component with useEffect and useMemo callbacks that read count.
