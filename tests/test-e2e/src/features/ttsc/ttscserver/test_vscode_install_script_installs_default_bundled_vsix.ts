@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies VS Code install script installs the bundled VSIX by default.
+ * Verifies VS Code install script forwards the bundled VSIX by default.
  *
  * The Windows quoting unit covers command construction, while the npm command
  * users run most often is plain `ttsc-vscode`. This pins the default POSIX
@@ -22,10 +22,10 @@ import path from "node:path";
  * @evidence contracts/testing.md#distinguishing-cases 1. Create a fake `code` executable that records its argv. 2. Run `packages/vscode/bin/install.js` with no subcommand. 3. Assert it calls `code --install-extension <versioned VSIX> --force`. 4. Assert the referenced VSIX exists in the package dist directory.
  * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
  *
- * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
- * @evidence contracts/e2e.md#necessary-boundary The packaged command must cross actual child argv and command-shell interpretation before its recorded arguments are asserted; direct command construction cannot establish that transport.
- * @evidence contracts/e2e.md#shared-execution One fixture supplies the recording command and all arguments in this named case. Remaining .cmd/.bat or default-command lifetimes observe distinct execution entrypoints; no compiler, Go plugin build or consumer installation occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject paths and child-only environment separate recording output; each synchronous child completes before its result is consumed, and TestProject owns temporary-directory cleanup.
+ * @evidence contracts/testing.md#execution-ownership test-e2e's matching src/features/ttsc/ttscserver entry runs the workspace install.js with no subcommand on POSIX; the existing Windows false result is SKIPPED without coverage. A recording code executable replaces the editor, so actual extension installation is not observed.
+ * @evidence contracts/e2e.md#necessary-boundary The actual install entry resolves code through child PATH and passes the bundled artifact path to that recording process. Direct argv construction cannot prove this connection; artifact existence alone does not prove extension installation or VSIX contents.
+ * @evidence contracts/e2e.md#shared-execution One recording fixture and immutable versioned VSIX serve the default-command profile. The entry invokes uninstall then install; the overwritten log asserts only final install argv. These are distinct actual child invocations, not one inferred launch. No compiler, Go plugin build or packed consumer installation occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The recording root is retained before preparation and child-only PATH/output prevent other profiles supplying its log. Returned error and signal are checked before status and argv; this synchronous result is not arbitrary descendant closure. Inputs remain retained for later lifecycle verification.
  * @evidence contracts/e2e.md#preserved-coverage The npm install entry invokes a recording code command with --install-extension, the versioned bundled VSIX path and --force. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_vscode_install_script_installs_default_bundled_vsix = (): void | false => {
@@ -44,6 +44,7 @@ export const test_vscode_install_script_installs_default_bundled_vsix = (): void
   assert.ok(fs.existsSync(expectedVsix), `missing VSIX: ${expectedVsix}`);
 
   const tmp = TestProject.tmpdir("vscode-install-default-");
+  TestProject.retainTemporaryDirectory(tmp);
   const bin = path.join(tmp, "bin");
   fs.mkdirSync(bin, { recursive: true });
   const log = path.join(tmp, "code-args.json");
@@ -70,6 +71,8 @@ fs.writeFileSync(process.env.CODE_ARGS_LOG, JSON.stringify(process.argv.slice(2)
       encoding: "utf8",
     },
   );
+  if (result.error) throw result.error;
+  assert.equal(result.signal, null);
   assert.equal(
     result.status,
     0,
