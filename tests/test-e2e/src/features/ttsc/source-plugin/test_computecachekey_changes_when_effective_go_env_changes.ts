@@ -22,17 +22,18 @@ import {
  * 3. Assert the keys differ.
  *
  * @evidence contracts/testing.md#behavioral-verification computeCacheKey changes when the child go env result changes GOARM64 from v8.0 to v9.0.
- * @evidence contracts/testing.md#independent-expectations Distinct effective target settings must never select one compiled artifact; the fake metadata producer supplies those literals independently.
- * @evidence contracts/testing.md#distinguishing-cases Ambient target variables need not change because the effective child-reported setting changes; equal-content reuse is covered by identity twins.
- * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_changes_when_effective_go_env_changes entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#independent-expectations The fake metadata producer supplies literal v8.0 and v9.0 settings independently; unequal keys distinguish omission of this effective target input. No compiled artifact is produced or checked for compatibility.
+ * @evidence contracts/testing.md#distinguishing-cases The same source, tool and versions remain fixed across two child-reported GOARM64 values. This case asserts inequality only; it does not own an equal-input reuse control or certify another test's execution.
+ * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_changes_when_effective_go_env_changes entry is discovered from features/ttsc/source-plugin by the E2E TestExecutor. The fake metadata producer executes beneath this owner; two key requests are not an asserted process count.
  * @evidence contracts/e2e.md#necessary-boundary The cache identity owner resolves actual tool paths and consumes the Go metadata process result when goBinary is supplied. The handwritten fake producer or intentionally unusable compiler files constrain that connection; these assertions establish identity selection, not native binary compatibility by execution.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The same source and version inputs remain fixed while the named identity axis changes; each key observes that state through the existing metadata owner, without installing a consumer or compiling a native artifact.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked root is retained before setup. The fake response selector's prior absence or value is restored in finally around both writes. The same physical tool and source are reused while only that selector changes; returned synchronous metadata calls do not establish descendant closure or compiled artifact identity.
  * @evidence contracts/e2e.md#preserved-coverage computeCacheKey changes when the child go env result changes GOARM64 from v8.0 to v9.0. These assertions stay in test_computecachekey_changes_when_effective_go_env_changes with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_computecachekey_changes_when_effective_go_env_changes =
   () => {
     const root = TestProject.tmpdir("ttsc-source-plugin-");
+    TestProject.retainTemporaryDirectory(root);
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(
