@@ -20,9 +20,9 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases The successful version handshake distinguishes an executable compatible helper from missing, failed or wrong-command binaries. Compiler source processing belongs to other boundary entries.
  * @evidence contracts/testing.md#execution-ownership The matching compiler feature export is discovered by TestExecutor and starts the actual native platform helper.
  * @evidence contracts/e2e.md#necessary-boundary Native executable activation and its command protocol cannot be established by a direct JavaScript call or a committed-file existence check.
- * @evidence contracts/e2e.md#shared-execution The suite uses its already built current-platform package; one version process supplies status and banner checks without installing or rebuilding per case.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The immutable suite binary is invoked read-only with explicit workspace cwd and a synchronous lifetime; no fixture mutation, retained process or cache reset is introduced.
- * @evidence contracts/e2e.md#preserved-coverage Actual activation, successful exit and banner checks remain. Committed-file existence and an unsupported 5MB size threshold were removed because they measured arrangement rather than supported behavior.
+ * @evidence contracts/e2e.md#shared-execution The suite selects the current-platform package path; this one version invocation supplies status/banner checks without this entry installing or rebuilding. Prepared executable bytes/source binding and actual process events are separate obligations, not established by the filename or banner.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The selected binary is invoked with explicit workspace cwd and a synchronous result; this entry mutates no fixture or cache. It does not independently certify source-bound immutable executable bytes, loaded image or arbitrary descendant retirement.
+ * @evidence contracts/e2e.md#preserved-coverage Actual activation, successful direct result and banner checks remain; freshly built-for-this-run identity is not an assertion despite the historical filename. Committed-file existence and an unsupported 5MB size threshold were removed because they measured arrangement rather than supported behavior.
  */
 export const test_current_platform_package_binary_was_built_for_the_test_run =
   () => {

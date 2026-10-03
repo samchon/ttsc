@@ -23,19 +23,19 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * 3. Edit the module's `go.mod`, and require another rebuild.
  * 4. Write below the module's `node_modules`, and require no rebuild.
  *
- * @evidence contracts/testing.md#behavioral-verification Runs relocated cmd/plugin importing internal/mark; asserts PLUGIN initially, PLUGIN-SIBLING after sibling edit, another rebuild on go.mod edit and quiet after node_modules change.
+ * @evidence contracts/testing.md#behavioral-verification Runs relocated cmd/plugin importing internal/mark; asserts PLUGIN initially and PLUGIN-SIBLING after sibling edit, waits for a third build marker after go.mod edit and observes quiet after node_modules change. That third marker alone also permits a failed build, so it is not successful binary semantics proof.
  * @evidence contracts/testing.md#independent-expectations The Go module files copied into a native plugin determine its identity while skipped dependency trees do not. Authored suffix literals independently expose which rebuilt transform binary executes.
  * @evidence contracts/testing.md#distinguishing-cases Owns package-below-module, sibling Go code, go.mod and ignored node_modules. patch assertions establish deliberate fixture inputs before the real transformed-output assertions.
  * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package is discovered under src/features/native-plugins/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
  * @evidence contracts/e2e.md#necessary-boundary The module-root watch must invalidate/build/select a real Go plugin and deliver changed output, which source-hash or watch-classifier units cannot establish.
- * @evidence contracts/e2e.md#shared-execution One watch session/private artifact cache batches initial and changed binaries plus an ignored edit. Changed module bytes require a new artifact; suite Go object cache and built host are reusable preparations.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owned root/cache and child-only PATH/TTSC_CACHE_DIR isolate artifacts. finally closes WatchSession; TestProject cleans directories at worker exit after Windows descendants release them. Ignored edit uses a 3000ms quiet observation.
+ * @evidence contracts/e2e.md#shared-execution One watch session/private artifact cache batches initial and changed binaries plus an ignored edit. Changed module bytes require a different keyed state; output suffixes observe selected behavior, not independently loaded image or exact build/process/Program totals. Suite Go objects and selected built host are reusable preparations, not asserted cache hits.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owned root/cache and child-only PATH/TTSC_CACHE_DIR isolate artifacts. Finally retains body and shutdown causes separately; the session names its separate cache in ownedInputRoots so unresolved close retains both tracked inputs. Normal cleanup is not arbitrary descendant retirement or forced-interruption proof. Ignored edit observes only a 3000ms quiet interval.
  * @evidence contracts/e2e.md#preserved-coverage Both literal outputs, go.mod rebuild and ignored-directory quiet remain unchanged at src/features/native-plugins/compiler. patch/writeMark remain owned by the named entry and CI must include the native compiler lane.
  */
 export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
   async (): Promise<void> => {
-    // Removed when the suite exits: ending the session ends its descendants,
-    // which on Windows go a moment later and hold the directory until then.
+    // Normal cleanup owns these allocations; failed shutdown retains both
+    // source inputs and the separately tracked artifact cache.
     const root = TestProject.tmpdir("ttsc-watch-module-");
     const cache = TestProject.tmpdir("ttsc-watch-cache-");
     fs.cpSync(
@@ -71,11 +71,13 @@ export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
     );
     const localGo = goPath();
     const session = new WatchSession(root, {
+      ownedInputRoots: [cache],
       env: {
         ...(localGo === undefined ? {} : { PATH: localGo }),
         TTSC_CACHE_DIR: cache,
       },
     });
+    const failures: unknown[] = [];
     try {
       // 1. The first build, through the moved package.
       await session.waitForBuilds(1);
@@ -97,9 +99,18 @@ export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
         "utf8",
       );
       await session.waitForQuiet(3_000);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      await session.close();
+      try {
+        await session.close();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Native source watch and shutdown failed");
   };
 
 /** Make the fixture's `main` package append the sibling package's suffix. */

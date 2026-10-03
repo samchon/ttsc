@@ -20,14 +20,14 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#distinguishing-cases Owns a selected main-package semantic edit in one live host, contrasting uppercase and lowercase outputs while preserving the source value and successful compilation. Sibling module/go.mod and ignored paths belong to the module entry.
  * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_rebuilds_for_a_selected_go_plugin_source is discovered under src/features/native-plugins/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
  * @evidence contracts/e2e.md#necessary-boundary Descriptor resolution must feed native source subscription and actual watch rebuild. Direct source hashes do not establish that host/process connection.
- * @evidence contracts/e2e.md#shared-execution One watch session/private cache batches initial producer and changed-source producer. Built compiler/Go object caches are shared while changed source identity requires a fresh plugin artifact.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique roots/cache and child-only PATH/cache overrides separate warm artifacts. finally closes WatchSession and TestProject removes paths at worker exit after descendant handle release.
+ * @evidence contracts/e2e.md#shared-execution One watch session/private cache batches initial producer and changed-source producer. Selected built compiler/Go object cache preparation may be shared; changed source and output distinguish selection without independently proving loaded image, exact build/process/Program totals or cache hits.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique roots/cache and child-only PATH/cache overrides separate warm artifacts. Finally retains body and shutdown causes; ownedInputRoots includes the separate cache so unresolved close retains it alongside source inputs. Normal cleanup/receipt/direct-child close do not certify arbitrary descendant retirement or forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Both build waits and the selected source edit remain at src/features/native-plugins/compiler. Successful-build and changed-output assertions strengthen the former comment-only scheduling oracle; exact cycle count is not asserted and the native compiler lane executes this case.
  */
 export const test_ttsc_watch_rebuilds_for_a_selected_go_plugin_source =
   async (): Promise<void> => {
-    // Removed when the suite exits: ending the session ends its descendants,
-    // which on Windows go a moment later and hold the directory until then.
+    // Normal cleanup owns these allocations; failed shutdown retains both
+    // source inputs and the separately tracked artifact cache.
     const root = TestProject.tmpdir("ttsc-watch-");
     const cache = TestProject.tmpdir("ttsc-watch-cache-");
     fs.cpSync(
@@ -39,11 +39,13 @@ export const test_ttsc_watch_rebuilds_for_a_selected_go_plugin_source =
     const output = path.join(root, "dist", "main.js");
     const localGo = goPath();
     const session = new WatchSession(root, {
+      ownedInputRoots: [cache],
       env: {
         ...(localGo === undefined ? {} : { PATH: localGo }),
         TTSC_CACHE_DIR: cache,
       },
     });
+    const failures: unknown[] = [];
     try {
       await session.waitForBuilds(1);
       assert.match(session.transcript(), /\[ttsc\] watch build complete/);
@@ -70,7 +72,16 @@ export const test_ttsc_watch_rebuilds_for_a_selected_go_plugin_source =
       const lowered = fs.readFileSync(output, "utf8");
       assert.match(lowered, /"plugin"/);
       assert.doesNotMatch(lowered, /"PLUGIN"|goUpper\(/);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      await session.close();
+      try {
+        await session.close();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Native source watch and shutdown failed");
   };
