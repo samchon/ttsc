@@ -6,12 +6,12 @@ import "testing"
 // that an explicit JSON `null` in the options slot is treated as the
 // no-options form.
 //
-// Some YAML and TOML-to-JSON serializers spell "no options" as a
-// literal `null`. Marshaling the nil sentinel would store the four-byte
-// text `null` as the options blob. That is harmless today (rule structs
-// unmarshal `null` into the zero value) but a future `*bool` field would
-// silently misbehave, so the parser special-cases the nil sentinel and keeps
-// the options map clean. This test pins that behavior at the contract boundary.
+// A two-slot tuple uses its explicit null as an absent-options sentinel.
+// Encoding that sentinel instead would produce the nonempty four-byte
+// payload `null`; the parser must preserve absence rather than manufacture a
+// payload for the owning rule. This body observes the returned blob only,
+// without exercising serializers or rule-specific option decoding.
+// The warning severity remains independent of that absent payload.
 //
 // 1. Parse a `[severity, null]` tuple through the external parser.
 // 2. Assert severity is captured.
