@@ -501,9 +501,10 @@ func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
 // offers the same rewrite as one titled, opt-in suggestion instead.
 //
 // The suggestion channel exists for an edit that is correct but lossy or
-// behavior-changing, so both halves have to hold at once: `ttsc fix` and
-// source.fixAll must still change nothing, while the advertised edits must
-// produce `expected` once the author selects them. Asserting only the first
+// behavior-changing, so both halves have to hold at once: the automatic
+// text-edit pass must change nothing, while explicit application of the
+// suggestion's edits must produce `expected`. This helper does not execute
+// the CLI or an LSP request. Asserting only the first
 // half would pass for a rule that dropped the edit entirely, which is the
 // regression this helper exists to catch.
 //
