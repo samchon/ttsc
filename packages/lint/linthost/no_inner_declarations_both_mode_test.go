@@ -11,7 +11,7 @@ import "testing"
 //
 // 1. Place `var` in blocks, loop headers, functions, namespaces, and static blocks.
 // 2. Keep root `var`, lexical declarations, and a strict block function nearby.
-// 3. Assert every nested `var` and no safe twin is reported.
+// 3. Assert each authored nested `var` and no safe twin is reported.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares every authored nested-var finding while preserving lexical declarations, roots and strict-function allowance.
 // @evidence contracts/testing.md#independent-expectations The explicit positional both option extends the independently specified hoisting policy to nested var declarations; authored annotations identify every expected site.

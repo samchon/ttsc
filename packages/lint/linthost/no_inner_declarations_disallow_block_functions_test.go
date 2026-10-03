@@ -10,7 +10,7 @@ import "testing"
 // remain allowed, and `var` remains outside `"functions"` mode.
 //
 // 1. Configure the full canonical positional option tuple in an ESM source.
-// 2. Mix nested strict functions with every allowed root and a nested `var`.
+// 2. Mix nested strict functions with the authored roots and a nested `var`.
 // 3. Assert only the nested functions are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine reports exactly nested functions under the explicit disallow tuple, without widening to nested var or permitted roots.
