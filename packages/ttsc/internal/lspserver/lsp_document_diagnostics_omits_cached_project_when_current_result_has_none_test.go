@@ -1,14 +1,18 @@
 package lspserver
 
-import "testing"
+import (
+  "os/exec"
+  "testing"
+)
 
 // TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone
 // verifies last-good cache state is not presented as a current document-cycle
 // project result.
 //
-// A parse failure can make lsp-diagnostics omit project data. Returning the
-// prior cache in that response lets the proxy complete a newer pending external
-// refresh with stale evidence.
+// A selected binary that cannot be resolved prevents current publication.
+// The result must omit Project while the separately queried snapshot retains
+// the seeded diagnostic code. This unit does not exercise JSON parse failure,
+// successful publication, a proxy refresh or every cached publication field.
 //
 //  1. Seed one producer's last-good project publication.
 //  2. Make the current document diagnostic invocation fail before publication.
@@ -17,13 +21,16 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification When the current document diagnostic invocation fails before publication the result omits Project while the producer's last-good cache stays intact.
 // @evidence contracts/testing.md#independent-expectations The expected absent Project and retained cache are literal state checks.
 // @evidence contracts/testing.md#distinguishing-cases The failing run and the seeded cache are the two states that a stale-cache return would conflate.
-// @evidence contracts/testing.md#execution-ownership TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit seeds the actual NativePluginSource cache and calls actual Diagnostics and projectDiagnosticsSnapshot. A native LookPath premise requires its supplied binary to be unresolvable before Diagnostics attempts the resident and one-shot command paths; no sidecar is installed or successfully started, and no temporary directory or substituted query operation exists. The asserted cache fields are nonnil snapshot, one entry and literal code stale; selected runtime execution remains unverified.
 func TestLSPDocumentDiagnosticsOmitsCachedProjectWhenCurrentResultHasNone(
   t *testing.T,
 ) {
   plugin := NativeLSPPluginEntry{
     Binary: "ttsc-no-such-document-diagnostics-sidecar",
     Name:   "@ttsc/cached",
+  }
+  if _, err := exec.LookPath(plugin.Binary); err == nil {
+    t.Fatalf("missing sidecar premise failed: %q resolves to an executable", plugin.Binary)
   }
   source := &NativePluginSource{plugins: []NativeLSPPluginEntry{plugin}}
   source.storeProjectDiagnostics(
