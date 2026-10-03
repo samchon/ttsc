@@ -21,7 +21,8 @@ import "testing"
 //  1. Feed a fixture where `const x = { … }` sits inside a function
 //     body and the literal would overflow the printWidth.
 //  2. Configure printWidth=28 so the literal must break (the literal
-//     starts at column 12 and is 21 chars wide flat, total 33).
+//     starts at column 12 and is 23 chars wide flat, total 35 before
+//     the trailing semicolon; the complete line is 36 columns).
 //  3. Assert the children align under column 4.
 //
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the indents relative to line leading indent fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the children align under column 4.

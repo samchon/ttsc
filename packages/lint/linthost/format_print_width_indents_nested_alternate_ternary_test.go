@@ -7,9 +7,9 @@ import "testing"
 // nested conditional in the alternate position indented one level deeper.
 //
 // `a ? b : c ? d : e` is a chain whose alternate is itself a conditional.
-// Prettier 3 ("indent nested ternaries") breaks the whole chain together
-// and steps the inner rungs in by tabWidth; the old verbatim fallback
-// left the source flat or mis-aligned (Prettier 2 style).
+// The supported staircase policy breaks the chain together and steps
+// the inner rungs in by tabWidth. This fixture owns the authored
+// current layout, without executing earlier printer versions.
 //
 //  1. Parse an over-width single-line ternary chain (printWidth 40).
 //  2. Apply format/print-width.
