@@ -4,9 +4,9 @@ import "testing"
 
 // TestFunctionalNoMixedTypesCheckTypeLiteralsFalseStillChecksInterface verifies checkTypeLiterals: false leaves interfaces checked.
 //
-// The twin the interface gate already had and the type-literal gate did not. The
-// two keys select different container kinds, so each needs the case proving it
-// does not silence the other.
+// The reporting interface twin checks the type-literal switch's boundary.
+// The two keys select different container kinds, so disabling type literals
+// must not silence this mixed interface.
 //
 // 1. Parse an interface that mixes a property and a method.
 // 2. Enable only functional/no-mixed-types with `checkTypeLiterals: false`.

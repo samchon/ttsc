@@ -5,8 +5,7 @@ import "testing"
 // TestFunctionalNoReturnVoidAllowNullFalseRejectsNullReturnType verifies functional/no-return-void honors allowNull: false.
 //
 // `allowNull` defaults to true, so its only observable effect is the explicit
-// false: a declared `null` return type joins `void` in being rejected. The
-// field was published and never decoded before #1132.
+// false: a declared `null` return type joins `void` in being rejected.
 //
 // 1. Parse a function whose declared return type is `null`.
 // 2. Enable only functional/no-return-void with `allowNull: false`.
