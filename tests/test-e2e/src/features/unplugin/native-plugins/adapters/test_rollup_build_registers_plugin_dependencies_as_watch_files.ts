@@ -1,5 +1,6 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import { hostToolDirectory } from "../../../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
@@ -34,12 +35,20 @@ const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Bundles close in finally; mutable sources and retained caches belong to this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: bundle output has PLUGIN; watchFiles contains one record, omits types.d.ts itself, and written record names it. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_build_registers_plugin_dependencies_as_watch_files(): Promise<void> {
+export async function test_rollup_build_registers_plugin_dependencies_as_watch_files(
+  preparedRoot?: string,
+  observeClosed?: () => void,
+): Promise<void> {
   const unpluginRollup =
     await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
-  const root = TestUnpluginProject.createProject({
-    plugins: emitDependenciesPlugins(["src/types.d.ts"]),
-  });
+  const plugins = emitDependenciesPlugins(["src/types.d.ts"]);
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
+  if (preparedRoot) {
+    const tsconfig = path.join(root, "tsconfig.json");
+    const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+    config.compilerOptions.plugins = plugins;
+    fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+  }
   const bundle = await rollup({
     input: TestUnpluginProject.mainFile(root),
     plugins: [unpluginRollup()],
@@ -77,5 +86,6 @@ export async function test_rollup_build_registers_plugin_dependencies_as_watch_f
     );
   } finally {
     await bundle.close();
+    observeClosed?.();
   }
 }
