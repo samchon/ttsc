@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers proves
-// nested matching retains file, package, and TypeScript-lib source boundaries.
+// TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers verifies
+// file, package, and TypeScript-lib calls retain their configured exemptions in composites.
 //
 // @evidence contracts/testing.md#behavioral-verification Structured known-safe call identities must survive composite-expression traversal.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 7, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.

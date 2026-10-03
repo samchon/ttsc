@@ -8,7 +8,7 @@ import (
 // TestNoFloatingPromisesSafeCallsInComposites verifies a safe-call specifier
 // applies to the call itself without suppressing unlisted sibling branches.
 //
-// The matrix covers every recursive composite family, an explicit void walk,
+// The matrix covers the authored recursive composite families, an explicit void walk,
 // a structural thenable under checkThenables, and the existing IIFE escape.
 //
 // @evidence contracts/testing.md#behavioral-verification Known-safe calls must retain their exemption throughout composite expressions.
