@@ -2,11 +2,11 @@ package linthost
 
 import "testing"
 
-// TestNoFallthroughReportsCaseMessageAfterLeadingDefault verifies a default clause in the middle can fall through into a case.
+// TestNoFallthroughReportsCaseMessageAfterLeadingDefault verifies a leading default clause can fall through into a case.
 //
 // Clause order is positional, not semantic: a `default:` that is not last
 // participates in transitions like any case, and the reported clause (a
-// case) picks the 'case' message. Locks both mid-switch default handling and
+// case) picks the 'case' message. Locks both nonterminal default handling and
 // message selection from the target clause.
 //
 // 1. Open the switch with a populated default clause followed by a case.
