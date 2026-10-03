@@ -178,17 +178,18 @@ const (
 )
 
 // Version reports the TypeScript compiler version typescript-go implements, in
-// the same form `tsc --version` prints. A graph snapshot publishes it so a
-// consumer can tell which checker resolved the facts it is reading.
+// upstream's compiled version-string form, which can be overridden at link
+// time. A graph snapshot publishes this semantic version; it does not identify
+// the precise checker revision or certify executable/artifact identity.
 //
 // @evidence contracts/common.md#principled-implementation Direct delegation returns the version the pinned compiler implements, matching the checker that produced the consumer's semantic facts.
 // @evidence contracts/common.md#clear-and-simple-design One accessor supplies upstream version identity without parsing manifests or inferring release metadata.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The answer comes from the compiler rather than a hardcoded ttsc package version.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes compiler version from host release and explains the graph consumer's provenance need.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Version acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Version performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Version computes one result per call, so there is no repeated work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Version computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned string borrows backing storage owned by upstream's process-lifetime compiled version variable. No new file handle, independent buffer or historical result registry is acquired here; callers can retain the string without making this wrapper the version-state owner.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns the direct compiled-string projection. This bridge chooses no independent version computation, parsing or metadata traversal.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Static compiled version state belongs to upstream; this accessor coordinates no completed/in-flight version producer or cache invalidation policy.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This accessor reads compiled version metadata without native filesystem, path-identity or process operations. It does not infer the selected executable's identity or OS capabilities.
 func Version() string { return innercore.Version() }
 
 // ApplyDebugStackLimit applies a positive TS_GO_DEBUG_STACK_LIMIT byte count
@@ -217,7 +218,7 @@ func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
 // @evidence contracts/performance.md#bound-retention-and-release-resources Upstream parsing allocates alternative/comparator and version-component storage for this invocation, potentially retaining substrings until its local values become unreachable. Only a boolean escapes this function; global compiler-version and regex state remain upstream-owned. No independent parse-result history or native handle is retained here, and no fixed input/alternative count cap is imposed.
 // @evidence contracts/performance.md#efficient-algorithms Parse the range once, return early when invalid, then parse the actual compiler version once and test it. Delegated regex/tokenization, component parsing and short-circuit alternative/comparator tests scale with supplied range/version text and parsed population; the wrapper's few calls do not make this fixed-cost work.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate coordinates no completed/in-flight range-result cache; parsing and matching remain invocation-local while upstream owns static regex and compiler-version state. Caller owners decide whether a result remains equivalent for unchanged range and actual compiler identity.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation TypeScriptVersionSatisfiesRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Matching reads supplied range text and the compiled upstream version string; it performs no native filesystem, path-identity or process operation. Compiler-version metadata is semantic input, not an OS capability query.
 func TypeScriptVersionSatisfiesRange(text string) bool {
   versionRange, ok := innersemver.TryParseVersionRange(text)
   if !ok {
@@ -263,7 +264,7 @@ func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, e
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Synthetic nodes receive upstream absence metadata rather than fabricated source coordinates.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains synthesized-node provenance and why an undefined interval exists.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources UndefinedTextRange acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms UndefinedTextRange performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work UndefinedTextRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns the scalar undefined-endpoint representation. This direct bridge chooses no independent range algorithm, source traversal or coordinate validation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The sentinel adapter coordinates no completed/in-flight work producer or cache; it supplies scalar absence metadata for caller-owned AST operations.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation UndefinedTextRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func UndefinedTextRange() TextRange { return innercore.UndefinedTextRange() }
