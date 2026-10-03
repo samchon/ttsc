@@ -9,7 +9,7 @@ import "testing"
 // Locks the clause-level reading of type-ness in
 // `duplicateImportsImportEntry`: only `ImportClause.IsTypeOnly()`
 // (`import type …`) makes a declaration type-only; an inline `type`
-// modifier on a specifier leaves the import clause value-bearing. If the
+// modifier on a specifier keeps this rule's category on the value side. If the
 // inline modifier leaked into the declaration's type-ness, the option
 // would wrongly exempt this pair and the finding would disappear.
 //

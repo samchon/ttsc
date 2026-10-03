@@ -8,10 +8,9 @@ import "testing"
 //
 // Locks the options decode path: `DecodeOptions` ignores unknown JSON
 // keys, so `allowSeparateTypeImport` (missing the trailing `s`) must not
-// activate the type/value separation. The Go layer mirrors the
-// compile-time typo rejection asserted in the TypeScript typing test —
-// the native engine is the runtime backstop for untyped config files
-// such as lint.config.json.
+// activate the type/value separation. This preserves the default duplicate
+// finding for untyped JSON options; it does not reject the misspelled key.
+// Compile-time typo rejection belongs to the TypeScript typing test.
 //
 // 1. Import a value binding and a clause-level type binding from one module.
 // 2. Run the rule with a misspelled `allowSeparateTypeImport` key.
