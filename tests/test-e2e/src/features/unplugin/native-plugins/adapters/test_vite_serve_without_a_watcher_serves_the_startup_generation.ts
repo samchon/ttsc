@@ -34,18 +34,26 @@ const viteCreateServer =
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real watcherless server serves lazy output from startup even after main is broken on disk. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_without_a_watcher_serves_the_startup_generation(): Promise<void> {
+export async function test_vite_serve_without_a_watcher_serves_the_startup_generation(
+  preparedRoot?: string,
+  onServerClosed?: () => void,
+): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const root = TestUnpluginProject.createProject({
-    plugins: [
-      {
-        transform: "./plugin.cjs",
-        name: "fixture",
-        operation: "echo-file",
-        path: "src/lazy.ts",
-      },
-    ],
-  });
+  const plugins = [
+    {
+      transform: "./plugin.cjs",
+      name: "fixture",
+      operation: "echo-file",
+      path: "src/lazy.ts",
+    },
+  ];
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
+  if (preparedRoot !== undefined) {
+    const config = path.join(root, "tsconfig.json");
+    const document = JSON.parse(fs.readFileSync(config, "utf8"));
+    document.compilerOptions.plugins = plugins;
+    fs.writeFileSync(config, JSON.stringify(document, null, 2));
+  }
   const lazy = path.join(root, "src", "lazy.ts");
   fs.writeFileSync(lazy, "export const lazy = 1;\n", "utf8");
   // Vite 7 resolves Windows temp roots to their long physical spelling and
@@ -80,5 +88,6 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     );
   } finally {
     await server.close();
+    onServerClosed?.();
   }
 }

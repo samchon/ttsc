@@ -1,9 +1,11 @@
 import { TestProject, TestUnpluginProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { Scenarios } from "../internal/Scenarios";
 import { runSharedWatcherlessViteDeliveries } from "../internal/unplugin/runSharedWatcherlessViteDeliveries";
+import { test_vite_serve_without_a_watcher_serves_the_startup_generation } from "./unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation";
 import { createLinkedPluginProject } from "../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
 import { test_rollup_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_rollup_build_maps_transformed_modules_to_the_authored_source";
 import { test_esbuild_build_maps_transformed_modules_to_the_authored_source } from "./unplugin/native-plugins/adapters/test_esbuild_build_maps_transformed_modules_to_the_authored_source";
@@ -34,7 +36,7 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * Vite build returns and Rollup's supported close resolves,
  * Rollup's dependency-report profile changes only its original plugin options.
  * After that bundle closes, esbuild adds its original run-counter configuration.
- * Its completed lifecycle permits the original out-of-program delivery and
+ * Its completed lifecycle permits the real watcherless startup server, whose actual close gates exact main/config byte restoration and lazy-input removal, then the original out-of-program delivery and
  * default-options, plain/reporting project records, explicit prefix,
  * volatile/hermetic cacheability,
  * repeated dependency registration and
@@ -54,7 +56,7 @@ import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } fro
  * @evidence contracts/testing.md#behavioral-verification Vite and Rollup retain generated PLUGIN output. Dependency watchFiles contain exactly its project record, omit the compiler input, and the record names src/types.d.ts. Esbuild retains setup/context/replacement/disposal and counter1/2/3 assertions. Final built Turbopack loader retains native helper.ts error1, generated module throwing that exact emitted message, rejection without emitError and missing-config rejection before compilation.
  * @evidence contracts/testing.md#independent-expectations Original PLUGIN/goUpper literals and one-byte compile counters remain in their owning bodies. Rollup closure is observed only after the actual supported bundle.close resolves; it is not inferred from an output or failure result.
  * @evidence contracts/testing.md#distinguishing-cases A failed output assertion with successful bundle close still allows the next named host; absent/failed close blocks configuration mutation. Esbuild distinguishes failed setup, one/last context disposal, delayed old disposal and final one-shot release.
- * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls seventeen existing bodies with one generated native project and one separately rooted linked-banner input shared by three source-map bodies, plus one survivor joining the two original watcherless Vite matrices on a single four-module session. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
+ * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls eighteen existing bodies with one generated native project and one separately rooted linked-banner input shared by three source-map bodies, plus one survivor joining the two original watcherless Vite matrices on a single four-module session. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
  * @evidence contracts/e2e.md#necessary-boundary Actual Rollup/esbuild lifecycle callbacks connect built adapters to native transforms; a fabricated adapter or direct cache-policy unit cannot witness those host connections.
  * @evidence contracts/e2e.md#shared-execution One generated consumer/source descriptor and shared content-addressed plugin cache serve the native fixture profiles. Three banner source-map bodies borrow one physical linked project and package link, replacing three identical setup paths; this banner producer is distinct from the native fixture producer. Host sessions, source changes and config generations remain separately observed; callbacks do not prove process or Program counts.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The production-session startup proof runs first and independently requires the shared root tool directory absent; a parent bridge cannot supply its sibling proof. Its actual worker close gates Vite/Rollup, which then read unchanged baseline. Their completion gates precede dependency options, its close precedes count-runs, and esbuild successful lifecycle precedes exact authored baseline-config restoration. Default loader return precedes original plain-record observations, then their completed assertions precede the original empty-config-plugin/reporting input on the same root. Reporting return gates later option profiles; both original single-record channels and relative/absolute/duplicate/self inputs remain. The original A: prefix options return before volatile then hermetic options. The original numeric PLUGIN suffix, [false] and [] cacheability observations remain; hermetic callback return gates distinct emit-dependencies options and its two identical requests, then the absent host channel. Original Before/After declaration bytes require repeated record movement, redelivery and five-second stopped movement before exact baseline-byte restoration; failed acknowledgment blocks later profiles. Actual cold/native cache events remain separately observable, not inferred from request order. Out-of-program delivery must return and restore the exact stderr descriptor before final read-helper options. Original src/helper.ts absence is checked. Uncertain completion blocks mutation; common inputs remain retained. Public operation boundaries do not certify arbitrary descendants and no mutation follows the failed-loader terminal profile.
@@ -64,6 +66,7 @@ export async function test_e2e_unplugin(): Promise<void> {
   const root = TestUnpluginProject.createProject();
   TestProject.retainTemporaryDirectory(root);
   const baselineConfig = fs.readFileSync(path.join(root, "tsconfig.json"));
+  const baselineMain = fs.readFileSync(TestUnpluginProject.mainFile(root));
   const linkedBanner = createLinkedPluginProject(["banner"], path.join(root, "linked-banner"));
   const failures: unknown[] = [];
   // Startup proof must precede any parent-process loader/host bridge for root.
@@ -123,14 +126,42 @@ export async function test_e2e_unplugin(): Promise<void> {
     }
   }
   if (esbuildCompleted) {
-    let defaultLoaderReturned = false;
+    let startupServerClosed = false;
+    let startupInputsRestored = false;
+    const lazy = path.join(root, "src", "lazy.ts");
     try {
-      fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
-      await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_transforms_source_through_the_webpack_loader_contract", test_turbopack_loader_transforms_source_through_the_webpack_loader_contract, root, () => {
-        defaultLoaderReturned = true;
+      assert.equal(fs.existsSync(lazy), false, "shared startup lazy input must be absent before its profile");
+      await Scenarios.invoke("shared-unplugin", "test_vite_serve_without_a_watcher_serves_the_startup_generation", test_vite_serve_without_a_watcher_serves_the_startup_generation, root, () => {
+        startupServerClosed = true;
       });
     } catch (cause) {
-      failures.push(new Error("turbopack default-options delivery", { cause }));
+      failures.push(new Error("real watcherless Vite startup generation", { cause }));
+    }
+    if (startupServerClosed) {
+      try {
+        fs.writeFileSync(TestUnpluginProject.mainFile(root), baselineMain);
+        fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
+        fs.rmSync(lazy);
+        assert.deepEqual(fs.readFileSync(TestUnpluginProject.mainFile(root)), baselineMain);
+        assert.deepEqual(fs.readFileSync(path.join(root, "tsconfig.json")), baselineConfig);
+        assert.equal(fs.existsSync(lazy), false);
+        startupInputsRestored = true;
+      } catch (cause) {
+        failures.push(new Error("watcherless startup input restoration", { cause }));
+      }
+    }
+    let defaultLoaderReturned = false;
+    if (startupInputsRestored) {
+      try {
+        fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_transforms_source_through_the_webpack_loader_contract", test_turbopack_loader_transforms_source_through_the_webpack_loader_contract, root, () => {
+          defaultLoaderReturned = true;
+        });
+      } catch (cause) {
+        failures.push(new Error("turbopack default-options delivery", { cause }));
+      }
+    } else {
+      failures.push(new Error("turbopack default profile blocked: Vite startup close or exact input restoration was unobserved"));
     }
     let projectRecordReturned = false;
     if (defaultLoaderReturned) {
