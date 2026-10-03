@@ -3,12 +3,11 @@ package linthost
 import "testing"
 
 // TestFormatParameterPropertiesIdempotentOnBrokenList verifies the rule
-// abstains once the parameter list is already multi-line, so the cascade
-// converges.
+// abstains once the parameter list is already multi-line.
 //
-// An already-broken list contains a newline in the `(...)` region; the
-// rule must not re-break it (which would loop the cascade or fight the
-// trailing-comma rule that finishes the shape).
+// The literal already-broken list contains a newline in the `(...)` region
+// and a final comma. This dedicated rule must leave it to the multiline
+// layout owners; the no-finding body does not certify cascade convergence.
 //
 //  1. Parse a class whose parameter-property constructor is already
 //     broken one-per-line.

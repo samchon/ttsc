@@ -5,11 +5,10 @@ import "testing"
 // TestFormatParameterPropertiesHonorsCRLFEndOfLine verifies the constructor
 // parameter-property break synthesizes CRLF breaks under endOfLine:"crlf".
 //
-// Regression shield for issue #616: the builder emitted literal "(\n" and '\n'
-// and ignored endOfLine entirely (its options struct had no such field), so a
-// broken constructor on an otherwise-CRLF file gained lone LFs. Bound to the
-// CRLF oracle (LF twin: format_parameter_properties_breaks_multi_param_
-// constructor_test.go); the helper asserts zero lone LFs.
+// Every synthesized parameter-list break must honor the configured CRLF
+// separator. The full literal oracle and zero-lone-LF guard distinguish
+// inserting default LF breaks into an otherwise-CRLF file. The LF twin is
+// format_parameter_properties_breaks_multi_param_constructor_test.go.
 //
 //  1. Parse a CRLF class with a two-parameter-property constructor.
 //  2. Apply format/parameter-properties with {"endOfLine":"crlf"}.
