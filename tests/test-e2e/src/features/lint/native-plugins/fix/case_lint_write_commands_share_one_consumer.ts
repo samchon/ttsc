@@ -30,16 +30,16 @@ const FORMAT_FILE = "format/semi.ts";
  * command owns its actual Program and any production-required cascade reloads;
  * sharing the project does not mean sharing a live Program between commands.
  * Canonical formatter controls execute in TestFormatFixtureCorpus, and external
- * Prettier/LSP connections retain their separately named native E2E owners.
+ * Prettier target-rule comparisons retain their direct Go owner with an independent Node oracle; LSP transport retains its separately named real sidecar connection.
  *
  * @evidence contracts/testing.md#behavioral-verification Real auto-discovered fix publishes six exact builtin, contributor and generic grammar outputs with an unfixed warning and no compiler error; real format then publishes exact semicolons without changing any fixed file. Both commands succeed, original fixture bytes remain immutable and the one temporary consumer is removed.
  * @evidence contracts/testing.md#independent-expectations Copied original authored output files independently specify const cascades, safe and unsafe equality, contributor capitalization and TS/TSX/MTS/CTS generic grammar. The checked-in missing-semicolon source and canonical expected file specify format publication; pre-format observations independently pin format noninterference.
  * @evidence contracts/testing.md#distinguishing-cases Retains reassigned let and unsafe equality negatives, two distinct exported contributor edits, generic unknown/any constraints, multiple parameters, existing commas, defaults, comments and non-arrow declarations. Fix leaves the format source unchanged, then a scoped format phase leaves all six fixed sources unchanged.
- * @evidence contracts/testing.md#execution-ownership This discoverable scene runs one fix command for all six fix sources and one format command in the same consumer. Every named observation runs after both command results have been collected; errors aggregate without discarding later observations. Native formatter unit controls use one separate in-process Program.
- * @evidence contracts/e2e.md#necessary-boundary Package-marker discovery, launcher dispatch, contributor edit transport, actual publication and post-fix compiler reload require the installed consumer connection. Unit-generated edits alone cannot prove these boundaries.
+ * @evidence contracts/testing.md#execution-ownership This discoverable scene runs one fix command for all six fix sources and one format command in the same consumer. Every named observation runs after both command results have been collected; errors aggregate without discarding later observations. packages/lint/linthost/command_format_fixture_corpus_test.go::TestFormatFixtureCorpus directly owns the fifteen-case canonical source matrix and ten historical positive controls; static root Go selection is not current survivor execution or measured total construction proof.
+ * @evidence contracts/e2e.md#necessary-boundary Package-marker discovery, launcher dispatch, contributor edit transport, actual publication and post-fix compiler reload require this consumer with workspace-linked lint/demo packages and workspace-built launcher. That linked layout is not packed publication or loaded-image certification. Unit-generated edits alone cannot prove these boundaries.
  * @evidence contracts/e2e.md#shared-execution Three former fix projects share one tsconfig, discovered config and fix invocation. Format shares the consumer and immutable builtin-plus-demo producer, while its different command policy requires the second actual invocation; no per-grammar or per-formatter producer is launched.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both phases use one disposable writable project and fixed linked producer bytes. The config changes explicitly between policies, and real after-phase snapshots assert their selected and untouched sources. No hit-rate or cold-cache assertion substitutes for execution.
- * @evidence contracts/e2e.md#preserved-coverage Original success exits, remaining eqeqeq warning, exact whole-file edits, generic compiler acceptance and absence of format diagnostic banners survive in named checks, alongside every source fixture immutability check. Fifteen original canonical formatter controls move to the owning one-Program unit without generating new expected bytes.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both phases use one disposable writable project with workspace-linked producer paths. The config changes explicitly between policies, and after-phase snapshots assert selected and untouched sources. These paths do not certify producer-byte/image equality or a cache hit. Each returned sync command is not arbitrary descendant join; operation and owned root cleanup failures are independently retained.
+ * @evidence contracts/e2e.md#preserved-coverage Original success exits, remaining eqeqeq warning, exact whole-file edits, generic compiler acceptance and absence of format diagnostic banners survive in named checks, alongside every source fixture immutability check. The exact TestFormatFixtureCorpus address owns the fifteen canonical controls and ten historical positives using independently authored bytes. The direct Prettier owner packages/lint/linthost/format_prettier_conformance_e2e_test.go::TestFormatPrettierConformance retains all61 target-rule inputs and pinned independent oracle, now untagged by bd7fef1e5; neither current survival is certified here.
  */
 export async function test_lint_write_commands_share_one_consumer(): Promise<void> {
   const fixture = path.join(process.cwd(), "fixtures", "lint", "write-boundary");
@@ -49,6 +49,7 @@ export async function test_lint_write_commands_share_one_consumer(): Promise<voi
   const original = new Map(originalFiles.map((file) => [file, fs.readFileSync(path.join(fixture, file), "utf8")]));
   const expected = new Map(sourceFiles.map((file) => [file, original.get(`expected/${file}`)!]));
   const snapshot = () => new Map(sourceFiles.map((file) => [file, fs.readFileSync(path.join(root, "src", file), "utf8")]));
+  const failures: unknown[] = [];
   try {
     fs.cpSync(fixture, root, { recursive: true });
     for (const [name, location] of [
@@ -96,8 +97,15 @@ export async function test_lint_write_commands_share_one_consumer(): Promise<voi
         assert.equal(fs.readFileSync(path.join(fixture, file), "utf8"), original.get(file));
       }] as const),
     ]);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    fs.rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-    assert.equal(fs.existsSync(root), false, "Write command consumer remained after cleanup");
+    try {
+      fs.rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      assert.equal(fs.existsSync(root), false, "Write command consumer remained after cleanup");
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length) throw new AggregateError(failures, "Lint write command observations or owned cleanup failed");
 }
