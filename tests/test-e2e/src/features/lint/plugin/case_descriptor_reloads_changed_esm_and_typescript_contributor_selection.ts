@@ -6,7 +6,7 @@ import { TestLintPlugin } from "../../../internal/lint/internal/TestLintPlugin";
 import { createLintProject } from "../../../internal/lint/internal/config-file";
 
 /**
- * Verifies helper-only contributor changes invalidate every module format.
+ * Verifies helper-only contributor changes are observed for MJS and TypeScript.
  *
  * 1. Resolve contributor A through a logging MJS config and sibling MJS helper
  *    without mixing stdout into the result payload.
@@ -16,22 +16,24 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * @evidence contracts/testing.md#behavioral-verification Repeated emitted-factory resolution changes alpha to beta after only the imported sibling helper changes, for both MJS and TypeScript config/helper pairs.
  * @evidence contracts/testing.md#independent-expectations The written helper exports independently name alpha or beta with an explicit corresponding source path; each full literal contributor array is checked after its own input state.
  * @evidence contracts/testing.md#distinguishing-cases Both native ESM and ttsx TypeScript module routes retain their entry path while the transitive helper changes; CJS and string-package transitions have a separate owner.
- * @evidence contracts/testing.md#execution-ownership The named entry runs both actual module evaluators and their before/after descriptor calls; source dependency selection tests do not claim to execute ESM or TypeScript module caching.
+ * @evidence contracts/testing.md#execution-ownership The named entry calls the workspace-built factory before and after helper-only edits in MJS and TypeScript inputs through the actual selected evaluator/compiler route. Direct dependency records do not establish these module reads; neither lane runs CLI watch or a native lint rule host.
  * @evidence contracts/e2e.md#necessary-boundary Real ESM and ttsx transitive module evaluation must observe edits despite stable config paths, a connection direct config-result or digest comparisons cannot establish.
- * @evidence contracts/e2e.md#shared-execution Each format uses one project and the same two source directories for its before/after calls. Distinct format loaders and changed helper inputs require reevaluation; no contributor Go build or native host is performed.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each format has a fresh project, but its config/helper paths remain stable across the intentional helper mutation; cleanup is in finally and successful before-state output is never reused after the edit.
- * @evidence contracts/e2e.md#preserved-coverage Both original MJS and TypeScript alpha-to-beta transitions, sibling relative imports and four exact contributor arrays remain executable.
+ * @evidence contracts/e2e.md#shared-execution Each format uses one project and two source-only contributor directories for its before/after factory calls, sharing selected built artifacts. Actual evaluator children, compiler Programs and cache outcomes are not counted by the four parent calls; no contributor Go build or native lint rule host is performed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Format projects are separate while each config/helper path stays stable across the intentional edit. Preparation, observation and cleanup failures retain the format identity before attempting the other lane; before-state output cannot satisfy the literal after-state array. Selected paths do not certify loaded-image identity or descendant joins.
+ * @evidence contracts/e2e.md#preserved-coverage Both original MJS/TypeScript alpha-to-beta transitions, sibling imports and four exact arrays remain, and one format failure no longer hides the independent lane. Other module formats are outside this declaration; consolidated registration, survivor execution and measurement remain unverified.
  */
 export function test_descriptor_reloads_changed_esm_and_typescript_contributor_selection(): void {
+    const failures: unknown[] = [];
     for (const extension of ["mjs", "ts"] as const) {
-      const project = createLintProject({
-        name: `contributor-selection-${extension}-reload`,
-        source: "export const value = 1;\n",
-        pluginConfig: {
-          configFile: `./configs/lint.config.${extension}`,
-        },
-      });
+      let project: ReturnType<typeof createLintProject> | undefined;
       try {
+        project = createLintProject({
+          name: `contributor-selection-${extension}-reload`,
+          source: "export const value = 1;\n",
+          pluginConfig: {
+            configFile: `./configs/lint.config.${extension}`,
+          },
+        });
         const alpha = createContributorSource(project.tmpdir, "alpha");
         const beta = createContributorSource(project.tmpdir, "beta");
         writeModuleConfig(project.tmpdir, extension);
@@ -44,9 +46,18 @@ export function test_descriptor_reloads_changed_esm_and_typescript_contributor_s
         assert.deepEqual(loadContributors(project.tmpdir, extension), [
           { name: "beta", source: beta },
         ]);
+      } catch (error) {
+        failures.push(new AggregateError([error], `${extension} contributor reload observation failed`));
       } finally {
-        project.cleanup();
+        try {
+          project?.cleanup();
+        } catch (error) {
+          failures.push(new AggregateError([error], `${extension} contributor reload owned cleanup failed`));
+        }
       }
+    }
+    if (failures.length !== 0) {
+      throw new AggregateError(failures, "Contributor reload format observations or owned cleanup failed");
     }
   }
 

@@ -8,9 +8,9 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
 /**
  * Verifies repeated descriptor resolution observes changed CJS contributors.
  *
- * CLI watch reloads execution in the same Node process. Calling `require()` on
- * the same lint config path would otherwise retain the first module export and
- * rebuild the wrong contributor binary after a config edit.
+ * Repeated descriptor resolution keeps the parent config path stable while its
+ * selected helper or package changes. This observes contributor selection;
+ * it does not launch CLI watch or rebuild a contributor binary.
  *
  * 1. Resolve contributor A through a logging CJS config and sibling helper outside
  *    its directory, without mixing stdout into the result payload.
@@ -24,11 +24,11 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * @evidence contracts/testing.md#behavioral-verification Repeated emitted-factory calls observe alpha then beta after editing only the sibling CJS helper, then demo source alpha followed by beta after editing only its required package module.
  * @evidence contracts/testing.md#independent-expectations Independently authored selection files name literal namespaces and explicit source paths; all four exact contributor arrays must match those successive inputs.
  * @evidence contracts/testing.md#distinguishing-cases Helper-only and installed-package-only edits leave the parent config path unchanged, distinguishing stale require/cache results from correct dependency invalidation.
- * @evidence contracts/testing.md#execution-ownership The named entry makes four actual descriptor resolutions in one Node suite lifetime; direct dependency-digest units do not replace actual require-cache invalidation.
+ * @evidence contracts/testing.md#execution-ownership The named entry makes four workspace-built factory calls within the suite process; their evaluator/compiler subprocess route supplies the observed contributor arrays. Direct dependency records do not establish those reads, and this entry does not run CLI watch or a native lint rule host.
  * @evidence contracts/e2e.md#necessary-boundary Real CJS helper and package require caching must not hide changed registration; synthetic dependency records cannot prove the module evaluator reads the updated export.
- * @evidence contracts/e2e.md#shared-execution One project and two contributor source directories serve all four resolutions. Each changed helper/package input requires reevaluation, but no source is compiled and no native host is launched.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The same config path is intentionally retained during each dependency-only mutation so a stale module result is observable; the owned project is removed in finally. This transition must not reuse a cached completed descriptor.
- * @evidence contracts/e2e.md#preserved-coverage Original four exact contributor arrays, sibling helper outside configs, logging config and string package-specifier reload remain executable; this case asserts selection freshness, not absence from a watch-input list.
+ * @evidence contracts/e2e.md#shared-execution One project and two source-only contributor directories serve four parent factory calls, reusing selected workspace-built artifacts. Their actual inner process/cache/Program populations require observation; parent calls alone do not measure them. No contributor Go compilation or native lint rule host is performed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The same config path is retained during helper/package-only mutations so stale outputs remain distinguishable; original observation and owned cleanup errors are retained together. Fresh complete arrays must reflect each edit; selected artifact paths are not loaded-image or descendant-join proof.
+ * @evidence contracts/e2e.md#preserved-coverage All four original exact arrays, outside-config helper, logging config and package string/reload remain. They own selection freshness, not watch-input exclusion or watch-session recovery. Consolidated registration, actual survivor execution and cost measurement remain unverified.
  */
 export function test_descriptor_reloads_changed_cjs_contributor_selection(): void {
     const project = createLintProject({
@@ -36,6 +36,7 @@ export function test_descriptor_reloads_changed_cjs_contributor_selection(): voi
       source: "export const value = 1;\n",
       pluginConfig: { configFile: "./configs/lint.config.cjs" },
     });
+    const failures: unknown[] = [];
     try {
       const alpha = createContributorSource(project.tmpdir, "alpha");
       const beta = createContributorSource(project.tmpdir, "beta");
@@ -58,8 +59,17 @@ export function test_descriptor_reloads_changed_cjs_contributor_selection(): voi
       assert.deepEqual(loadContributors(project.tmpdir), [
         { name: "demo", source: beta },
       ]);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      project.cleanup();
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length !== 0) {
+      throw new AggregateError(failures, "CJS contributor reload observation or owned cleanup failed");
     }
   }
 
