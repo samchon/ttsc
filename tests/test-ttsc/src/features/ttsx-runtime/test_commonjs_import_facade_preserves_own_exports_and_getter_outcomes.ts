@@ -11,7 +11,8 @@ import { commonJsImportFacade } from "../../../../../packages/ttsc/src/launcher/
  * Consumes actual generated ESM facades through Node's native module loader.
  *
  * Supplied static names deliberately include duplicates, missing and inherited
- * properties. Own getters are evaluated once per facade; a thrown getter must
+ * properties, declared in fixtures before their exports object is replaced.
+ * Static-name discovery itself is not executed. Own getters are evaluated once per facade; a thrown getter must
  * leave its binding undefined without aborting import. Explicit marker modes
  * own the Node-version distinction without inferring it from the current host.
  *
@@ -29,6 +30,14 @@ export async function test_commonjs_import_facade_preserves_own_exports_and_gett
     fs.writeFileSync(countsFile,
       "module.exports = { evaluations: 0, good: 0, throwing: 0, inherited: 0 };\n");
     fs.writeFileSync(filename, `
+exports.value = 0;
+exports.good = 0;
+exports.missing = 0;
+exports.inheritedValue = 0;
+exports.inheritedGetter = 0;
+exports.throwing = 0;
+exports.default = 0;
+exports["module.exports"] = 0;
 const counts = require("./counts.cjs");
 ++counts.evaluations;
 const prototype = { inheritedValue: 99 };
@@ -94,7 +103,7 @@ module.exports = value;
       assert.deepEqual(counts, { evaluations: 1, good: 2, throwing: 2, inherited: 0 });
     }
     const nullFile = path.join(root, "null.cjs");
-    fs.writeFileSync(nullFile, "module.exports = null;\n");
+    fs.writeFileSync(nullFile, 'exports.default = "discarded";\nmodule.exports = null;\n');
     for (const marker of [false, true]) {
       try {
         const facadeFile = path.join(root, `null-${marker}.mjs`);
