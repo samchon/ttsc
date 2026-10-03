@@ -9,6 +9,7 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
 import { originalPositionFor } from "../../../../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
+import type { ILinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/ILinkedPluginProject";
 
 /**
  * Verifies webpack, Rspack, and Turbopack builds map a ttsc-transformed module
@@ -33,11 +34,13 @@ import { createLinkedPluginProject } from "../../../../internal/unplugin/interna
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual webpack/Rspack output maps and built Turbopack native callback check each map transport route.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original linked project; shared calls borrow it after Rollup close and esbuild return. The original marker source rewrite is terminal for this input. Original per-host compiler.close awaits and output directories remain; run failure still lacks finally closure, so the common owner retains files instead of deleting an uncertain reader's inputs.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: webpack/Rspack output marker maps to authored coordinates; Turbopack callback map does likewise after banner visibly shifts generated line. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source(): Promise<void> {
-  const project = createLinkedPluginProject(["banner"]);
+export async function test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source(
+  preparedProject?: ILinkedPluginProject,
+): Promise<void> {
+  const project = preparedProject ?? createLinkedPluginProject(["banner"]);
   const marker = '"authored-marker"';
   // Plain JavaScript syntax, so neither host needs a type-stripping loader
   // that would compose its own map into the one under test.

@@ -6,6 +6,7 @@ import path from "node:path";
 import { originalPositionFor } from "../../../../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
+import type { ILinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/ILinkedPluginProject";
 
 const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
 
@@ -29,13 +30,16 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_esbuild_build_maps_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real esbuild composes inline adapter map into external output map through onLoad.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original linked banner project; shared calls borrow the unchanged project only after Rollup close. write:false retains its authored files. Actual build return is observed before map assertions and gates the terminal marker rewrite; return is not arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: external output map maps generated value to main.ts authored coordinates and embeds original source text. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_esbuild_build_maps_transformed_modules_to_the_authored_source(): Promise<void> {
+export async function test_esbuild_build_maps_transformed_modules_to_the_authored_source(
+  preparedProject?: ILinkedPluginProject,
+  observeReturned?: () => void,
+): Promise<void> {
   const unpluginEsbuild =
     await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");
-  const project = createLinkedPluginProject(["banner"]);
+  const project = preparedProject ?? createLinkedPluginProject(["banner"]);
   const source = fs.readFileSync(project.main, "utf8");
   const result = await esbuild.build({
     absWorkingDir: project.root,
@@ -48,6 +52,7 @@ export async function test_esbuild_build_maps_transformed_modules_to_the_authore
     sourcemap: "external",
     write: false,
   });
+  observeReturned?.();
   const code = result.outputFiles.find((file: { path: string }) =>
     file.path.endsWith(".js"),
   ).text as string;

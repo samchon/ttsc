@@ -6,6 +6,7 @@ import path from "node:path";
 import { originalPositionFor } from "../../../../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
+import type { ILinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/ILinkedPluginProject";
 
 const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
 const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
@@ -31,13 +32,16 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_build_maps_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual Rollup source-map composition with independent type-stripping plugin checks chaining.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Bundles close in finally; mutable sources and retained caches belong to this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original linked banner project; shared calls borrow its exact original files. Bundle close remains awaited in finally and only then notifies the owner, permitting the unchanged esbuild profile even if an output assertion failed. Unobserved close blocks later shared source transitions; roots remain retained.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: rollup plus later esbuild type stripping yields no SOURCEMAP_BROKEN and maps value to authored main.ts coordinates. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_build_maps_transformed_modules_to_the_authored_source(): Promise<void> {
+export async function test_rollup_build_maps_transformed_modules_to_the_authored_source(
+  preparedProject?: ILinkedPluginProject,
+  observeClosed?: () => void,
+): Promise<void> {
   const unpluginRollup =
     await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
-  const project = createLinkedPluginProject(["banner"]);
+  const project = preparedProject ?? createLinkedPluginProject(["banner"]);
   const source = fs.readFileSync(project.main, "utf8");
   const warnings: { code?: string; plugin?: string }[] = [];
   const bundle = await rollup({
@@ -87,5 +91,6 @@ export async function test_rollup_build_maps_transformed_modules_to_the_authored
     );
   } finally {
     await bundle.close();
+    observeClosed?.();
   }
 }

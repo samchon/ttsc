@@ -29,9 +29,14 @@ type UtilityPlugin = "banner" | "paths" | "strip";
  * influence a syntactic transform. The mapping is written without `baseUrl`,
  * which TypeScript 7 removed: `paths` targets resolve against the tsconfig's
  * own directory.
+ * A shared caller may supply a fresh child directory under its retained owner;
+ * the same original files and plugin links are materialized there once. It
+ * owns subsequent source transitions and does not share this mutable project
+ * with the generated native fixture's src population.
  */
 export function createLinkedPluginProject(
   plugins: readonly UtilityPlugin[],
+  preparedRoot?: string,
 ): ILinkedPluginProject {
   // Share one Go build cache across these fixtures; each distinct plugin set
   // still links its own host, but without this every project would rebuild the
@@ -40,9 +45,9 @@ export function createLinkedPluginProject(
   // These cases isolate content-dependency completeness. A short Windows root
   // spelling is a resolver alias whose identity must remain watched even for
   // a complete plugin, so use the physical root for this fixture.
-  const root = fs.realpathSync.native(
-    TestProject.tmpdir("ttsc-unplugin-linked-complete-"),
-  );
+  const requestedRoot = preparedRoot ?? TestProject.tmpdir("ttsc-unplugin-linked-complete-");
+  if (preparedRoot) fs.mkdirSync(requestedRoot, { recursive: true });
+  const root = fs.realpathSync.native(requestedRoot);
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   const types = path.join(root, "src", "types.ts");
   fs.writeFileSync(
