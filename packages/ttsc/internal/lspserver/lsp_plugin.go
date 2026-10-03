@@ -254,6 +254,8 @@ type LSPCodeActionContext struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPWorkspaceEdit struct {
+  // Changes maps protocol document URIs to their edit lists. This shape does
+  // not validate URI ownership; an empty map is omitted from JSON.
   Changes map[string][]LSPTextEdit `json:"changes,omitempty"`
 }
 
@@ -269,8 +271,12 @@ type LSPWorkspaceEdit struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPTextEdit struct {
-  Range   LSPRange `json:"range"`
-  NewText string   `json:"newText"`
+  // Range is the half-open interval replaced in session UTF-16 coordinates;
+  // equal endpoints insert without removing existing text.
+  Range LSPRange `json:"range"`
+
+  // NewText is the replacement text; empty text deletes the selected range.
+  NewText string `json:"newText"`
 }
 
 // LSPDocumentVersion carries the LSP textDocument version associated
