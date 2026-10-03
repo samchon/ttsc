@@ -21,11 +21,14 @@ import { runTurbopackLoader } from "../../../../internal/unplugin/internal/adapt
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_forwards_rule_options_to_the_transform is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Captured webpack loader callback invokes the built Turbopack entry and native transform, without launching Next.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone calls allocate the original empty-plugin project; shared calls borrow the same input after default loader return. The actual prefix-options callback return gates subsequent distinct dependency options; output assertion failure stays named and no return implies no later mutation. Callback return does not certify descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: built loader returns A:plugin with rule-supplied prefix while tsconfig plugins are empty. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_forwards_rule_options_to_the_transform(): Promise<void> {
-  const root = TestUnpluginProject.createProject({ plugins: [] });
+export async function test_turbopack_loader_forwards_rule_options_to_the_transform(
+  preparedRoot?: string,
+  observeReturned?: () => void,
+): Promise<void> {
+  const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
   const output = await runTurbopackLoader({
     resourcePath: TestUnpluginProject.mainFile(root),
     source: TestUnpluginProject.mainSource(root),
@@ -33,5 +36,6 @@ export async function test_turbopack_loader_forwards_rule_options_to_the_transfo
       plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: "A:" }],
     },
   });
+  observeReturned?.();
   assert.match(output, /"A:plugin"/);
 }
