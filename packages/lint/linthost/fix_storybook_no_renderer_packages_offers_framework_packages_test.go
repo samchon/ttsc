@@ -9,12 +9,11 @@ import (
 // `storybook/no-renderer-packages` offers the framework packages its own table
 // already maps the renderer to, and imposes none of them.
 //
-// The banned-package table was a map to a list of preferred replacements, and
-// the rule discarded the value: it looked the key up with `_, ok :=` and
-// reported "use a framework package instead" without saying which. Which one
-// is right depends on the project's bundler, which the source does not state,
-// so the list becomes titled suggestions rather than an automatic fix, and the
-// message names the same set for anyone reading the CLI rather than an editor.
+// The current rule maps a renderer to its supported framework choices. Which
+// one is right depends on the project's framework and bundler, which this
+// source does not establish. The list becomes titled suggestions rather than
+// an automatic fix, and the message names the same set. This source-level test
+// does not install those packages or certify the latest upstream choice set.
 //
 //  1. Report an `@storybook/react` import and assert three suggestions, each
 //     rewriting the module specifier to one framework package.
