@@ -171,8 +171,8 @@ func nodeBuilderPopContext(*innerchecker.NodeBuilder)
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Eligibility follows actual type flags rather than printed type spelling.
 // @evidence contracts/common.md#meaningful-documentation Native prose names supported semantic categories and nonnil input.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTypeUsableAsPropertyName acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsTypeUsableAsPropertyName performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTypeUsableAsPropertyName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The upstream literal/unique-symbol flag classifier owns eligibility; this shim forwards the type without choosing a second name-decoding or graph-search strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate reads existing type flags and coordinates no completed or in-flight producer, cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsTypeUsableAsPropertyName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTypeUsableAsPropertyName(t *Type) bool {
   return innerchecker.IsTypeUsableAsPropertyName(t)
@@ -641,8 +641,8 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fixed-size shortcut substitutes for the compiler's tuple identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose states rest/variadic inclusion and the nonnil type requirement.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTupleType acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsTupleType performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTupleType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Upstream tuple classification owns reference/target tuple-flag inspection; this forwarding shim chooses no separate element traversal or tuple-recognition strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate inspects an existing type representation and coordinates no completed or in-flight producer, cache or invalidation across requests.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsTupleType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTupleType(t *innerchecker.Type) bool {
   return innerchecker.IsTupleType(t)
