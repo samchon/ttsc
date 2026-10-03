@@ -24,8 +24,8 @@ import (
 // Program's semantic project root.
 const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
-// Diagnostic is the compilation diagnostic shape ttsc passes around. Kept
-// dependency-free (no shim types) so callers can render or inspect freely.
+// Diagnostic is the compilation diagnostic shape ttsc passes around. Its public
+// data members use plain values; private native anchors support richer rendering.
 //
 // `raw` carries the original tsgo diagnostic for full color/context
 // rendering. `lint` carries a plugin-emitted lint diagnostic when the
@@ -63,7 +63,8 @@ type Diagnostic struct {
   // Message is the producer's readable explanation.
   Message string
 
-  // Severity selects the build outcome and rendered severity.
+  // Severity is the public classification. A native lint anchor remains
+  // authoritative for IsError and rich rendering if callers change this field.
   Severity Severity
   raw      *ast.Diagnostic
   lint     *shimdiagnosticwriter.LintDiagnostic
@@ -97,7 +98,7 @@ const (
 //
 // @evidence contracts/common.md#principled-implementation Native lint findings use their recorded category; other diagnostics count as errors unless explicitly marked warning, matching build totals.
 // @evidence contracts/common.md#clear-and-simple-design This predicate owns the build-blocking decision shared by CountErrors and plugin callers.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts An unknown severity does not silently become a successful build, and native lint category is not replaced by a fixture answer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Without a native lint anchor, an unknown public severity counts as an error; with one, its recorded category remains authoritative rather than a fixture answer or later public-field mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the build-total predicate and plugin gating purpose following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This diagnostic-category decision crosses no native boundary.
 // @evidenceExclude contracts/performance.md#efficient-algorithms One category predicate does not choose an input-processing algorithm.
@@ -262,8 +263,9 @@ func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
 }
 
 // CountErrors returns the number of diagnostics that should fail the build.
-// tsgo diagnostics carry their own `Error` category; lint diagnostics carry a
-// caller-set Severity. Anything that isn't an explicit warning counts.
+// IsError uses a native lint anchor's category when present, otherwise the
+// public Severity field. Ordinary converted compiler findings default to Error;
+// a non-lint finding counts unless its public severity is explicitly Warning.
 //
 // @evidence contracts/common.md#principled-implementation Counting uses IsError for each element, so aggregate build status and individual plugin gating share the same native lint and warning policy.
 // @evidence contracts/common.md#clear-and-simple-design One reduction delegates classification to its owning predicate rather than duplicating category rules.
