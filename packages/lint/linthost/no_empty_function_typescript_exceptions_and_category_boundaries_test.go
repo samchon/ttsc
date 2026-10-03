@@ -2,6 +2,7 @@ package linthost
 
 import (
   "encoding/json"
+  "strings"
   "testing"
 )
 
@@ -15,10 +16,11 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestNoEmptyFunctionTypeScriptExceptionsAndCategoryBoundaries is selected in the shared Go unit population. Every named table subtest calls runRuleFindingsSnapshot with its explicit source and optional JSON allow input; original names remain failure identities. No consumer install, native artifact build or real host runs.
 func TestNoEmptyFunctionTypeScriptExceptionsAndCategoryBoundaries(t *testing.T) {
   tests := []struct {
-    name   string
-    source string
-    allow  []string
-    want   int
+    name           string
+    source         string
+    allow          []string
+    want           int
+    wantBodyPrefix string
   }{
     {
       name: "every parameter property constructor always has work",
@@ -35,6 +37,7 @@ class OverrideExample extends Base { constructor(override value: number) {} }`,
 class PublicExample { constructor() {} }`,
       allow: []string{"privateConstructors"},
       want:  1,
+      wantBodyPrefix: "\nclass PublicExample { constructor() ",
     },
     {
       name: "decorated option stays decorated",
@@ -45,6 +48,7 @@ class Example {
 }`,
       allow: []string{"decoratedFunctions"},
       want:  1,
+      wantBodyPrefix: "\n  ordinary() ",
     },
     {
       name: "override option stays override",
@@ -55,6 +59,7 @@ class Example extends Base {
 }`,
       allow: []string{"overrideMethods"},
       want:  1,
+      wantBodyPrefix: "\n  ordinary() ",
     },
     {
       name:   "async function option does not include async arrows",
@@ -227,6 +232,16 @@ class Example extends Base {
       _, _, findings := runRuleFindingsSnapshot(t, "no-empty-function", test.source, options)
       if len(findings) != test.want {
         t.Fatalf("finding count = %d, want %d; findings=%+v", len(findings), test.want, findings)
+      }
+      if test.wantBodyPrefix != "" {
+        prefixStart := strings.Index(test.source, test.wantBodyPrefix)
+        if prefixStart < 0 {
+          t.Fatalf("expected body prefix missing from source: %q", test.wantBodyPrefix)
+        }
+        start := prefixStart + len(test.wantBodyPrefix)
+        if len(findings) != 1 || findings[0].Pos != start || findings[0].End != start+2 {
+          t.Fatalf("want the ordinary sibling body at [%d,%d), got %+v", start, start+2, findings)
+        }
       }
     })
   }
