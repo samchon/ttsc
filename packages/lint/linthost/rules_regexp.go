@@ -372,10 +372,9 @@ func regexpFlagsWith(flags string, flag byte) string {
 
 // regexpUnicodeFlagRepair offers `u` and `v` as competing suggestions.
 //
-// Both satisfy the rule and neither is the obvious answer: `u` is the widely
-// supported mode, `v` the stricter ES2024 superset. Both also change what the
-// pattern matches -- surrogate pairs stop being two independent code units --
-// so this is never applied automatically by `ttsc fix`.
+// Both satisfy the rule, but their syntax and matching semantics differ from
+// legacy mode and from each other. A Unicode-mode choice can change pattern
+// behavior, so neither suggestion is applied automatically by `ttsc fix`.
 func regexpUnicodeFlagRepair(parts regexpLiteralParts) regexpRepair {
   return regexpRepair{suggestions: []Suggestion{
     {Title: "Add the `u` flag.", Edits: []TextEdit{parts.flagEdit(regexpFlagsWith(parts.flags, 'u'))}},
@@ -385,7 +384,7 @@ func regexpUnicodeFlagRepair(parts regexpLiteralParts) regexpRepair {
 
 // regexpUnicodeSetsFlagRepair offers the single `v` rewrite, replacing `u`
 // where the literal already carries it. It stays a suggestion for the same
-// reason as regexpUnicodeFlagRepair: `v` is a stricter mode with its own
+// reason as regexpUnicodeFlagRepair: `v` is a distinct mode with its own
 // matching semantics, not a spelling of the existing pattern.
 func regexpUnicodeSetsFlagRepair(parts regexpLiteralParts) regexpRepair {
   title, flags := "Add the `v` flag.", parts.flags

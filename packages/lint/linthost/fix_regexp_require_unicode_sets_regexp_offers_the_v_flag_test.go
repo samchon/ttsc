@@ -9,7 +9,8 @@ import "testing"
 // `u` and `v` are mutually exclusive, so on a `u` literal the correction is a
 // substitution and not an insertion; appending would produce `uv`, which is not
 // a legal flag run. It stays a suggestion rather than a fix for the same reason
-// as its sibling rule: `v` is a stricter matching mode, not a respelling.
+// as its sibling rule: `v` selects distinct syntax and matching semantics,
+// rather than merely respelling a flag. These ASCII fixtures check flag edits.
 //
 //  1. Assert `/a/giu` offers a replacement suggestion producing `giv`.
 //  2. Assert `/a/g`, which carries no Unicode flag, offers an insertion

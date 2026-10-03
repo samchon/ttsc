@@ -6,9 +6,10 @@ import "testing"
 // `regexp/require-unicode-regexp` offers `u` and `v` as competing suggestions
 // and imposes neither.
 //
-// Both flags satisfy the rule and both change what the pattern matches — a
-// surrogate pair stops being two independent code units — so there is no single
-// right answer to apply automatically. The flag is inserted at its canonical
+// Both flags satisfy the rule, but choosing a Unicode mode can change syntax
+// and matching, including surrogate-pair handling. This ASCII fixture checks
+// the competing suggestions, not those matching differences. The flag is
+// inserted at its canonical
 // position rather than appended, so adding it to a literal ending in `y` does
 // not leave a run that `regexp/sort-flags` immediately re-reports.
 //
