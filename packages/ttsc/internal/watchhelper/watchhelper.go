@@ -1,8 +1,8 @@
 // Package watchhelper implements `ttsc __watch`, the directory notification
 // helper the unplugin adapter runs on Linux.
 //
-// An inotify instance holds a bounded queue. When it fills, the kernel drops
-// every later event and queues one IN_Q_OVERFLOW event, which libuv, and so
+// An inotify instance holds a bounded queue. Events beyond its capacity are
+// dropped and an IN_Q_OVERFLOW event reports that loss, which libuv, and so
 // Node's `fs.watch`, discards. A watch opened there can lose events without
 // notice. The helper owns its own inotify instance and reports the overflow,
 // so the adapter can stop trusting its watches' silence instead.
@@ -15,8 +15,8 @@
 //     `{"id":N,"error":"..."}`.
 //   - `{"op":"remove","id":N}` ends a subscription. It has no reply.
 //   - `{"op":"sync","id":N}` is answered with `{"id":N,"synced":true}` only
-//     after the helper has read its instance empty, so every event queued
-//     before the request is on stdout ahead of the answer.
+//     after the helper has read its instance empty. Emitted events from that
+//     drain precede the answer; concurrent later arrivals remain possible.
 //
 // The helper writes events:
 //
@@ -26,8 +26,10 @@
 //     unmounted, after which the subscription hears nothing more.
 //   - `{"overflow":true}` when the queue overflowed, for every subscription.
 //
-// Two subscriptions of one directory share its watch descriptor. The helper
-// exits when stdin closes.
+// Two subscriptions of one directory share its watch descriptor. Use distinct
+// live subscription IDs and remove one before reusing its ID for another
+// directory. End of scanned input ends requests; backend and output failures
+// can also end service.
 package watchhelper
 
 // Request is one line the client writes to the helper.
@@ -44,7 +46,7 @@ package watchhelper
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The request does not own watch sharing or synchronization across clients.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper owns subscriptions and descriptors; this value only identifies a requested operation.
 type Request struct {
-  // Op is `add`, `remove`, or `sync`.
+  // Op selects `add`, `remove`, or `sync`; unknown operations are ignored.
   Op string `json:"op"`
 
   // ID names the subscription, or the sync being answered.
@@ -69,7 +71,8 @@ type Request struct {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This response owns no subscription or open descriptor lifetime.
 type Response struct {
   // ID names the subscription or the sync the line concerns. An overflow
-  // concerns every subscription and carries none.
+  // concerns every subscription and carries none. The JSON field is also
+  // omitted for a zero ID, so field absence alone does not identify overflow.
   ID int64 `json:"id,omitempty"`
 
   // Ready answers an `add` whose watch is live.
@@ -84,12 +87,14 @@ type Response struct {
   // Name is the entry an event concerns, relative to the watched directory.
   Name string `json:"name,omitempty"`
 
-  // Gone reports that the watched directory itself went away.
+  // Gone reports an end-mask event, including directory move, deletion,
+  // unmount or watch removal; the subscription will receive no later events.
   Gone bool `json:"gone,omitempty"`
 
   // Overflow reports that events were dropped.
   Overflow bool `json:"overflow,omitempty"`
 
-  // Synced answers a `sync`.
+  // Synced answers a `sync` after a drain observes an empty instance, not a
+  // promise that no later event arrives.
   Synced bool `json:"synced,omitempty"`
 }
