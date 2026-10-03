@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The five named private scenarios directly call run and preserve default help, all help/version aliases and the two invalid invocation categories with their original literal status and stream assertions.
 // @evidence contracts/testing.md#independent-expectations Existing literal help/banner/diagnostic fragments and zero/two statuses express the supported command contract independently of captured output; release metadata remains intentionally unconstrained.
 // @evidence contracts/testing.md#distinguishing-cases Empty argv, three help aliases, three version aliases and two rejection categories remain identifiable by their original case names. Private scenario documentation states each case's exact distinctions and oracle limits.
-// @evidence contracts/testing.md#execution-ownership This public default Go entry owns five sequential named scenarios in its implementation package. Each calls actual run without a producer, process host, compiler Program or project fixture. The Go adapter selects this aggregate; private scenario bodies remain full-surface review obligations.
+// @evidence contracts/testing.md#execution-ownership This public Go entry owns five sequential named scenarios calling actual run with package-owned stream capture and restoring cwd/signal/host refusal seams. No producer, process host, compiler Program or project fixture starts. The selected aggregate's truthfulness scope includes those five private inputs and assertions; their bodies are not separately selected declarations.
 func TestTtscserverCommandOperationFamilies(t *testing.T) {
   t.Run("TestTtscserverCommandDefaultPrintsHelp", scenarioTestTtscserverCommandDefaultPrintsHelp)
   t.Run("TestTtscserverCommandHelpAliases", scenarioTestTtscserverCommandHelpAliases)
@@ -45,7 +45,7 @@ func TestTtscserverCommandOperationFamilies(t *testing.T) {
 // Testing: behavioral-verification Bare ttscserver returns zero and the Language Server Protocol host help banner.
 // Testing: independent-expectations The native editor host contract allows project-free probing without entering stdio transport; extra output and stderr are not asserted.
 // Testing: distinguishing-cases Empty argv exercises default help separately from the three explicit help aliases.
-// Testing: Execution ownership: The aggregate registers this original case name and calls actual private run in the owning command package, with no native artifact, Node process, compiler Program or project fixture. This private scenario is reviewed through its public aggregate because Go Evidence cannot select it.
+// Testing: Execution ownership: The aggregate owns this private empty-argv input and its literal status/banner-fragment assertions through actual run; no artifact, process, compiler Program or project fixture starts.
 func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
   code, out, errOut := captureTtscserverCommand(t)
   if code != 0 {
@@ -56,8 +56,8 @@ func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
   }
 }
 
-// scenarioTestTtscserverCommandHelpAliases verifies every help spelling reaches the
-// same banner.
+// scenarioTestTtscserverCommandHelpAliases verifies the three authored help
+// spellings return zero and include the same usage fragment, not identical bytes.
 //
 // Help is dispatched before any LSP wiring, so the aliases must succeed
 // independently of the project layout. An alias that diverged from the main
@@ -69,7 +69,7 @@ func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
 // Testing: behavioral-verification -h, --help and help return zero with ttscserver --stdio usage text.
 // Testing: independent-expectations The public help aliases must expose the LSP transport guidance; substring matching permits other help content.
 // Testing: distinguishing-cases Three named project-free alias subtests differ from empty argv and transport refusal.
-// Testing: Execution ownership: The aggregate registers this original case name and calls actual private run in the owning command package, with no native artifact, Node process, compiler Program or project fixture. This private scenario is reviewed through its public aggregate because Go Evidence cannot select it.
+// Testing: Execution ownership: The aggregate owns these three private alias inputs and zero/usage-fragment assertions through actual run; no artifact, process, compiler Program or project fixture starts.
 func scenarioTestTtscserverCommandHelpAliases(t *testing.T) {
   for _, flag := range []string{"-h", "--help", "help"} {
     t.Run(flag, func(t *testing.T) {
@@ -85,7 +85,8 @@ func scenarioTestTtscserverCommandHelpAliases(t *testing.T) {
 }
 
 // scenarioTestTtscserverCommandRejectsMissingStdio verifies the transport guard
-// rejects any invocation that omits --stdio.
+// rejects the authored --cwd invocation that omits --stdio. Metadata aliases
+// are handled earlier and do not require this transport flag.
 //
 // The native host only speaks stdio. Running without the flag must produce
 // a clean exit 2 with an actionable error instead of hanging indefinitely on
@@ -97,7 +98,7 @@ func scenarioTestTtscserverCommandHelpAliases(t *testing.T) {
 // Testing: behavioral-verification A cwd flag without --stdio returns usage status two and a diagnostic mentioning --stdio.
 // Testing: independent-expectations The native host supports the stdio transport explicitly; omission must reject the invocation.
 // Testing: distinguishing-cases A recognized nontransport flag distinguishes this rejection from the unknown-flag case.
-// Testing: Execution ownership: The aggregate registers this original case name and calls actual private run in the owning command package, with no native artifact, Node process, compiler Program or project fixture. This private scenario is reviewed through its public aggregate because Go Evidence cannot select it.
+// Testing: Execution ownership: The aggregate owns this private cwd-without-stdio input and status/diagnostic-fragment assertions through actual run; refusal seams guard accidental startup.
 func scenarioTestTtscserverCommandRejectsMissingStdio(t *testing.T) {
   code, _, errOut := captureTtscserverCommand(t, "--cwd", ".")
   if code != 2 {
@@ -109,7 +110,7 @@ func scenarioTestTtscserverCommandRejectsMissingStdio(t *testing.T) {
 }
 
 // scenarioTestTtscserverCommandRejectsUnknownFlag verifies the flag parser surfaces
-// unknown arguments with exit 2 rather than silently ignoring them.
+// the authored --garbage-flag with exit 2 and the unknown-flag diagnostic.
 //
 // Editors that scaffold the wrong flag for ttscserver should see the failure
 // during development, not silent misbehavior in the field where a mistyped
@@ -121,7 +122,7 @@ func scenarioTestTtscserverCommandRejectsMissingStdio(t *testing.T) {
 // Testing: behavioral-verification --garbage-flag returns usage status two and a flag-provided-but-not-defined diagnostic naming garbage-flag.
 // Testing: independent-expectations The deliberately unregistered garbage-flag independently owes flag-parser rejection; literal error category and authored flag name define the expected stderr without copying actual output.
 // Testing: distinguishing-cases Status two alone also occurs for missing stdio; the unknown-flag category and garbage-flag name reject a fallthrough to that transport guard. Recognized cwd without stdio and accepted metadata aliases retain their separate cases.
-// Testing: Execution ownership: The aggregate registers this original case name and calls actual private run in the owning command package, with no native artifact, Node process, compiler Program or project fixture. This private scenario is reviewed through its public aggregate because Go Evidence cannot select it.
+// Testing: Execution ownership: The aggregate owns this private unregistered-flag input and literal status/category/name assertions through actual run; refusal seams guard accidental startup.
 func scenarioTestTtscserverCommandRejectsUnknownFlag(t *testing.T) {
   code, _, errOut := captureTtscserverCommand(t, "--garbage-flag")
   if code != 2 {
@@ -132,8 +133,8 @@ func scenarioTestTtscserverCommandRejectsUnknownFlag(t *testing.T) {
   }
 }
 
-// scenarioTestTtscserverCommandVersionAliases verifies every version spelling
-// reports the same banner.
+// scenarioTestTtscserverCommandVersionAliases verifies the three authored
+// version spellings return zero with the same banner prefix, not identical bytes.
 //
 // Editors frequently log this output for support reports, so all aliases
 // must resolve to the same banner. A spelling that diverged would produce
@@ -145,7 +146,7 @@ func scenarioTestTtscserverCommandRejectsUnknownFlag(t *testing.T) {
 // Testing: behavioral-verification -v, --version and version return zero with the ttscserver banner prefix.
 // Testing: independent-expectations The native host metadata contract supplies the literal prefix independently of release version values.
 // Testing: distinguishing-cases Three named metadata aliases run without stdio or a fixture project; help and transport cases are separate.
-// Testing: Execution ownership: The aggregate registers this original case name and calls actual private run in the owning command package, with no native artifact, Node process, compiler Program or project fixture. This private scenario is reviewed through its public aggregate because Go Evidence cannot select it.
+// Testing: Execution ownership: The aggregate owns these three private version-alias inputs and zero/banner-prefix assertions through actual run; release metadata is unconstrained and no producer starts.
 func scenarioTestTtscserverCommandVersionAliases(t *testing.T) {
   for _, flag := range []string{"-v", "--version", "version"} {
     t.Run(flag, func(t *testing.T) {
