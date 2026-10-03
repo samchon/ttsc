@@ -10,9 +10,9 @@ import (
 // declaration order.
 //
 // VS Code gives `[typescript]` semantic precedence over
-// `[javascript][typescript]`. Iterating a decoded Go map made the winner depend
-// on runtime map order, so repeated resolutions of equivalent settings could
-// disagree even though the source did not change.
+// `[javascript][typescript]`. Applying sections in decoded Go map iteration
+// order would make the winner depend on runtime map order. The resolver must
+// retain exact-scope precedence instead of relying on that order.
 //
 // 1. Write both declaration-order permutations of the conflicting sections.
 // 2. Resolve each settings file repeatedly for TypeScript.
