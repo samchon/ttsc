@@ -5,12 +5,10 @@ import "testing"
 // TestFixNoWrapperObjectTypesSkipsUserShadowedName verifies the shadow
 // bailout of `no-wrapper-object-types` for a local type alias.
 //
-// Pre-repair, when a file declared its own `type String = { length:
-// number }`, the rule still fired on the `String` reference and the fix
-// rewrote it to the lowercase primitive — changing the type. The repair
-// scans top-level statements for a same-name TypeAliasDeclaration,
-// InterfaceDeclaration, or ClassDeclaration and bails entirely when one
-// is present.
+// The fixture introduces a structural type alias named String rather than
+// spelling a primitive type. The guard recognizes that file-scope type
+// declaration and suppresses reporting; this parser-only fixture does not
+// certify successful compilation alongside the standard library.
 //
 // 1. Parse a source file that shadows `String` with a local type alias.
 // 2. Run the rule under the engine and confirm zero findings.
