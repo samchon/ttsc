@@ -5,15 +5,15 @@
 // tsgo's Program.Emit has no hook to inject a custom transformer, so ttsc's
 // driver assembles the per-file emit pipeline by hand (see GetSourceFilesToEmit
 // / GetScriptTransformers / GetOutputPathsFor). That hand-assembly must also
-// reproduce every step the emitter would otherwise run: building the printer's
+// reproduce the selected text/map assembly steps: building the printer's
 // options from the compiler options, the source-map branch a bare printer.Write
 // with a nil generator drops entirely, the `emitBOM` byte-order mark, and the
-// `WriteFileData` the emitter hands its writeFile callback. This file ports
+// trailer position the emitter places in WriteFileData. This file ports
 // internal/compiler/emitter.go's `emitJSFile` PrinterOptions construction and
-// the whole of its `printSourceFile` so a build that goes through a plugin
-// transform honors the same compiler options and produces the same map (and
-// `//# sourceMappingURL=` trailer, and the same first bytes) as a plain build
-// does.
+// its printing, source-map and BOM assembly policy. The driver owns writing
+// returned artifacts and its metadata; upstream diagnostic/write-result and
+// SourceMaps receipt machinery is not reproduced by this helper. Byte and map
+// compatibility depends on the actual transformed nodes and retained provenance.
 //
 // Keep it in sync with that emitter source when the pin is bumped. Anything
 // `emitJSFile` sets and this file omits takes the Go zero value, which silently
@@ -75,8 +75,9 @@ type PrintedFile struct {
 
 // PrintFileWithSourceMap renders node from sourceFile through a printer built
 // from options and emitContext, optionally generating a source map, mirroring
-// emitter.emitJSFile and emitter.printSourceFile for the single-file
-// plugin-transform path. The PrinterOptions below are emitJSFile's, field for
+// their text/map assembly for the single-file plugin-transform path. It returns
+// artifacts; it does not reproduce upstream writes, diagnostics, SourceMaps
+// receipts or complete WriteFileData. The PrinterOptions below are emitJSFile's, field for
 // field: `removeComments`, `newLine`, `noEmitHelpers`, `sourceMap`,
 // `inlineSourceMap`, `inlineSources`, and `target`. When
 // `sourceMap`/`inlineSourceMap` is enabled (and the file is not JSON) it builds a
@@ -85,8 +86,8 @@ type PrintedFile struct {
 // external map text/path (or encodes the map inline). `emitBOM` prepends the
 // UTF-8 byte order mark to the JavaScript afterwards, exactly where
 // printSourceFile does it, outside PrinterOptions, which is why forwarding the
-// whole options struct never reached it. The external map is written without a
-// mark, matching the emitter's own `writeText(sourceMapFilePath, ..., nil)`.
+// whole options struct never reached it. Returned external map text has no BOM,
+// matching the text supplied to upstream's map write.
 // host supplies the same directory/casing context tsgo's emitter reads.
 //
 // The source file, compiler options and host must be nonnil. Original node
@@ -97,9 +98,9 @@ type PrintedFile struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts JSON map suppression, inline maps and pre-BOM offsets implement actual compiler options and output protocol; they do not select fixtures or patch upstream printer behavior.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish printer settings from post-print BOM effects, external from inline maps, path context and provenance requirements; the result documents its coordinate convention explicitly.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler path helpers normalize native output paths, host-provided case sensitivity governs relative identity, and trailer paths are separately URI-encoded; URL spelling is not treated as filesystem casing.
-// @evidence contracts/performance.md#efficient-algorithms Printing traverses the emitted node tree and output text once with optional mapping segments; map serialization and inline base64 add work proportional to map bytes, and the per-file writer avoids rescanning text to find the trailer position.
+// @evidence contracts/performance.md#efficient-algorithms Text and mapping collection share one printer invocation; upstream printing can also consult node provenance, semantic helpers, source positions and path text, so this is not a strict one-pass bound over input or output bytes. Map-table copies and JSON serialization, optional base64, trailer writes and a BOM text copy add their own work. The writer's recorded position avoids rescanning emitted text just to locate the trailer.
 // @evidence contracts/performance.md#reuse-equivalent-work Text and source mappings share the printer traversal and EmitContext provenance; no cross-file printer source-index state is reused, and compiler options and transformed nodes determine each output.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Printer, writer and generator are file-local; retained bytes scale with emitted text, mapping segments and optional inline source content, then transfer through result strings without historical caching or spawned tasks.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Per-call printer, writer and generator hold output buffers, source/name indexes, mapping segments and optional borrowed source text. Map serialization/base64 and BOM assembly can temporarily coexist with those buffers; result strings retain their backing bytes after return. EmitContext and source/semantic graphs remain caller-owned, and this function adds no historical result registry or spawned task. No fixed byte cap is imposed here.
 func PrintFileWithSourceMap(
   emitContext *innerprinter.EmitContext,
   node *innerast.Node,
