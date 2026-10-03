@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 const { spawnSync } = E2eProcessTrace;
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
  * Verifies VS Code `ttsc.serverPath` launches a Windows `.cmd`/`.bat` shim.
@@ -50,7 +51,7 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
     import fs from "node:fs";
     import os from "node:os";
     import path from "node:path";
-    import processTrace from ${JSON.stringify(E2eProcessTrace.runtimePath)};
+    import processTrace from ${JSON.stringify(pathToFileURL(E2eProcessTrace.runtimePath).href)};
     const { spawnSync } = processTrace;
 
     const mod = await import(pathToFileURL(${JSON.stringify(
