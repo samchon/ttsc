@@ -10,8 +10,8 @@ import (
 // TestNamespaceMembersBecomeQualifiedNodesAndEdges verifies that declarations
 // inside a `namespace` are first-class graph nodes, keyed by their
 // namespace-qualified name, and that edges cross the namespace boundary in both
-// directions. A top-level-statements-only walk recorded none of this: every
-// namespaced declaration and every edge touching one was silently dropped.
+// directions in the authored Service fixture. Four selected node keys and
+// four relationship triples are checked, not all namespace facts or payloads.
 //
 // The fixture exercises four relationships:
 //
@@ -27,8 +27,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal: Service.helper, Service.run, Service.Worker and Service.Worker.process must be nodes; and value-call edges Service.run to Service.helper and bootstrap to Service.run, and type-ref edges Service.Worker.process to Payload and WorkerRef to Service.Worker, must exist.
 // @evidence contracts/testing.md#distinguishing-cases Load Service.helper, Service.run, Service.Worker and Service.Worker.process with Payload and WorkerRef. Build namespace declarations, value calls and type references. Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
-// @evidence contracts/testing.md#execution-ownership TestNamespaceMembersBecomeQualifiedNodesAndEdges is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build and presence-only hasEdge. Actual Program filename and shared nodeID formatting select the literal qualified endpoints, not an independent ID grammar. A restored empty linked-plugin manifest excludes ambient hooks; no namespace execution, dump serialization, installed consumer or product process runs.
 func TestNamespaceMembersBecomeQualifiedNodesAndEdges(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
