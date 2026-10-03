@@ -20,10 +20,10 @@ import (
 //  3. Assert the converted LSP diagnostic keeps its rule id but no
 //     codeDescription, while a built-in rule still resolves one.
 //
-// @evidence contracts/testing.md#behavioral-verification The contributor adapter reports its retired-name finding without codeDescription while the built-in no-alert mapping remains present.
+// @evidence contracts/testing.md#behavioral-verification The contributor adapter reports its literal ordinary SeverityError finding under the retired name without codeDescription, rejecting recovered failures; the built-in no-alert mapping remains present.
 // @evidence contracts/testing.md#independent-expectations A contributor does not own the retired built-in documentation; nil description and the positive built-in URL follow this distinction independently of ledger lookup.
 // @evidence contracts/testing.md#distinguishing-cases A contributor adapter registered under the retired built-in name solid/jsx-uses-vars is run through the Engine; its converted diagnostic must keep that name as its code and have a nil codeDescription, and ruleDocumentationURL for no-alert must stay non-empty so a globally dead field cannot satisfy the test. The built-in href value itself is asserted elsewhere.
-// @evidence contracts/testing.md#execution-ownership Registers a contributor adapter in the in-process rule registry (removed on cleanup), runs NewEngine over a parsed virtual file and converts the finding with findingToLSPDiagnostic; no command dispatch or host process is started.
+// @evidence contracts/testing.md#execution-ownership Registers an explicitly AST-only contributor adapter in the in-process rule registry (removed on cleanup), runs NewEngine over a parsed virtual file and converts the finding with findingToLSPDiagnostic; no command dispatch or host process is started.
 func TestLSPDiagnosticOmitsCodeDescriptionForContributorRule(t *testing.T) {
   file := parseTSFile(t, "/virtual/contributor.ts", "export const value = 1;\n")
   contributor := &undocumentedContributorRule{}
@@ -41,6 +41,11 @@ func TestLSPDiagnosticOmitsCodeDescriptionForContributorRule(t *testing.T) {
     Run([]*shimast.SourceFile{file}, nil)
   if got, want := len(findings), 1; got != want {
     t.Fatalf("findings = %d, want %d: %+v", got, want, findings)
+  }
+
+  if finding := findings[0]; finding.engineFailure || finding.Severity != SeverityError ||
+    finding.Message != "undocumented contributor finding" {
+    t.Fatalf("expected the authored ordinary contributor finding: %+v", finding)
   }
 
   diagnostic := findingToLSPDiagnostic(findings[0])
@@ -67,3 +72,11 @@ func (*undocumentedContributorRule) Visits() []shimast.Kind {
 func (*undocumentedContributorRule) Check(ctx *publicrule.Context, _ *shimast.Node) {
   ctx.ReportRange(0, 1, "undocumented contributor finding")
 }
+
+// NeedsTypeChecker declares that this fixture only reports an authored range.
+//
+// @evidence contracts/testing.md#behavioral-verification The fixture opts out through the maintained TypeAwareRule marker; the owning diagnostic test executes its adapter with no checker and requires the literal ordinary finding.
+// @evidence contracts/testing.md#independent-expectations A constant range report consumes no type information, so false follows the authored fixture operation rather than observed engine output.
+// @evidence contracts/testing.md#distinguishing-cases The owning entry checks the actual message, SeverityError and nonfailure state before diagnostic conversion; recovered failures cannot stand in for this checker-free contribution.
+// @evidence contracts/testing.md#execution-ownership The method supplies fixture metadata to inspectContributor in the shared unit process; it starts no process or project and does not itself execute the diagnostic assertion.
+func (*undocumentedContributorRule) NeedsTypeChecker() bool { return false }
