@@ -44,7 +44,7 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'runtime', 'native-consumer'].includes(family));
+          assert.ok(['compiler', 'runtime', 'native-consumer', 'unplugin'].includes(family));
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -104,12 +104,12 @@ jobs:
               'tests/test-e2e/fixtures/ttsc/runtime-commonjs-corpus',
               ...JSON.parse(process.env.E2E_RUNTIME_FIXTURE_ROOTS).map(directory =>
                 'tests/test-e2e/fixtures/' + directory),
-            ] : [
+            ] : family === 'native-consumer' ? [
               'tests/test-e2e/fixtures/ttsc/api',
               'tests/test-e2e/fixtures/evidence',
               'tests/test-e2e/fixtures/lint',
               'tests/test-e2e/fixtures/utilities',
-            ]),
+            ] : ['tests/test-e2e/fixtures/unplugin']),
             ...JSON.parse(process.env.E2E_COHORT_ASSET_TREES ?? '[]'),
           ]) selectTree(directory);
           for (const file of [...new Set(files)].sort())
@@ -258,4 +258,40 @@ jobs:
         with:
           name: e2e-native-consumer-comparison-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-native-consumer-comparison
+          if-no-files-found: error
+      - name: Prepare Unplugin cohort inputs
+        id: unplugin-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &unplugin-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-unplugin-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-unplugin-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-unplugin-cache
+          E2E_MEASUREMENT_FAMILY: unplugin
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src","tests/test-e2e/src/internal/unplugin","tests/test-e2e/src/features/unplugin/native-plugins/adapters","packages/unplugin/lib","packages/banner/lib","packages/banner/driver"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/Scenarios.ts","tests/test-e2e/src/internal/FixtureFiles.ts","packages/unplugin/package.json","packages/banner/package.json"]'
+          TTSC_TEST_DIRS: features/unplugin/native-plugins/adapters/test_vite_serve_registers_no_watch_inputs_without_a_watcher.ts,features/unplugin/native-plugins/adapters/test_vite_build_tolerates_missing_resolution_candidates.ts,features/unplugin/native-plugins/adapters/test_vite_serve_first_request_survives_missing_resolution_candidates.ts,features/unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_serves_the_startup_generation.ts,features/unplugin/native-plugins/adapters/test_vite_serve_reports_errors_at_the_authored_line.ts,features/unplugin/native-plugins/adapters/test_vite_build_serves_wrapper_queries_from_the_host.ts,features/unplugin/native-plugins/adapters/test_rollup_build_maps_transformed_modules_to_the_authored_source.ts,features/unplugin/native-plugins/adapters/test_esbuild_build_maps_transformed_modules_to_the_authored_source.ts,features/unplugin/native-plugins/adapters/test_webpack_contract_hosts_map_transformed_modules_to_the_authored_source.ts,features/unplugin/native-plugins/adapters/test_esbuild_adapter_runs_the_configured_ttsc_source_transform.ts,features/unplugin/native-plugins/adapters/test_rollup_adapter_runs_the_configured_ttsc_source_transform.ts,features/unplugin/native-plugins/adapters/test_rollup_build_registers_plugin_dependencies_as_watch_files.ts,features/unplugin/native-plugins/adapters/test_vite_adapter_runs_the_configured_ttsc_source_transform.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_keeps_its_worker_through_a_failed_compile.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_passes_through_an_out_of_program_module.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_transforms_source_through_the_webpack_loader_contract.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_transforms_without_an_add_dependency_context.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_forwards_rule_options_to_the_transform.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_registers_plugin_dependencies_on_cache_hit.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_marks_volatile_modules_uncacheable.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_registers_the_project_record_alone.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_proves_its_own_records_under_a_session.ts,features/unplugin/native-plugins/adapters/test_turbopack_loader_signals_a_change_before_turbopacks_baseline.ts,features/unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_takes_the_build_scoped_cache.ts,features/unplugin/native-plugins/adapters/test_vite_serve_without_a_watcher_revalidates_a_repeated_module.ts,features/unplugin/native-plugins/adapters/test_vite_build_watch_reuses_the_generation_across_rebuilds.ts,features/unplugin/native-plugins/adapters/test_vite_build_watch_disposes_the_generation_on_close_watcher.ts,features/unplugin/native-plugins/adapters/test_vite_close_watcher_mid_pass_keeps_the_counter_sound.ts,features/unplugin/native-plugins/adapters/test_vite_build_releases_the_generation_after_its_last_environment.ts,features/unplugin/native-plugins/adapters/test_webpack_watch_reuses_the_generation_across_rebuilds.ts,features/unplugin/native-plugins/adapters/test_webpack_watch_rebuilds_through_a_type_only_edge.ts
+        run: *prepare-measurement-input
+      - name: Measure retained Unplugin owners
+        id: unplugin-baseline
+        if: ${{ !cancelled() && steps.unplugin-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *unplugin-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual Unplugin baseline report
+        id: unplugin-baseline-report
+        if: ${{ !cancelled() && steps.unplugin-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-unplugin-comparison
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Unplugin cohort
+        if: ${{ !cancelled() && steps.unplugin-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *unplugin-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=unplugin
+      - name: Retain actual Unplugin observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-unplugin-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-unplugin-comparison
           if-no-files-found: error
