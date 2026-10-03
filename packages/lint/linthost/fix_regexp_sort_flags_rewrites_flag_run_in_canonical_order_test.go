@@ -6,11 +6,11 @@ import "testing"
 // `regexp/sort-flags` emits the sorted flag run it already built to decide the
 // finding.
 //
-// The check sorted the flags into ECMAScript's `dgimsuvy` order and compared
-// the result against the source, then discarded it; the correction was computed
-// on every report and never offered. A permutation of a flag run cannot change
-// what the literal matches, which is why this is an automatic fix and not a
-// suggestion.
+// The check compares the source flag run with ECMAScript's `dgimsuvy` order;
+// the repair computes the same sorted value and replaces only that run. A
+// permutation of flags cannot change what the literal matches, so this is an
+// automatic fix rather than a suggestion. The test does not inspect object
+// flag properties or execute matching.
 //
 //  1. Fix a literal whose five flags are fully scrambled, so the assertion
 //     pins the order rather than a single swap.
