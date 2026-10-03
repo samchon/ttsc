@@ -10,12 +10,11 @@ import (
 // call whose hugged final argument is an object literal breaks that
 // object across lines when the whole call cannot fit on one line.
 //
-// A hugged object renders flat whenever its own group fits, which left
-// `foo({ a, b })` on a single line even when that line — parens, the
-// object and any trailing `;` — overflowed printWidth. The argument
-// list now offers an all-flat option and a hugged option whose object
-// is forced broken; the engine picks the hugged-broken shape when the
-// all-flat one does not fit.
+// The argument list offers an all-flat option and a hugged option whose
+// object is forced broken. At this width, the engine selects the hugged
+// option while keeping the call parentheses attached to the object.
+// This direct CallExpression output omits the source statement's `;`;
+// the test does not exercise a format command or historical behavior.
 //
 //  1. Parse `save({ alpha: first, beta: second });` — flat width 36.
 //  2. Dispatch the CallExpression under printWidth=30.
