@@ -903,9 +903,10 @@ export async function assertRecorderGuardsImplicitDependencyTransitions(): Promi
     "ancestor discovery inputs already covered by the static key must not enter the durable snapshot",
   );
 
-  // Prove the process boundary itself. The static key sees a linked input, the
-  // worker compiles the same bytes after that link becomes a real directory,
-  // and the topology returns before the next run. Comparing paths or contents
+  // Exercise a native link -> real-directory -> link ABA input in this process.
+  // The static key sees the link; a direct recorder call receives the captured
+  // baseline for the same bytes in the real directory before the link returns.
+  // No compiler or product process runs here. Comparing paths or contents
   // alone aliases A -> B -> A; comparing generation evidence with the exact
   // run baseline taints the worker document and rotates the snapshot epoch.
   const abaRoot = createBareProject();
