@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestNoEmptyCompleteSemantics protects every empty control-flow body, switch
+// TestNoEmptyCompleteSemantics protects the authored empty bodies, switch
 // handling, the catch option, and exact interior-comment boundaries.
 //
 // @evidence contracts/testing.md#behavioral-verification Reports empty control-flow bodies and switch while preserving intentional interior comments, nonempty bodies and the exact catch option scope.

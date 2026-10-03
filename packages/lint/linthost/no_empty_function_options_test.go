@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestNoEmptyFunctionAllowCategories verifies every canonical allow value maps
-// to exactly the corresponding TypeScript AST function kind.
+// TestNoEmptyFunctionAllowCategories verifies the fourteen allow values accept
+// their authored function or modifier shapes instead of the default report.
 //
 // @evidence contracts/testing.md#behavioral-verification Fourteen named cases compare default one-finding behavior with zero findings under the matching allow category.
 // @evidence contracts/testing.md#independent-expectations Fixed category-to-source pairs independently specify the public option semantics; marshaling constructs inputs rather than expected findings.

@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestNoEmptyFunctionCommentsPreserveEveryKind ensures a comment must be
-// inside each function body's braces and works for every primary function kind.
+// TestNoEmptyFunctionCommentsPreserveEveryKind verifies interior comments
+// preserve the fourteen listed function bodies.
 //
 // @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot runs the no-empty-function engine over fourteen empty-bodied functions (declaration, expression, arrow, generator declaration and expression, async declaration and expression, async generator expression, constructor, method, generator method, async method, getter, setter), each holding an interior block comment, and the test requires zero findings.
 // @evidence contracts/testing.md#independent-expectations Intentional comments inside body braces establish the policy exemption independently of Engine output; exterior-comment counterexamples belong to the category-boundary test.
