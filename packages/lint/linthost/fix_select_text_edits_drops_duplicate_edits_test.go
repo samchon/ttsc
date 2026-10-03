@@ -2,13 +2,12 @@ package linthost
 
 import "testing"
 
-// TestFixSelectTextEditsDropsDuplicateEdits verifies dedup independent of overlap.
+// TestFixSelectTextEditsDropsDuplicateEdits verifies repeated edits collapse beside a disjoint edit.
 //
 // selectTextEdits keeps the source single-pass deterministic by deduping
-// byte-identical edits before the overlap filter runs. The dedup branch
-// composes with sort stability, so a refactor that swaps the `seen` key
-// shape or replaces the map with a position-only set must not change the
-// surviving-edit count under identical inputs.
+// byte-identical edits before the overlap filter runs. This result assertion
+// checks one surviving copy and the disjoint payload; it does not distinguish
+// deduplication from overlap rejection or a position-only seen set.
 //
 //  1. Build three edits where the first two are byte-identical and the third
 //     targets a disjoint range.
@@ -16,7 +15,7 @@ import "testing"
 //  3. Assert exactly two edits survive and both ranges are accounted for.
 //
 // @evidence contracts/testing.md#behavioral-verification selectTextEdits collapses a repeated let replacement and preserves the disjoint var replacement.
-// @evidence contracts/testing.md#independent-expectations Exact TextEdit identities verify both original ranges and payloads independently, preventing position-only deduplication.
+// @evidence contracts/testing.md#independent-expectations Exact supplied TextEdit identities independently require one repeated-range payload and the separate var range, rather than accepting any two survivors.
 // @evidence contracts/testing.md#distinguishing-cases Duplicate identical edits collapse while a separate range survives; overlap rejection is owned by the companion case.
 // @evidence contracts/testing.md#execution-ownership TestFixSelectTextEditsDropsDuplicateEdits calls selectTextEdits directly on its three-edit literal list.
 func TestFixSelectTextEditsDropsDuplicateEdits(t *testing.T) {

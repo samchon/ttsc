@@ -5,13 +5,11 @@ import "testing"
 // TestFixSelectTextEditsDropsCoincidentZeroWidthInsert verifies that two
 // zero-width inserts at the same offset cannot both survive selection.
 //
-// Two rules can each emit a zero-width insert at the identical offset in one
-// pass (e.g. `format/semi` inserting `;` and `format/whitespace` inserting
-// `\n` at EOF of `const x = 1`). Both pass the `edit.Pos < lastEnd` overlap
-// gate, then apply in reverse sort order and concatenate at one point —
-// silently producing the corrupt `const x = 1\n;`. The host contract is one
-// winner per overlapping group, so selection must drop the second insert and
-// let the next fix pass re-emit the survivor cleanly.
+// The authored semicolon and newline inserts share one EOF offset. A range-only
+// overlap check would admit both zero-width edits and allow order-dependent
+// concatenation. The selector contract admits one winner at that point. This
+// direct unit checks selection and one string splice, not actual formatter
+// findings or a later fix pass recovering the deferred action.
 //
 //  1. Build two coincident zero-width inserts at the EOF offset of `const x = 1`,
 //     one `;` and one `\n`.
