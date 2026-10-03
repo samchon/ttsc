@@ -6,7 +6,7 @@ import "testing"
 // 80 columns when no `printWidth` option is supplied.
 //
 // 80 is the Prettier default and the most common project setting; it
-// is what the rule advertises in `ITtscLintPrintWidthRuleOptions.printWidth`.
+// is what the rule advertises in `ITtscLintFormat.printWidth`.
 // The case feeds an input crafted to be 85 characters
 // flat — long enough that the default budget must reject it. A
 // regression that defaulted to 0 or omitted the fallback would let
@@ -18,7 +18,7 @@ import "testing"
 //  4. Compare authored 80/81-column twins to pin the exact default boundary.
 //
 // @evidence contracts/testing.md#behavioral-verification The original 85-column object must break with no options. An independently authored exact-80 statement must remain silent and its one-column-longer twin must break while preserving all properties and values.
-// @evidence contracts/testing.md#independent-expectations Official Prettier defaults to eighty columns; installed 3.8.3 independently retains the authored 80-column source and breaks the 81-column twin. Literal full outputs preserve each value/property and statement suffix.
+// @evidence contracts/testing.md#independent-expectations Official Prettier and the supported formatter contract default to eighty columns. Independently counted authored 80/81-column statements supply the unchanged/broken boundary expectations without an installed reference invocation. Literal full outputs preserve each value/property and statement suffix.
 // @evidence contracts/testing.md#distinguishing-cases The no-options 85-column positive is retained, and 80/81 twins distinguish the exact default threshold rather than any unspecified small budget. Custom-width and short-object hosts supply other options.
 // @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthDefaultWidthIs80Columns owns its original no-options snapshot plus exact-threshold silent input and complete-output overflow twin in the selected public Go unit population. Owning operations, engine and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatPrintWidthDefaultWidthIs80Columns(t *testing.T) {
