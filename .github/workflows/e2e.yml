@@ -44,7 +44,7 @@ jobs:
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
           const family = process.env.E2E_MEASUREMENT_FAMILY;
-          assert.ok(['compiler', 'runtime'].includes(family));
+          assert.ok(['compiler', 'runtime', 'native-consumer'].includes(family));
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
@@ -69,7 +69,10 @@ jobs:
             'tests/test-e2e/src/measureLegacyE2e.ts',
             'tests/test-e2e/src/legacyE2eTraceEntry.ts',
             'tests/test-e2e/src/index.ts', 'tests/test-e2e/src/consolidatedE2eIndex.ts',
-            'tests/test-e2e/src/features/test_e2e_' + family + '.ts',
+            ...(family === 'native-consumer' ? [
+              'tests/test-e2e/src/features/test_e2e_native.ts',
+              'tests/test-e2e/src/features/test_e2e_consumer.ts',
+            ] : ['tests/test-e2e/src/features/test_e2e_' + family + '.ts']),
             ...(family === 'compiler' ? [
               'tests/test-e2e/src/features/ttsc/api/test_ttsccompiler_plugin_free_compile_and_transform_share_one_project.ts',
               'tests/test-e2e/src/features/ttsc/compiler/test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries.ts',
@@ -77,6 +80,7 @@ jobs:
               'tests/test-e2e/src/features/ttsc/api/test_factory_jsx_strings_roundtrip_through_native_compile.ts',
             ] : process.env.TTSC_TEST_DIRS.split(',').map(file => 'tests/test-e2e/src/' + file)),
             'packages/ttsc/driver/program.go', 'packages/ttsc/internal/e2etrace/e2etrace.go',
+            ...JSON.parse(process.env.E2E_COHORT_ASSET_FILES ?? '[]'),
           ];
           function selectTree(relative) {
             for (const entry of fs.readdirSync(path.join(root, relative), { withFileTypes: true })) {
@@ -96,11 +100,17 @@ jobs:
               'tests/test-e2e/fixtures/ttsc/compiler/watch',
               'tests/test-e2e/fixtures/ttsc/compiler/subprojects',
               'tests/test-e2e/fixtures/ttsc/compiler/negative',
-            ] : [
+            ] : family === 'runtime' ? [
               'tests/test-e2e/fixtures/ttsc/runtime-commonjs-corpus',
               ...JSON.parse(process.env.E2E_RUNTIME_FIXTURE_ROOTS).map(directory =>
                 'tests/test-e2e/fixtures/' + directory),
+            ] : [
+              'tests/test-e2e/fixtures/ttsc/api',
+              'tests/test-e2e/fixtures/evidence',
+              'tests/test-e2e/fixtures/lint',
+              'tests/test-e2e/fixtures/utilities',
             ]),
+            ...JSON.parse(process.env.E2E_COHORT_ASSET_TREES ?? '[]'),
           ]) selectTree(directory);
           for (const file of [...new Set(files)].sort())
             assets.push({ label: file, role: file.includes('/fixtures/') ? 'fixture' :
@@ -120,7 +130,8 @@ jobs:
                 data: { origin: 'spawnSyncResilient' },
                 producerAssets: ['prepared-native-typescript', 'packages/ttsc/lib/internal/E2ETrace.js',
                   'packages/ttsc/lib/internal/spawnSyncResilient.js',
-                  'packages/ttsc/lib/launcher/internal/runtime/installRuntimeHooks.js'],
+                  ...(family === 'runtime' ? ['packages/ttsc/lib/launcher/internal/runtime/installRuntimeHooks.js'] :
+                    ['packages/ttsc/lib/compiler/internal/spawnNative.js'])],
               }]),
             ],
             commandFiles: [
@@ -211,4 +222,40 @@ jobs:
         with:
           name: e2e-runtime-comparison-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-runtime-comparison
+          if-no-files-found: error
+      - name: Prepare Native and Consumer cohort inputs
+        id: native-consumer-input
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env: &native-consumer-measurement-env
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-native-consumer-comparison
+          TTSC_TEST_CACHE_DIR: ${{ runner.temp }}/e2e-native-consumer-cache
+          TTSC_CACHE_DIR: ${{ runner.temp }}/e2e-native-consumer-cache
+          E2E_MEASUREMENT_FAMILY: native-consumer
+          E2E_COHORT_ASSET_TREES: '["tests/utils/src","tests/test-e2e/src/internal/evidence","tests/test-e2e/src/internal/lint","tests/test-e2e/src/internal/unplugin/internal/real-native-envelope","tests/test-e2e/src/features/evidence","tests/test-e2e/src/features/lint","packages/evidence/lib","packages/evidence/native","packages/lint/lib","packages/lint/src","packages/lint/internal","packages/lint/linthost","packages/lint/plugin","packages/lint/rule","packages/banner/lib","packages/banner/driver","packages/paths/lib","packages/paths/driver","packages/strip/lib","packages/strip/driver","tests/test-e2e/src/features/banner","tests/test-e2e/src/features/paths","tests/test-e2e/src/features/strip"]'
+          E2E_COHORT_ASSET_FILES: '["tests/test-e2e/src/internal/UtilityWorkspace.ts","tests/test-e2e/src/internal/Scenarios.ts","tests/test-e2e/src/internal/GoBoundary.ts","packages/evidence/package.json","packages/lint/package.json","packages/banner/package.json","packages/paths/package.json","packages/strip/package.json","packages/lint/go.mod","packages/lint/go.sum","packages/evidence/go.mod","packages/evidence/go.sum"]'
+          TTSC_TEST_DIRS: features/ttsc/api/test_ttsccompiler_source_plugin_discovery_shares_one_project.ts,features/ttsc/api/test_ttsccompiler_transform_preserves_warning_diagnostics_from_check_plugins.ts,features/ttsc/api/test_ttsccompiler_transform_omits_host_hash_changed_by_native_execution.ts,features/ttsc/api/test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries_were_built_from.ts,features/test_e2e_evidence.ts,features/test_e2e_utilities.ts,features/test_e2e_lint.ts
+        run: *prepare-measurement-input
+      - name: Measure retained Native and Consumer owners
+        id: native-consumer-baseline
+        if: ${{ !cancelled() && steps.native-consumer-input.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *native-consumer-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts
+      - name: Bind actual Native and Consumer baseline report
+        id: native-consumer-baseline-report
+        if: ${{ !cancelled() && steps.native-consumer-baseline.outcome != 'skipped' }}
+        env:
+          TTSC_E2E_TRACE: ${{ runner.temp }}/e2e-native-consumer-comparison
+        run: *bind-measurement-baseline
+      - name: Measure consolidated Native and Consumer cohort
+        if: ${{ !cancelled() && steps.native-consumer-baseline-report.outcome == 'success' }}
+        working-directory: tests/test-e2e
+        env: *native-consumer-measurement-env
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/measureLegacyE2e.ts --consolidated --family=native,consumer
+      - name: Retain actual Native and Consumer observations
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-native-consumer-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e-native-consumer-comparison
           if-no-files-found: error
