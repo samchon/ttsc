@@ -7,14 +7,13 @@ import (
 )
 
 // TestLSPDiagnosticWireDropsCodeDescriptionKeyWhenUnmapped verifies an
-// unmapped rule marshals to the exact bytes it produced before this field
-// existed.
+// unmapped rule marshals without the optional codeDescription key.
 //
 // `codeDescription` is a pointer behind `omitempty`, and the failure mode is
 // subtle: a non-nil pointer to a zero struct still marshals as
 // `"codeDescription":{"href":""}`, which editors render as a link to nowhere.
 // The boundary contract is that an unmapped rule emits no key at all, so its
-// diagnostic stays byte-identical to today's.
+// diagnostic does not acquire an empty documentation object.
 //
 //  1. Marshal a diagnostic for a format rule, the one built-in family with no
 //     per-rule documentation page.

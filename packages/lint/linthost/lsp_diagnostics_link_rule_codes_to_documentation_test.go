@@ -19,7 +19,7 @@ import (
 //  2. Run lsp-diagnostics against the file URI.
 //  3. Assert each diagnostic carries the documentation URL for its family.
 //
-// @evidence contracts/testing.md#behavioral-verification lsp-diagnostics must attach the exact independently authored documentation URLs to no-alert and unicorn/no-null, retaining both findings.
+// @evidence contracts/testing.md#behavioral-verification lsp-diagnostics must attach the exact independently authored documentation URLs to ordinary error findings with the literal no-alert and unicorn/no-null messages, rejecting recovered-failure diagnostics.
 // @evidence contracts/testing.md#independent-expectations Literal ESLint and Unicorn documentation URLs express the per-family mapping contract, independent of ruleDocumentationURL output.
 // @evidence contracts/testing.md#distinguishing-cases One project violates a core rule (no-alert) and a unicorn rule (unicorn/no-null); the lsp-diagnostics output must carry the eslint.org URL on the first and the eslint-plugin-unicorn repository URL on the second, so a single hardcoded base URL fails. Other rule families are not covered.
 // @evidence contracts/testing.md#execution-ownership Calls run lsp-diagnostics in process over a temporary project and decodes the JSON result, so the documentation mapping is exercised only through that verb; no editor or built host is started.
@@ -54,11 +54,18 @@ export const empty = null;
     "no-alert":        "https://eslint.org/docs/latest/rules/no-alert",
     "unicorn/no-null": "https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-null.md",
   }
+  wantMessages := map[string]string{
+    "no-alert":        "Unexpected alert.",
+    "unicorn/no-null": "Use `undefined` instead of `null`.",
+  }
   seen := make(map[string]bool, len(want))
   for _, diagnostic := range result.Document {
     href, relevant := want[diagnostic.Code]
     if !relevant {
       continue
+    }
+    if diagnostic.Severity != 1 || diagnostic.Message != wantMessages[diagnostic.Code] {
+      t.Fatalf("rule %q did not publish its authored ordinary error: %#v", diagnostic.Code, diagnostic)
     }
     if diagnostic.CodeDescription == nil {
       t.Fatalf("rule %q published no codeDescription: %#v", diagnostic.Code, diagnostic)
