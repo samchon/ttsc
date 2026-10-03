@@ -9,8 +9,9 @@ import (
 // TestCypressRequireDataSelectorsReportsClassSelector verifies data selector enforcement.
 //
 // `cy.get` selectors that depend on classes are brittle against styling changes.
-// The rule reports statically known selector strings that do not start with a
-// `data-*` attribute selector.
+// This case contrasts a class selector with a `data-*` attribute selector.
+// The rule also permits `@` aliases; that separate accepted shape is not
+// exercised here.
 //
 //  1. Parse `cy.get(".submit")`.
 //  2. Enable `cypress/require-data-selectors`.
