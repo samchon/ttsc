@@ -1272,15 +1272,17 @@ func IsNamedEvaluationSource(node *Node) bool {
 }
 
 // IsProtoSetter classifies the identifier or string-literal property name
-// __proto__. Computed property names do not qualify; node must be nonnil.
+// __proto__. Computed property names do not qualify. Supply a nonnil node with
+// valid name payloads; this checks spelling and kind, not whether a containing
+// property assignment actually changes an object's prototype.
 //
 // @evidence contracts/common.md#principled-implementation Upstream kind and text checks preserve the special property-name grammar while excluding computed forms.
 // @evidence contracts/common.md#clear-and-simple-design One property-name predicate serves named evaluation without duplicating proto-setter syntax policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The __proto__ spelling is the language's property discriminator, not a fixture or consumer exception.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies accepted name forms, computed exclusion and input premise.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsProtoSetter acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsProtoSetter performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsProtoSetter computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent proto-name classifier. Upstream checks identifier/string kind and fixed nine-byte __proto__ text in O(1) time and space without inspecting a computed name or initializer.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the inspected kind and name text.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsProtoSetter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsProtoSetter(node *Node) bool {
   return innerast.IsProtoSetter(node)
@@ -1361,8 +1363,8 @@ func IsFunctionLike(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No particular property keys or fixture objects receive special classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains property-assignment context and nonnil/kind-only limits.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsPropertyAssignment acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsPropertyAssignment performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsPropertyAssignment computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent property-assignment classifier. Upstream compares one node kind in O(1) time and space without checking placement or evaluating property contents.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsPropertyAssignment computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsPropertyAssignment(node *Node) bool {
   return innerast.IsPropertyAssignment(node)
@@ -1376,8 +1378,8 @@ func IsPropertyAssignment(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No consumer field names or runtime property overrides affect the result.
 // @evidence contracts/common.md#meaningful-documentation The comment identifies class-field meaning and unchecked legality with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsPropertyDeclaration acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsPropertyDeclaration performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsPropertyDeclaration computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent field classifier. Upstream compares one node kind in O(1) time and space without checking placement or field contents.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsPropertyDeclaration computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsPropertyDeclaration(node *Node) bool {
   return innerast.IsPropertyDeclaration(node)
@@ -1423,8 +1425,8 @@ func IsStringLiteral(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No particular receiver or property names affect classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose gives dotted-access meaning and nonnil/semantic limits with separated tags.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsPropertyAccessExpression acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms IsPropertyAccessExpression performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsPropertyAccessExpression computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent access classifier. Upstream compares one node kind in O(1) time and space without resolving a member or inspecting its receiver.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; tree owners control changes to the compared kind.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IsPropertyAccessExpression computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsPropertyAccessExpression(node *Node) bool {
   return innerast.IsPropertyAccessExpression(node)
