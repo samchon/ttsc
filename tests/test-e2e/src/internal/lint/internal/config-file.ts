@@ -44,6 +44,7 @@ function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
 function createLintProject(options: IRunLintOptions): TestLint.IRunLintProject {
   return TestLint.createProject({
     ...options,
+    nativeProducer: options.nativeProducer ?? LintWorkspace.nativeProducer(),
     projectRoot: options.projectRoot ?? LintWorkspace.caseRoot(options.name),
   });
 }

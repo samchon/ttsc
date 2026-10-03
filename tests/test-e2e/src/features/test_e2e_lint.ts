@@ -52,11 +52,11 @@ import { test_lint_mixed_diagnostics_follow_source_order } from "./lint/plugin/c
  * @evidence contracts/testing.md#execution-ownership This named parent invokes thirty-one TypeScript callbacks plus the exact sixteen-name Go registry, collecting named failures. Individual scenes own their oracles; Go selection and terminal completion do not establish current runtime survival, packed installation or executed assertions after a skip.
  * @evidence contracts/e2e.md#necessary-boundary Descriptor loading, executable config, native diagnostics, LSP stdin and disk publication retain actual scene connections. Formatter conformance is a direct owning Go operation with an independent Node oracle, not an installed SUT boundary merely because that oracle starts a child.
  * @evidence contracts/e2e.md#shared-execution Nine language verdicts reuse one completed launcher result and three contributor verdicts reuse another; retained preparation or execution errors are also shared until release. Separate configuration/discovery/write states retain separate calls. Shared cache paths and one Go invocation do not establish actual cache hits, native child totals or Program constructions.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenes own source edits, wrapper configs and alternate-temp links; sibling configurations are not ancestor inputs. Finally clears both completed-result/failure memos and attempts workspace removal with absence verification, retaining cleanup errors. This does not prove arbitrary descendant shutdown, image identity or exclusion of shared environment/cache state.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenes own source edits, wrapper configs and alternate-temp links; sibling configurations are not ancestor inputs. Finally clears both completed-result/failure memos and releases the workspace context. Standalone cleanup removes its own root with absence verification; borrowed cleanup leaves the common owner's tree and explicit producer selection to that owner, retaining cleanup errors. This does not prove arbitrary descendant shutdown, image identity or exclusion of shared environment/cache state.
  * @evidence contracts/e2e.md#preserved-coverage The thirty-one callback addresses/order and sixteen Go names remain, with every original oracle retained in its owning declaration. Exact direct owners and the formatter's normal-unit selection are recorded separately; duplicate selection removal requires actual survivor proof. Independent failure and cleanup aggregation do not replace diagnostics, byte comparisons, immutability or negative controls.
  */
-export async function test_e2e_lint(): Promise<void> {
-  LintWorkspace.open();
+export async function test_e2e_lint(preparation?: { root: string; nativeProducer: "workspace" | "snapshot" }): Promise<void> {
+  LintWorkspace.open(preparation);
   const failures: unknown[] = [];
   try {
     await Scenarios.collect("lint", [
