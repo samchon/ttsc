@@ -11,7 +11,7 @@ import (
 // message names the escaped character itself, not its UTF-8 lead byte.
 //
 // Pins the issue-582 regression: both report sites built the message from
-// `string(raw[i+1])`, a lone byte. For a multi-byte character that byte is the
+// `string(next)`, a lone byte. For a multi-byte character that byte is the
 // UTF-8 lead byte (`你` starts with 0xE4), and Go re-encodes it as the code
 // point of the same numeric value (U+00E4 `ä`), so the diagnostic accused a
 // character that never appeared in the source. ESLint canonical names the whole

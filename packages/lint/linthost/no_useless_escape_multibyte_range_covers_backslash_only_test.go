@@ -14,11 +14,11 @@ import (
 // The message for a multi-byte escape is built by decoding the rune that
 // follows the backslash, but the finding itself must keep addressing bytes:
 // ESLint canonical reports `[rangeStart, rangeStart + 1]` — the backslash
-// alone — and the autofix deletes exactly that one byte. This pins the two
+// alone — and its removal suggestion deletes that byte. This pins the two
 // invariants a rune-aware message could plausibly break: the range must not
 // widen to the rune's byte length, and the multi-byte arm must stay
-// detection-only (deleting the backslash is safe, but the rule declines the
-// fix, so an accidental fix would be a behavior change, not a message change).
+// detection-only (the retained compatibility policy declines the
+// fix, so an accidental fix would be a policy change, not a message change).
 //
 //  1. Lint a string and a regex that uselessly escape a 3-byte rune, plus an
 //     ASCII escape as the twin that does carry a fix.
@@ -27,7 +27,7 @@ import (
 //     exactly the backslash.
 //
 // @evidence contracts/testing.md#behavioral-verification Finding spans cover only the removable backslash; multibyte escapes stay detection-only while ASCII a gets a deletion fix.
-// @evidence contracts/testing.md#independent-expectations Authored escape offsets and literal one-byte deletion establish expected ranges/edits; preserving Unicode token meaning constrains fix eligibility.
+// @evidence contracts/testing.md#independent-expectations Authored escape offsets, empty multibyte fix lists and the literal ASCII one-byte deletion independently establish the expected ranges and fix channels.
 // @evidence contracts/testing.md#distinguishing-cases String and regex CJK escapes contrast with the ASCII fixable escape in one source.
 // @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the two CJK escapes and one ASCII escape. This Test owns all three literal ranges, both multibyte no-fix checks and the exact ASCII deletion edit. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestNoUselessEscapeMultibyteRangeCoversBackslashOnly(t *testing.T) {
