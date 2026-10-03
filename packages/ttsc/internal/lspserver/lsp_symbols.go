@@ -116,9 +116,10 @@ type SymbolProvider interface {
   // @evidenceExclude contracts/portability.md#os-neutral-implementation References is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
   References(uri string, pos LSPPosition, includeDeclaration bool) ([]LSPLocation, error)
 
-  // Invalidate discards any cached compiler state so the next DocumentSymbols or
-  // References call reflects the current sources. The proxy calls it on
-  // didChange/didSave; a provider that recomputes on every call may no-op.
+  // Invalidate withdraws published cached compiler state from later queries.
+  // The proxy calls it on didChange/didSave; an uncached provider may no-op.
+  // In-flight queries may still hold an earlier snapshot, and invalidation alone
+  // does not certify a new native capture or cancel that work.
   //
   // @evidence contracts/common.md#principled-implementation Invalidation withdraws compiler-backed state before later queries use it.
   // @evidence contracts/common.md#clear-and-simple-design Cache policy stays with the provider that owns the state.
