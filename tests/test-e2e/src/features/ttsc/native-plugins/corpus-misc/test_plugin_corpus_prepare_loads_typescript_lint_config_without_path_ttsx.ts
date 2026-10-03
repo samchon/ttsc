@@ -24,14 +24,15 @@ import {
  *    candidate capture and the descriptor extractor's package-topology mirror.
  * 3. Run `ttsc prepare` with TTSC_TTSX_BINARY removed from the environment.
  * 4. Assert prepare succeeds and does not report a missing `ttsx` executable.
+ *    This input does not independently witness that PATH contains no ttsx.
  *
  * @evidence contracts/testing.md#behavioral-verification ttsc prepare loads the TypeScript lint config and succeeds without spawn ttsx ENOENT.
- * @evidence contracts/testing.md#independent-expectations The active package export returns error while the inactive export throws; successful prepare proves the active module can be evaluated.
+ * @evidence contracts/testing.md#independent-expectations The active package export returns error while the inactive export throws; successful prepare distinguishes active evaluation from the authored inactive throw, but does not independently trace every selected loader or PATH candidate.
  * @evidence contracts/testing.md#distinguishing-cases No TTSC_TTSX_BINARY or TTSC_NODE_BINARY override is supplied; extensionless local and conditional package imports force actual descriptor evaluation.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_prepare_loads_typescript_lint_config_without_path_ttsx entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
- * @evidence contracts/e2e.md#necessary-boundary The prepare CLI invokes the linked lint descriptor, which loads TypeScript through the bundled ttsx evaluator with extensionless and conditional package imports. Successful real child evaluation proves launcher-provided interpreter discovery when its explicit override is absent.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#necessary-boundary The prepare CLI invokes the linked lint descriptor, which loads TypeScript through the bundled ttsx evaluator with extensionless and conditional package imports. Successful prepare with authored imports observes integration while explicit interpreter overrides are absent; this body does not independently prove PATH lacks ttsx or capture the selected interpreter executable bytes.
+ * @evidence contracts/e2e.md#shared-execution The consumer links the existing workspace lint package and selects the shared producer cache; its distinct prepare request evaluates the authored local/helper/conditional-package input. Cache-hit, total process/build counts and minimum preparation are not measured, and workspace linking is not packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns consumer/config/package changes; the shared cache remains suite-owned. Child-specific undefined overrides omit interpreter variables even after the wrapper merges ambient environment, leaving the ambient descriptors untouched. Equivalent source, host and toolchain inputs are required for valid cache reuse; direct command return does not certify arbitrary descendants or loaded images.
  * @evidence contracts/e2e.md#preserved-coverage ttsc prepare loads the TypeScript lint config and succeeds without spawn ttsx ENOENT. These assertions stay in test_plugin_corpus_prepare_loads_typescript_lint_config_without_path_ttsx with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_prepare_loads_typescript_lint_config_without_path_ttsx =
@@ -97,14 +98,17 @@ export default {
       PATH: goPath(),
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
     };
-    delete env.TTSC_TTSX_BINARY;
-    delete env.TTSC_NODE_BINARY;
+    // The spawn wrapper merges ambient environment before these child overrides.
+    env.TTSC_TTSX_BINARY = undefined;
+    env.TTSC_NODE_BINARY = undefined;
 
     const result = spawn(ttscBin, ["prepare", "--cwd", root], {
       cwd: root,
       env,
     });
 
+    assert.ifError(result.error);
+    assert.equal(result.signal, null);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /ttsc: prepared /);
     assert.doesNotMatch(result.stderr, /spawn ttsx ENOENT/);
