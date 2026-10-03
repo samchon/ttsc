@@ -10,8 +10,8 @@ import (
 // TestEditorFormatOverridesDriveIdempotentOutput verifies deterministic
 // language precedence reaches the formatter's observable output and converges.
 //
-// Inspecting the options map alone cannot prove the LSP formatting path consumes
-// the winning value. This scenario runs the default formatting resolver with a
+// Inspecting the options map alone cannot prove the engine consumes the winning
+// value. This scenario runs the default formatting resolver with a
 // conflicting combined scope and exact TypeScript scope, then feeds its output
 // through the same resolver again.
 //
