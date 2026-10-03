@@ -88,10 +88,15 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
 }
 
 //
-// @evidence contracts/testing.md#behavioral-verification The observing filesystem keeps file and directory predicates independent, rejects every repeated predicate change, rejects impossible predicate sets and reports observed candidate failures and rich speculative proofs through the transform graph.
+// TestInputObservationFSPreservesPredicateSemantics covers five named cases:
+// native directory predicates, seven authored repeated-observation pairs,
+// three authored conflicts, and two supplied graph-candidate proof views.
+// It does not build a compiler Program or reproduce a real filesystem race.
+//
+// @evidence contracts/testing.md#behavioral-verification The native directory case preserves independent file/directory predicates. Seven authored observation pairs select their literal change failures, three authored cross-predicate conflicts select predicate-conflict, and supplied graph inputs report the observed candidate failure while retaining the rich speculative proof. Other state pairs and real races are not certified.
 // @evidence contracts/testing.md#independent-expectations Each subtest builds its own literal predicate observations and expected proof outcomes.
 // @evidence contracts/testing.md#distinguishing-cases The five named subtests cover compatible and conflicting predicate sets and graph-level reporting, so one decision difference fails one subtest.
-// @evidence contracts/testing.md#execution-ownership TestInputObservationFSPreservesPredicateSemantics is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#execution-ownership This Go aggregate owns five sequential private cases. One uses an owned native directory and DefaultFS; the others directly merge supplied observations or attach proofs to an authored TransformGraph/Program DTO with no native compiler construction. Actual private operations are called without a consumer or product process, and the private cases are not separately selected declarations.
 func TestInputObservationFSPreservesPredicateSemantics(t *testing.T) {
   t.Run("compatible-file-and-directory-predicates", testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent)
   t.Run("every-repeated-predicate-change", testInputObservationFSRejectsEveryRepeatedPredicateChange)
