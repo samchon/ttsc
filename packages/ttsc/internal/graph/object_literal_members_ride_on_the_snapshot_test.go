@@ -8,30 +8,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestObjectLiteralMembersRideOnTheSnapshot verifies that object-literal
-// member identity is captured from the compiler AST and projected from the
-// same source snapshot as the graph.
+// TestObjectLiteralMembersRideOnTheSnapshot checks selected direct object-member
+// names, kinds, spans, and dump outlines from one authored Program snapshot.
+// Comment braces, static computed names, accessors, spread, dynamic keys, and
+// nested bodies distinguish the expected twenty records. The source file is not
+// changed after loading, so this does not independently reject live-file reads
+// or authenticate exclusive AST acquisition, and no details server is invoked.
 //
-// The details server used to reopen the live file and reconstruct this list
-// with a brace counter and regular expressions. A brace inside a block comment
-// changed that counter, while valid shorthand, literal-keyed, computed, and
-// multiline members depended on which line happened to match. This test pins
-// the ownership boundary instead: the native graph records direct AST members,
-// and the dump renders snapshot-owned, body-bounded compact signatures from
-// Program-owned text.
-//
-//  1. Compile a wrapped object literal containing comment braces, every direct
-//     static member shape, a dynamic key, a spread, and a nested object.
+//  1. Load a wrapped object literal containing the selected static member shapes,
+//     comment braces, a dynamic key, a spread, and a nested object.
 //  2. Assert the variable node records only its direct statically named members
 //     in declaration order, with method/property kinds independent of trivia.
 //  3. Dump the graph and assert member lines/signatures come from the snapshot,
 //     while spread and nested members are not fabricated as outer identity.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that object-literal member identity is captured from the compiler AST and projected from the same source snapshot as the graph.
+// @evidence contracts/testing.md#behavioral-verification Checks twenty ordered graph member names/kinds with positive spans, then selected direct dump lines, outline signatures, forbidden body markers, and a 160-rune truncation. No JSON serialization, changed-disk snapshot distinction, details-server execution, or exclusive acquisition algorithm is authenticated.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal over one wrapped object literal: the node must list exactly the 20 direct static members in declaration order with the given names and variable/method kinds (shorthand, string-keyed, empty-string and numeric keys, accessors counted once each), each with a span, and not the dynamic key, the spread's fromSpread or the nested inner; the dump must give the first member real at line 7 with signature real: 1 (comment braces not counted), the last afterSpread: true, head-only signatures for method, arrow, function, class, array and object members, none of the eight marker body strings, and a 160-rune bounded signature ending in ... for the long member.
-// @evidence contracts/testing.md#distinguishing-cases Compile a wrapped object literal containing comment braces, every direct static member shape, a dynamic key, a spread, and a nested object; Assert the variable node records only its direct statically named members in declaration order, with method/property kinds independent of trivia; Dump the graph and assert member lines/signatures come from the snapshot, while spread and nested members are not fabricated as outer identity.
-// @evidence contracts/testing.md#execution-ownership TestObjectLiteralMembersRideOnTheSnapshot is a Go source-unit entry. Build, NewDump, SourceTexts, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
+// @evidence contracts/testing.md#distinguishing-cases The authored getter and setter each produce a value record; literal computed names survive while the dynamic key, spread contents, and nested inner do not become outer members. The first line/signature, last signature, seven body-outline literals, eight forbidden markers, and long-signature rune bound are independent expectations. Other dump member names/kinds are not exhaustively compared to the graph list.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and NewDump execute in this process with SourceTexts from that Program; graph node selection shares the nodeID encoder while the dump node ID is a literal. No product CLI, consumer installation, emitted JavaScript, or details server runs.
 func TestObjectLiteralMembersRideOnTheSnapshot(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   source := `const shorthand = 1;
