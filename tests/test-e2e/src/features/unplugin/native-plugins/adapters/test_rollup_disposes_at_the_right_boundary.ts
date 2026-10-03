@@ -24,22 +24,24 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_disposes_at_the_right_boundary is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Rollup hooks and real native generation execute with explicitly supplied watchMode, not live watch dispatch.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution creates two original modules; a supplied project follows prior child closes and preserves the same two-module inputs. Counts are measured from its observed log baseline. Awaited closeWatcher in finally closes the captured owner on success or failure; this is not a live Rollup watcher or descendant join certificate.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: watching buildEnd preserves one compile, closeWatcher forces two, and one-shot buildEnd forces three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_disposes_at_the_right_boundary(): Promise<void> {
+export async function test_rollup_disposes_at_the_right_boundary(prepared?: { root: string; runLog: string }): Promise<void> {
   const unpluginRollup =
     await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
   const plugin: any = [unpluginRollup()]
     .flat()
     .find((entry: any) => entry?.name === "ttsc-unplugin");
   assert.ok(plugin, "the rollup adapter must expose the ttsc plugin object");
-  const project = createCacheProject({ fileCount: 2 });
+  const project = prepared ?? createCacheProject({ fileCount: 2 });
   const modules = projectModules(project.root);
+  assert.equal(modules.length, 2, "Rollup teardown keeps the original two-module input");
+  const baseline = fs.existsSync(project.runLog) ? fs.readFileSync(project.runLog, "utf8").length : 0;
   const compiles = () =>
-    fs.existsSync(project.runLog)
+    (fs.existsSync(project.runLog)
       ? fs.readFileSync(project.runLog, "utf8").length
-      : 0;
+      : 0) - baseline;
   const invoke = (hook: any, context: object, ...args: unknown[]): unknown =>
     typeof hook === "function"
       ? hook.apply(context, args)
@@ -52,6 +54,7 @@ export async function test_rollup_disposes_at_the_right_boundary(): Promise<void
       file,
     );
 
+  try {
   await invoke(plugin.buildStart, {});
   assert.ok(await deliver(modules[0]!));
   assert.equal(compiles(), 1);
@@ -82,5 +85,7 @@ export async function test_rollup_disposes_at_the_right_boundary(): Promise<void
     3,
     "a one-shot Rollup build must dispose at buildEnd",
   );
-  await invoke(plugin.closeWatcher, {});
+  } finally {
+    await invoke(plugin.closeWatcher, {});
+  }
 }
