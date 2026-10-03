@@ -9,12 +9,10 @@ import (
 // TestFormatSemiSkipsAlreadyTerminatedStatements verifies formatSemi is
 // idempotent on well-terminated statements.
 //
-// The rule fires only when src[End-1] is not `;`. Idempotence is non-optional
-// for a formatter: any rule whose second pass re-reports its own previous
-// edit would cause the fix loop to spin until the per-run cap. This scenario
-// pins the negative branch directly so a future change to End-position
-// semantics cannot regress to a stuttering insertion.
-//
+// The default statement path abstains when src[End-1] is `;`. This
+// independently authored terminated declaration/call pair pins that guard;
+// it does not first apply an edit or execute a second cascade pass.
+
 // 1. Parse a source file whose every statement already ends with `;`.
 // 2. Run the engine with formatSemi enabled.
 // 3. Assert zero findings.

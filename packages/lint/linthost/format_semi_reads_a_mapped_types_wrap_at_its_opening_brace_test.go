@@ -8,10 +8,10 @@ import "testing"
 // Prettier preserves a mapped type's wrap by the line terminator between
 // its `{` and the clause, exactly as it preserves an object type's, so the
 // closing brace's own position never enters the decision. The pair below is
-// what separates that rule from "the body spans lines": Prettier 3.8.3
-// returns `type Opened = {\n  [K in string]: string };` terminated (it
-// breaks, then moves the brace) and `type Closed = { [K in string]: string\n};`
-// flat and bare. Reading the `}` instead would answer both backwards.
+// what separates that rule from "the body spans lines": the direct
+// semicolon output terminates only the broken-opened clause and preserves
+// both authored brace positions. It does not assert complete reflow.
+// Reading the `}` instead would answer both punctuation decisions backwards.
 //
 //  1. Parse a mapped type broken at its `{` but closed on the clause's
 //     line, and one opened flat but closed on the next line.

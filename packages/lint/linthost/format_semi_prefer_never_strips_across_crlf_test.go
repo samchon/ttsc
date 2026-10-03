@@ -10,9 +10,9 @@ import "testing"
 // The sawNewline discipline keeps same-line separators; if it only
 // recognized bare `\n` after skipping `\r` as plain whitespace, a CRLF
 // file would still strip correctly — but a scan that treated `\r\n` as
-// no line break would wrongly keep every terminator. This pins the
-// carriage-return branch of the trivia scanner in both directions:
-// stripping fires, and the CRLF bytes survive the edit untouched.
+// no line break would wrongly keep every terminator. This pins CRLF
+// pair handling and exact byte preservation; the pair contains LF, so
+// it does not independently isolate bare-carriage-return recognition.
 //
 //  1. Parse two CRLF-separated statements, the first ending in `;`.
 //  2. Apply format/semi with prefer:"never".
