@@ -42,7 +42,11 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * Rewritten-root children share the initial host; propagation, fork and
  * concurrent dependency children share the configured host. The configured host
  * consumes a real linked run index. Two public clean commands retire the
- * completed default cache only after all runtime readers have exited. The
+ * completed default cache only after all runtime readers have exited.
+ * Flat and nested check-only profiles stage their original inferred-root
+ * inputs on this root after the previous graph is held; each public request
+ * retains its exact greeting and both source-adjacent JavaScript absence
+ * checks. They omit rootDir/outDir and preserve noEmit. The
  * initial no-rootDir profile also checks an excluded preload before main
  * execution; its invalid-byte transition retains one additional necessary
  * negative host. Three immutable dependency projects borrow the configured
