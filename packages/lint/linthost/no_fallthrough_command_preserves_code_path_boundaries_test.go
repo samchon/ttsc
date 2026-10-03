@@ -8,7 +8,7 @@ import "testing"
 // names, and generic instantiation expressions remain part of the enclosing
 // path, as do abrupt resumptions of a yield in the current generator.
 //
-// 1. Put identifier reads inside every deferred function/class execution path.
+// 1. Put identifier reads inside the authored separately owned function/class paths.
 // 2. Pair them with runtime generic/class expressions, async, and generator paths.
 // 3. Assert only immediately evaluated references make catches reachable.
 //
