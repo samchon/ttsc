@@ -6,29 +6,34 @@ import (
   "time"
 )
 
-// TestLSPHintsRefreshCoalescesConcurrentRequests pins the scheduler that keeps
-// rediscovery off the editor's hot path.
+// TestLSPHintsRefreshCoalescesConcurrentRequests checks callback coalescing.
 //
-// One refresh costs a process spawn and a Program load per plugin, and the
-// events that schedule it arrive in bursts: a multi-file save, a formatter
-// rewriting several documents, a watched config change landing with them. Both
-// naive answers are wrong — running one refresh per event stacks spawns behind
-// each other, and dropping events while one runs leaves the corpus a generation
-// behind the edit that caused it. Exactly one rerun observes the newest state
-// for the cost of one refresh.
+// The owned callback waits on a channel while five more requests are scheduled.
+// The unit observes generations 1 and 2, no third start during a 200ms window,
+// and generation 3 from a later schedule. It does not measure editor latency,
+// process/Program work or refreshed corpus contents, or independently inspect
+// whether the scheduler is idle before that last schedule.
 //
 //  1. Hold a run open and schedule several more requests behind it.
 //  2. Release it and assert exactly one rerun followed, with a newer generation.
-//  3. Schedule again once idle and assert the refresher restarts.
+//  3. Schedule again after the quiet window and assert generation 3 arrives.
 //
-// @evidence contracts/testing.md#behavioral-verification Several refresh requests scheduled while one run is open produce exactly one rerun with a newer generation, and a request once idle restarts the refresher.
+// @evidence contracts/testing.md#behavioral-verification Actual coalescingRefresh.schedule returns while its owned callback is blocked. Five further schedules produce observed generations [1 2], no additional start during the 200ms quiet window, and a later callback reports generation 3. The deadlines bound this unit's observation, not a universal scheduler latency or permanent absence of future work.
 // @evidence contracts/testing.md#independent-expectations The run count and generation order are literal expectations.
 // @evidence contracts/testing.md#distinguishing-cases Dropping events or running one per event would produce the wrong count.
-// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshCoalescesConcurrentRequests is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes the actual package-local scheduler with owned channel callbacks and a mutex-protected generation slice. Actual goroutine scheduling runs; no directory, sidecar, compiler, process, editor or product host runs. Deferred cleanup closes admission and releases the owned blocking channel even on assertion failure; it does not assert a scheduler join or native lifecycle.
 func TestLSPHintsRefreshCoalescesConcurrentRequests(t *testing.T) {
   var refresh coalescingRefresh
   started := make(chan struct{}, 8)
   release := make(chan struct{})
+  defer func() {
+    refresh.close();
+    select {
+    case <-release:
+    default:
+      close(release);
+    }
+  }()
 
   var mu sync.Mutex
   var generations []uint64
@@ -63,8 +68,7 @@ func TestLSPHintsRefreshCoalescesConcurrentRequests(t *testing.T) {
     t.Fatalf("refresh generations = %v, want [1 2] — each run needs a newer stamp", ran)
   }
 
-  // A request that arrives once the refresher is idle starts a fresh run rather
-  // than being swallowed by the finished one.
+  // The later request must produce generation 3; idle state is not inspected.
   idle := make(chan uint64, 1)
   refresh.schedule(func(generation uint64) { idle <- generation })
   select {

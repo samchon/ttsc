@@ -4,21 +4,18 @@ import "testing"
 
 // TestLSPHintsRefreshIgnoresASupersededGeneration pins the staleness guard.
 //
-// Refresh cycles are driven by editor events, and the answer the user is waiting
-// for is the newest one. A cycle that started earlier can still finish later —
-// its sidecar took longer, or a spawn was slow — and without a generation stamp
-// its result would silently restore the corpus the newer cycle just replaced.
-// The user would then see items for a rule they had already disabled, with no
-// event left to correct it.
+// The unit supplies generation 2, then 1, then 3 directly to the cache writer.
+// It observes selected insertion text through the snapshot accessor, not actual
+// refresh concurrency, sidecar completion order or editor presentation.
 //
 //  1. Store a corpus produced by a newer generation.
 //  2. Store the older generation's result afterwards.
 //  3. Assert the newer corpus stands, and that a still-newer one replaces it.
 //
-// @evidence contracts/testing.md#behavioral-verification A corpus stored by an older generation after a newer one does not replace it, and a still-newer one does.
+// @evidence contracts/testing.md#behavioral-verification Actual storeCompletionHints receives generation 2 with returns, then generation 1 with stale; CompletionHints has one hint/one item with returns. Generation 3 with param then yields one hint with param as its first insertion. Other hint fields, equal-generation behavior and actual refresh scheduling are not asserted.
 // @evidence contracts/testing.md#independent-expectations The expected surviving corpus is a literal per store order.
 // @evidence contracts/testing.md#distinguishing-cases The out-of-order store is the case a missing generation stamp would get wrong.
-// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshIgnoresASupersededGeneration is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes actual NativePluginSource cache storage and snapshot methods on an owned plugin entry and literal hints. Binary/name are opaque cache metadata here; no command discovery, filesystem fixture, sidecar, compiler, process, product host or LSP transport runs, and no operation is substituted.
 func TestLSPHintsRefreshIgnoresASupersededGeneration(t *testing.T) {
   plugin := NativeLSPPluginEntry{Binary: "ttsc-lint", Name: "@ttsc/lint"}
   source := &NativePluginSource{plugins: []NativeLSPPluginEntry{plugin}}
