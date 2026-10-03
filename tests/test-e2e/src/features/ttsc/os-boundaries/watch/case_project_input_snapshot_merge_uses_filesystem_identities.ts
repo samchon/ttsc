@@ -26,14 +26,15 @@ import { mergeProjectInputSnapshots as installedOperation } from "../../../../..
  * @evidence contracts/testing.md#behavioral-verification The actual packed-SDK snapshot operation unifies physical symlink aliases and supported Windows case/short/extended aliases while preserving sensitive existing and missing entries; order reversal must retain the same canonical snapshot.
  * @evidence contracts/testing.md#independent-expectations Authored physical files, real native paths and literal expected population sizes/canonical paths establish alias identity; fsutil success and distinct real roots independently establish sensitive authority.
  * @evidence contracts/testing.md#distinguishing-cases Existing/missing file, glob, reload-file/directory aliases and ordering remain covered; Windows short/extended/case aliases are observed when present, Linux/Windows sensitive roots remain distinct, and the original macOS sensitive-population omission is preserved.
- * @evidence contracts/testing.md#execution-ownership This named os-boundaries/watch entry runs the supplied packed-SDK snapshot operation against the actual installation platform's filesystem and Windows tools within the sole installation matrix, separately from Linux unit and E2E populations.
- * @evidence contracts/e2e.md#necessary-boundary Actual junction/symlink, Windows short/namespaced aliases and filesystem case flags must agree with the identity owner; injected path authority cannot prove these native relations.
- * @evidence contracts/e2e.md#shared-execution One private filesystem fixture supplies all alias consumers and sensitive transitions in the installation OS batch; no independent consumer install, compiler run, Go build or watch host is created.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private roots isolate links and Windows directory flags; fresh snapshots carry the changed root premises without global fs replacement. Synchronous helper processes terminate before assertions and no watch handle remains.
- * @evidence contracts/e2e.md#preserved-coverage Every original assertion, Windows alias availability check and macOS sensitive-population condition remains mechanically unchanged in this named actual OS entry.
+ * @evidence contracts/testing.md#execution-ownership The supplied candidate or default workspace snapshot operation is directly called with actual native identities/tools. No compiler, observer or product protocol is used; an installed operation import alone does not make the matrix necessary E2E.
+ * @evidenceExclude contracts/e2e.md#necessary-boundary Actual native aliases and case flags are inputs to the direct snapshot owner. Existing virtual memoization/error unit cannot own this matrix; the exact native direct body is being authored in test-ttsc, with donor retained until actual survivor coverage.
+ * @evidence contracts/e2e.md#shared-execution Existing one-root alias/order/sensitive matrix remains direct-unit preparation. Windows cmd and fsutil are actual helper lifetimes, not a compiler/Go build or independently measured cost reduction; no new installation is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked fixture root is retained before native preparation. Private links/flags and fresh snapshots preserve changed inputs without global fs replacement. Actual helper error/signal/status is separate from descendant join; optional short-query nonzero still yields the original unavailable-alias branch, not coverage success.
+ * @evidence contracts/e2e.md#preserved-coverage Original reverse-order equality, exact 2/1/2/2 paths, Windows missing-fold, sensitive root rejection and 4/2/4/4 populations remain with original alias availability/macOS omission. New exact direct body/selection/execution/survival is pending; virtual or modeled policy units are not native transfer certification.
  */
 export function case_project_input_snapshot_merge_uses_filesystem_identities(mergeProjectInputSnapshots: typeof installedOperation = installedOperation) {
     const fixtureRoot = TestProject.tmpdir("ttsc-project-input-identity-");
+    TestProject.retainTemporaryDirectory(fixtureRoot, "native snapshot identity helpers have no descendant join acknowledgement");
     const physicalRoot = path.join(fixtureRoot, "physical-project");
     const existingFile = path.join(physicalRoot, "docs", "spec.md");
     fs.mkdirSync(path.dirname(existingFile), { recursive: true });
@@ -232,6 +233,8 @@ function enableWindowsCaseSensitivity(directory: string): void {
       result.error?.message ?? result.stderr.trim()
     }`,
   );
+  assert.equal(result.error, undefined, "native snapshot sensitive-flag launch error");
+  assert.equal(result.signal, null, "native snapshot sensitive-flag terminated by signal");
 }
 
 function windowsShortPath(location: string): string | undefined {
@@ -246,5 +249,7 @@ function windowsShortPath(location: string): string | undefined {
     },
   );
   const output = result.status === 0 ? result.stdout.trim() : "";
+  assert.equal(result.error, undefined, "native snapshot short-query launch error");
+  assert.equal(result.signal, null, "native snapshot short-query terminated by signal");
   return output.length === 0 ? undefined : output;
 }
