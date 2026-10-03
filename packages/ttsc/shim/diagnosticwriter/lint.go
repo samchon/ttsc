@@ -54,8 +54,8 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Clamping addresses untrusted producer coordinates against the actual source length; it does not substitute canned diagnostic ranges or hide an out-of-file byte.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open units, why sanitation belongs at the producer boundary, and the reversed/EOF/empty-file effects.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NormalizeLintRange acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NormalizeLintRange performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NormalizeLintRange computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#efficient-algorithms Reading the existing source text length and clamping two scalar endpoints takes constant work and space independent of source bytes; selecting one byte before EOF avoids scanning text or allocating a replacement span.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This scalar sanitizer owns no cross-request producer, cache or in-flight coordinator; construction stores its result so renderer accessors do not repeat sanitation for the same diagnostic.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NormalizeLintRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
   if file == nil {
@@ -111,14 +111,16 @@ type LintDiagnostic struct {
 // supplied source file. `code` shows up in the rendered banner; the
 // convention is to give each rule its own stable integer.
 // A nil file creates a project-wide message with an empty range.
+// The returned value borrows the source file and message backing storage;
+// it does not validate code uniqueness, category membership or localization.
 //
-// @evidence contracts/common.md#principled-implementation Construction normalizes the caller's byte span before storing it with source identity, stable code, category and message, preserving project-wide absence when file is nil.
+// @evidence contracts/common.md#principled-implementation Construction normalizes the caller's byte span before storing the supplied source identity, code, category and message; nil source retains project-wide absence, while code stability and final prose remain producer responsibilities.
 // @evidence contracts/common.md#clear-and-simple-design One constructor establishes the range invariant for the private fields; renderer accessors need no repeated sanitation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The value contains actual producer findings; stable codes identify rules rather than synthesizing expected compiler messages.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open anchoring, code identity convention and nil-file meaning, with range normalization explained on its owner.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewLintDiagnostic acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewLintDiagnostic performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewLintDiagnostic computes one result per call, so there is no repeated work to share.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each returned record retains the borrowed source graph and message backing storage until its consumers release their references; construction copies scalar coordinates and metadata, not source or message bytes, and opens no handle.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Range sanitation belongs to NormalizeLintRange; this constructor only transfers its normalized scalar result and supplied fields into the returned record, without an independent traversal or lookup strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructor does not own a cache, keyed producer or request coordinator; the caller decides whether existing diagnostic records can be reused for its source version and finding.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewLintDiagnostic computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category LintCategory, message string) *LintDiagnostic {
   pos, end = NormalizeLintRange(file, pos, end)
