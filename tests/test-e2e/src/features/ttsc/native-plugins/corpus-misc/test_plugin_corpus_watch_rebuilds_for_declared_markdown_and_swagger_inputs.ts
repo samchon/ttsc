@@ -33,8 +33,8 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#distinguishing-cases Broken/repaired file, initially empty glob creation, relative snapshot rejection, Windows extended paths, positional JSX modes, and removed plugin all remain asserted.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary Real watch consumes the compiled sidecar project-inputs protocol and connects exact files/globs to subsequent filesystem wakeups and emitted-output suppression. One sidecar fixture supplies all transitions; unit glob/state calculations alone cannot prove producer membership reaches actual watcher registration and retirement.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state. Every WatchSession closes in finally before the fixture is reset for another session.
+ * @evidence contracts/e2e.md#shared-execution The original phases share one authored check sidecar source, consumer and suite producer cache. Each owned watch closes successfully before the original input reset and next phase; cache-hit/build/process totals and minimum preparation are not measured. Phase failures are collected, while uncertain close stops reset and preserves prior failures.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns consumer/sidecar source; shared cache remains suite-owned and valid reuse requires equivalent source/host/toolchain inputs. Child-specific environment does not mutate ambient state. Every phase joins supported WatchSession.close before reset; body and close failures remain together, unknown join retains inputs. Transcript completed-cycle counts and bounded quiet waits are not kernel notification/Program/process totals or arbitrary-descendant/image certification.
  * @evidence contracts/e2e.md#preserved-coverage Real watch reacts to declared Markdown edits and Swagger creation, reports fixture diagnostics, and remains quiet for unrelated README, emitted JS/JSX, and retired plugin sources. These assertions stay in test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
@@ -61,240 +61,162 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       },
     );
-    const session = new WatchSession(root, {
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
+    assert.equal(fs.existsSync(path.join(root, "api")), false);
+    assert.equal(fs.existsSync(path.join(root, "dist")), false);
+    const errors: unknown[] = [];
     try {
-      await session.waitForBuilds(1);
+      const session = new WatchSession(root, {
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
+      try {
+        await session.waitForBuilds(1);
 
-      fs.writeFileSync(path.join(root, "docs", "spec.md"), "broken\n", "utf8");
-      await session.waitForBuilds(2);
-      await session.waitForQuiet(300);
-      assert.match(session.transcript(), /TS9001: Markdown input is stale/);
+        fs.writeFileSync(path.join(root, "docs", "spec.md"), "broken\n", "utf8");
+        await session.waitForBuilds(2);
+        await session.waitForQuiet(300);
+        assertDeclaredInputBuildCount(session, 2);
+        assert.match(session.transcript(), /TS9001: Markdown input is stale/);
+
+        fs.writeFileSync(
+          path.join(root, "docs", "spec.md"),
+          "# Contract\n",
+          "utf8",
+        );
+        await session.waitForBuilds(3);
+        await session.waitForQuiet(300);
+        assertDeclaredInputBuildCount(session, 3);
+
+        fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
+        fs.writeFileSync(
+          path.join(root, "api", "v1", "openapi.json"),
+          '{"broken":true}\n',
+          "utf8",
+        );
+        await session.waitForBuilds(4);
+        await session.waitForQuiet(300);
+        assertDeclaredInputBuildCount(session, 4);
+        assert.match(session.transcript(), /TS9002: Swagger input is stale/);
+
+        fs.writeFileSync(path.join(root, "README.md"), "changed\n", "utf8");
+        await session.waitForQuiet();
+        assertDeclaredInputBuildCount(session, 4);
+      } catch (error) {
+        errors.push(new Error("declared-input watch session phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(session, "session");
+      }
 
       fs.writeFileSync(
         path.join(root, "docs", "spec.md"),
         "# Contract\n",
         "utf8",
       );
-      await session.waitForBuilds(3);
-      await session.waitForQuiet(300);
-
-      fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
-      fs.writeFileSync(
-        path.join(root, "api", "v1", "openapi.json"),
-        '{"broken":true}\n',
-        "utf8",
-      );
-      await session.waitForBuilds(4);
-      await session.waitForQuiet(300);
-      assert.match(session.transcript(), /TS9002: Swagger input is stale/);
-
-      fs.writeFileSync(path.join(root, "README.md"), "changed\n", "utf8");
-      await session.waitForQuiet();
-    } finally {
-      await session.close();
-    }
-
-    fs.writeFileSync(
-      path.join(root, "docs", "spec.md"),
-      "# Contract\n",
-      "utf8",
-    );
-    const positional = new WatchSession(root, {
-      args: ["check", "src/main.ts"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await positional.waitForBuilds(1);
-      fs.writeFileSync(
-        path.join(root, "docs", "spec.md"),
-        "positional broken\n",
-        "utf8",
-      );
-      await positional.waitForBuilds(2);
-      await positional.waitForQuiet(300);
-      assert.match(positional.transcript(), /TS9001: Markdown input is stale/);
-    } finally {
-      await positional.close();
-    }
-
-    fs.writeFileSync(
-      path.join(root, "docs", "spec.md"),
-      "# Contract\n",
-      "utf8",
-    );
-    fs.rmSync(path.join(root, "api"), { recursive: true, force: true });
-    const emittingPositional = new WatchSession(root, {
-      args: ["src/main.ts"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await emittingPositional.waitForBuilds(1);
-      await emittingPositional.waitForQuiet();
-      assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), true);
-    } finally {
-      await emittingPositional.close();
-    }
-
-    const invalid = new WatchSession(root, {
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        TTSC_TEST_PROJECT_INPUT_MODE: "relative",
-      },
-    });
-    try {
-      await invalid.waitForBuilds(1);
-      assert.match(
-        invalid.transcript(),
-        /invalid snapshot.*not an absolute local path/s,
-      );
-    } finally {
-      await invalid.close();
-    }
-
-    if (process.platform === "win32") {
-      const extended = new WatchSession(root, {
+      const positional = new WatchSession(root, {
+        args: ["check", "src/main.ts"],
         env: {
           PATH: goPath(),
           TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-          TTSC_TEST_PROJECT_INPUT_MODE: "extended",
         },
       });
       try {
-        await extended.waitForBuilds(1);
-        await extended.waitForQuiet();
-        assert.equal(
-          extended.transcript().includes("invalid snapshot"),
-          false,
-          extended.transcript(),
+        await positional.waitForBuilds(1);
+        fs.writeFileSync(
+          path.join(root, "docs", "spec.md"),
+          "positional broken\n",
+          "utf8",
         );
+        await positional.waitForBuilds(2);
+        await positional.waitForQuiet(300);
+        assertDeclaredInputBuildCount(positional, 2);
+        assert.match(positional.transcript(), /TS9001: Markdown input is stale/);
+      } catch (error) {
+        errors.push(new Error("declared-input watch positional phase", { cause: error }));
       } finally {
-        await extended.close();
+        await closeDeclaredInputWatch(positional, "positional");
       }
-    }
 
-    fs.writeFileSync(
-      path.join(root, "src", "view.tsx"),
-      "export const view = 1;\n",
-      "utf8",
-    );
-    fs.writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          jsx: "preserve",
-          module: "commonjs",
-          plugins: [{ transform: "./plugins/watch.cjs" }],
-          rootDir: "src",
-          strict: true,
-          target: "ES2022",
+      fs.writeFileSync(
+        path.join(root, "docs", "spec.md"),
+        "# Contract\n",
+        "utf8",
+      );
+      fs.rmSync(path.join(root, "api"), { recursive: true, force: true });
+      const emittingPositional = new WatchSession(root, {
+        args: ["src/main.ts"],
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
         },
-        include: ["src"],
-      }),
-      "utf8",
-    );
-    const reactNative = new WatchSession(root, {
-      args: ["src/view.tsx", "-JSX", "react-native"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await reactNative.waitForBuilds(1);
-      assert.equal(
-        fs.existsSync(path.join(root, "src", "view.js")),
-        true,
-        reactNative.transcript(),
-      );
-      assert.equal(
-        fs.existsSync(path.join(root, "src", "view.jsx")),
-        false,
-        reactNative.transcript(),
-      );
-      await reactNative.waitForQuiet();
-    } finally {
-      await reactNative.close();
-    }
+      });
+      try {
+        await emittingPositional.waitForBuilds(1);
+        await emittingPositional.waitForQuiet();
+        assertDeclaredInputBuildCount(emittingPositional, 1);
+        assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), true);
+      } catch (error) {
+        errors.push(new Error("declared-input watch emittingPositional phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(emittingPositional, "emittingPositional");
+      }
 
-    fs.rmSync(path.join(root, "src", "view.js"));
-    fs.writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          jsx: "react-native",
-          module: "commonjs",
-          plugins: [{ transform: "./plugins/watch.cjs" }],
-          rootDir: "src",
-          strict: true,
-          target: "ES2022",
+      const invalid = new WatchSession(root, {
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+          TTSC_TEST_PROJECT_INPUT_MODE: "relative",
         },
-        include: ["src"],
-      }),
-      "utf8",
-    );
-    const preserve = new WatchSession(root, {
-      args: ["src/view.tsx", "-JSX", "preserve"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await preserve.waitForBuilds(1);
-      assert.equal(
-        fs.existsSync(path.join(root, "src", "view.jsx")),
-        true,
-        preserve.transcript(),
-      );
-      assert.equal(
-        fs.existsSync(path.join(root, "src", "view.js")),
-        false,
-        preserve.transcript(),
-      );
-      await preserve.waitForQuiet();
-    } finally {
-      await preserve.close();
-    }
+      });
+      try {
+        await invalid.waitForBuilds(1);
+        assert.match(
+          invalid.transcript(),
+          /invalid snapshot.*not an absolute local path/s,
+        );
+      } catch (error) {
+        errors.push(new Error("declared-input watch invalid phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(invalid, "invalid");
+      }
 
-    fs.writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          module: "commonjs",
-          plugins: [{ transform: "./plugins/watch.cjs" }],
-          rootDir: "src",
-          strict: true,
-          target: "ES2022",
-        },
-        include: ["src"],
-      }),
-      "utf8",
-    );
-    const removal = new WatchSession(root, {
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await removal.waitForBuilds(1);
+      if (process.platform === "win32") {
+        const extended = new WatchSession(root, {
+          env: {
+            PATH: goPath(),
+            TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+            TTSC_TEST_PROJECT_INPUT_MODE: "extended",
+          },
+        });
+        try {
+          await extended.waitForBuilds(1);
+          await extended.waitForQuiet();
+          assertDeclaredInputBuildCount(extended, 1);
+          assert.equal(
+            extended.transcript().includes("invalid snapshot"),
+            false,
+            extended.transcript(),
+          );
+        } catch (error) {
+          errors.push(new Error("declared-input watch extended phase", { cause: error }));
+        } finally {
+          await closeDeclaredInputWatch(extended, "extended");
+        }
+      }
+
+      fs.writeFileSync(
+        path.join(root, "src", "view.tsx"),
+        "export const view = 1;\n",
+        "utf8",
+      );
       fs.writeFileSync(
         path.join(root, "tsconfig.json"),
         JSON.stringify({
           compilerOptions: {
+            jsx: "preserve",
             module: "commonjs",
+            plugins: [{ transform: "./plugins/watch.cjs" }],
             rootDir: "src",
             strict: true,
             target: "ES2022",
@@ -303,18 +225,149 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         }),
         "utf8",
       );
-      await removal.waitForBuilds(2);
-      await removal.waitForQuiet(300);
-      fs.appendFileSync(
-        path.join(root, "plugins", "watch-go", "main.go"),
-        "\n// removed plugin input\n",
+      const reactNative = new WatchSession(root, {
+        args: ["src/view.tsx", "-JSX", "react-native"],
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
+      try {
+        await reactNative.waitForBuilds(1);
+        assert.equal(
+          fs.existsSync(path.join(root, "src", "view.js")),
+          true,
+          reactNative.transcript(),
+        );
+        assert.equal(
+          fs.existsSync(path.join(root, "src", "view.jsx")),
+          false,
+          reactNative.transcript(),
+        );
+        await reactNative.waitForQuiet();
+        assertDeclaredInputBuildCount(reactNative, 1);
+      } catch (error) {
+        errors.push(new Error("declared-input watch reactNative phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(reactNative, "reactNative");
+      }
+
+      fs.rmSync(path.join(root, "src", "view.js"), { force: true });
+      fs.writeFileSync(
+        path.join(root, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            jsx: "react-native",
+            module: "commonjs",
+            plugins: [{ transform: "./plugins/watch.cjs" }],
+            rootDir: "src",
+            strict: true,
+            target: "ES2022",
+          },
+          include: ["src"],
+        }),
         "utf8",
       );
-      await removal.waitForQuiet();
-    } finally {
-      await removal.close();
+      const preserve = new WatchSession(root, {
+        args: ["src/view.tsx", "-JSX", "preserve"],
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
+      try {
+        await preserve.waitForBuilds(1);
+        assert.equal(
+          fs.existsSync(path.join(root, "src", "view.jsx")),
+          true,
+          preserve.transcript(),
+        );
+        assert.equal(
+          fs.existsSync(path.join(root, "src", "view.js")),
+          false,
+          preserve.transcript(),
+        );
+        await preserve.waitForQuiet();
+        assertDeclaredInputBuildCount(preserve, 1);
+      } catch (error) {
+        errors.push(new Error("declared-input watch preserve phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(preserve, "preserve");
+      }
+
+      fs.writeFileSync(
+        path.join(root, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            module: "commonjs",
+            plugins: [{ transform: "./plugins/watch.cjs" }],
+            rootDir: "src",
+            strict: true,
+            target: "ES2022",
+          },
+          include: ["src"],
+        }),
+        "utf8",
+      );
+      const removal = new WatchSession(root, {
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
+      try {
+        await removal.waitForBuilds(1);
+        fs.writeFileSync(
+          path.join(root, "tsconfig.json"),
+          JSON.stringify({
+            compilerOptions: {
+              module: "commonjs",
+              rootDir: "src",
+              strict: true,
+              target: "ES2022",
+            },
+            include: ["src"],
+          }),
+          "utf8",
+        );
+        await removal.waitForBuilds(2);
+        await removal.waitForQuiet(300);
+        assertDeclaredInputBuildCount(removal, 2);
+        fs.appendFileSync(
+          path.join(root, "plugins", "watch-go", "main.go"),
+          "\n// removed plugin input\n",
+          "utf8",
+        );
+        await removal.waitForQuiet();
+        assertDeclaredInputBuildCount(removal, 2);
+      } catch (error) {
+        errors.push(new Error("declared-input watch removal phase", { cause: error }));
+      } finally {
+        await closeDeclaredInputWatch(removal, "removal");
+      }
+    } catch (error) {
+      throw new AggregateError([...errors, error], "declared-input watch phase setup or close");
     }
+    if (errors.length) throw new AggregateError(errors, "declared-input watch phases");
   };
+
+/** Label supported close failure; the owning outer guard preserves body failures and stops reset. */
+async function closeDeclaredInputWatch(
+  session: WatchSession,
+  label: string,
+): Promise<void> {
+  try {
+    await session.close();
+  } catch (error) {
+    throw new Error(`declared-input watch ${label} close`, { cause: error });
+  }
+}
+
+/** Literal expected completed-cycle count from the public transcript, not Program/process totals. */
+function assertDeclaredInputBuildCount(session: WatchSession, expected: number): void {
+  const transcript = session.transcript();
+  assert.equal((transcript.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []).length, expected, transcript);
+}
 
 function goSource(): string {
   return [
