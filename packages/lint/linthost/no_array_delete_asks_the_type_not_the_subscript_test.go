@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "regexp"
   "strings"
   "testing"
 )
@@ -21,7 +22,7 @@ import (
 //  3. Assert only the three array deletes report.
 //
 // @evidence contracts/testing.md#behavioral-verification Array deletion must report by receiver type rather than key spelling.
-// @evidence contracts/testing.md#independent-expectations Authored array/tuple deletion lines 9,10,11 fix three rule/error diagnostics; record and index-signature lines 7,8 must stay clean.
+// @evidence contracts/testing.md#independent-expectations Authored array/tuple deletion lines 9,10,11 fix three rule/error diagnostics with the literal ordinary unsafe-array message; record and index-signature lines 7,8 must stay clean, and recovered execution failures cannot satisfy the message oracle.
 // @evidence contracts/testing.md#distinguishing-cases Literal and call-result array keys contrast with object identifier keys, exposing both old missed and false-positive boundaries.
 // @evidence contracts/testing.md#execution-ownership TestNoArrayDeleteAsksTheTypeNotTheSubscript invokes the real Program/Checker through in-process check in one shared Go unit process; all original inputs/assertions remain and no child compiler, native build or installed consumer runs.
 func TestNoArrayDeleteAsksTheTypeNotTheSubscript(t *testing.T) {
@@ -61,4 +62,9 @@ delete pair[1];
     }
   }
   assertTypedRuleRenderedErrors(t, "typescript/no-array-delete", stderr, 9, 10, 11)
+  rendered := noMisusedPromisesANSI.ReplaceAllString(stderr, "")
+  ordinary := regexp.MustCompile(`(?m)main\.ts:\d+:\d+\s+-\s+error\s+TS\d+:\s*\[typescript/no-array-delete\] Using delete with an array expression is unsafe\.\s*$`)
+  if got := len(ordinary.FindAllString(rendered, -1)); got != 3 {
+    t.Fatalf("want three ordinary array-delete messages, got %d:\n%s", got, stderr)
+  }
 }
