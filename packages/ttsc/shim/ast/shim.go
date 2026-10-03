@@ -1578,8 +1578,8 @@ func IsBindingPattern(node *Node) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Exported API delegation needs no linkname binding or guessed AST ancestry.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains nil results and terminating-parent responsibility, separating tags from prose.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSourceFileOfNode acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetSourceFileOfNode performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSourceFileOfNode computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim selects no independent ancestry-search algorithm. Upstream follows H parent links until a SourceFile or nil, costing O(H) time and O(1) temporary space for a terminating chain.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding query owns no cache or in-flight coordination; compiler-tree owners establish parent-chain validity when reusing an owner result.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetSourceFileOfNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetSourceFileOfNode(node *innerast.Node) *innerast.SourceFile {
   return innerast.GetSourceFileOfNode(node)
@@ -1592,14 +1592,16 @@ func GetSourceFileOfNode(node *innerast.Node) *innerast.SourceFile {
 // astnav.GetTouchingToken instead. Supply a nonnil file. Position uses the
 // source's byte-offset ranges, includes leading trivia and excludes the end
 // of a child range; a position outside child ranges returns the file node.
+// Lazy JSDoc requires the upstream parser registration and may populate the
+// SourceFile's shared JSDoc cache during this search.
 //
 // @evidence contracts/common.md#principled-implementation Delegation preserves upstream half-open range descent, meta-property parent stop, optional lazy JSDoc search and file-node fallback for a nonnil source file.
 // @evidence contracts/common.md#clear-and-simple-design The exported compiler helper owns position traversal instead of a shim range-search engine.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No linkname binding, consumer cursor exception or patched range traversal is needed.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains non-token results, byte-offset/end rules, fallback and nonnil input with separated tags.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetNodeAtPosition acquires no handle, buffer or cache and retains nothing after it returns.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GetNodeAtPosition performs a fixed number of steps with no loop or recursion over caller data.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetNodeAtPosition computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The shim controls no independent lifetime. Upstream lazy parsing can allocate nodes and retain them in the supplied SourceFile's cache; its tree owner controls that retained population and lifetime.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent position-search algorithm. Upstream descends one containing branch and scans candidate children and JSDoc at each level, so traversal costs the visited candidates, plus any lazy parse work; no whole-tree position index is maintained here.
+// @evidence contracts/performance.md#reuse-equivalent-work When JSDoc is lazy, the supplied SourceFile shares parsed results keyed by node, with read-lock lookup and write-lock recheck before parsing. Repeated queries reuse that tree-owned cache; validity follows the supplied compiler tree, not position equality alone.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetNodeAtPosition computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetNodeAtPosition(file *innerast.SourceFile, position int, includeJSDoc bool) *innerast.Node {
   return innerast.GetNodeAtPosition(file, position, includeJSDoc)
