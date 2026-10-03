@@ -13,9 +13,10 @@ import {
  * Verifies buildSourcePlugin rejects go.mod replacements for ttsc-managed
  * modules.
  *
- * This ttsc source plugin scenario is owned by a tests package instead of the
- * production package manifest, so package.json stays focused on build and
- * publish contracts while the feature file documents the behavior under test.
+ * The authored printer replacement conflicts with both the host-managed prefix
+ * and a supplied printer overlay. The scripted reader exposes actual go.mod
+ * bytes through the supported metadata JSON protocol; it does not certify Go's
+ * full module grammar or compile a native plugin.
  *
  * 1. Create a source plugin whose go.mod tries to replace a TypeScript-Go shim
  *    module path.
@@ -26,16 +27,17 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin rejects the authored printer replacement after reading Go module metadata through a fake child.
  * @evidence contracts/testing.md#independent-expectations The host owns the TypeScript-Go printer module; the input replacement deliberately attempts to override it.
- * @evidence contracts/testing.md#distinguishing-cases A host-managed module override is refused before workspace compilation; ordinary external replacement builds remain a separate positive case.
+ * @evidence contracts/testing.md#distinguishing-cases This input is a managed printer replacement also present in supplied overlays; exact managed-printer refusal must differ from the scripted generic build-failure message. It does not distinguish the two private predicate branches or own ordinary external replacement acceptance.
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_rejects_source_replace_for_ttsc_managed_modules entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
- * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin rejects the authored printer replacement after reading Go module metadata through a fake child. These assertions stay in test_buildsourceplugin_rejects_source_replace_for_ttsc_managed_modules with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#shared-execution One source/two-overlay metadata profile and independent scripted reader feed one builder request. Actual version/mod-edit/environment/fallback command populations remain separate; no zero-child/build-count/cold-cache/native Go compilation certificate follows from the exact refusal message.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before source/overlay/tool setup. Exact prior TTSC_GO_BINARY value or absence is restored in finally; original default cache authority is unchanged and not independently cold. Direct synchronous metadata result does not establish arbitrary descendant join or immutable selected executable ownership.
+ * @evidence contracts/e2e.md#preserved-coverage Original printer local replacement/require entries, source printer and ttsc/printer overlays, scripted go.mod reader and exact managed-printer regex remain. No invocation count/binary absence is asserted. Actual private writeGoWork/validateSourceReplacements in buildSourcePlugin.ts own metadata-before-workspace refusal; no unsupported private extraction/public API or unverified policy unit is substituted. Source/body truthfulness action is not runtime/survival evidence; new callable0 and donor retained.
  */
 export const test_buildsourceplugin_rejects_source_replace_for_ttsc_managed_modules =
   () => {
     const root = TestProject.tmpdir("ttsc-source-replace-");
+    TestProject.retainTemporaryDirectory(root, "Managed replacement metadata descendants are not joined");
     const source = path.join(root, "plugin");
     const overlay = path.join(root, "overlay", "ttsc");
     const overlayPrinter = path.join(overlay, "shim", "printer");

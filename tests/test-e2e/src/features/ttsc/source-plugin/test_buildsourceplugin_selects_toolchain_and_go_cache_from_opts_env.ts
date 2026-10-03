@@ -40,13 +40,14 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Effective and ambient environments disagree in both executable and cache; ambient-only fallback would fail or capture the wrong directory.
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The contradictory effective environment requires a separate tool selection, and one capture process establishes the selected GOCACHE; no repeated consumer installation occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
- * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin selects the instance fake toolchain and its captured GOCACHE despite contradictory ambient missing tool and cache. These assertions stay in test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#shared-execution One six-file source/fake tool/profile request observes actual build-child GOCACHE. Metadata/probes/wrapper/evaluator/fallbacks remain separate process populations; one environment capture is not one child or a proven cold cache hit. Immutable responder bytes may share preparation, but contradictory ambient and call-local authorities must remain isolated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Root is retained before preparation. Four exact prior env values/absence are saved and restoration finally now encloses the first mutation; readonly absence of the contradictory tool is independently asserted. Call-local opts overrides remain original, other ambient inputs unchanged. Synchronous build return is not arbitrary descendant join, and no ambient nonmutation assertion is claimed.
+ * @evidence contracts/e2e.md#preserved-coverage Original six files/tool wrapper, contradictory missing executable and ambient cache, deleted ambient GOCACHE/capture, call-local fake tool/instance cache/capture and exact captured GOCACHE remain. Fake build writes process.env.GOCACHE after checking scratch inputs, not a fabricated native Go result. Original no separate binary-exists/tool-image/nonmutation/count assertion is certified. Readonly missing-tool premise/early finally/root retention strengthen ownership without changing input identity. New callable0, runtime/selection/survival unverified and donor retained.
  */
 export const test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env =
   () => {
     const root = TestProject.tmpdir("ttsc-source-plugin-");
+    TestProject.retainTemporaryDirectory(root, "Effective environment builder descendants are not joined");
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const cacheDir = path.join(root, "cache");
@@ -64,11 +65,13 @@ export const test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env
     // Ambient values contradict the instance environment: a Go binary that does
     // not exist and a different external Go cache. Only reading `opts.env` can
     // build successfully and capture `externalGoCache`.
-    process.env.TTSC_GO_BINARY = path.join(root, "does-not-exist-go");
-    process.env.TTSC_GO_CACHE_DIR = contradictoryGoCache;
-    delete process.env.GOCACHE;
-    delete process.env.FAKE_GO_CAPTURE_ENV_FILE;
     try {
+      const ambientGo = path.join(root, "does-not-exist-go");
+      assert.equal(fs.existsSync(ambientGo), false, "the contradictory ambient tool is absent");
+      process.env.TTSC_GO_BINARY = ambientGo;
+      process.env.TTSC_GO_CACHE_DIR = contradictoryGoCache;
+      delete process.env.GOCACHE;
+      delete process.env.FAKE_GO_CAPTURE_ENV_FILE;
       buildSourcePlugin({
         baseDir: root,
         cacheDir,
