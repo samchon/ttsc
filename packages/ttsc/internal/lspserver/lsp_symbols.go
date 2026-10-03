@@ -35,8 +35,9 @@ const (
 
 // LSPDocumentSymbol is the hierarchical shape returned by
 // textDocument/documentSymbol. Range spans the whole declaration and
-// SelectionRange the name (LSP requires SelectionRange to be contained in
-// Range). Children nest members (a class's methods) under their owner.
+// SelectionRange identifies the contained navigation span. The graph provider
+// uses the whole declaration span for both because it lacks a separate name
+// span. Children nest members (a class's methods) under their owner.
 //
 // @evidence contracts/common.md#principled-implementation Whole and selection ranges remain distinct while recursive Children represent declaration ownership.
 // @evidence contracts/common.md#clear-and-simple-design The hierarchical result reuses ranges and kinds without mixing query state into nodes.
@@ -47,11 +48,20 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDocumentSymbol struct {
-  Name           string              `json:"name"`
-  Kind           LSPSymbolKind       `json:"kind"`
-  Range          LSPRange            `json:"range"`
-  SelectionRange LSPRange            `json:"selectionRange"`
-  Children       []LSPDocumentSymbol `json:"children,omitempty"`
+  // Name is the declaration's display name.
+  Name string `json:"name"`
+
+  // Kind classifies the declaration using LSP SymbolKind discriminants.
+  Kind LSPSymbolKind `json:"kind"`
+
+  // Range covers the declaration in session UTF-16 coordinates.
+  Range LSPRange `json:"range"`
+
+  // SelectionRange is contained in Range and need not isolate the name.
+  SelectionRange LSPRange `json:"selectionRange"`
+
+  // Children nest owned declarations; an empty list is omitted.
+  Children []LSPDocumentSymbol `json:"children,omitempty"`
 }
 
 // LSPLocation is the wire shape of an LSP Location: a range inside a document,
@@ -66,7 +76,10 @@ type LSPDocumentSymbol struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPLocation struct {
-  URI   string   `json:"uri"`
+  // URI identifies the target document using protocol spelling.
+  URI string `json:"uri"`
+
+  // Range locates the site in that document's session UTF-16 coordinates.
   Range LSPRange `json:"range"`
 }
 

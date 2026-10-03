@@ -271,10 +271,9 @@ type LSPTextEdit struct {
 }
 
 // LSPDocumentVersion carries the LSP textDocument version associated
-// with a publishDiagnostics notification. Plugin sources use it to drop
-// stale findings (LSP guarantees that diagnostics whose version does
-// not match the current document are discarded by the editor anyway,
-// but plugins that cache work-in-progress benefit from seeing it).
+// with a publishDiagnostics notification. Plugin sources can use the supplied
+// version when deciding whether cached findings still apply; this value alone
+// does not enforce editor-side rejection or authenticate current source bytes.
 //
 // Version is nil when upstream omitted the field — that is legal in
 // LSP and the plugin source should treat it as "version unknown".
@@ -288,7 +287,10 @@ type LSPTextEdit struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDocumentVersion struct {
-  URI     string
+  // URI identifies the document whose findings are requested.
+  URI string
+
+  // Version is the supplied document version; nil means unknown, not zero.
   Version *int
 }
 
