@@ -124,19 +124,20 @@ func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (s
 // WriteEmitProvenanceJSON writes one private build-result object to an absolute
 // native path as an output-to-source map, preserving the command's existing
 // stdout stream. The caller owns a fresh result path and its parent directory.
-// Publication follows a successful temporary write and close. The file proves actual
-// recorded writes, independently of the command's exit status or diagnostics;
-// consumers must validate it before admission. A nil map is rejected rather than
-// written as null.
+// Publication follows a successful temporary write and close. The file preserves
+// the supplied snapshot independently of command status or diagnostics; this
+// encoder does not authenticate the snapshot's recorded-write origin. Consumers
+// must validate it before admission. A nil map is rejected rather than written
+// as null.
 //
-// @evidence contracts/common.md#principled-implementation A caller-owned absolute result path receives the complete emittedSources object, including authoritative empty and unknown-row values; encoding or write failure returns an error.
+// @evidence contracts/common.md#principled-implementation A caller-owned absolute result path receives every supplied emittedSources row, preserving empty and unknown-row values without authenticating their origin; encoding or publication failure returns an error.
 // @evidence contracts/common.md#clear-and-simple-design One encoder and one native write keep machine metadata independent of compiler diagnostic streams.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The writer never substitutes stdout scraping or a successful empty result for a failed metadata publication.
 // @evidence contracts/common.md#meaningful-documentation Native prose states absolute-path admission, private parent ownership, stream separation and ownership proof's distinction from command success following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath validates native absolute grammar and the shared same-directory publisher performs native write, close and rename without shell commands or separator substitution.
-// @evidence contracts/performance.md#efficient-algorithms One serialization and one write scale with the complete metadata payload, without per-row file publication or source-tree enumeration.
+// @evidence contracts/performance.md#efficient-algorithms JSON serialization sorts map keys by text and encodes every supplied row and owner string before one native publication; costs include key comparisons, payload bytes and temporary key/encoding buffers, without per-row files or source-tree enumeration.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Artifact publication borrows a completed snapshot and coordinates no reusable compiler or identity work.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Encoding bytes are invocation-local and the delegated publisher closes its descriptor and removes its temporary allocation; the caller owns the final result artifact's eventual removal.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Encoding bytes are call-local without a payload cap. The shared publisher closes its temporary descriptor before rename and attempts removal on failure, returning cleanup errors; the caller owns the borrowed snapshot, fresh destination, parent directory and final artifact removal.
 func WriteEmitProvenanceJSON(fileName string, emittedSources map[string][]string) error {
   if !filepath.IsAbs(fileName) {
     return fmt.Errorf("driver: emit provenance path must be absolute: %q", fileName)
