@@ -80,13 +80,11 @@ func (formatArrowParens) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
-  // A comment in the parameter region (leading trivia, or between the name and
-  // its `)`/`=>`) defeats the whitespace-only paren scan below: the scan stops
-  // at the comment byte and reports "not wrapped", so the "always" branch would
-  // wrap an already-parenthesized name a second time and emit invalid
-  // `(/* c */ (x)) => x`. Prettier leaves such an arrow alone
-  // (canPrintParamsWithoutParens requires `!hasComment(parameters[0])`), so
-  // abstain rather than corrupt.
+  // A comment in the parameter region makes the whitespace-only scans an
+  // insufficient ownership test for a repair. Abstain before those scans:
+  // removing the enclosing span could delete a comment. Prettier's parameter
+  // and dangling-comment checks likewise prevent parenthesis omission, not
+  // all formatting changes to the arrow.
   if arrowParamRegionHasComment(src, param.Pos(), nameStart, nameEnd) {
     return
   }
@@ -194,9 +192,9 @@ func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bo
   }
   // Trailing trivia after the identifier, up to `=>`. Tolerate one closing
   // paren so a comment between `)` and `=>` (`(x) /* c */ => x`) — which in
-  // "avoid" mode would otherwise be stranded when the parens are stripped — is
-  // also detected (Prettier keeps the parens of an arrow with such a dangling
-  // comment). Likewise tolerate one trailing comma before the paren so a
+  // "avoid" mode is deliberately retained by this rule — is also detected.
+  // Prettier retains parens when that comment is attached as dangling.
+  // Likewise tolerate one trailing comma before the paren so a
   // comment on either side of it (`(x /* c */,) => x`, `(x, /* c */) => x`) —
   // which the "avoid" deletion would destroy — is also detected.
   sawComma := false

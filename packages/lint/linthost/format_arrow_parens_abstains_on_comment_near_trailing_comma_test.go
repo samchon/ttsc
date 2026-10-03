@@ -5,12 +5,12 @@ import "testing"
 // TestFormatArrowParensAbstainsOnCommentNearTrailingComma pins the data-safety
 // guard around a trailing-comma parameter list that also carries a comment: on
 // either side of the comma (`(x /* c */,)`, `(x, /* c */)`) the rule must
-// report nothing in both modes. "avoid" would otherwise delete the comment
-// with the `( … )` span, and "always" would mis-read `(x, /* c */)` as a bare
-// parameter (the comment byte aborts the forward paren scan) and double-wrap
-// it. Prettier declines to drop parens on a commented parameter
+// report nothing in both modes. Removing the whole `( … )` span could delete
+// its comment. The guard runs before the whitespace-only paren scans.
+// Prettier declines to drop parens on a commented parameter
 // (canPrintParamsWithoutParens requires `!hasComment(parameters[0])`), so
-// abstaining is oracle-safe.
+// these assertions certify this rule's abstention, not unchanged complete
+// Prettier output or a particular corruption when the guard is removed.
 //
 //  1. Parse trailing-comma arrows with a comment before/after the comma, plus
 //     the comma-free `(x /* c */) => x` twin under "avoid".
