@@ -32,11 +32,11 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  *
  * @evidence contracts/testing.md#behavioral-verification The emitted descriptor resolves the linked demo package from the explicit pluginConfigDir while its tsconfig names a separate wrapper with a decoy lint config; the returned contributors must include demo.
  * @evidence contracts/testing.md#independent-expectations The project config independently declares demo and the wrapper decoy declares none, so presence of demo distinguishes the required project-origin discovery from accidental wrapper-origin discovery.
- * @evidence contracts/testing.md#distinguishing-cases The real and wrapper roots differ and both contain eligible configs; this competing-origin case cannot pass merely because the wrapper has no config.
+ * @evidence contracts/testing.md#distinguishing-cases The real and wrapper roots differ and both contain eligible configs; this competing-origin case cannot pass merely because the wrapper has no config. cwd, projectRoot and pluginConfigDir all name the project, so this input does not independently distinguish priorities between those three project anchors.
  * @evidence contracts/testing.md#execution-ownership The named entry invokes the built factory with the actual linked package and wrapper/project context; native wrapper rule execution has a separate E2E owner.
  * @evidence contracts/e2e.md#necessary-boundary The emitted descriptor must discover and require the linked contributor package from the embedder's explicit project anchor; authored path calculation alone cannot establish this package-resolution connection.
- * @evidence contracts/e2e.md#shared-execution One descriptor resolution uses the same built factory and demo artifact as other descriptor cases; no Go compilation or native process lifetime occurs here.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project and separately owned wrapper carry competing immutable configs, and both are removed in finally. No result from a different project or wrapper is reused.
+ * @evidence contracts/e2e.md#shared-execution One descriptor resolution uses the workspace-built factory and linked demo package. A contributor-bearing JSON takes the actual isolated ttsx evaluator route and may start its selected compiler; no native lint rule host is exercised here. Shared paths are not packed artifact/image or child/Program-count certification.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project and separately owned wrapper carry competing immutable configs, with independent cleanup attempts and operation/cleanup failures aggregated. LintWorkspace owns their parent through preparation failure. No result from a different project is reused, and synchronous factory/evaluator return is not arbitrary descendant join.
  * @evidence contracts/e2e.md#preserved-coverage The original separate wrapper tsconfig, active decoy config, explicit pluginConfigDir and discovered demo assertions remain executable.
  */
 export function test_descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig() {
@@ -47,6 +47,7 @@ export function test_descriptor_discovers_contributors_via_plugin_config_dir_for
       linkNodeModules: ["lint-contributor-demo"],
     });
     const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
+    const failures: unknown[] = [];
     try {
       fs.writeFileSync(path.join(wrapper, "tsconfig.json"), "{}", "utf8");
       // A decoy config next to the wrapper tsconfig: the walk must never
@@ -74,8 +75,19 @@ export function test_descriptor_discovers_contributors_via_plugin_config_dir_for
         ),
         `expected demo contributor, got ${JSON.stringify(descriptor.contributors)}`,
       );
+    } catch (error) {
+      failures.push(error);
     } finally {
-      fs.rmSync(wrapper, { recursive: true, force: true });
-      project.cleanup();
+      try {
+        fs.rmSync(wrapper, { recursive: true, force: true });
+      } catch (error) {
+        failures.push(error);
+      }
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Descriptor wrapper discovery or owned cleanup failed");
   }

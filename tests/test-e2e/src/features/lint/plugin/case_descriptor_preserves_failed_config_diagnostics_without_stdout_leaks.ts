@@ -22,8 +22,8 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * @evidence contracts/testing.md#distinguishing-cases Both stdout and stderr logs precede a thrown error; duplicate-forwarding and stdout-leak defects remain distinguishable from the successful descriptor-JSON boundary and envelope-less exit boundary.
  * @evidence contracts/testing.md#execution-ownership The named entry runs the built descriptor inside an actual child process with the real launcher/compiler environment and asserts its exit and complete captured streams.
  * @evidence contracts/e2e.md#necessary-boundary Config log redirection, isolated evaluator failure and parent stream forwarding form a process connection not established by direct error-classifier units.
- * @evidence contracts/e2e.md#shared-execution One outer process and one typed-config evaluator preserve all failure-stream assertions together; neither Go compilation nor native host preparation occurs. The failing outcome cannot share the successful JSON-producing outer process lifetime.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary project is removed in finally; subprocess capture owns its streams and cannot contaminate another entry's machine output. Shared built launcher/compiler bytes are immutable inputs.
+ * @evidence contracts/e2e.md#shared-execution One explicit outer Node invocation observes all failure-stream assertions together. The built factory uses its actual isolated ttsx/selected compiler route; retries and inner child/Program totals require actual observation rather than multiplication of the parent call. No native lint rule host is exercised. The failing outcome cannot share a successful JSON-producing outer lifetime.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary project has cleanup attempted in finally, and assertion/cleanup failures are aggregated. Outer capture observes its own returned stdout/stderr; it is not arbitrary descendant join or loaded launcher/compiler image identity certification. Project/context/result paths stay private to this invocation.
  * @evidence contracts/e2e.md#preserved-coverage Original nonzero status, empty stdout, cause text, failure-status text and both exact-one log occurrence assertions remain unchanged.
  */
 export function test_descriptor_preserves_failed_config_diagnostics_without_stdout_leaks(): void {
@@ -32,6 +32,7 @@ export function test_descriptor_preserves_failed_config_diagnostics_without_stdo
       pluginConfig: { configFile: "./lint.config.ts" },
       source: "export const value = 1;\n",
     });
+    const failures: unknown[] = [];
     try {
       fs.writeFileSync(
         path.join(project.tmpdir, "lint.config.ts"),
@@ -74,9 +75,16 @@ factory(${JSON.stringify(context)});
       assert.match(result.stderr, /evaluation failed with exit code/);
       assert.equal(countOccurrences(result.stderr, "failed config stdout"), 1);
       assert.equal(countOccurrences(result.stderr, "failed config stderr"), 1);
+    } catch (error) {
+      failures.push(error);
     } finally {
-      project.cleanup();
+      try {
+        project.cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (failures.length) throw new AggregateError(failures, "Failed evaluator stream observations or owned cleanup failed");
   }
 
 function countOccurrences(value: string, needle: string): number {
