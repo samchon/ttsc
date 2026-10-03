@@ -2,20 +2,20 @@ package linthost
 
 import "testing"
 
-// TestDocJoinReturnsNilForEmptyParts verifies Join returns a no-op nil
-// doc when called with an empty slice, and that Print emits an empty
+// TestDocJoinReturnsNilForEmptyParts verifies Join returns a no-op docNil
+// Doc value when called with an empty slice, and that Print emits an empty
 // string for it.
 //
-// The empty-slice identity is part of Join's documented contract. The nil
-// return lets a caller pass the result straight to Print or to another
-// constructor without a nil-guard. The only in-package caller,
+// The empty-slice identity is part of Join's documented contract. This
+// Doc value can be passed straight to Print or another constructor;
+// it is not a nil pointer. The only in-package caller,
 // printListPlain, receives non-empty items because printList returns before
 // it for an empty list, so this case pins the helper's contract rather than a
 // path the printers take today.
 //
 //  1. Call Join with any separator and an empty []Doc{}.
 //  2. Assert the returned doc's IsNil() is true.
-//  3. Print the nil doc and assert the output is an empty string.
+//  3. Print the no-op Doc and assert the output is an empty string.
 //
 // @evidence contracts/testing.md#behavioral-verification Join of zero parts must be a no-op Doc and Print must emit no separator or payload.
 // @evidence contracts/testing.md#independent-expectations Empty sequence identity requires no output; both the IsNil verdict and empty rendering are observed independently.
