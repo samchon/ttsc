@@ -5,10 +5,10 @@ import "testing"
 // TestNoFallthroughRejectsReturnInsideArrow verifies a nested arrow's return does not terminate the case.
 //
 // Same function-boundary rule as the function-expression twin, but through an
-// arrow with a block body — the shape callbacks most often take. The case
-// still reaches its end after the arrow runs, so the transition must report.
+// arrow with a block body passed to the authored run call. The case
+// retains a normal path after that call; the callback return does not exit it.
 //
-// 1. End a case with an immediately-invoked arrow whose body returns.
+// 1. End a case by passing an arrow whose body returns to run.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly one finding at the next case label.
 //
