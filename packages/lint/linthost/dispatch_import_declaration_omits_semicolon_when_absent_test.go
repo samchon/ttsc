@@ -12,10 +12,9 @@ import (
 //
 // The printer calls sourceHasStatementTerminator to decide whether to
 // append a `;` token. When the user wrote ASI (no explicit semicolon), the
-// function must return false and the printer must emit nothing. Emitting `;`
-// unconditionally would collide with `format/semi`'s zero-width insert on
-// the same cascade pass and produce `;;`. This case covers the false branch
-// of the terminator check so that contract is pinned at the unit level.
+// function must return false and the printer must emit no terminator.
+// This case covers that branch of the direct printer; it does not run
+// format/semi or assert the result of a combined rule cascade.
 //
 // 1. Parse `import { a } from "x"` followed only by a newline (no `;`).
 // 2. Dispatch the ImportDeclaration node through printImportDeclaration.

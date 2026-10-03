@@ -7,9 +7,8 @@ import (
 // TestDispatchImportDeclarationReturnsEmptyForNilNode verifies the nil-node
 // guard in printImportDeclaration returns an empty Doc without panicking.
 //
-// The nil guard at the top of printImportDeclaration is the standard
-// defensive check shared by every per-node printer in the package. This
-// test pins the nil-argument path so a future refactor cannot
+// This test pins the direct printImportDeclaration nil-argument path,
+// whose empty output is independent of other per-node printers. A refactor cannot
 // accidentally remove the guard without a test failure.
 //
 // 1. Construct a PrintContext from a trivial parsed source.

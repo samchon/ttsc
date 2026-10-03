@@ -10,9 +10,9 @@ import (
 // `import type { … } from "x";` keeps its `type` modifier on reflow.
 //
 // The printer composes `import type ` when the clause reports IsTypeOnly.
-// If that branch regressed, every `import type`
-// in a project would silently lose the modifier on the first
-// `ttsc format` pass, deleting an erasable-import guarantee.
+// The exact output must retain that modifier along with the binding,
+// module and terminator. This test does not run a format command or
+// exercise every type-only import shape.
 //
 //  1. Parse `import type { A } from "x";`.
 //  2. Render under default options.
