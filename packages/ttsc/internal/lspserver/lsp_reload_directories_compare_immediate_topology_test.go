@@ -1,37 +1,31 @@
 package lspserver
 
 import (
+  "errors"
   "net/url"
   "os"
   "path/filepath"
+  "runtime"
+  "syscall"
   "testing"
 )
 
 // TestLSPReloadDirectoriesCompareImmediateTopology verifies reload-directory
-// notifications restart only when the declared non-recursive topology changes.
+// direct reload-policy results distinguish the authored native mutations.
 //
 // A directory fingerprint represents resolution identity, not the contents of
-// every child. Treating every descendant event as a restart turns ordinary
-// edits into crashes, while ignoring directory identity or symlink targets
-// leaves contributor selection stale.
+// every child. This test observes policy booleans after real mutations, not an
+// actual notification, server restart, crash or contributor-selection reload.
 //
-//  1. Record a directory with one file and one nested directory.
-//  2. Prove child-content and nested-descendant edits leave its digest stable.
-//  3. Prove immediate creation and deletion change the digest.
-//  4. Prove deleting the watched directory itself changes the digest.
-//  5. Where supported, retarget a symlink without renaming it and prove the raw
-//     link target participates in the digest.
-//  6. Replace an empty directory with the same topology and prove its identity
-//     event still restarts selection.
-//  7. Nest one reload directory in another and prove the unchanged parent
-//     cannot hide an immediate topology change in the child.
-//  8. Rediscover project inputs after topology drift and prove refresh retains
-//     the selection-time baseline until the server restarts.
+//  1. Require no match for child-content and undeclared nested-descendant edits.
+//  2. Require matches for immediate create/delete and directory delete/replace.
+//  3. Require a declared nested child and preserved older baseline to match drift.
+//  4. Where privilege permits, require a symlink retarget to match.
 //
-// @evidence contracts/testing.md#behavioral-verification A reload directory's digest stays stable for child-content and nested-descendant edits and changes for immediate creation, deletion, deletion of the directory itself, symlink retargeting and replacement with the same topology.
-// @evidence contracts/testing.md#independent-expectations The expected stable-or-changed decision is a literal per edit.
-// @evidence contracts/testing.md#distinguishing-cases Edits that must not restart and edits that must restart are paired.
-// @evidence contracts/testing.md#execution-ownership TestLSPReloadDirectoriesCompareImmediateTopology is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification Direct ProjectInputReloadMatchesChange calls return false for two content edits and true for immediate create/delete, directory delete/replace, a declared nested child's creation, drift after explicit baseline preservation and the conditional symlink retarget. Directory-self matches are identity policy, not assertions that its digest changed.
+// @evidence contracts/testing.md#independent-expectations Each mutation has an authored literal true/false expectation rather than an expected digest computed by the SUT. Snapshots establish actual stored baselines; no particular hash value or client event/restart behavior is certified.
+// @evidence contracts/testing.md#distinguishing-cases Content versus immediate topology, undeclared versus declared nested territory, same-topology directory replacement and retained versus recomputed baseline are distinguished by supplied operations. The symlink subtest reports Windows privilege-only unavailability explicitly instead of silently omitting it.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit runs actual normalizer, fingerprint preservation and reload matcher over owned temporary native files/directories. It starts no child, installs no consumer or host and substitutes no operation. The symlink lane skips only Windows privilege-not-held; other fixture errors fail.
 func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   root := t.TempDir()
   reloadDirectory := filepath.Join(root, "config-deps")
@@ -178,8 +172,21 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
     }
   }
   link := filepath.Join(reloadDirectory, "selection-link")
-  if err := os.Symlink(firstTarget, link); err == nil {
-    source.projectInputs = snapshot(reloadDirectory)
+  t.Run("symlink retarget", func(t *testing.T) {
+    if err := os.Symlink(firstTarget, link); err != nil {
+      if runtime.GOOS == "windows" && errors.Is(err, syscall.Errno(1314)) {
+        t.Skipf("Windows symlink privilege is unavailable: %v", err)
+      }
+      t.Fatalf("create owned symlink: %v", err)
+    }
+    linkSnapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
+      Root: root,
+      ReloadDirectories: []string{reloadDirectory},
+    }, root)
+    if err != nil {
+      t.Fatalf("normalize symlink reload directory: %v", err)
+    }
+    source.projectInputs = linkSnapshot
     if err := os.Remove(link); err != nil {
       t.Fatal(err)
     }
@@ -189,5 +196,5 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
     if !source.ProjectInputReloadMatchesChange(uri(link), &changed) {
       t.Fatal("symlink retarget did not change directory topology")
     }
-  }
+  })
 }
