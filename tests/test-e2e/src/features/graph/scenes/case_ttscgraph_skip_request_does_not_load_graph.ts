@@ -46,10 +46,10 @@ const graphArguments = () => ({
  * @evidence contracts/testing.md#behavioral-verification MCP escape succeeds and reports skipped with invalid config and zero exact-producer successful-spawn receipts; restored config yields Recoverable and one native spawn. The experiment retains the clean shared-process exit assertion.
  * @evidence contracts/testing.md#independent-expectations The deliberately invalid JSON would prevent an actual graph load; literal skipped and non-error results independently establish that escape remains usable.
  * @evidence contracts/testing.md#distinguishing-cases A graph-free cold request faces invalid config, then a real graph request uses restored input. The observational preload subscribes to Node process diagnostics and successful spawn events without replacing native calls; its synchronous receipt write can affect timing, so this is not a race-timing oracle.
- * @evidence contracts/testing.md#execution-ownership Called first by test_e2e_graph, the exported scene starts the installed MCP launcher, observes its cold graph-free escape, then requires real Recoverable facts after config restoration in that same MCP. It remains selected by the E2E runner/Evidence population.
- * @evidence contracts/e2e.md#necessary-boundary Installed MCP startup and lazy application dispatch must permit escape without resolving a compiler project; direct escape calls would bypass lazy server assembly.
- * @evidence contracts/e2e.md#shared-execution This runs first and borrows the identity project's existing MCP lifetime; the restored lookup warms the same producer later graph cases consume. No separate invalid project or MCP child is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original config bytes restore after a settled response before another consumer; failed restoration blocks reuse. A timed-out or lost transport forbids reset and retains project and receipt inputs until the experiment attempts actual child joins. Zero initial successful-spawn receipts forbids an already-warmed session from satisfying the cold oracle. Diagnostics end with the MCP, and the exclusive receipt has a separate owned directory outside compiler inputs.
+ * @evidence contracts/testing.md#execution-ownership Called first by test_e2e_graph, the exported scene starts the workspace-built MCP launcher with explicit real native selection, not a packed SDK installation, observes its cold graph-free escape, then requires real Recoverable facts after config restoration in that same MCP. It remains selected by the E2E runner/Evidence population.
+ * @evidence contracts/e2e.md#necessary-boundary Actual workspace MCP startup and lazy application dispatch must permit escape without resolving a compiler project; direct escape calls would bypass lazy server assembly.
+ * @evidence contracts/e2e.md#shared-execution This runs first and borrows the identity project's existing MCP lifetime; the restored lookup warms the same producer later graph cases consume. No separate invalid project or MCP child is prepared. The diagnostics receipt counts only this selected native executable's successful spawns in that launcher process, not other processes, failed attempts or compiler Program objects.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Actual client mutation authority is checked before writing invalid config as well as before finally restoring original bytes after a settled response; failed restoration blocks reuse. A timed-out or lost transport forbids reset and retains project and receipt inputs until the experiment attempts actual child joins. Zero initial successful-spawn receipts forbids an already-warmed session from satisfying the cold oracle. Diagnostics end with the MCP, and the exclusive receipt has a separate owned directory outside compiler inputs.
  * @evidence contracts/e2e.md#preserved-coverage Original escape type, skipped and clean exit remain; exact native spawn observation and restored real declaration strengthen the original invalid-config control.
  */
 export const case_ttscgraph_skip_request_does_not_load_graph = async () => {
@@ -63,6 +63,7 @@ export const case_ttscgraph_skip_request_does_not_load_graph = async () => {
     );
     const failures: unknown[] = [];
     try {
+      client.assertInputMutationAllowed();
       fs.writeFileSync(
         configFile,
         FixtureFiles.read(
