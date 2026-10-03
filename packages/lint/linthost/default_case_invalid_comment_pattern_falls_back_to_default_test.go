@@ -4,9 +4,9 @@ import "testing"
 
 // TestDefaultCaseInvalidCommentPatternFallsBackToDefault verifies an uncompilable commentPattern degrades to the default marker.
 //
-// ESLint throws at rule creation on a bad regex; this host cannot fail the
-// whole run for one rule's option, so the rule keeps the default marker rather
-// than silently reporting every marked switch (mirrors no-fallthrough).
+// This rule retains the default marker when the custom regex cannot compile.
+// The case pins that compatibility fallback; it does not establish a general
+// restriction on host configuration errors or upstream error equivalence.
 //
 // 1. Keep the standard `// no default` marker.
 // 2. Run the engine with the invalid options {"commentPattern":"("}.
