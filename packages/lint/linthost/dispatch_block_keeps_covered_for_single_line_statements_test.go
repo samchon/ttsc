@@ -7,16 +7,15 @@ import (
 )
 
 // TestDispatchBlockKeepsCoveredForSingleLineStatements verifies the
-// block printer reports `covered == true` when every statement is
-// confined to a single source line (each is an expression statement
-// whose call is printed structurally, with a verbatim callee slice).
+// block printer reports `covered == true` for two comment-free calls,
+// each confined to a single source line. Each expression statement's
+// call is printed structurally, with a verbatim callee slice.
 //
-// Single-line verbatim is reflow-safe: a node that lives on one line
-// has no interior column for the enclosing re-indent to strand. The
-// block printer must distinguish this safe case from the multi-line
-// verbatim hazard — treating every verbatim statement as uncovered
-// would make the rule abstain on the common `() => { a(); b(); }`
-// shape and never reflow it.
+// These single-line callee slices retain no interior indentation to
+// strand during reflow. The direct printer must retain both calls and
+// their order while indenting them. This does not assert coverage for
+// every single-line statement: an argument-gap comment can make a call
+// uncovered, and the formatPrintWidth rule is not exercised here.
 //
 //  1. Parse a block whose two statements (`a();`, `b();`) each occupy
 //     one line.
