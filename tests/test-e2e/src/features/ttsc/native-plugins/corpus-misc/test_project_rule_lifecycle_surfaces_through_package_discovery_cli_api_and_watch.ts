@@ -1,14 +1,12 @@
+import { TestProject } from "@ttsc/testing";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { TtscCompiler } from "ttsc";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
-  child_process,
   fs,
   goPath,
-  nativeBinary,
-  os,
   path,
   setupLintProject,
   spawn,
@@ -20,6 +18,8 @@ import {
   initializeTtscserverClient,
   runTtscserverSession,
 } from "../../../../internal/ttsc/internal/ttscserver";
+
+import { WatchSession } from "../../../../internal/ttsc/internal/watch";
 
 type PublishDiagnosticsParams = {
   uri: string;
@@ -187,8 +187,8 @@ func init() { rule.Register(independentAST{}) }
  * @evidence contracts/testing.md#distinguishing-cases Logical linked and physical project roots, explicit API origin, blocked/clean LSP cycles, and blocked-clean-blocked watch cycles distinguish transport and lifetime ownership.
  * @evidence contracts/testing.md#execution-ownership The exported test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary One source-backed lint contributor crosses package discovery, public compiler diagnostics, LSP publication and watch input invalidation. Logical/physical identities, project-before-file ordering, clear notifications and fresh lifecycle IDs must survive those different public transports; contributor-semantic units cannot establish those connections.
- * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state. The LSP session helper closes its client; watch owns a timeout and completion path, with clean/blocked marker transitions performed only after observed cycles.
+ * @evidence contracts/e2e.md#shared-execution CLI, public API, LSP and watch use one authored source-backed contributor/linked consumer and suite producer cache, while retaining their distinct public transports. Available sharing does not measure cache hits, total builds/processes/Program generations or minimum preparation; workspace linking is not packed installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks physical consumer and logical link parent; the shared cache remains suite-owned. LSP body/shutdown failure conservatively retains both tracked inputs and preserves retention failures. Watch keeps the original total 120-second observation deadline, mutates clean/blocked only after completed cycles and joins supported close; body and close failures coexist, unknown join retains both inputs. Reported lifecycle IDs distinguish contributor instances, not compiler Program-object/loaded-image identity or arbitrary descendant proof.
  * @evidence contracts/e2e.md#preserved-coverage CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs. These assertions stay in test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
@@ -246,9 +246,7 @@ module.exports = {
 `,
     );
 
-    const logicalParent = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-project-rule-logical-"),
-    );
+    const logicalParent = TestProject.tmpdir("ttsc-project-rule-logical-");
     const logicalRoot = path.join(logicalParent, "linked-project");
     fs.symlinkSync(
       physicalRoot,
@@ -270,6 +268,9 @@ module.exports = {
       cwd: logicalRoot,
       env,
     });
+    assert.ifError(cli.error);
+    assert.equal(cli.signal, null);
+    assert.equal(typeof cli.status, "number");
     assert.notEqual(cli.status, 0, "project rule should fail the CLI check");
     assert.equal(
       cli.stderr.match(/\[guard\/project\]/g)?.length,
@@ -329,133 +330,114 @@ module.exports = {
         TTSC_PLUGIN_CONFIG_DIR: "",
       },
     });
-    await runTtscserverSession(client, async () => {
-      await initializeTtscserverClient(client, logicalRoot);
-      const failedPublication =
-        client.waitForNotification<PublishDiagnosticsParams>(
-          "textDocument/publishDiagnostics",
-          (params) =>
-            (params.diagnostics ?? []).some(
-              (diagnostic) => diagnostic.code === "guard/project",
-            ),
-          60_000,
+    try {
+      await runTtscserverSession(client, async () => {
+        await initializeTtscserverClient(client, logicalRoot);
+        const failedPublication =
+          client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              (params.diagnostics ?? []).some(
+                (diagnostic) => diagnostic.code === "guard/project",
+              ),
+            60_000,
+          );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(file, "utf8"),
+          },
+        });
+        const failedParams = await failedPublication;
+        assert.equal(namesFile(failedParams.uri, logicalConfig), true);
+        assert.equal(
+          failedParams.diagnostics?.filter(
+            (diagnostic) => diagnostic.code === "guard/project",
+          ).length,
+          1,
         );
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri,
-          languageId: "typescript",
-          version: 1,
-          text: fs.readFileSync(file, "utf8"),
-        },
-      });
-      const failedParams = await failedPublication;
-      assert.equal(namesFile(failedParams.uri, logicalConfig), true);
-      assert.equal(
-        failedParams.diagnostics?.filter(
+        const lspProjectDiagnostic = failedParams.diagnostics?.find(
           (diagnostic) => diagnostic.code === "guard/project",
-        ).length,
-        1,
-      );
-      const lspProjectDiagnostic = failedParams.diagnostics?.find(
-        (diagnostic) => diagnostic.code === "guard/project",
-      );
-      assert.equal(
-        lspProjectDiagnostic?.message?.includes(`logical=${logicalConfig}`),
-        true,
-      );
-      assert.equal(
-        lspProjectDiagnostic?.message?.includes(`physical=${physicalConfig}`),
-        true,
-      );
-      assert.equal(
-        lspProjectDiagnostic?.message?.includes(`logicalRoot=${logicalRoot}`),
-        true,
-      );
-      assert.equal(
-        lspProjectDiagnostic?.message?.includes(`invocation=${logicalRoot}`),
-        true,
-      );
-      assert.equal(
-        lspProjectDiagnostic?.message?.includes("explicit= origin= sources="),
-        true,
-      );
-
-      fs.writeFileSync(guardState, "clean\n");
-      const cleanPublication =
-        client.waitForNotification<PublishDiagnosticsParams>(
-          "textDocument/publishDiagnostics",
-          (params) =>
-            namesFile(params.uri, logicalConfig) &&
-            (params.diagnostics ?? []).length === 0,
-          60_000,
         );
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri: secondURI,
-          languageId: "typescript",
-          version: 1,
-          text: fs.readFileSync(secondFile, "utf8"),
-        },
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`logical=${logicalConfig}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`physical=${physicalConfig}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`logicalRoot=${logicalRoot}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes(`invocation=${logicalRoot}`),
+          true,
+        );
+        assert.equal(
+          lspProjectDiagnostic?.message?.includes("explicit= origin= sources="),
+          true,
+        );
+  
+        fs.writeFileSync(guardState, "clean\n");
+        const cleanPublication =
+          client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              namesFile(params.uri, logicalConfig) &&
+              (params.diagnostics ?? []).length === 0,
+            60_000,
+          );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri: secondURI,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(secondFile, "utf8"),
+          },
+        });
+        await cleanPublication;
       });
-      await cleanPublication;
-    });
+    } catch (error) {
+      // This helper may report failed shutdown; conservatively retain both inputs.
+      const failures: unknown[] = [error];
+      try { TestProject.retainTemporaryDirectory(physicalRoot); } catch (retentionError) { failures.push(retentionError); }
+      try { TestProject.retainTemporaryDirectory(logicalParent); } catch (retentionError) { failures.push(retentionError); }
+      throw new AggregateError(failures, "project-rule LSP body or shutdown");
+    }
 
     fs.writeFileSync(guardState, "blocked\n");
 
-    const child = child_process.spawn(
-      process.execPath,
-      [ttscBin, "--watch", "--cwd", logicalRoot, "--noEmit"],
-      {
-        cwd: logicalRoot,
-        env: {
-          ...process.env,
-          ...env,
-          TTSC_BINARY: nativeBinary,
-          TTSC_TSGO_BINARY: tsgoBinary,
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
-      },
-    );
-    let output = "";
-    let cleaned = false;
-    let blockedAgain = false;
-    let terminated = false;
-    const exit = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        child.kill("SIGKILL");
-        reject(new Error(`project-rule watch timed out\n${output}`));
-      }, 120_000);
-      child.on("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.on("close", () => {
-        clearTimeout(timer);
-        resolve();
-      });
+    const deadline = Date.now() + 120_000;
+    const watch = new WatchSession(logicalRoot, {
+      args: ["--noEmit"],
+      env,
+      ownershipRoot: physicalRoot,
+      ownedInputRoots: [logicalParent],
     });
-    const onChunk = (chunk: Buffer): void => {
-      output += chunk.toString("utf8");
-      const cycles = output.match(
-        /\[ttsc\] watch build (?:complete|failed)/g,
-      )?.length;
-      if (!cleaned && (cycles ?? 0) >= 1) {
-        cleaned = true;
-        fs.writeFileSync(guardState, "clean\n");
-      } else if (!blockedAgain && (cycles ?? 0) >= 2) {
-        blockedAgain = true;
-        fs.writeFileSync(guardState, "blocked\n");
-      } else if (!terminated && (cycles ?? 0) >= 3) {
-        terminated = true;
-        child.kill("SIGTERM");
-      }
-    };
-    child.stdout.on("data", onChunk);
-    child.stderr.on("data", onChunk);
-    await exit;
-
-    assert.equal(terminated, true, output);
+    const failures: unknown[] = [];
+    let completedOriginalCycles = false;
+    try {
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before initial cycle");
+      await watch.waitForBuilds(1, Math.max(1, deadline - Date.now()));
+      fs.writeFileSync(guardState, "clean\n");
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before clean cycle");
+      await watch.waitForBuilds(2, Math.max(1, deadline - Date.now()));
+      fs.writeFileSync(guardState, "blocked\n");
+      assert.ok(Date.now() < deadline, "project-rule watch timed out before blocked cycle");
+      await watch.waitForBuilds(3, Math.max(1, deadline - Date.now()));
+      completedOriginalCycles = true;
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try { await watch.close(); } catch (closeError) { failures.push(closeError); }
+    }
+    const output = watch.transcript();
+    if (failures.length) throw new AggregateError(failures, `project-rule watch observation or close\n${output}`);
+    assert.equal(completedOriginalCycles, true, output);
     assert.equal(
       output.match(/\[guard\/project\]/g)?.length,
       2,
