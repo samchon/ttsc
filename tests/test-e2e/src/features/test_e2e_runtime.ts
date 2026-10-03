@@ -9,10 +9,11 @@ import { test_commonjs_runtime_corpus_preserves_source_ownership_across_project_
  * alone instead of recursively preparing all retained legacy runtime donors.
  * Consolidated mode also stages the five original response-file decorator
  * inputs on that root, retaining each native target/order and output verdict.
- * Sixteen more staged language profiles retain four ordinary publication/runtime
+ * Eighteen more staged language profiles retain four ordinary publication/runtime
  * pairs, ESM member initialization, public JSX register and both forwarded CLI
  * modes, five diagnostic/effect rejections, three CLI/library option profiles
- * and dynamic package exports; twenty-one real requests keep their original
+ * dynamic package exports and both excluded direct/public-register formats;
+ * twenty-five real requests keep their original
  * transport and oracles.
  *
  * 1. Prepare the canonical CommonJS consumer once through its owning body.
