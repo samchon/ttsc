@@ -75,12 +75,15 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 }
 
 // PluginTransform transforms one source file in the emit phase, bound to the
-// emit EmitContext: nodes it builds with ec.Factory (and links with
-// ec.SetOriginal) are recognized and aliased by tsgo's builtin module-transform.
+// emit EmitContext. ec.Factory and ec.SetOriginal supply the identity channels
+// used by builtin transforms; they do not make every arbitrary constructed tree
+// valid. Injected bindings must use the supported generated-name policy and
+// preserve the original links needed by the particular transformation.
 // Returning nil leaves the file unchanged. This is the AST-integration contract
 // that replaces text-splice: a plugin returns AST, not text. The shape mirrors a
-// classic ts.TransformerFactory (SourceFile -> SourceFile) so an existing
-// node-based transformer plugs in by just accepting the EmitContext.
+// classic source-file transformer, with EmitContext supplied on each call;
+// adapting an existing transformer still requires the native AST and context
+// APIs rather than only changing its function signature.
 //
 // @evidence contracts/common.md#principled-implementation Generated AST identity belongs to the shared emit context, allowing builtin import and module transforms to interpret plugin nodes.
 // @evidence contracts/common.md#clear-and-simple-design A per-source callback returns an optional replacement; the host owns ordering and printing.
