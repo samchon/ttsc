@@ -4,7 +4,7 @@ import "testing"
 
 // TestPreferQueryMatchers verifies testing-library prefer-query-matchers: truthiness matchers around queries are rejected.
 //
-// Locks the matcher-name check for `toBeNull`, `toBeTruthy`, and `toBeFalsy`
+// Locks the matcher-name check for `toBeNull` and `toBeTruthy`
 // when the `expect` argument is a Testing Library query. These assertions should
 // use jest-dom document matchers instead.
 //
