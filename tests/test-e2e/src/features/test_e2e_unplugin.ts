@@ -21,6 +21,7 @@ import { test_turbopack_loader_registers_plugin_dependencies_on_cache_hit } from
 import { test_turbopack_loader_marks_volatile_modules_uncacheable } from "./unplugin/native-plugins/adapters/test_turbopack_loader_marks_volatile_modules_uncacheable";
 import { test_turbopack_loader_registers_the_project_record_alone } from "./unplugin/native-plugins/adapters/test_turbopack_loader_registers_the_project_record_alone";
 import { test_turbopack_loader_proves_its_own_records_under_a_session } from "./unplugin/native-plugins/adapters/test_turbopack_loader_proves_its_own_records_under_a_session";
+import { test_turbopack_loader_signals_a_change_before_turbopacks_baseline } from "./unplugin/native-plugins/adapters/test_turbopack_loader_signals_a_change_before_turbopacks_baseline";
 
 /**
  * Verifies bundler hosts with one native fixture and one shared banner input.
@@ -36,7 +37,7 @@ import { test_turbopack_loader_proves_its_own_records_under_a_session } from "./
  * default-options, plain/reporting project records, explicit prefix,
  * volatile/hermetic cacheability,
  * repeated dependency registration and
- * absent dependency-channel deliveries before the
+ * absent dependency-channel and pre-baseline signal/redelivery profiles before the
  * out-of-program and final missing-helper verdicts on the same producer.
  * A separately rooted linked-banner input is prepared once before host calls;
  * Rollup and esbuild consume its unchanged authored bytes, then the terminal
@@ -49,10 +50,10 @@ import { test_turbopack_loader_proves_its_own_records_under_a_session } from "./
  * @evidence contracts/testing.md#behavioral-verification Vite and Rollup retain generated PLUGIN output. Dependency watchFiles contain exactly its project record, omit the compiler input, and the record names src/types.d.ts. Esbuild retains setup/context/replacement/disposal and counter1/2/3 assertions. Final built Turbopack loader retains native helper.ts error1, generated module throwing that exact emitted message, rejection without emitError and missing-config rejection before compilation.
  * @evidence contracts/testing.md#independent-expectations Original PLUGIN/goUpper literals and one-byte compile counters remain in their owning bodies. Rollup closure is observed only after the actual supported bundle.close resolves; it is not inferred from an output or failure result.
  * @evidence contracts/testing.md#distinguishing-cases A failed output assertion with successful bundle close still allows the next named host; absent/failed close blocks configuration mutation. Esbuild distinguishes failed setup, one/last context disposal, delayed old disposal and final one-shot release.
- * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls sixteen existing bodies with one generated native project and one separately rooted linked-banner input shared by three source-map bodies. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
+ * @evidence contracts/testing.md#execution-ownership The consolidated Unplugin host entry calls seventeen existing bodies with one generated native project and one separately rooted linked-banner input shared by three source-map bodies. Legacy standalone donors retain their default preparation; registration and this authored subset do not certify all adapter profiles or actual execution. The startup proof launches its actual production-session Node worker; other Turbopack delivery uses its built loader/context connection and does not certify a running Next worker.
  * @evidence contracts/e2e.md#necessary-boundary Actual Rollup/esbuild lifecycle callbacks connect built adapters to native transforms; a fabricated adapter or direct cache-policy unit cannot witness those host connections.
  * @evidence contracts/e2e.md#shared-execution One generated consumer/source descriptor and shared content-addressed plugin cache serve the native fixture profiles. Three banner source-map bodies borrow one physical linked project and package link, replacing three identical setup paths; this banner producer is distinct from the native fixture producer. Host sessions, source changes and config generations remain separately observed; callbacks do not prove process or Program counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The production-session startup proof runs first and independently requires the shared root tool directory absent; a parent bridge cannot supply its sibling proof. Its actual worker close gates Vite/Rollup, which then read unchanged baseline. Their completion gates precede dependency options, its close precedes count-runs, and esbuild successful lifecycle precedes exact authored baseline-config restoration. Default loader return precedes original plain-record observations, then their completed assertions precede the original empty-config-plugin/reporting input on the same root. Reporting return gates later option profiles; both original single-record channels and relative/absolute/duplicate/self inputs remain. The original A: prefix options return before volatile then hermetic options. The original numeric PLUGIN suffix, [false] and [] cacheability observations remain; hermetic callback return gates distinct emit-dependencies options and its two identical requests, then the absent host channel and exact baseline-byte restoration. Actual cold/native cache events remain separately observable, not inferred from request order. Out-of-program delivery must return and restore the exact stderr descriptor before final read-helper options. Original src/helper.ts absence is checked. Uncertain completion blocks mutation; common inputs remain retained. Public operation boundaries do not certify arbitrary descendants and no mutation follows the failed-loader terminal profile.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The production-session startup proof runs first and independently requires the shared root tool directory absent; a parent bridge cannot supply its sibling proof. Its actual worker close gates Vite/Rollup, which then read unchanged baseline. Their completion gates precede dependency options, its close precedes count-runs, and esbuild successful lifecycle precedes exact authored baseline-config restoration. Default loader return precedes original plain-record observations, then their completed assertions precede the original empty-config-plugin/reporting input on the same root. Reporting return gates later option profiles; both original single-record channels and relative/absolute/duplicate/self inputs remain. The original A: prefix options return before volatile then hermetic options. The original numeric PLUGIN suffix, [false] and [] cacheability observations remain; hermetic callback return gates distinct emit-dependencies options and its two identical requests, then the absent host channel. Original Before/After declaration bytes require repeated record movement, redelivery and five-second stopped movement before exact baseline-byte restoration; failed acknowledgment blocks later profiles. Actual cold/native cache events remain separately observable, not inferred from request order. Out-of-program delivery must return and restore the exact stderr descriptor before final read-helper options. Original src/helper.ts absence is checked. Uncertain completion blocks mutation; common inputs remain retained. Public operation boundaries do not certify arbitrary descendants and no mutation follows the failed-loader terminal profile.
  * @evidence contracts/e2e.md#preserved-coverage Original native fixture body literals, controls and host disposal assertions remain. Source-map bodies retain no SOURCEMAP_BROKEN, authored value coordinates, embedded source text, webpack/Rspack marker coordinates and Turbopack shifted-line plus exact map position. Rollup close gates the unchanged esbuild input; esbuild return gates the original terminal marker rewrite. Linked-project readers and failed fixture readers use separate roots; common inputs remain retained. Other approved profiles, baseline measurement and actual selected survival remain pending; no donors are removed.
  */
 export async function test_e2e_unplugin(): Promise<void> {
@@ -190,8 +191,19 @@ export async function test_e2e_unplugin(): Promise<void> {
     } else {
       failures.push(new Error("turbopack optional channel blocked: repeated dependency returns were unobserved"));
     }
-    let outOfProgramReturned = false;
+    let signalAcknowledged = false;
     if (optionalChannelReturned) {
+      try {
+        await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_signals_a_change_before_turbopacks_baseline", test_turbopack_loader_signals_a_change_before_turbopacks_baseline, root);
+        signalAcknowledged = true;
+      } catch (cause) {
+        failures.push(new Error("turbopack pre-baseline record signal and acknowledgment", { cause }));
+      }
+    } else {
+      failures.push(new Error("turbopack signal profile blocked: optional channel return was unobserved"));
+    }
+    let outOfProgramReturned = false;
+    if (signalAcknowledged) {
       try {
         fs.writeFileSync(path.join(root, "tsconfig.json"), baselineConfig);
         await Scenarios.invoke("shared-unplugin", "test_turbopack_loader_passes_through_an_out_of_program_module", test_turbopack_loader_passes_through_an_out_of_program_module, root, () => {
@@ -201,7 +213,7 @@ export async function test_e2e_unplugin(): Promise<void> {
         failures.push(new Error("turbopack out-of-program delivery", { cause }));
       }
     } else {
-      failures.push(new Error("turbopack out-of-program delivery blocked: optional channel return was unobserved"));
+      failures.push(new Error("turbopack out-of-program delivery blocked: record signal acknowledgment was unobserved"));
     }
     if (!outOfProgramReturned)
       failures.push(new Error("turbopack failure profile blocked: prior delivery or stderr restoration was unobserved"));
