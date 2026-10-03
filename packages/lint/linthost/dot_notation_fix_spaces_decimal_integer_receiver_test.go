@@ -9,9 +9,9 @@ import "testing"
 //
 // `5["toString"]` → `5.toString` is a SyntaxError (TS1351): the digit and the
 // dot lex together as the float `5.`. ESLint's dot-notation inserts a space
-// (`5 .toString`) only for a plain decimal integer; a hex/float/exponent
-// literal ends in a non-decimal token and a parenthesized `(5)` ends in `)`,
-// so the spliced dot reads as a clean member access. The receiver kind is
+// (`5 .toString`) only for a plain decimal integer. A member dot cannot extend
+// the existing hexadecimal, fractional or exponent spelling, and a
+// parenthesized `(5)` ends in `)`, so those forms keep the dot tight. The receiver kind is
 // inspected directly (not through `stripParens`) so `(5)` keeps the tight dot.
 //
 //  1. Fix bare decimal-integer receivers and assert the space is inserted.
