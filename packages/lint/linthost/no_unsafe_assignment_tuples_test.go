@@ -5,11 +5,11 @@ import "testing"
 // TestNoUnsafeAssignmentTuples covers tuple type arguments through the shared
 // same-target recursive comparison.
 //
-// 1. Assign a tuple with two `any` elements to a concrete tuple target.
+// 1. Assign a tuple with direct `any` and an object containing `any` to a concrete tuple target.
 // 2. Repeat with `unknown` receivers and an identical tuple as safe twins.
-// 3. Require one finding for the annotated tuple boundary, not one per argument.
+// 3. Require one finding for the direct tuple-element mismatch.
 //
-// @evidence contracts/testing.md#behavioral-verification Tuple type argument comparison must retain one report per assignment boundary.
+// @evidence contracts/testing.md#behavioral-verification Tuple type argument comparison must detect the direct any element at its assignment boundary.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require one authored concrete tuple assignment finding; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases unknown receiver and identical tuple stay clean; nested structural properties are not a general runtime-safety proof.
 // @evidence contracts/testing.md#execution-ownership TestNoUnsafeAssignmentTuples invokes assertNoUnsafeAssignmentCase and the in-process check command with a real Program/Checker; fixture project files configure that operation, with no installed consumer, native build or child compiler.
