@@ -69,18 +69,19 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
 }
 
 // ProjectInputReloadFingerprintsAreCurrent reports whether the retained
-// selection-time baseline still matches the filesystem. The proxy checks this
-// after the client confirms dynamic watcher registration, closing the interval
-// between construction-time validation and active event delivery.
+// selected baseline digests still compare equal under the native probe policy.
+// The proxy checks after watcher-registration acceptance, but probes are
+// sequential rather than one atomic filesystem capture. Equal failure markers
+// can compare equal, and nil/empty selection is not proof of global freshness.
 //
-// @evidence contracts/common.md#principled-implementation Selected file digests and immediate directory topology are compared to current native state after copying the retained baseline under lock.
+// @evidence contracts/common.md#principled-implementation Selected file/topology digests and launcher-selection records are compared after copying the baseline under lock. Missing/unreadable probe markers, sequential acquisition and a vacuously empty population limit what equality certifies; it is not an atomic complete-project freshness proof.
 // @evidence contracts/common.md#clear-and-simple-design Contributor reload and launcher selection checks share watcher-registration acceptance.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Bytes and topology are observed rather than accepting a quiet watcher as proof of freshness.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the startup-to-registration interval, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native stat/readlink and physical identity distinguish links, missing inputs and actual directory case policy.
-// @evidence contracts/performance.md#efficient-algorithms Full byte hashing establishes content identity; directory checks inspect immediate entries rather than recursive unrelated descendants.
+// @evidence contracts/portability.md#os-neutral-implementation Native stat/readlink/content reads and owning-directory case queries supply selected evidence. Identity can fall back to lexical spelling and unreadable inputs use markers; neither an unknown flag nor marker equality authenticates current physical contents.
+// @evidence contracts/performance.md#efficient-algorithms Costs include copying all snapshot slices/digest maps, path-key byte/native queries, selected file-byte hashing, and sorted immediate directory listings/stat/readlink checks. Launcher selection also checks recorded files and can search recorded names per listed entry. No recursive content walk is required, but selected file bytes, listing populations and native IO latency have no independent bound here.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Current native state must be observed without a filesystem generation token that could validate an earlier observation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary copies and synchronous native probes acquire no long-lived handle.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Snapshot/map/listing copies and hashing state are invocation-local without a separate population budget. File reads and Windows identity probes acquire deferred-closed handles with close errors ignored; the method adds no read deadline or cancellation. It retains no query history and does not advance the source baseline on equality.
 func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   if s == nil {
     return true
@@ -92,17 +93,20 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
-// ProjectInputMatchesURI reports whether a watched-file URI belongs to a
-// declared exact dependency or glob population.
+// ProjectInputMatchesURI tests a watched URI against retained dependency/glob
+// declarations for invalidation routing. Native resolution can fall back to
+// lexical spelling; unknown Windows glob case capability admits both spellings.
+// A match is not proof of physical dependency ownership or current declaration
+// completeness, and the operation does not query the producer again.
 //
-// @evidence contracts/common.md#principled-implementation File URIs match declared exact dependencies or wildcard populations; unrelated and malformed URIs do not match.
+// @evidence contracts/common.md#principled-implementation Parsed file URIs are tested against retained exact/glob declarations; URI decode failures return false. Conservative native-fallback and unknown-case routing can admit a candidate without certifying actual physical dependency membership.
 // @evidence contracts/common.md#clear-and-simple-design Shared URI decoding precedes the snapshot owner's path and glob matching.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Membership follows declared populations rather than assumed contributor extensions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states declared dependency membership, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Physical identity and actual Windows directory sensitivity establish comparisons separately from URI spelling.
-// @evidence contracts/performance.md#efficient-algorithms Exact entries precede globs; component recursion memoizes index pairs and segment DP uses O(N) row space for O(MN) wildcard time.
+// @evidence contracts/portability.md#os-neutral-implementation Exact keys use native realpath/ancestor fallback and preserve unobserved Windows case distinctions. Glob routing uses owning-directory flags when known and broadens unknown sensitivity; that policy is separate from permission to merge physical identities. Non-Windows globs use case-sensitive normalized spelling without certifying mount-specific case behavior.
+// @evidence contracts/performance.md#efficient-algorithms Exact entries precede globs, but native candidate/file/pattern identity and path-byte work are repeated while holding the snapshot read lock. Component recursion memoizes up to pattern-by-candidate index pairs and consumes recursive depth; each segment allocates rune arrays plus an O(N) DP row for O(MN) rune comparisons. There is no independent input/DP budget, and native IO can block beyond those processing counts.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Native identity may change across calls without an immutable filesystem epoch.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Matching retains temporary path and DP state only.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Query path/rune/DP/memo state grows with declaration and path dimensions without an independent cap, then becomes reclaimable. Windows identity helpers acquire read-attribute handles and defer CloseHandle with errors ignored. The method keeps no queried-URI history, owns no producer process and adds no native-query deadline.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -125,10 +129,10 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
 // @evidence contracts/common.md#clear-and-simple-design This compatibility matcher shares native path and immediate-containment helpers with change-aware matching.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative legacy membership is an explicit API difference; event consumers use the digest-aware method.
 // @evidence contracts/common.md#meaningful-documentation Native prose directs event callers to the change-aware operation and explains false restarts, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Both candidate and declared paths resolve native physical/entry identities, including link ancestors and short Windows components.
+// @evidence contracts/portability.md#os-neutral-implementation Candidate and declaration comparisons attempt native physical/leaf-entry resolution, including link ancestors and Windows short names. Failed observation falls back to lexical spelling or unknown-case distinctions; a match is routing policy rather than proof of complete physical identity.
 // @evidence contracts/performance.md#efficient-algorithms Reload entry scanning is linear in declared population plus native identity resolution cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Physical identities are freshly observed and cannot be cached without native invalidation proof.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query stores no history or long-lived handles.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary path/key state grows with declared entries and path lengths, with no independent query budget. Windows read-attribute handles are deferred-closed with errors ignored; no query history is stored and no native-query deadline is added.
 func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -169,15 +173,18 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
 // directory itself always qualifies. An immediate entry qualifies only when
 // the current name/type/symlink-target digest differs from the snapshot and
 // the entry is not data territory under a declared glob's literal root.
+// changeType is accepted for compatibility but is not inspected; the recorded
+// selection, URI and current probe results determine the decision. Probe failures
+// can yield markers rather than an independently reported observation error.
 //
 // @evidence contracts/common.md#principled-implementation Exact reload identities and changed immediate topology trigger restart; declared data territory can explain a directory transition without advancing the executable baseline.
 // @evidence contracts/common.md#clear-and-simple-design Contributor inputs and immutable launcher selection are checked at one restart boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Data exemptions follow actual declared glob roots and recorded digests rather than expected file answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains exact content inputs and topology transitions, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Link-leaf entry identity and target physical identity remain distinct; native metadata and owning-directory capability govern alias comparison.
-// @evidence contracts/performance.md#efficient-algorithms The query scans reload entries and probes relevant immediate topology without recursively hashing descendant content.
+// @evidence contracts/portability.md#os-neutral-implementation Link-leaf and target identity comparisons remain separate, using native metadata/case queries when available and lexical or unknown-case fallback otherwise. Digest markers for failed reads are not physical-content authentication.
+// @evidence contracts/performance.md#efficient-algorithms The method copies all snapshot slices/maps, resolves candidate/reload identities, and checks relevant launcher-selection file bytes/listings before reload directory topology. Glob-root exemptions add declared-pattern/path scans and key queries. Immediate listings are sorted and their metadata/link targets hashed; no recursive descendant-content walk is performed, but file-byte, text/population and native IO costs remain.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work An earlier URI match does not establish continued validity of current native topology.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native probes and baseline copies are temporary; source ownership retains selection state.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Baseline copies, directory listings and path/key state are invocation-local with no independent budget. Selection content reads and Windows probes acquire deferred-closed handles with close errors ignored; no read deadline or cancellation is supplied. Retained baseline ownership remains with the source and is not updated by this query.
 func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   uri string,
   changeType *int,
@@ -249,7 +256,8 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
 }
 
 // ProjectInputOwnersForURI returns the stable plugin keys whose latest
-// successful snapshots match uri. Ownership is retained past the flattened
+// successful retained snapshots match uri under the routing policy. These keys
+// do not certify fresh or complete physical ownership. Ownership is retained past the flattened
 // client registration so an external edit refreshes only the contributors that
 // declared it.
 //
@@ -257,10 +265,10 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
 // @evidence contracts/common.md#clear-and-simple-design Owner discovery reuses snapshot matching rather than maintaining another membership model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Owners follow actual contributor declarations, not filename-to-plugin guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why ownership survives flattened client registration, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native identity helpers preserve actual owning-directory case policy.
-// @evidence contracts/performance.md#efficient-algorithms Deduplicated transport traversal queries actual producers; per-producer work depends on declared paths and glob dimensions.
+// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native helpers observe realpath/owning-directory flags when possible. Lexical fallback and unknown-case glob broadening are conservative notification policies, not authenticated physical snapshot ownership.
+// @evidence contracts/performance.md#efficient-algorithms Transport traversal hashes binary/context-mode key bytes and tests retained records without rerunning producers. Each record repeats candidate/declaration native identity work and glob memo/rune/DP processing under the read lock, with costs depending on path text, component counts and segment lengths rather than producer count alone.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Native membership has no immutable epoch permitting cross-call memoization.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned list belongs to the caller; no queried-URI history is retained.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Local transport/routing/path/DP state and returned key storage grow with descriptors and declaration dimensions without a separate cap. Windows read-attribute handles are deferred-closed with errors ignored; no query deadline or producer process is owned here. Returned strings transfer to callers and no queried-URI history is retained by this method.
 func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   if s == nil {
     return nil
