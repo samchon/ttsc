@@ -9,8 +9,8 @@ import (
 // TestReactOnlyExportComponentsReportsNonComponentExport verifies react/only-export-components.
 //
 // Locks the React Fast Refresh module-boundary branch where a TSX file already
-// exports a component and then adds a non-component export. That mixed export
-// shape forces refresh invalidation, so the rule must point at the shared value.
+// exports a component alongside a non-component value under the default policy.
+// The rule points at the shared value; this unit does not execute a refresh runtime.
 //
 //  1. Parse a TSX module with one component export and one value export.
 //  2. Run only react/only-export-components.
