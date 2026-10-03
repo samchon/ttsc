@@ -9,6 +9,7 @@ import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "./int
 import { pairE2eColdCommandArtifact } from "./internal/pairE2eColdCommandArtifact";
 import { pairE2eCommandFileObservation } from "./internal/pairE2eCommandFileObservation";
 import { requireE2eBaselinePreparation } from "./internal/requireE2eBaselinePreparation";
+import { pairE2eInvocationOutcomes } from "./internal/pairE2eInvocationOutcomes";
 
 /**
  * Runs either the legacy index or explicit consolidated families in one owned, instrumented Node process.
@@ -166,7 +167,8 @@ export async function measureLegacyE2e(): Promise<void> {
         pairing: pairE2eCommandFileObservation(phase, { ...requirement, writerPid }) })),
     };
   });
-  const report = JSON.stringify({ phase, pairing, coldArtifacts, commandFiles, descendantJoinCertified: false }, (_key, value) =>
+  const invocations = pairE2eInvocationOutcomes(phase.traces);
+  const report = JSON.stringify({ phase, pairing, coldArtifacts, commandFiles, invocations, descendantJoinCertified: false }, (_key, value) =>
     value instanceof Error ? { name: value.name, message: value.message, stack: value.stack,
       diagnostic: inspect(value, { depth: null, customInspect: false, getters: false,
         maxArrayLength: null, maxStringLength: null }) } : value, 2);
@@ -176,7 +178,7 @@ export async function measureLegacyE2e(): Promise<void> {
   if (!phase.outcome.returned || phase.outcome.value.status === null || phase.outcome.value.signal !== null ||
     phase.observationErrors.length !== 0 || phase.traces?.integrityProblems.length !== 0 ||
     phase.traces?.incompleteProcessInvocations.length !== 0 ||
-    pairing.boundaries.some(boundary => boundary.problems.length !== 0) ||
+    invocations.problems.length !== 0 || pairing.boundaries.some(boundary => boundary.problems.length !== 0) ||
     coldArtifacts.some(boundary => boundary.problems.length !== 0 || boundary.writers.some(writer =>
       writer.pairing.problems.length !== 0 || writer.pairing.artifacts.some(artifact => artifact.problems.length !== 0))) ||
     commandFiles.some(boundary => boundary.problems.length !== 0 ||
