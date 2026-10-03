@@ -162,9 +162,10 @@ func offsetForPosition(text string, line int, character int) (int, bool) {
 }
 
 // indexByteFrom returns the offset of the first target byte at or after from, or
-// -1. It delegates to strings.IndexByte rather than looping: this runs once per
-// line walked on the completion path, and the standard library's scan is the
-// platform's vectorized one where a hand-rolled loop is a byte at a time.
+// -1, normalizing a negative start to zero and refusing starts at or past EOF.
+// The remaining substring search delegates to strings.IndexByte. This helper
+// is exercised directly by its unit; offsetForPosition currently delegates to
+// lspPositionToByteOffset instead, so this is not its active line scanner.
 func indexByteFrom(text string, from int, target byte) int {
   if from < 0 {
     from = 0

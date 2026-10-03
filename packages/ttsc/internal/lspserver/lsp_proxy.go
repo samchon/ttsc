@@ -647,9 +647,9 @@ func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
   if err != nil {
     return body
   }
-  // Re-encode only the subtree that changed: every sibling value stays the
-  // client's original bytes, so a large or unusually shaped initialize payload
-  // reaches tsgo exactly as it was sent.
+  // Preserve sibling JSON values in the rebuilt parameter subtrees. Marshaling
+  // can change their byte spelling/whitespace and serializes the parsed Envelope;
+  // only the earlier pass-through branches preserve the complete original bytes.
   general["positionEncodings"] = constrained
   encodedGeneral, err := json.Marshal(general)
   if err != nil {

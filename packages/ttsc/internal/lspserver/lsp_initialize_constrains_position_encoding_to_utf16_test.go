@@ -8,29 +8,25 @@ import (
   "testing"
 )
 
-// TestLSPInitializeConstrainsPositionEncodingToUTF16 verifies that the offer
-// forwarded to tsgo can only ever select UTF-16, and that a client which did not
-// offer UTF-8 reaches tsgo byte for byte as before.
+// TestLSPInitializeConstrainsPositionEncodingToUTF16 checks authored offer
+// rewrites, selected sibling values, pass-through bytes and a buffered pump.
 //
-// LSP 3.17 negotiates one PositionEncodingKind per session. The pinned
-// typescript-go selects `utf-8` whenever a client offers it and advertises that
-// choice back through the proxy, while every position ttsc computes itself — the
-// incremental buffer cache, plugin completion, the lint sidecar's ranges, the
-// graph symbol provider — counts UTF-16 code units. ttscserver therefore settles
-// the negotiation at the initialize request instead of tracking it, so the two
-// halves of one editor response cannot disagree.
+// Three explicit non-UTF16 offers are rewritten to the UTF16 singleton; seven
+// authored already-default/non-request cases retain their original bytes.
+// The actual editor pump writes a constrained frame to a bytes.Buffer, not to
+// an executing tsgo process. This does not certify every downstream position
+// consumer, an actual negotiated session or all sibling fields/byte spelling.
 //
 //  1. Forward an initialize request offering UTF-8 first and assert the upstream
-//     frame offers UTF-16 alone while every sibling field survives verbatim.
+//     frame offers UTF-16 alone while selected decoded sibling values survive.
 //  2. Assert an offer of UTF-16 alone, an absent offer, and a non-initialize
 //     envelope are returned unchanged.
-//  3. Drive the real editor-to-upstream pump and assert the rewrite is what tsgo
-//     actually receives.
+//  3. Drive the actual buffered pump and assert the emitted offer is UTF-16.
 //
-// @evidence contracts/testing.md#behavioral-verification An initialize request offering UTF-8 first is forwarded offering UTF-16 alone with every sibling field intact, and an offer of UTF-16 only, an absent offer and a non-initialize envelope pass through unchanged.
-// @evidence contracts/testing.md#independent-expectations The expected forwarded JSON is a literal for each input request.
-// @evidence contracts/testing.md#distinguishing-cases Each of the four inputs takes a different branch of the constraint.
-// @evidence contracts/testing.md#execution-ownership TestLSPInitializeConstrainsPositionEncodingToUTF16 is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification Actual constrainInitializePositionEncoding rewrites three authored offers to the literal UTF16 singleton, preserves selected decoded identity/process/root/markdown/completion fields for the first input, and returns seven quiet-case bodies byte for byte. Actual pumpEditorToUpstream emits a framed UTF16 offer into a buffer and returns ErrFrameClosed at EOF; no upstream process consumes it here.
+// @evidence contracts/testing.md#independent-expectations Expected offer values, selected sibling values and EOF sentinel are independent literals; pass-through cases compare to their original authored bytes. Rewritten-frame byte identity and unlisted sibling fields are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases UTF8+UTF16, UTF8-only and UTF32+UTF8 offers change; UTF16-only, missing/null/empty offer, missing general capabilities, another method and an initialize notification pass through. Shared branches are not claimed as ten distinct algorithms.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes the actual constraint and actual framed editor-to-upstream pump through supported bytes.Buffer/io.Discard streams, then decodes returned frames. It substitutes no pump or operation and creates no directory or sidecar; no compiler, native process, installed consumer, product host or editor runs.
 func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   const offeringUTF8 = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
     `{"processId":4242,"rootUri":"file:///project","capabilities":` +
@@ -38,7 +34,7 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
     `"textDocument":{"completion":{"dynamicRegistration":true}}}}}`
 
   rewritten := constrainInitializePositionEncoding(mustParseEnvelope(t, offeringUTF8), []byte(offeringUTF8))
-  assertPositionEncodings(t, rewritten, []string{positionEncodingUTF16})
+  assertPositionEncodings(t, rewritten, []string{"utf-16"})
   assertInitializeSiblingsSurvive(t, rewritten)
 
   const offeringUTF8Only = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
@@ -46,7 +42,7 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   assertPositionEncodings(
     t,
     constrainInitializePositionEncoding(mustParseEnvelope(t, offeringUTF8Only), []byte(offeringUTF8Only)),
-    []string{positionEncodingUTF16},
+    []string{"utf-16"},
   )
 
   const offeringUTF32 = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
@@ -54,11 +50,10 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   assertPositionEncodings(
     t,
     constrainInitializePositionEncoding(mustParseEnvelope(t, offeringUTF32), []byte(offeringUTF32)),
-    []string{positionEncodingUTF16},
+    []string{"utf-16"},
   )
 
-  // Negative twins: a client that never offered UTF-8 must reach tsgo exactly as
-  // it wrote its request, so no existing session changes shape.
+  // These authored default/non-request cases keep their original bytes.
   unchanged := []struct {
     name string
     body string
@@ -110,8 +105,7 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
     })
   }
 
-  // The helper is only correct if it sits on the forwarding path, so drive the
-  // real pump and read what tsgo would have received.
+  // Drive the actual forwarding pump with buffers and inspect its output frame.
   var editorIn bytes.Buffer
   if err := WriteFrame(&editorIn, []byte(offeringUTF8)); err != nil {
     t.Fatalf("write editor frame: %v", err)
@@ -129,7 +123,7 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   if err != nil {
     t.Fatalf("read forwarded initialize: %v", err)
   }
-  assertPositionEncodings(t, forwarded, []string{positionEncodingUTF16})
+  assertPositionEncodings(t, forwarded, []string{"utf-16"})
 }
 
 func mustParseEnvelope(t *testing.T, body string) Envelope {

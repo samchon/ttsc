@@ -2,22 +2,20 @@ package lspserver
 
 import "testing"
 
-// TestLSPIndexByteFromBoundsItsSearchStart verifies the line scanner behind
-// offsetForPosition answers identically at and past the edges of the buffer.
+// TestLSPIndexByteFromBoundsItsSearchStart checks the helper's search boundaries.
 //
 // An out-of-range start must simply find nothing. Slicing before delegating to
-// strings.IndexByte would panic on the same input, and the position path
-// reaches it for a cursor on the last line of a buffer that has no trailing
-// newline.
+// strings.IndexByte would panic on those cases. No active position conversion
+// calls this helper; the unit does not certify offsetForPosition or a request.
 //
 //  1. Search from inside, at, and past the end of a buffer.
 //  2. Search from a negative start.
 //  3. Assert every answer is the offset the caller can index with, or -1.
 //
-// @evidence contracts/testing.md#behavioral-verification indexByteFrom finds bytes from inside, at and past the end of a buffer and from a negative start, returning an index the caller can use or -1 and never panicking.
+// @evidence contracts/testing.md#behavioral-verification Actual indexByteFrom returns six literal offsets for newline searches with start, interior, after-last-newline, EOF, past-EOF and negative starts, plus -1 for an empty buffer. A panic fails these calls; other target bytes or arbitrary integer/string inputs are not certified.
 // @evidence contracts/testing.md#independent-expectations Expected offsets are literals for each start position.
 // @evidence contracts/testing.md#distinguishing-cases Inside, end, past-end and negative starts are the boundary inputs.
-// @evidence contracts/testing.md#execution-ownership TestLSPIndexByteFromBoundsItsSearchStart is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly calls the actual package-local string helper with authored strings/start offsets and compares literal integers. It substitutes no operation and creates no directory or sidecar; no compiler, process, product host, position-conversion caller or LSP transport runs.
 func TestLSPIndexByteFromBoundsItsSearchStart(t *testing.T) {
   const text = "alpha\nbeta\ngamma"
   for _, entry := range []struct {
