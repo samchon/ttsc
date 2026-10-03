@@ -7,7 +7,7 @@ import "testing"
 // named import of "m", in both declaration orders.
 //
 // Locks the export-all exclusion in `duplicateImportsCanMerge`: `export
-// *` re-exports every binding and cannot be folded into a named import
+// *` cannot be folded into a named import
 // (or vice versa) — only another `export *` or a bare side-effect import
 // merges with it. Both orders exercise both operand sides of the
 // symmetric guard.
