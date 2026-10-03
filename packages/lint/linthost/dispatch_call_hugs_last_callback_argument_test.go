@@ -7,15 +7,13 @@ import (
 )
 
 // TestDispatchCallHugsLastCallbackArgument verifies a call whose last
-// argument is an arrow function keeps that callback hugging the parens
-// instead of exploding the whole argument list onto separate lines.
+// argument is a block-bodied arrow function keeps that callback hugging
+// the parens when the opening line fits, rather than exploding the list.
 //
-// This pins the last-argument-hugging shape (printListHuggingLast).
-// Without it, the multi-line callback body forces the enclosing
-// argument-list Group into broken mode, so the leading arguments each
-// land on their own indented line — the opposite of what Prettier does
-// for `foo(name, () => { … })`. The regression makes short, readable
-// callback calls balloon vertically for no reason.
+// This pins the direct last-argument-hugging shape (printListHuggingLast):
+// the multiline callback body does not put name on a separate line.
+// Header overflow and other arrow body shapes have separate layout
+// decisions. No format command or independent Prettier process runs here.
 //
 //  1. Parse `register(name, () => { handle(); });`.
 //  2. Dispatch the CallExpression through PrintNode under the default
