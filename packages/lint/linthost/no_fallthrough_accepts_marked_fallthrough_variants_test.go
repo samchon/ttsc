@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestNoFallthroughAcceptsMarkedFallthroughVariants verifies no-fallthrough accepts every default marker spelling.
+// TestNoFallthroughAcceptsMarkedFallthroughVariants verifies no-fallthrough accepts five authored default-marker variants.
 //
 // ESLint's default marker pattern is /falls?\s?through/i, so `falls through`,
 // `fall through`, `fallsthrough`, `fallthrough`, and any letter case must all
