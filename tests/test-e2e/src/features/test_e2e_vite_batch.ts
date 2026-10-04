@@ -1,6 +1,7 @@
-﻿import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
+import fs from "node:fs";
 import { build } from "vite";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
@@ -33,7 +34,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
     const result = await build({
       root: workspace.root, configFile: false, logLevel: "silent",
-      plugins: [adapter()],
+      plugins: [adapter({ plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry) })],
       build: { minify: false, write: false, sourcemap: true,
         rollupOptions: { input: path.join(workspace.root, "src/bundle.ts"), output: { format: "iife", name: "SharedBoundary" } } },
     });
@@ -42,7 +43,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     assert.equal(chunks.length, 1);
     const code = chunks[0]!.code;
     assert.doesNotMatch(code, /STRIPPED_DEBUG_RAN/);
-    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
+    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected, "A:PLUGIN:z", "D:PLUGIN:z");
     assert.ok(chunks[0]!.map, "the actual host must return a source map");
   } finally {
     if (previousCache === undefined) delete process.env.TTSC_CACHE_DIR; else process.env.TTSC_CACHE_DIR = previousCache;
