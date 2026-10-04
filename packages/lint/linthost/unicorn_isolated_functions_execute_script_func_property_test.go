@@ -8,7 +8,7 @@ import "testing"
 // shorthand, or computed string key) on the object passed as the first
 // argument is isolated.
 //
-// Upstream requires Property kind "init" with a statically known "func" name
+// The native rule requires a method or function initializer named "func"
 // on the first argument's object literal, so accessors, computed identifier
 // keys, later arguments, and computed executeScript access must stay silent.
 //
@@ -19,7 +19,7 @@ import "testing"
 //     arguments, and computed executeScript member access are clean.
 //
 // @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify three first-object func captures report for chrome/browser scripting APIs; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
-// @evidence contracts/testing.md#independent-expectations The authored exact capture lines and named scripting reasons follow upstream first-argument initializer-property recognition. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#independent-expectations The authored exact capture lines and literal scripting reasons independently establish first-argument function-property recognition without calling the production reason builder.
 // @evidence contracts/testing.md#distinguishing-cases Arrow/function/method and literal-computed func keys match; accessor, dynamic key, identifier value, second object argument and computed executeScript do not.
 // @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsExecuteScriptFuncProperty is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsExecuteScriptFuncProperty(t *testing.T) {

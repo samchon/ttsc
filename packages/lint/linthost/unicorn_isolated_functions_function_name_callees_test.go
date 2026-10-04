@@ -7,11 +7,10 @@ import "testing"
 // bare-name callee is isolated, and the option replaces (not extends) the
 // defaults.
 //
-// Upstream matches `node.parent.arguments.includes(node)` with an Identifier
-// callee, so member callees and unlisted names must stay silent, parentheses
-// are transparent, and a named function expression's own name — resolved in
-// the function-expression-name scope above the function scope — is reported
-// when used recursively.
+// The native matcher checks actual call arguments and bare identifier callees.
+// Member callees and unlisted names stay silent, while parentheses are
+// transparent. A named function expression's recursive name is reported under
+// the rule's isolation policy rather than treated as an internal declaration.
 //
 //  1. Pass arrows, async arrows, function expressions, and a parenthesized
 //     arrow to makeSynchronous/workerize and assert each capture is reported.
@@ -20,7 +19,7 @@ import "testing"
 //     matching while the custom name reports.
 //
 // @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify configured bare callees report six capture sites and a custom callee replaces defaults; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
-// @evidence contracts/testing.md#independent-expectations The authored lines/targets and interpolated upstream reason sentences are independent of the production matcher. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#independent-expectations The authored lines, targets and literal reason sentences are independent of the production matcher and reason builder.
 // @evidence contracts/testing.md#distinguishing-cases Arrow/async/function/named recursion/later argument/parentheses match; member/unlisted callee and object method do not; custom myIsolate disables makeSynchronous.
 // @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsFunctionNameCallees is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsFunctionNameCallees(t *testing.T) {

@@ -7,8 +7,8 @@ import "testing"
 // `arguments` captured from an enclosing function through an isolated arrow
 // escapes the isolated scope.
 //
-// The checker gives `arguments` no declaration, so the port locates its owning
-// non-arrow function syntactically: owned inside the isolated function it is a
+// The native check locates the owning non-arrow function syntactically:
+// arguments owned inside the isolated function is a
 // local (clean); owned outside it is a captured binding (reported).
 //
 //  1. Assert a makeSynchronous function expression using its own `arguments`
@@ -17,7 +17,7 @@ import "testing"
 //     reports it.
 //
 // @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify own non-arrow arguments stays local while an isolated arrow captures outer arguments; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
-// @evidence contracts/testing.md#independent-expectations The authored target/line/message records express upstream own-function arguments ownership. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#independent-expectations The authored target/line/message records establish own-function arguments ownership. Test-owned interpolation composes the literal expected sentence without calling the production reason builder.
 // @evidence contracts/testing.md#distinguishing-cases The same arguments.length expression changes verdict only when its owning non-arrow function lies outside the isolated callback.
 // @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsArguments is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsArguments(t *testing.T) {
