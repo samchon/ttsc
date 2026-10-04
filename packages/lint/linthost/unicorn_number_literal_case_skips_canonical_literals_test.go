@@ -2,15 +2,13 @@ package linthost
 
 import "testing"
 
-// TestUnicornNumberLiteralCaseSkipsCanonicalLiterals verifies every literal
-// already spelled the upstream way stays silent.
+// TestUnicornNumberLiteralCaseSkipsCanonicalLiterals verifies thirteen authored
+// canonical or case-free literals stay silent.
 //
-// Widening the rule from "radix prefixes only" to "the whole literal" is what
-// makes these negatives load-bearing: each one is a positive's twin exactly one
-// property away (`1e10` vs `1E10`, `0xFF` vs `0xff`, `0xFF_FFn` vs `0xff_ffn`).
-// A legacy octal (`0777`) and a bare `0` also guard the old `source[0] == '0'`
-// gate, which the fix removed — neither carries a case-bearing letter, so
-// neither may report.
+// Lowercase exponent/radix markers, uppercase hex digits and unchanged
+// lowercase bigint suffixes contrast with the corresponding rewrite cases.
+// Plain decimal, legacy octal and zero add controls with no case-bearing
+// marker to normalize.
 //
 //  1. Feed the rule a literal in its canonical spelling.
 //  2. Assert the engine emits zero findings for it.

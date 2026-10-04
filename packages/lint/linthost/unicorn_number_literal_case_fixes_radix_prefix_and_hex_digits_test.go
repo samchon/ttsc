@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestUnicornNumberLiteralCaseFixesRadixPrefixAndHexDigits verifies the rule
-// lowercases the radix prefix letter and uppercases hex digits, in every
+// lowercases the radix prefix letter and uppercases hex digits in the authored
 // mixed-case combination.
 //
 // The canonical spelling is asymmetric — the prefix goes down, the digits go
@@ -18,7 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies six complete radix-literal rewrites.
 // @evidence contracts/testing.md#independent-expectations Literal source/expected pairs specify asymmetric lowercase prefixes and uppercase hex digits independently of the Go normalizer.
-// @evidence contracts/testing.md#distinguishing-cases Hex changes cover digits-only, prefix-only, both and mixed digits; binary/octal changes affect only their prefixes. Canonical negatives are TestUnicornNumberLiteralCaseSkipsCanonicalLiterals.
+// @evidence contracts/testing.md#distinguishing-cases Hex changes cover digits-only, prefix-only, both and mixed digits; binary/octal changes affect only their prefixes.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseFixesRadixPrefixAndHexDigits is a discoverable Go unit host; its literal fixtures and table cases execute the owning engine/fix operations in the shared Go process without consumer installation, native builds or product children. Helper failures retain each input and expected string.
 func TestUnicornNumberLiteralCaseFixesRadixPrefixAndHexDigits(t *testing.T) {
   for _, testCase := range []struct {

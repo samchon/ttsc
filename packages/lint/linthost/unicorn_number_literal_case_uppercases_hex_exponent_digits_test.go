@@ -9,7 +9,7 @@ import "testing"
 // This is the one place the two halves of the canonical spelling collide: the
 // exponent letter of a decimal literal must go down (`1E10` -> `1e10`) while
 // hex digits must go up, and `E` is both a letter and a hex digit. A fixer that
-// lowercased every `e` would rewrite `0xFFE10` to `0xffe10`, undoing its own
+// lowercased every `e` would rewrite `0xFFE10` to `0xFFe10`, undoing its own
 // digit rule; hex literals have no exponent, so the digit rule always wins.
 //
 //  1. Fix hex literals whose `e` digit is lowercase and assert it comes back
