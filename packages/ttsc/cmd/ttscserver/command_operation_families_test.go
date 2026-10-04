@@ -43,7 +43,7 @@ func TestTtscserverCommandOperationFamilies(t *testing.T) {
 // 2. Assert exit 0 and that stdout contains the LSP host banner.
 //
 // Testing: behavioral-verification Bare ttscserver returns zero and the Language Server Protocol host help banner.
-// Testing: independent-expectations The native editor host contract allows project-free probing without entering stdio transport; extra output and stderr are not asserted.
+// Testing: independent-expectations The native editor host contract allows project-free probing without entering stdio transport; the banner fragment and empty stderr are literal expectations while additional stdout is allowed.
 // Testing: distinguishing-cases Empty argv exercises default help separately from the three explicit help aliases.
 // Testing: Execution ownership: The aggregate owns this private empty-argv input and its literal status/banner-fragment assertions through actual run; no artifact, process, compiler Program or project fixture starts.
 func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
@@ -54,6 +54,7 @@ func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
   if !strings.Contains(out, "Language Server Protocol host") {
     t.Fatalf("help banner missing:\n%s", out)
   }
+  if errOut != "" { t.Fatalf("default help stderr = %q", errOut) }
 }
 
 // scenarioTestTtscserverCommandHelpAliases verifies the three authored help
@@ -124,13 +125,14 @@ func scenarioTestTtscserverCommandRejectsMissingStdio(t *testing.T) {
 // Testing: distinguishing-cases Status two alone also occurs for missing stdio; the unknown-flag category and garbage-flag name reject a fallthrough to that transport guard. Recognized cwd without stdio and accepted metadata aliases retain their separate cases.
 // Testing: Execution ownership: The aggregate owns this private unregistered-flag input and literal status/category/name assertions through actual run; refusal seams guard accidental startup.
 func scenarioTestTtscserverCommandRejectsUnknownFlag(t *testing.T) {
-  code, _, errOut := captureTtscserverCommand(t, "--garbage-flag")
+  code, out, errOut := captureTtscserverCommand(t, "--garbage-flag")
   if code != 2 {
     t.Fatalf("expected exit 2 for unknown flag, got %d", code)
   }
   if !strings.Contains(errOut, "flag provided but not defined") || !strings.Contains(errOut, "garbage-flag") {
     t.Fatalf("expected unknown-flag diagnostic, got %q", errOut)
   }
+  if out != "" { t.Fatalf("unknown flag stdout = %q", out) }
 }
 
 // scenarioTestTtscserverCommandVersionAliases verifies the three authored

@@ -38,8 +38,9 @@ func TestRunLSPPrefersTsgoFlag(t *testing.T) {
 
   outBuf := &bytes.Buffer{}
   errBuf := &bytes.Buffer{}
+  expectedCwd := t.TempDir()
   withIO(t, outBuf, errBuf, nil, func() {
-    if code := runLSP([]string{"--stdio", "--cwd", t.TempDir(), "--tsgo", expected}); code != 0 {
+    if code := runLSP([]string{"--stdio", "--cwd", expectedCwd, "--tsgo", expected}); code != 0 {
       t.Fatalf("expected exit 0, got %d (stderr=%q)", code, errBuf.String())
     }
   })
@@ -47,4 +48,5 @@ func TestRunLSPPrefersTsgoFlag(t *testing.T) {
   if captured.TsgoBinary != expected {
     t.Fatalf("expected TsgoBinary %q, got %q", expected, captured.TsgoBinary)
   }
+  if captured.Cwd != expectedCwd { t.Fatalf("expected explicit cwd %q, got %q", expectedCwd, captured.Cwd) }
 }

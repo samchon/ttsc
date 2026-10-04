@@ -949,9 +949,9 @@ func observeTestCLICommandRejectsUnknown(t *testing.T, root string, invoke func(
 //  1. Change the actual cwd to the fixture and invoke with no arguments.
 //  2. Require status zero and absence of Usage: in stdout.
 //
-// Testing behavioral-verification: Bare native ttsc succeeds from the noEmit fixture directory and does not print Usage:.
+// Testing behavioral-verification: Actual empty-argv dispatch and native Program operation succeed from the noEmit fixture directory with both quiet streams empty; this is a returned-status unit, not an OS child receipt.
 // Testing independent-expectations: The no-argument compiler front door builds its cwd project rather than printing help; the authored valid fixture makes that observable.
-// Testing distinguishing-cases: Empty argv differs from explicit help and explicit --cwd; the body checks dispatch acceptance and help absence rather than output contents.
+// Testing distinguishing-cases: Empty argv differs from explicit help and explicit --cwd. Its noEmit profile owns quiet returned streams; marker42 output belongs to the existing emitting profile rather than a claimed default-config emit here.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLICommandRunsProjectFromCurrentDirectory(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
 
@@ -962,6 +962,7 @@ func observeTestCLICommandRunsProjectFromCurrentDirectory(t *testing.T, root str
   if strings.Contains(out, "Usage:") {
     t.Fatalf("bare command should not print help usage: %q", out)
   }
+  if out != "" || errOut != "" { t.Fatalf("bare quiet command streams: stdout=%q stderr=%q", out, errOut) }
 }
 
 // observeTestCLICommandVersionAliases verifies version metadata text for all literal aliases.
@@ -1145,7 +1146,7 @@ func observeTestCLIProjectBuildEmitErrorRejectsManifest(t *testing.T, root strin
 //  2. Require status zero, emitted= text and bin/index.js existence.
 //  3. Decode the manifest and require a nonempty output list beginning with bin/index.js.
 //
-// Testing behavioral-verification: Successful verbose build --emit creates index.js, prints emitted= and writes a JSON manifest containing its output path.
+// Testing behavioral-verification: Successful verbose build --emit creates index.js containing the authored exports.marker/42 value, prints emitted= and writes a JSON manifest containing its output path. This emitting profile is distinct from the quiet noEmit default profile.
 // Testing independent-expectations: The authored outDir and manifest contract provide independent path expectations; membership/count checks do not require exact verbose text or reject additional outputs.
 // Testing distinguishing-cases: The valid emitting project is the positive publication path; the TS4094 case rejects a success manifest.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
@@ -1168,6 +1169,8 @@ func observeTestCLIProjectBuildEmitsManifest(t *testing.T, root string, invoke f
   if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); err != nil {
     t.Fatalf("expected emitted JavaScript: %v", err)
   }
+  javascript, err := os.ReadFile(filepath.Join(root, "bin", "index.js"))
+  if err != nil || !strings.Contains(string(javascript), "exports.marker") || !strings.Contains(string(javascript), "42") { t.Fatalf("compiled marker literal = %q, %v", javascript, err) }
 
   raw, err := os.ReadFile(manifest)
   if err != nil {
@@ -1229,7 +1232,7 @@ func observeTestCLIReportsDiagnosticsWithoutEmit(t *testing.T, root string, invo
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLIRunUnknownCommandExits2(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
   code, stdout, stderr := invoke(t, "fly-to-mars")
-  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") {
+  if code != 2 || stdout != "" || !strings.Contains(stderr, "unknown command") || !strings.Contains(stderr, "fly-to-mars") || !strings.Contains(stderr, "--help") {
     t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
 }
