@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification LSPDiagnostic JSON decoding and encoding retain codeDescription.href.
 // @evidence contracts/testing.md#independent-expectations The authored URL and optional LSP diagnostic field establish the expected value.
 // @evidence contracts/testing.md#distinguishing-cases Present href contrasts with the separate omitted-field case.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPDiagnosticPreservesCodeDescription is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit decodes and encodes the maintained LSPDiagnostic wire type through encoding/json and checks its authored href; no sidecar, temporary project or editor connection runs.
 func TestLSPDiagnosticPreservesCodeDescription(t *testing.T) {
   const href = "https://ttsc.dev/docs/lint/rules/core"
   input := []byte(`{

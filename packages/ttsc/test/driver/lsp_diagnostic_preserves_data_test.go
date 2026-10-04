@@ -17,13 +17,13 @@ import (
 // re-encodes it, so a field absent from LSPDiagnostic is silently dropped.
 // CodeDescription and tags have corresponding preservation cases. Because
 // data is arbitrary JSON, the test also pins that its members survive the
-// round trip rather than being dropped (it checks the two members' fragments,
-// not byte equality of the whole object).
+// round trip rather than being dropped. It checks both member fragments and
+// their literal values inside data, not byte equality of the whole object.
 //
 //  1. Decode a diagnostic whose data is an object with two members.
 //  2. Assert Data is non-empty and the re-encoded form contains both members.
 //
-// @evidence contracts/testing.md#behavioral-verification JSON decode and re-encode of LSPDiagnostic retain nonempty Data and both ruleKey and hasQuickFix fragments.
+// @evidence contracts/testing.md#behavioral-verification JSON decode and re-encode of LSPDiagnostic retain nonempty Data, both original fragments and the literal ruleKey/hasQuickFix values inside the encoded data object.
 // @evidence contracts/testing.md#independent-expectations Opaque LSP diagnostic data must survive forwarding; literal fixture members establish the expected contents independently of the schema implementation.
 // @evidence contracts/testing.md#distinguishing-cases An object with string and boolean members owns the populated data case; absent data is checked by its negative twin, and full object byte equality is not asserted.
 // @evidence contracts/testing.md#execution-ownership Go test/driver exercises the lspserver diagnostic wire type directly through encoding/json, without running a proxy or sidecar.
@@ -45,6 +45,17 @@ func TestLSPDiagnosticPreservesData(t *testing.T) {
   if !strings.Contains(string(reencoded), `"ruleKey":"abc"`) ||
     !strings.Contains(string(reencoded), `"hasQuickFix":true`) {
     t.Fatalf("data did not round-trip intact:\n%s", reencoded)
+  }
+  var fields map[string]json.RawMessage
+  if err := json.Unmarshal(reencoded, &fields); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  var data map[string]any
+  if err := json.Unmarshal(fields["data"], &data); err != nil {
+    t.Fatalf("decode data object: %v", err)
+  }
+  if data["ruleKey"] != "abc" || data["hasQuickFix"] != true {
+    t.Fatalf("authored members were not preserved inside diagnostic data: %#v", data)
   }
 }
 
