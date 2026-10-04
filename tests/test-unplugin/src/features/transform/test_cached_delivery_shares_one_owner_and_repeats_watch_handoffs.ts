@@ -12,7 +12,7 @@ import { selectCachedGenerationAction } from "../../../../../packages/unplugin/s
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
-import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/filesystem/transformFilesystem";
+import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
