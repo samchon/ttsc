@@ -126,8 +126,8 @@ func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
 //
 // @evidence contracts/testing.md#behavioral-verification offsetForPosition counts an LSP character in UTF-16 units: ASCII, CJK text (one unit, three bytes) and an emoji (two units, four bytes) all yield the right text prefix.
 // @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings derived from the UTF-16 definition in the LSP specification.
-// @evidence contracts/testing.md#distinguishing-cases ASCII, BMP and astral inputs each cost a different number of bytes per unit.
-// @evidence contracts/testing.md#execution-ownership TestOffsetForPositionCountsUTF16 is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases Four positive rows cover ASCII, a second LF-separated line, two BMP CJK characters and an astral emoji; a separate line-five request on one line must fail. Surrogate-interior columns and malformed text are not exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual offsetForPosition and compares string slices with authored literal prefixes. Its delegating lspPositionToByteOffset runs in the same process; no substitute operation, native child, temporary project, installed consumer or product host is used.
 func TestOffsetForPositionCountsUTF16(t *testing.T) {
   cases := []struct {
     text      string
