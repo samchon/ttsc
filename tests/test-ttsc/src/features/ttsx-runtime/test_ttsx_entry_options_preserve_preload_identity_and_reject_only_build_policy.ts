@@ -3,12 +3,17 @@ import path from "node:path";
 
 import { TtsxEntryOptions } from "../../../../../packages/ttsc/src/launcher/internal/TtsxEntryOptions";
 import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal/parseTtsxCLI";
+import { parseTtscBuildArgs } from "../../../../../packages/ttsc/src/launcher/internal/parseTtscBuildArgs";
+import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
 
 /**
  * Verifies entry option applicability and preload identity without a launcher.
  *
  * JavaScript has no up-front TypeScript program; build-only fields must be
  * reported, while program arguments and package preload names stay untouched.
+ * Project/rootDir and response-token counterparts observe parsing only; native
+ * response expansion, strict diagnostics, emitted paths and CLI startup remain
+ * separate execution observations.
  *
  * 1. Project actual parsed requests into exact unsupported-option lists.
  * 2. Check all field boundaries and native scalar widths, including dash/@
@@ -138,6 +143,62 @@ export function test_ttsx_entry_options_preserve_preload_identity_and_reject_onl
     check("package/" + input, () =>
       assert.equal(TtsxEntryOptions.resolvePreload(cwd, input), input),
     );
+  check("aggregate-javascript-build-policy", () => {
+    const args = ["--strict", "-P", "tsconfig.json", "--no-plugins", "@args.txt", "script.js"];
+    const before = [...args];
+    const options = parsed(args);
+    assert.deepEqual(TtsxEntryOptions.unsupportedJavaScriptBuildOptions(options), ["--project", "--no-plugins", "--strict", "@args.txt"]);
+    assert.equal(options.entry, "script.js");
+    assert.deepEqual(options.passthrough, []);
+    assert.deepEqual(args, before);
+  });
+  for (const flags of [["-P", "alt/tsconfig.json"], ["-P=alt/tsconfig.json"], ["--project", "configs/app.json"]])
+    check("project-selection/" + flags.join(" "), () => {
+      const options = parsed([...flags, "src/main.ts"]);
+      assert.equal(options.project, flags[0] === "--project" ? "configs/app.json" : "alt/tsconfig.json");
+      assert.equal(options.entry, "src/main.ts");
+      assert.deepEqual(options.tsgoFlags, []);
+      assert.deepEqual(options.passthrough, []);
+    });
+  for (const rootDir of [".", "src"])
+    check("rootDir-partition/" + rootDir, () => {
+      const flags = ["--rootDir", rootDir];
+      const runtime = parsed([...flags, "src/main.ts"]);
+      assert.equal(runtime.entry, "src/main.ts");
+      assert.deepEqual(runtime.tsgoFlags, flags);
+      assert.deepEqual(runtime.passthrough, []);
+      const buildArgs = ["src/main.ts", ...flags];
+      const before = [...buildArgs];
+      const build = parseTtscBuildArgs(buildArgs);
+      assert.deepEqual(build.files, ["src/main.ts"]);
+      assert.deepEqual(build.passthrough, flags);
+      assert.deepEqual(buildArgs, before);
+    });
+  for (const flags of [
+    ["--strict"],
+    ["--outDir", "distx"],
+    ["--declaration", "--declarationDir", "typesx"],
+    ["--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo"],
+    ["--outFile", "bundle.js"],
+    ["--noEmit"],
+    ["--emitDeclarationOnly", "--declaration"],
+    ["--noEmit", "--emitDeclarationOnly", "--declaration"],
+    ["@args.txt"],
+    ["--target", "es2019", "@args.txt"],
+    ["@args.txt", "--target", "es2019"],
+  ]) check("compiler-token-partition/" + flags.join(" "), () => {
+    const argv = [...flags, "src/main.ts"];
+    const before = [...argv];
+    const raw = parseFlags({ argv, errorPrefix: "ttsx:", subcommand: "ttsx", forwardAfterFirstPositional: true, honorDoubleDashSeparator: true });
+    assert.deepEqual(raw.positional, ["src/main.ts"]);
+    assert.deepEqual(raw.passthrough, flags);
+    assert.deepEqual(raw.tail, []);
+    const runtime = parsed(argv);
+    assert.deepEqual(runtime.tsgoFlags, flags);
+    assert.equal(runtime.entry, "src/main.ts");
+    assert.deepEqual(runtime.passthrough, []);
+    assert.deepEqual(argv, before);
+  });
   if (failures.length)
     throw new AggregateError(failures, "entry option decisions failed");
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "../../../../../packages/ttsc/src/compiler/internal/readEffectiveCompilerOptions";
 import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/internal/runtimeCompilerArgs";
 
 /**
@@ -12,6 +13,9 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  * argument list alone, without compiling decorators or starting Node. The
  * forwarded-`@file` path, which asks the native compiler for `--showConfig`, is
  * not exercised here.
+ * Visible target frames matching the response examples check only downstream
+ * policy, not native expansion, diagnostics, decorator effects, library type
+ * checking or output isolation.
  *
  * 1. Resolve one fixture project through the authored config reader.
  * 2. Apply the target and JSX decision matrix directly to the argument owner.
@@ -77,5 +81,48 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
   for (const flags of [["--noEmit"], ["--emitDeclarationOnly", "--declaration"], ["--noEmit", "--emitDeclarationOnly", "--declaration"]]) {
     assert.deepEqual(runtimeCompilerArgs(project, flags), [...flags, ...tail]);
   }
+  const failures: Error[] = [];
+  const check = (name: string, operation: () => void): void => {
+    try { operation(); }
+    catch (error) { failures.push(new Error(name, { cause: error })); }
+  };
+  // Visible-token counterparts do not supply a native response-file oracle.
+  const responseSuffix = ["--target", "es2025", "--lib", "esnext,dom,webworker.importscripts,scripthost,dom.iterable,dom.asynciterable"];
+  for (const [target, args, suffix] of [
+    ["ES2022", ["--target", "esnext"], responseSuffix],
+    ["ESNext", ["--target", "es2019"], []],
+    ["ESNext", ["--target", "es2019", "--target", "esnext"], responseSuffix],
+    ["ESNext", ["--target", "esnext", "--target", "es2019"], []],
+  ] as [string, string[], string[]][]) {
+    check("visible-response-counterpart/" + args.join(" "), () => {
+      project.compilerOptions = { plugins: [], target, module: "commonjs", strict: true, outDir: "dist", rootDir: "src" };
+      const before = [...args];
+      const optionsBefore = JSON.stringify(project.compilerOptions);
+      const reader = readEffectiveCompilerOptions(project, args);
+      assert.notEqual(reader, null);
+      assert.deepEqual(runtimeCompilerArgs(project, args, undefined, reader), [...args, ...suffix, ...tail]);
+      assert.deepEqual(args, before);
+      assert.equal(JSON.stringify(project.compilerOptions), optionsBefore);
+    });
+  }
+  check("explicit-esnext-library-and-module", () => {
+    project.compilerOptions = { plugins: [], target: "ESNext", module: "esnext", lib: ["esnext"] };
+    const before = JSON.stringify(project.compilerOptions);
+    assert.deepEqual(runtimeCompilerArgs(project), ["--target", "es2025", ...tail]);
+    assert.equal(JSON.stringify(project.compilerOptions), before);
+  });
+  // Token retention does not establish the native emitter's output locations.
+  for (const flags of [
+    ["--outDir", "distx"],
+    ["--declaration", "--declarationDir", "typesx"],
+    ["--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo"],
+    ["--outFile", "bundle.js"],
+  ]) check("forwarded-output/" + flags.join(" "), () => {
+    project.compilerOptions = { plugins: [], target: "ES2022", module: "commonjs", rootDir: "src", outDir: "lib" };
+    const before = [...flags];
+    assert.deepEqual(runtimeCompilerArgs(project, flags), [...flags, ...tail]);
+    assert.deepEqual(flags, before);
+  });
+  if (failures.length) throw new AggregateError(failures, "runtime compiler policy counterparts failed");
 }
 
