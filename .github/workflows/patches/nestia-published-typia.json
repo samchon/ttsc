@@ -1,13 +1,15 @@
 {
-  "npmVersion": "15.0.0",
+  "previousNpmVersion": "15.0.0",
+  "npmVersion": "15.0.1",
+  "provenancePatch": "typia-15.0.1-emit-provenance.patch",
   "module": "github.com/samchon/typia/packages/typia/native",
   "previousVersion": "v0.0.0-20260926142025-755176823ba3",
   "previousSum": "h1:XtRIf6wvDuSHLsphMXiB3lm6p0/2sxHMfc6FMjI5LLA=",
-  "version": "v0.0.0-20260922081121-78124b0523b4",
-  "sum": "h1:ZL20GliY1kZk/PYHwJX+n5cp8ljx8YToGP1wWFtaOYs=",
+  "version": "v0.0.0-20260927054733-6ff9cc7f6386",
+  "sum": "h1:GW/ipKoLY6cVH9sUFdeNapXJJw0UhsjDAZuygynsGWM=",
   "goModSum": "h1:pUTSG5IZxw8Hohle//RsDXnE+8ZhAus7mPDKFqzvZnk=",
-  "sourceCommit": "78124b0523b4e989aedb64fe4cd4e1fd59c44a2d",
-  "releaseProvenance": "https://registry.npmjs.org/-/npm/v1/attestations/typia@15.0.0",
-  "goProxyInfo": "https://proxy.golang.org/github.com/samchon/typia/packages/typia/native/@v/78124b0523b4e989aedb64fe4cd4e1fd59c44a2d.info",
-  "checksumRecord": "https://sum.golang.org/lookup/github.com/samchon/typia/packages/typia/native@v0.0.0-20260922081121-78124b0523b4"
+  "sourceCommit": "6ff9cc7f6386219a4f6090ff70eded9030f5f777",
+  "releaseProvenance": "https://registry.npmjs.org/-/npm/v1/attestations/typia@15.0.1",
+  "goProxyInfo": "https://proxy.golang.org/github.com/samchon/typia/packages/typia/native/@v/6ff9cc7f6386219a4f6090ff70eded9030f5f777.info",
+  "checksumRecord": "https://sum.golang.org/lookup/github.com/samchon/typia/packages/typia/native@v0.0.0-20260927054733-6ff9cc7f6386"
 }

@@ -17,20 +17,29 @@ if (mode === "bind") bind();
 else admit();
 
 /**
- * Aligns only the fixture's four existing typia requirements and checksum rows.
+ * Aligns the original exact npm catalog and four Go inputs with one fixed release.
  * All source contexts are admitted before writing; upstream drift fails closed.
  *
- * @evidence contracts/common.md#principled-implementation The manifest pins the npm release's attested Git source and Go proxy/checksum records; every old requirement and both checksum rows must match exactly before any edit.
- * @evidence contracts/common.md#clear-and-simple-design One staged edit list preserves direct/indirect requirement annotations and every unrelated module byte.
+ * @evidence contracts/common.md#principled-implementation The manifest pins the npm release's attested Git source and Go proxy/checksum records; the original exact catalog, every old requirement and both checksum rows must match before any edit.
+ * @evidence contracts/common.md#clear-and-simple-design One staged edit list preserves the catalog's other entries, direct/indirect requirement annotations and every unrelated module byte.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fixture's source input is corrected; no source mismatch exception, replaced module or false reported version is introduced.
- * @evidence contracts/common.md#meaningful-documentation The comment states the four-module boundary and failure before writes for changed upstream contexts.
+ * @evidence contracts/common.md#meaningful-documentation The comment states the catalog and four-module boundary and failure before writes for changed upstream contexts.
  * @evidence contracts/portability.md#os-neutral-implementation Node native paths locate the explicit fixture modules; text replacement accepts CRLF and retains each file's line endings.
- * @evidence contracts/performance.md#efficient-algorithms Eight module files are read and replaced once with bounded literal matching; no repository scan is performed.
+ * @evidence contracts/performance.md#efficient-algorithms Eight module files and one catalog are read and replaced once with bounded literal matching; no repository scan is performed.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work These fixture writes change source inputs and cannot be reused as computation results.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Only eight file buffers are retained until publication; Node synchronous file operations own and close their descriptors. An IO failure after publication starts may leave a partial fixture and fails the CI step.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Only nine file buffers are retained until publication; Node synchronous file operations own and close their descriptors. An IO failure after publication starts may leave a partial fixture and fails the CI step.
  */
 function bind() {
   const edits = [];
+  const catalogFile = path.join(consumer, "pnpm-workspace.yaml");
+  const catalogSource = fs.readFileSync(catalogFile, "utf8");
+  const YAML = createRequire(path.join(producer, "packages/evidence/package.json"))("yaml");
+  if (YAML.parse(catalogSource).catalogs?.samchon?.typia !== binding.previousNpmVersion)
+    throw new Error("Expected the original exact typia catalog before compatibility binding");
+  const catalogRow = /^[ \t]+typia: 15\.0\.0[ \t]*\r?$/gm;
+  if ([...catalogSource.matchAll(catalogRow)].length !== 1)
+    throw new Error("Expected one unchanged original typia catalog row");
+  edits.push([catalogFile, catalogSource.replace(catalogRow, (row) => row.replace(binding.previousNpmVersion, binding.npmVersion))]);
   for (const module of modules) {
     const modFile = path.join(consumer, module, "go.mod");
     const source = fs.readFileSync(modFile, "utf8");
@@ -88,7 +97,7 @@ function admit() {
     const copy = path.join(scratch, "native", ...build.split("/"));
     fs.mkdirSync(path.dirname(copy), { recursive: true });
     fs.copyFileSync(path.join(downloaded.Dir, ...build.split("/")), copy);
-    const patch = fs.readFileSync(path.join(__dirname, "../patches/typia-15.0.0-emit-provenance.patch"), "utf8");
+    const patch = fs.readFileSync(path.join(__dirname, "../patches", binding.provenancePatch), "utf8");
     const marker = "--- a/lib/transform.js";
     if (patch.split(marker).length !== 2 || !patch.startsWith("--- a/native/cmd/ttsc-typia/build.go"))
       throw new Error("Unexpected provenance patch source population");
