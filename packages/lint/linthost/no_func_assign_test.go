@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoFuncAssign verifies function binding identity and every write surface.
+// TestRuleCorpusNoFuncAssign verifies function binding identity across the authored write forms.
 //
 // A file-wide name set conflates unrelated shadows and only sees bare binary
 // assignments. The real checker must instead connect each modifying reference
