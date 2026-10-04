@@ -70,25 +70,25 @@ func assertPolyfillReports(t *testing.T, source, optionsJSON, wantMessage string
   }
 }
 
-// TestUnicornNoUnnecessaryPolyfillsUpstreamValidTargets verifies every
-// upstream `valid` case whose targets come from the `targets` option: the rule
+// TestUnicornNoUnnecessaryPolyfillsUpstreamValidTargets verifies the authored
+// clean cases whose targets come from the targets option: the rule
 // stays silent when at least one targeted runtime still lacks the imported
 // feature, when the specifier is not a polyfill, and when the specifier is not
 // a resolvable string literal.
 //
-// These are the negative twins of the invalid table below; the same imports at
+// These include negative twins of the sibling reporting table; matching imports at
 // tighter targets are reported there, so keeping both pins the availability
 // boundary rather than a single direction.
 //
-//  1. Feed each specifier the exact upstream targets option.
+//  1. Feed each specifier the authored targets option.
 //  2. Assert zero findings.
 //  3. Cover multi-feature core-js entries, esnext-still-needed features, alias
 //     modules whose mapped entry keeps unavailable features, and the
 //     empty/`null`/argument-less specifier shapes.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual rule execution checks the complete retained upstream valid matrix for zero findings, detecting overreporting of needed polyfills and unsupported source shapes.
-// @evidence contracts/testing.md#independent-expectations Retained upstream valid inputs and the supported compatibility/source-matching contracts establish silence independently of Go output.
-// @evidence contracts/testing.md#distinguishing-cases The original needed-feature, unknown-module and unmatched-source controls remain; UpstreamInvalidTargets owns redundant-feature counterparts and exact messages.
+// @evidence contracts/testing.md#behavioral-verification Actual rule execution checks the complete authored clean matrix for zero findings, detecting overreporting of needed polyfills and unsupported source shapes.
+// @evidence contracts/testing.md#independent-expectations Authored clean inputs and the supported compatibility/source-matching contracts establish silence independently of Go output.
+// @evidence contracts/testing.md#distinguishing-cases The authored needed-feature, unknown-module and unmatched-source controls remain; UpstreamInvalidTargets owns redundant-feature counterparts and exact messages.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnnecessaryPolyfillsUpstreamValidTargets owns its literal cases as a discoverable Go unit entry; the owning operation runs in the shared Go test process with isolated fixture state and no consumer installation, native producer or product child host.
 func TestUnicornNoUnnecessaryPolyfillsUpstreamValidTargets(t *testing.T) {
   cases := []struct {

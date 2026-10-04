@@ -7,11 +7,11 @@ import (
 )
 
 // TestUnicornNoUnnecessaryPolyfillsRejectsMalformedOptions verifies option
-// validation happens at engine construction: every shape upstream's schema
-// rejects surfaces as a ConfigError before any file is linted.
+// validation happens at engine construction: each authored malformed shape
+// surfaces as a ConfigError before any file is linted.
 //
-// Silent acceptance would let a typo disable the rule with no signal — the same
-// failure mode the silent stub this rule replaces had.
+// Silent acceptance would let a typo disable the rule with no signal; the
+// expected error fragments keep these rejection cases observable.
 //
 //  1. Build an engine with each malformed payload.
 //  2. Assert ConfigError carries the expected message fragment.

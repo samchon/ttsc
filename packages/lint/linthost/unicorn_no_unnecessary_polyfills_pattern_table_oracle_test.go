@@ -5,8 +5,8 @@ import (
 )
 
 // TestUnicornNoUnnecessaryPolyfillsPatternTableOracle verifies the rule's
-// module-level pattern/token table construction against the table upstream
-// builds from the same pinned core-js-compat data and change-case 5.4.4.
+// module-level pattern/token table against a JavaScript reference generator that
+// transcribes construction using pinned core-js-compat data and change-case 5.4.4.
 //
 // The table drives which import specifiers are even considered a polyfill of a
 // given feature; a wrong regex or a missing camelCase token would make the
@@ -15,11 +15,11 @@ import (
 //
 //  1. Load the recorded per-feature pattern/token records.
 //  2. Build the Go pattern table from the embedded compat data.
-//  3. Assert feature order, pattern source, and token list all match upstream.
+//  3. Assert feature order, pattern source, and token list match the recorded table.
 //
 // @evidence contracts/testing.md#behavioral-verification polyfillPatterns exposes the actual feature/pattern/token table and is compared in full and in order with the JavaScript reference fixture.
-// @evidence contracts/testing.md#independent-expectations The fixture uses pinned upstream compatibility data and camelCase with a transcribed reference table construction, rather than executing the upstream rule algorithm. Shared transcription errors remain a limitation, complemented by observable valid/invalid specifier tests.
-// @evidence contracts/testing.md#distinguishing-cases Every feature, pattern source and token sequence plus total cardinality is checked; static-specifier and valid/invalid target hosts add behavioral distinctions beyond table equality.
+// @evidence contracts/testing.md#independent-expectations The fixture uses pinned upstream compatibility data and camelCase with a transcribed reference table construction, rather than executing the upstream rule algorithm. Shared transcription errors remain a limitation; this table comparison alone does not prove observable matching behavior.
+// @evidence contracts/testing.md#distinguishing-cases Every feature, pattern source and token sequence plus total cardinality is checked; TestUnicornNoUnnecessaryPolyfillsChecksOnlyStaticStringSpecifiers separately owns reported and clean source-shape distinctions beyond table equality.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnnecessaryPolyfillsPatternTableOracle owns its literal cases as a discoverable Go unit entry; the owning operation runs in the shared Go test process with isolated fixture state and no consumer installation, native producer or product child host.
 func TestUnicornNoUnnecessaryPolyfillsPatternTableOracle(t *testing.T) {
   var fixture struct {

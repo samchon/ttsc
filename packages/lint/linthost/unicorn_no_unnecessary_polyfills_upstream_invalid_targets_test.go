@@ -4,9 +4,9 @@ import (
   "testing"
 )
 
-// TestUnicornNoUnnecessaryPolyfillsUpstreamInvalidTargets verifies every
-// upstream `invalid` case whose targets come from the `targets` option, with
-// the exact upstream message: the plain "Use built-in instead." for single
+// TestUnicornNoUnnecessaryPolyfillsUpstreamInvalidTargets verifies the authored
+// reporting cases whose targets come from the targets option, with
+// literal expected messages: the plain "Use built-in instead." for single
 // features and prefix aliases, and the core-js-module message for multi-feature
 // `core-js/*` entries whose features are all available.
 //
@@ -14,13 +14,13 @@ import (
 // key (multi-feature) or a single polyfill pattern, so both are asserted
 // verbatim across static import, dynamic import, and require forms.
 //
-//  1. Feed each specifier the exact upstream targets option.
+//  1. Feed each specifier the authored targets option.
 //  2. Assert exactly one finding.
-//  3. Assert the finding's message equals the upstream message id's text.
+//  3. Assert the finding's message equals the literal expected text.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution checks every retained redundant-polyfill source/target case for one exact error finding, detecting missed compatibility decisions and wrong module messages.
-// @evidence contracts/testing.md#independent-expectations Retained upstream invalid inputs and literal built-in/core-js diagnostic text establish reports. The test formatter interpolates the authored module name without calling the product formatter.
-// @evidence contracts/testing.md#distinguishing-cases Original package, core-js/core-js-pure, feature, target and import distinctions remain; UpstreamValidTargets owns needed-feature and nonmatching counterparts.
+// @evidence contracts/testing.md#independent-expectations Authored source/target inputs and literal built-in/core-js diagnostic text establish reports. The test formatter interpolates the authored module name without calling the product formatter.
+// @evidence contracts/testing.md#distinguishing-cases Package, core-js/core-js-pure, feature, target and import distinctions remain across the authored reporting table.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnnecessaryPolyfillsUpstreamInvalidTargets owns its literal cases as a discoverable Go unit entry; the owning operation runs in the shared Go test process with isolated fixture state and no consumer installation, native producer or product child host.
 func TestUnicornNoUnnecessaryPolyfillsUpstreamInvalidTargets(t *testing.T) {
   builtIn := polyfillMessageBuiltIn
