@@ -81,10 +81,10 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * 4. Execute that command and assert the returned WorkspaceEdit fixes the
  *    violation without writing the file, then shut the server down cleanly.
  *
- * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and returns a targeted fix without writing disk.
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and returns a targeted fix without writing disk.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
- * @evidence contracts/testing.md#execution-ownership The fixed nine-batch runner selects this one actual initialized editor session. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
+ * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing across the native bridge.
  * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. Timeout does not force termination or certify arbitrary descendant closure.
@@ -102,6 +102,17 @@ export async function test_e2e_lsp_batch() {
       "#lib/*": ["./native-errors/models/*"],
       "#preset/*": ["./native-errors/models/*"],
     };
+    const lintEntry = config.compilerOptions.plugins.find((entry: { transform?: string }) => entry.transform === "@ttsc/lint");
+    assert.ok(lintEntry, "the actual lint contributor must remain selected");
+    lintEntry.configFile = "./lint.lsp.config.cjs";
+    fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `const base = require("./lint.config.cjs");
+const graph = base.rules["evidence/graph"][1];
+module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
+`);
+    fs.writeFileSync(path.join(workspace.root, "review.md"), "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n");
+    fs.mkdirSync(path.join(workspace.root, "external"), { recursive: true });
+    const evidenceTarget = path.join(workspace.root, "external/example.ts");
+    fs.writeFileSync(evidenceTarget, "export const other = 1;\n");
     fs.writeFileSync(configPath, JSON.stringify(config));
     fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
     const file = path.join(project.tmpdir, "src", "editor.ts");
@@ -111,6 +122,11 @@ export async function test_e2e_lsp_batch() {
         env: { TTSC_CACHE_DIR: workspace.cache },
       });
       await runTtscserverSession(client, async () => {
+        const evidenceInitial = client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) => (params.diagnostics ?? []).some((diagnostic) => diagnostic.message?.includes("Missing TypeScript evidence export")),
+          PLUGIN_BUILD_TIMEOUT,
+        ).then((value) => ({ value }), (error: unknown) => ({ error }));
         // 1. Handshake. The editor builds its command palette and lightbulb menu
         // from this response, so the advertised ids are editor-visible behavior.
         const initialized = await step(
@@ -118,7 +134,7 @@ export async function test_e2e_lsp_batch() {
           client.request<InitializeResult>(
             "initialize",
             {
-              capabilities: {},
+              capabilities: { workspace: { didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true } } },
               processId: process.pid,
               rootUri: pathToFileURL(project.tmpdir).href,
             },
@@ -202,6 +218,30 @@ export async function test_e2e_lsp_batch() {
           },
         });
         const openedLint = findLint(await opened)!;
+        const evidenceObservation = await evidenceInitial;
+        if ("error" in evidenceObservation) throw evidenceObservation.error;
+        const evidenceFirst = evidenceObservation.value;
+        const awaitEvidenceClear = () => client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) => params.uri === evidenceFirst.uri && !(params.diagnostics ?? []).some((diagnostic) => diagnostic.code === "evidence/graph"),
+          PLUGIN_BUILD_TIMEOUT,
+        );
+        const evidenceCleared = awaitEvidenceClear();
+        fs.writeFileSync(evidenceTarget, "export const value = 1;\n");
+        client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 2 }] });
+        await evidenceCleared;
+        const evidenceDeleted = client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) => (params.diagnostics ?? []).some((diagnostic) => diagnostic.message?.includes("Missing TypeScript evidence file")),
+          PLUGIN_BUILD_TIMEOUT,
+        );
+        fs.unlinkSync(evidenceTarget);
+        client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 3 }] });
+        assert.ok((await evidenceDeleted).diagnostics?.length, "the same editor must observe external Evidence deletion");
+        const evidenceRestored = awaitEvidenceClear();
+        fs.writeFileSync(evidenceTarget, "export const value = 1;\n");
+        client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 1 }] });
+        await evidenceRestored;
         assert.deepEqual(
           openedLint.range,
           { end: { character: 3, line: 0 }, start: { character: 0, line: 0 } },
