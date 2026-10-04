@@ -26,6 +26,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const session = path.join(workspace.root, "loader-pool-session");
+  const recreatedOutputDirectory = path.join(workspace.root, "dist/batch-recreated-output");
+  assert.equal(fs.existsSync(recreatedOutputDirectory), false, "the pool owns its output recreation subtree exclusively");
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session,
     metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
@@ -38,8 +40,6 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const originalBanner = fs.readFileSync(bannerPath);
   const unrelatedPath = path.join(workspace.root, "batch-unrelated-candidate.txt");
   const ignoredOutput = path.join(workspace.root, "dist/batch-hashed-a9137.js");
-  const recreatedOutputDirectory = path.join(workspace.root, "dist/batch-recreated-output");
-  assert.equal(fs.existsSync(recreatedOutputDirectory), false, "the pool owns its output recreation subtree exclusively");
   let bodyFailure: unknown;
   try {
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
