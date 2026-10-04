@@ -42,7 +42,7 @@ func TestRuntimeDecoratorMemberEffects(t *testing.T) {
   }
   root := t.TempDir()
   if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte(`{
-  "compilerOptions": { "target": "ESNext", "module": "commonjs", "strict": true, "outDir": "dist" },
+  "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true, "outDir": "dist" },
   "files": ["index.ts"]
 }
 `), 0o644); err != nil {

@@ -24,6 +24,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The authored non-cancellation sentinel selects the failure branch; it does not simulate an actual upstream crash or IO fault.
 // @evidence contracts/testing.md#execution-ownership This Go unit replaces the owning runLSPServer seam and captures package-owned writers. Restoring empty file/JSON plugin-manifest environment controls isolate source construction before that seam, so no plugin query or host process starts; foreign process methods and streams are unchanged.
 func TestRunLSPReportsServerError(t *testing.T) {
+  t.Setenv("TTSC_LSP_PLUGINS_FILE", "")
+  t.Setenv("TTSC_LSP_PLUGINS_JSON", "")
   sentinel := errors.New("lsp host blew up")
   prev := runLSPServer
   runLSPServer = func(_ context.Context, _ lspserver.LSPServerOptions) error {
@@ -43,5 +45,3 @@ func TestRunLSPReportsServerError(t *testing.T) {
     t.Fatalf("expected sentinel on stderr, got: %q", errBuf.String())
   }
 }
-  t.Setenv("TTSC_LSP_PLUGINS_FILE", "")
-  t.Setenv("TTSC_LSP_PLUGINS_JSON", "")

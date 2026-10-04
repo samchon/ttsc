@@ -61,6 +61,10 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
       "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
       "rootDir": ".", "outDir": "dist", "allowJs": true, "noCheck": true,
     },
+    // Its adjacent declaration intentionally describes this CommonJS input.
+    // A literal root keeps that runtime source in the emitting population:
+    // wildcard expansion gives dynamic.d.cts priority over dynamic.cjs.
+    "files": []string{"export-population/dynamic/dynamic.cjs"},
     "include": []string{"export-population/**/*", "node-compatible/**/*", "standard.mts", "standard.cts", "member.mts", "member.cts"},
   }
   encoded, err := json.Marshal(config)
