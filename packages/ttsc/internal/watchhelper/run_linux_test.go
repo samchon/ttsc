@@ -347,8 +347,8 @@ func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
 //
 // @evidence contracts/testing.md#behavioral-verification A real kernel overflow, created by filling an unread inotify instance past fs.inotify.max_queued_events, is reported by the helper's own drain and decode as an overflow response.
 // @evidence contracts/testing.md#independent-expectations The kernel's queue limit is read from /proc and exceeded by one creation, so the overflow is produced by the kernel and not by the test's encoding.
-// @evidence contracts/testing.md#distinguishing-cases A limit above one million is skipped explicitly because filling it would take too long; below it the overflow must be reported.
-// @evidence contracts/testing.md#execution-ownership TestReportsARealKernelOverflow is a Go unit test built only on Linux: it drives a helper value over a real inotify descriptor in-process and starts no process.
+// @evidence contracts/testing.md#distinguishing-cases Distinct file names fill an unread native queue through its configured limit and one extra creation; decoded output must contain an overflow response. No synthetic event is substituted and a large native limit is not a reason to skip this case. Exact overflow count and downstream invalidation are not asserted.
+// @evidence contracts/testing.md#execution-ownership The Linux-only discoverable Go unit owns a real inotify descriptor and temporary directory, creates limit+1 distinct empty files before draining actual helper output, and defers native descriptor close. File and output populations scale with the configured queue limit; no separate test cap or kernel setting change is applied, and no child process or product host runs.
 func TestReportsARealKernelOverflow(t *testing.T) {
   setting, err := os.ReadFile("/proc/sys/fs/inotify/max_queued_events")
   if err != nil {
@@ -357,9 +357,6 @@ func TestReportsARealKernelOverflow(t *testing.T) {
   limit, err := strconv.Atoi(strings.TrimSpace(string(setting)))
   if err != nil {
     t.Fatalf("parse the queue limit %q: %v", setting, err)
-  }
-  if limit > 1<<20 {
-    t.Skipf("fs.inotify.max_queued_events is %d; filling it would take too long", limit)
   }
   fd, err := unix.InotifyInit1(unix.IN_NONBLOCK | unix.IN_CLOEXEC)
   if err != nil {
@@ -381,7 +378,9 @@ func TestReportsARealKernelOverflow(t *testing.T) {
     if err != nil {
       t.Fatal(err)
     }
-    file.Close()
+    if err := file.Close(); err != nil {
+      t.Fatal(err)
+    }
   }
   if err := h.drain(); err != nil {
     t.Fatal(err)
