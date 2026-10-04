@@ -258,7 +258,7 @@ export namespace BatchWorkspace {
     const bunEntry = fs.readFileSync(path.join(root, "bun-entry.mjs"), "utf8");
     fs.writeFileSync(path.join(root, "bun-entry.mjs"), bunEntry.replace("__BUN_ADAPTER__", pathToFileURL(TestUnpluginRuntime.libPath("bun", "mjs")).href));
     if (installationOnly) {
-      fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
+      fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], paths: { "@typed/*": ["./src/type-population/*"] }, plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
     return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
   }
