@@ -2,7 +2,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
 
 /**
  * Playwright end-to-end test rules from `eslint-plugin-playwright`, applied to
- * TypeScript test files driven by the `@playwright/test` runner.
+ * TypeScript source patterns associated with the `@playwright/test` runner.
+ * The native family matches source call-chain names without resolving imports
+ * or receiver types and does not execute a runner.
  *
  * Guard Playwright-specific patterns — locator usage, web-first assertions,
  * focused/slowed tests — that would otherwise compile and run silently.
@@ -25,7 +27,8 @@ export interface ITtscLintPlaywrightRules {
   "playwright/expect-expect"?: TtscLintRuleSetting;
 
   /**
-   * Limit the assertion count inside a single Playwright test body.
+   * Report more than five recognized expect calls in a test callback's source
+   * subtree; nested function declarations are included in this count.
    *
    * A test packed with assertions usually verifies several user flows at once,
    * making failures ambiguous — splitting per scenario keeps each case
@@ -36,8 +39,9 @@ export interface ITtscLintPlaywrightRules {
   "playwright/max-expects"?: TtscLintRuleSetting;
 
   /**
-   * Reject `expect(...)` calls under `if`/`try`/`catch` or other conditional
-   * branches in Playwright tests.
+   * Reject recognized expect calls under if, switch, or ternary syntax before
+   * the nearest function boundary inside test/describe calls. Try/catch and
+   * loop kinds are not included in this native conditional check.
    *
    * A branch that never executes turns the assertion into a silent no-op, so
    * the test passes without verifying anything.
@@ -59,7 +63,8 @@ export interface ITtscLintPlaywrightRules {
 
   /**
    * Reject duplicate Playwright setup/teardown hook calls
-   * (`test.beforeEach`/`test.afterEach`/etc.) in the same `test.describe`.
+   * (`test.beforeEach`/`test.afterEach`/etc.) by hook name across the whole file,
+   * including different test.describe blocks.
    *
    * Playwright runs both copies in declaration order, almost always a
    * copy-paste mistake.
@@ -207,8 +212,8 @@ export interface ITtscLintPlaywrightRules {
   "playwright/no-slowed-test"?: TtscLintRuleSetting;
 
   /**
-   * Reject `expect(...)` calls outside the body of a Playwright test or
-   * lifecycle hook.
+   * Reject recognized expect calls with no enclosing test or test.describe
+   * call. The native check does not separately permit lifecycle hooks.
    *
    * Top-level assertions execute at module load before any test starts, so
    * failures never attach to a named case in the runner's report.
@@ -273,8 +278,9 @@ export interface ITtscLintPlaywrightRules {
   "playwright/prefer-to-have-count"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `expect(value).toHaveLength(n)` over asserting on `value.length`
-   * directly.
+   * Prefer toHaveLength for the native-recognized shape
+   * `expect(await value.length()).toBe(n)`. Ordinary `.length` property reads
+   * are not recognized by this implementation.
    *
    * The dedicated matcher reports the actual length on failure instead of a
    * bare number mismatch.
@@ -317,17 +323,16 @@ export interface ITtscLintPlaywrightRules {
   /**
    * Validate the shape of Playwright `test.describe` callbacks.
    *
-   * The callback must be synchronous and take no arguments — Playwright ignores
-   * returned Promises and stray parameters at the describe level, silently
-   * swallowing setup errors.
+   * The native check requires a function callback without an async modifier.
+   * It does not validate parameter count or infer returned Promise types.
    *
    * @reference https://github.com/playwright-community/eslint-plugin-playwright/blob/main/docs/rules/valid-describe-callback.md
    */
   "playwright/valid-describe-callback"?: TtscLintRuleSetting;
 
   /**
-   * Validate `expect(...)` arity and matcher chaining: exactly one argument,
-   * terminated by a matcher call, and async matchers properly awaited.
+   * Validate exactly one argument for calls recognized as expect. The native
+   * check does not validate matcher chaining or asynchronous handling.
    *
    * Malformed expects either throw at runtime or pass without asserting
    * anything.
