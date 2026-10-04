@@ -45,6 +45,9 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * completed default cache only after all runtime readers have exited.
  * A composite dependency and its excluded root retain both runtime values
  * and recursive sorted path population without claiming existing-byte identity.
+ * Original preload spellings and program-tail tokens retain a literal app
+ * child project directory inside this owned workspace for their native cwd
+ * basename and marker side-effect oracles, with one additional host request.
  * Computed missing imports preserve all three native error codes in one host
  * before rethrowing a captured Node error through the launcher boundary.
  * A descriptor-retargeted run-index alias preserves the original and victim
