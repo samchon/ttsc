@@ -63,6 +63,7 @@ func TestEmitRawDeclarationDirOutputsSurviveOutDirContainment(t *testing.T) {
   outDir := filepath.ToSlash(filepath.Join(project, "dist")) + "/"
   declarationDir := filepath.ToSlash(filepath.Join(project, "types")) + "/"
   sawJs, sawDts := false, false
+  sawJsAtOutDir, sawDtsAtDeclarationDir := false, false
   for _, file := range written {
     if !strings.HasPrefix(file, outDir) && !strings.HasPrefix(file, declarationDir) {
       t.Fatalf("emit escaped outDir and declarationDir: %s (all writes: %v)", file, written)
@@ -73,11 +74,20 @@ func TestEmitRawDeclarationDirOutputsSurviveOutDirContainment(t *testing.T) {
     if strings.HasSuffix(file, "/main.d.ts") {
       sawDts = true
     }
+    if file == outDir+"main.js" {
+      sawJsAtOutDir = true
+    }
+    if file == declarationDir+"main.d.ts" {
+      sawDtsAtDeclarationDir = true
+    }
   }
   if !sawJs {
     t.Fatalf("project's own main.js was not emitted under outDir: %v", written)
   }
   if !sawDts {
     t.Fatalf("declarationDir output main.d.ts was swallowed by the containment guard: %v", written)
+  }
+  if !sawJsAtOutDir || !sawDtsAtDeclarationDir {
+    t.Fatalf("missing configured dist/main.js or types/main.d.ts: %v", written)
   }
 }
