@@ -109,6 +109,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.equal(signal(), before, message);
   };
   const signalBeforeEdit = signal();
+  const metadataProgramBaseline = fs.statSync(workspace.programRunLog).size;
   // These inputs have no conflicting values or configuration requirements.
   // One invalidated generation can consume all three changes together.
   fs.appendFileSync(declaration, "export declare const retainedMetadata: 1;\n");
@@ -121,6 +122,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
   const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
+  assert.equal(fs.statSync(workspace.programRunLog).size - metadataProgramBaseline, 1, "one native ApplyProgram admission consumes the combined declaration, candidate and membership epoch");
   assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
   const acknowledged = JSON.parse(signal());
   for (const input of [declaration, candidate, addedRoot])
