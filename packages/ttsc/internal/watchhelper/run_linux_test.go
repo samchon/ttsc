@@ -183,9 +183,9 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
 // Sync reads the instance empty first, so an edit made before it is answered
 // is reported ahead of the answer.
 //
-// @evidence contracts/testing.md#behavioral-verification A sync answer is preceded by all 200 events for files created before it.
-// @evidence contracts/testing.md#independent-expectations The expected count of 200 distinct names is the number of files the test wrote.
-// @evidence contracts/testing.md#distinguishing-cases A helper that answered sync before draining its instance would report fewer names.
+// @evidence contracts/testing.md#behavioral-verification Responses preceding the actual sync reply contain all 200 authored file names for subscription ID 1, with change/rename event types. Multiple native events for one file may occur, so exact event count and ordering are not asserted.
+// @evidence contracts/testing.md#independent-expectations Count 200 and names f000 through f199 follow from the authored creation population, independently of the helper decoder. Literal ID 1 and declared change/rename response types distinguish unrelated or non-event responses.
+// @evidence contracts/testing.md#distinguishing-cases All distinct creations finish before the sync request, whose matching reply ends the observed interval. Missing or altered names fail even if the total count remains 200; concurrent creation and kernel overflow are separate cases.
 // @evidence contracts/testing.md#execution-ownership TestSyncFollowsEveryQueuedEvent is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
   root := t.TempDir()
@@ -200,10 +200,19 @@ func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
   lines := s.sync(100)
   names := map[string]bool{}
   for _, line := range lines {
+    if line.ID != 1 || (line.Type != "rename" && line.Type != "change") {
+      t.Fatalf("unexpected response before sync: %+v", line)
+    }
     names[line.Name] = true
   }
   if len(names) != 200 {
     t.Fatalf("heard %d of 200 entries before the sync answer", len(names))
+  }
+  for index := 0; index < 200; index++ {
+    name := fmt.Sprintf("f%03d", index)
+    if !names[name] {
+      t.Fatalf("missing authored entry %q before sync", name)
+    }
   }
 }
 
