@@ -241,6 +241,12 @@ export const startWatch = (
         let deadline: NodeJS.Timeout | undefined;
         let settled = false;
         let atStop: string | undefined;
+        let recordedDescendants: ReturnType<typeof sampleShutdownDescendants> | undefined;
+        const sampleAtDeadline = (): string => sampleLauncher(child.pid) +
+          " Recorded shutdown process tree now: " +
+          (recordedDescendants
+            ? sampleShutdownDescendants(child.pid, recordedDescendants.identities).snapshot
+            : "(not sampled)");
         const settle = (success: boolean, error?: unknown): void => {
           if (settled) return;
           settled = true;
@@ -284,13 +290,14 @@ export const startWatch = (
         deadline = setTimeout(() => {
           settle(false, new Error(
             "The watch child did not close after termination.\n" +
-              describeUnstoppedLauncher(atStop, sampleLauncher(child.pid), text.slice(cursor)),
+              describeUnstoppedLauncher(atStop, sampleAtDeadline(), text.slice(cursor)),
           ));
         }, 20_000);
         try {
           if (child.exitCode === null && child.signalCode === null) {
             if (!child.connected) throw new Error("The watch child has no owning shutdown channel.");
-            atStop = sampleLauncher(child.pid);
+            recordedDescendants = sampleShutdownDescendants(child.pid);
+            atStop = sampleLauncher(child.pid) + " Rooted shutdown process tree: " + recordedDescendants.snapshot;
             child.send({ type: "ttsc.watch.stop", id }, (error) => {
               if (error) settle(false, error);
             });
@@ -299,7 +306,7 @@ export const startWatch = (
                 if (closed) return;
                 EvidenceProcessOwnership.retain(directory, new Error(
                   "Watch shutdown required forced launcher termination.\n" +
-                    describeUnstoppedLauncher(atStop, sampleLauncher(child.pid), text.slice(cursor)),
+                    describeUnstoppedLauncher(atStop, sampleAtDeadline(), text.slice(cursor)),
                 ));
                 try {
                   child.kill("SIGKILL");
@@ -384,4 +391,93 @@ function sampleLauncher(pid: number | undefined): string {
     children,
     descriptors,
   });
+}
+
+/**
+ * Keeps a bounded Linux process-tree witness before the launcher disappears.
+ * Later samples revisit only those recorded PIDs and compare start ticks; a
+ * recycled PID cannot stand in for the original descendant. Raw descriptor
+ * links expose possible inherited pipes without certifying their ownership or
+ * process termination. Missing reads and all population caps remain explicit.
+ */
+function sampleShutdownDescendants(
+  pid: number | undefined,
+  recorded?: Map<number, string>,
+): { identities: Map<number, string>; snapshot: string } {
+  const identities = new Map<number, string>();
+  if (process.platform !== "linux" || pid === undefined)
+    return { identities, snapshot: "(Linux process-tree observation unavailable)" };
+  const queue = recorded ? [...recorded.keys()] : [pid];
+  const visited = new Set<number>();
+  const records: Record<string, unknown>[] = [];
+  let truncated = false;
+  let retainedCharacters = 0;
+  const read = (file: string): string => {
+    try { return fs.readFileSync(file, "utf8").trim(); }
+    catch (error) { return "unavailable: " + String(error); }
+  };
+  for (let index = 0; index < queue.length && visited.size < 64; ++index) {
+    const current = queue[index];
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const root = "/proc/" + current;
+    const stat = read(root + "/stat");
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    const startTicks = /^\d+$/.test(fields[19] ?? "") ? fields[19] : undefined;
+    if (startTicks !== undefined) identities.set(current, startTicks);
+    const expectedStartTicks = recorded?.get(current);
+    const sameIncarnation = expectedStartTicks === undefined ? null : startTicks === expectedStartTicks;
+    const descriptors: { fd: string; target?: string; targetTruncated?: boolean; error?: string }[] = [];
+    let descriptorError: string | undefined;
+    try {
+      const names = fs.readdirSync(root + "/fd").sort();
+      if (names.length > 64) truncated = true;
+      for (const name of names.slice(0, 64)) {
+        try {
+          const target = fs.readlinkSync(root + "/fd/" + name);
+          descriptors.push({ fd: name, target: target.slice(0, 256), targetTruncated: target.length > 256 });
+        }
+        catch (error) { descriptors.push({ fd: name, error: String(error) }); }
+      }
+    } catch (error) { descriptorError = String(error); }
+    let childDiscoveryError: string | undefined;
+    if (!recorded && startTicks !== undefined) {
+      try {
+        const tasks = fs.readdirSync(root + "/task").sort();
+        if (tasks.length > 64) truncated = true;
+        for (const task of tasks.slice(0, 64)) {
+          const children = read(root + "/task/" + task + "/children");
+          if (children.startsWith("unavailable:")) { childDiscoveryError = children; continue; }
+          for (const token of children.split(/\s+/)) {
+            const childPid = Number(token);
+            if (!Number.isSafeInteger(childPid) || childPid <= 0 || visited.has(childPid) || queue.includes(childPid)) continue;
+            if (queue.length < 64) queue.push(childPid);
+            else truncated = true;
+          }
+        }
+      } catch (error) { childDiscoveryError = String(error); }
+    }
+    const afterStat = read(root + "/stat");
+    const afterFields = afterStat.slice(afterStat.lastIndexOf(")") + 2).split(" ");
+    const record = {
+      pid: current, startTicks, expectedStartTicks, sameIncarnation,
+      identityStableDuringSample: startTicks !== undefined && afterFields[19] === startTicks,
+      state: startTicks === undefined ? undefined : fields[0],
+      ppid: startTicks === undefined ? undefined : fields[1],
+      statError: startTicks === undefined ? stat.slice(0, 256) : undefined,
+      descriptors, descriptorError, childDiscoveryError,
+    };
+    const serialized = JSON.stringify(record);
+    if (retainedCharacters + serialized.length <= 60_000) {
+      records.push(record);
+      retainedCharacters += serialized.length;
+    } else truncated = true;
+  }
+  return { identities, snapshot: JSON.stringify({
+    records, truncated, processLimit: 64, taskLimitPerProcess: 64,
+    descriptorLimitPerProcess: 64, descriptorTargetCharacterLimit: 256,
+    snapshotCharacterLimit: 60_000,
+    discovery: recorded ? "recorded-pids-only" : "rooted-all-task-children",
+    descendantCompletenessCertified: false,
+  }) };
 }
