@@ -1,1 +1,1 @@
-{"name":"batch-configured-esnext","type":"module","exports":"./src/index.ts"}
+{"name":"batch-configured-esnext","type":"commonjs","exports":"./src/index.ts"}

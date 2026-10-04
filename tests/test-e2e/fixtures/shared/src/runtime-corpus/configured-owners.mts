@@ -6,5 +6,5 @@ export async function observeConfiguredOwners(): Promise<unknown> {
   const legacyName: string = "batch-configured-legacy";
   const esnext = await import(esnextName);
   const legacy = await import(legacyName);
-  return { esnext: [esnext.hello(), esnext.sentinel], legacy: legacy.default.values };
+  return { esnext: [esnext.hello(), esnext.sentinel, esnext.derived], legacy: legacy.default.values };
 }
