@@ -9,10 +9,12 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    env:
-      GOCACHE: ${{ runner.temp }}/e2e-shared-go-object-cache
-      TTSC_GO_CACHE_DIR: ${{ runner.temp }}/e2e-shared-go-object-cache
     steps:
+      - name: Set shared Go object cache environment
+        shell: bash
+        run: |
+          shared_go_cache="${RUNNER_TEMP}/e2e-shared-go-object-cache"
+          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$shared_go_cache" "$shared_go_cache" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
