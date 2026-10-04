@@ -1,6 +1,7 @@
 const cp = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const SOURCE_FIELDS = [
@@ -73,13 +74,32 @@ function createInputIdentity({
   inputDirectories,
   execFileSync,
 }) {
-  const runGo = (args) =>
-    execFileSync("go", args, {
-      cwd,
-      encoding: "utf8",
-      env: { ...process.env, ...environment },
-      windowsHide: true,
-    });
+  // Dependency JSON grows with the entire selected package graph. Give stdout
+  // a file descriptor instead of execFileSync's bounded capture pipe; parse
+  // every byte only after Go succeeds, and reclaim the descriptor and file on
+  // both the success and failure paths. The temporary input is outside cwd so
+  // directory-shaped cache inputs cannot observe it.
+  const runGo = (args) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-list-"));
+    const output = path.join(directory, "stdout.json");
+    let descriptor;
+    try {
+      descriptor = fs.openSync(output, "wx");
+      execFileSync("go", args, {
+        cwd,
+        env: { ...process.env, ...environment },
+        stdio: ["ignore", descriptor, "inherit"],
+        windowsHide: true,
+      });
+      return fs.readFileSync(output, "utf8");
+    } finally {
+      try {
+        if (descriptor !== undefined) fs.closeSync(descriptor);
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  };
   const packages = parseJsonStream(
     runGo(["list", "-deps", "-json", ...dependencyPackages]),
   );
