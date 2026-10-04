@@ -14,7 +14,7 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers before their changed input epochs. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
@@ -33,6 +33,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const originalContract = fs.readFileSync(contractPath);
   const bannerPath = path.join(workspace.root, "config", "banner.config.json");
   const originalBanner = fs.readFileSync(bannerPath);
+  const deliveredPaths = [path.join(workspace.root, "src/bundle.ts"), path.join(workspace.root, "src/map.ts")];
+  const originalDelivered = deliveredPaths.map((file) => fs.readFileSync(file, "utf8"));
   const unrelatedPath = path.join(workspace.root, "batch-unrelated-candidate.txt");
   const ignoredOutput = path.join(workspace.root, "dist/batch-hashed-a9137.js");
   const candidate = path.join(workspace.root, "node_modules/batch-record-dependency/index.ts");
@@ -163,11 +165,20 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(repaired[1]!.value.content, turbopack.content, "repair restores the actual Turbopack native output");
   assert.ok(publications().some((publication) => publication.type === "success"), "repair observes an actual successful publication");
   fs.writeFileSync(bannerPath, JSON.stringify({ text: "Pooled second banner\nIndependent external-config state" }));
+  // Disk-source and external configuration changes coexist in this already
+  // required epoch. The caller still delivers the previous source bytes.
+  for (let index = 0; index < deliveredPaths.length; index++) {
+    assert.match(originalDelivered[index]!, /"authored-marker"/);
+    fs.writeFileSync(deliveredPaths[index]!, originalDelivered[index]!.replace('"authored-marker"', '"disk-drifted-marker"'));
+  }
   const divergentSuffix = "\n// changed by the host before native delivery\n";
-  const external = await Promise.all(workers.map((worker) => worker.request()));
+  const external = await Promise.all(workers.map((worker, index) => worker.request("", originalDelivered[index])));
   for (const reply of external) { assert.equal(reply.error, undefined); assert.ok(reply.value); }
   assert.match(external[0]!.value.ast.source, /Pooled second banner/);
   assert.doesNotMatch(external[0]!.value.ast.source, /Shared boundary corpus/);
+  assert.match(external[0]!.value.ast.source, /"disk-drifted-marker"/);
+  assert.doesNotMatch(external[0]!.value.ast.source, /"authored-marker"/);
+  assert.equal(external[1]!.value.value, "disk-drifted-marker", "native output must use disk bytes rather than stale delivered text");
   const changedExternal = publications();
   const beforeIgnoredChurn = fs.statSync(workspace.programRunLog).size;
   fs.writeFileSync(unrelatedPath, "Unrelated text is not a resolution/config input.\n");
@@ -177,6 +188,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of externalReplay) assert.equal(reply.error, undefined);
   assert.equal(externalReplay[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(externalReplay[1]!.value.content, external[1]!.value.content);
+  assert.equal(externalReplay[1]!.value.value, "disk-drifted-marker");
   assert.deepEqual(external[1]!.value.dependencies, [projectRecordFile]);
   assert.deepEqual(externalReplay[1]!.value.dependencies, [projectRecordFile], "a cache delivery must repeat the real project-record handoff");
   assert.deepEqual(external[1]!.value.contextDependencies, []);
@@ -197,6 +209,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of repeatedDivergence) assert.equal(reply.error, undefined);
   assert.equal(repeatedDivergence[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(repeatedDivergence[1]!.value.content, external[1]!.value.content);
+  assert.equal(repeatedDivergence[1]!.value.value, "disk-drifted-marker");
   assert.deepEqual(repeatedDivergence[1]!.value.dependencies, [projectRecordFile]);
   assert.deepEqual(repeatedDivergence[1]!.value.contextDependencies, []);
   assert.deepEqual(repeatedDivergence[1]!.value.cacheability, []);
@@ -205,6 +218,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   } catch (error) { bodyFailure = error; } finally {
     fs.writeFileSync(contractPath, originalContract);
     fs.writeFileSync(bannerPath, originalBanner);
+    for (let index = 0; index < deliveredPaths.length; index++) fs.writeFileSync(deliveredPaths[index]!, originalDelivered[index]!);
     fs.writeFileSync(declaration, originalDeclaration);
     for (const owned of [candidate, unrelatedPackageFile, addedRoot]) fs.rmSync(owned, { force: true });
     fs.rmSync(unrelatedPath, { force: true });

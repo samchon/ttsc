@@ -11,10 +11,10 @@ if (mode === "metro") {
   process.env[options.ENV_KEY] = options.serializeOptions({ project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
   transformer = await import(metroUrl);
 } else loader = (await import(loaderUrl)).default;
-async function deliver(sourceSuffix = "") {
+async function deliver(sourceSuffix = "", deliveredSource) {
   if (mode === "metro") {
     const filename = "src/bundle.ts";
-    const result = await transformer.transform({ src: fs.readFileSync(path.join(root, filename), "utf8") + sourceSuffix, filename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
+    const result = await transformer.transform({ src: (deliveredSource ?? fs.readFileSync(path.join(root, filename), "utf8")) + sourceSuffix, filename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
     return { mode, ast: result.ast };
   }
   const resourcePath = path.join(root, "src/map.ts");
@@ -27,7 +27,7 @@ async function deliver(sourceSuffix = "") {
     addContextDependency(directory) { contextDependencies.push(directory); },
     cacheable(value) { cacheability.push(value); },
     emitError(error) { errors.push(String(error)); },
-  }, fs.readFileSync(resourcePath, "utf8") + sourceSuffix));
+  }, (deliveredSource ?? fs.readFileSync(resourcePath, "utf8")) + sourceSuffix));
   const observed = await import(`data:text/javascript;base64,${Buffer.from(delivery.content).toString("base64")}`);
   return { mode, ...delivery, dependencies, contextDependencies, cacheability, errors, completions, value: observed.value };
 }
@@ -36,6 +36,6 @@ async function deliver(sourceSuffix = "") {
 for await (const line of createInterface({ input: process.stdin })) {
   const command = JSON.parse(line);
   if (command.close) break;
-  try { process.stdout.write(JSON.stringify({ id: command.id, value: await deliver(command.sourceSuffix) }) + "\n"); }
+  try { process.stdout.write(JSON.stringify({ id: command.id, value: await deliver(command.sourceSuffix, command.deliveredSource) }) + "\n"); }
   catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error) }) + "\n"); }
 }
