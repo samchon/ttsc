@@ -7,12 +7,12 @@ import (
 )
 
 // TestUnicornImportStyleRejectsMalformedOptionsBeforeLinting verifies
-// option validation happens at engine construction: every schema
-// violation upstream's JSON schema rejects surfaces as a config error
+// option validation happens at engine construction: the retained malformed
+// payloads produce independently specified configuration-error fragments
 // before any file is linted.
 //
 // Silent acceptance would let a typo disable the rule without any
-// signal, the exact failure mode the stub this rule replaces had.
+// signal. Each rejection here must instead carry its authored error fragment.
 //
 //  1. Build an engine with each malformed payload.
 //  2. Assert ConfigError carries the expected message fragment.

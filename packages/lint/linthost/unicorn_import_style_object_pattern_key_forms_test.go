@@ -9,9 +9,9 @@ import (
 // by name, computed identifier keys count as named, and literal keys
 // contribute no style at all (leaving the reference compliant).
 //
-// Upstream checks `property.key.type === 'Identifier'` without a
-// computed guard, so `{[key]: x}` is named while `{"literal": x}` and
-// `{0: x}` are unclassified — asymmetries worth pinning.
+// The native classifier unwraps computed keys and checks identifier kind;
+// `{[key]: x}` is named while string-key and number-key bindings
+// contribute no style. These authored inputs distinguish that boundary.
 //
 //  1. Destructure `named` and `default` policy modules with each key
 //     form.
