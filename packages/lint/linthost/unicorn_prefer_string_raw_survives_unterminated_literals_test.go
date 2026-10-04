@@ -10,7 +10,7 @@ import "testing"
 // literal reaches the rule as a token with no closing delimiter — in the
 // degenerate case a lone quote or backtick, one byte long. The payload slice
 // `source[pos+1 : end-1]` is invalid for such a token, so the delimiter and
-// length guards must run first; upstream never sees these files at all, and a
+// length guards must run first; a
 // half-typed path in an editor buffer must not advise a `String.raw`
 // conversion of a literal that does not exist yet.
 //
@@ -20,10 +20,10 @@ import "testing"
 //     end of file.
 //  3. Assert every one of them is silent.
 //
-// @evidence contracts/testing.md#behavioral-verification The corpus helper runs Engine.Run and verifies unterminated strings/templates and one-byte lone delimiters remain silent without an out-of-bounds token slice; annotated rule/severity/line equality or explicit zero count rejects extra findings.
-// @evidence contracts/testing.md#independent-expectations Four authored zero-finding expectations express the editor-buffer safety contract for recovered malformed AST tokens; upstream does not execute malformed parser input, and these silence oracles are independent of the Go delimiter and slice guards.
+// @evidence contracts/testing.md#behavioral-verification The snapshot helper runs the actual parser and Engine.Run for unterminated strings/templates and one-byte lone delimiters; its ordinary-finding guard and zero count reject both a recovered rule panic and extra diagnostics.
+// @evidence contracts/testing.md#independent-expectations Four authored zero-finding expectations express the editor-buffer safety contract for recovered malformed AST tokens independently of the Go delimiter and slice guards.
 // @evidence contracts/testing.md#distinguishing-cases The four authored malformed inputs require zero findings; valid complete backslash payload is the positive the corpus fixture unicorn-prefer-string-raw.ts.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreferStringRawSurvivesUnterminatedLiterals is a discoverable Go unit entry; its source fixtures run owning AST/engine operations in the shared Go process without installed consumers, native builds or product hosts. Corpus failure output retains the virtual source identity and expected/actual finding positions.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreferStringRawSurvivesUnterminatedLiterals is a discoverable Go unit entry; its source fixtures run owning AST/engine operations in the shared Go process without installed consumers, native builds or product hosts. The snapshot helper retains the authored source and reports unexpected findings.
 func TestUnicornPreferStringRawSurvivesUnterminatedLiterals(t *testing.T) {
   for _, source := range []string{
     "const unterminatedString = \"C:\\\\Users\\\\me\n",
