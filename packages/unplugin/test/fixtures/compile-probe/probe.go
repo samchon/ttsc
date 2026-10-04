@@ -82,7 +82,10 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
     // Ordered entries observe the same Program without adding compile ticks.
     operation, _ := context.Entry.Config["operation"].(string)
     if operation == "prefix" || operation == "upper" || operation == "suffix" || operation == "identity" {
-      return appendContextReceipt(program, context)
+      if err := appendContextReceipt(program, context); err != nil {
+        return err
+      }
+      return reportConfiguredDependencies(program, context)
     }
     return fmt.Errorf("real-envelope compile probe requires a runLog string")
   }
@@ -119,7 +122,92 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
       }
     }
   }
-  return appendContextReceipt(program, context)
+  if err := appendContextReceipt(program, context); err != nil {
+    return err
+  }
+  return reportConfiguredDependencies(program, context)
+}
+
+// reportConfiguredDependencies declares only explicitly selected resident
+// non-declaration sources through the actual per-entry reporting API. Config
+// paths are native cwd-relative or absolute; source spelling passed to the
+// reporter comes from the loaded Program. Every contributing entry must make
+// its own completeness declaration. Missing reportedFiles performs no work.
+// Duplicate and self dependencies are reported unchanged for the host's actual
+// aggregation policy; no JSON envelope or all-file completeness is fabricated.
+func reportConfiguredDependencies(program *driver.Program, context driver.PluginContext) error {
+  configuredFiles, present := context.Entry.Config["reportedFiles"]
+  if !present {
+    return nil
+  }
+  stringsOf := func(value any, option string) ([]string, error) {
+    entries, ok := value.([]any)
+    if !ok {
+      return nil, fmt.Errorf("%s must be an array of path strings", option)
+    }
+    paths := make([]string, 0, len(entries))
+    for _, entry := range entries {
+      file, ok := entry.(string)
+      if !ok {
+        return nil, fmt.Errorf("%s must contain only path strings", option)
+      }
+      paths = append(paths, file)
+    }
+    return paths, nil
+  }
+  files, err := stringsOf(configuredFiles, "reportedFiles")
+  if err != nil {
+    return err
+  }
+  var dependencies []string
+  if configured, present := context.Entry.Config["reportedDependencies"]; present {
+    dependencies, err = stringsOf(configured, "reportedDependencies")
+    if err != nil {
+      return err
+    }
+  }
+  if len(files) == 0 {
+    return nil
+  }
+  if program == nil || program.TSProgram == nil {
+    return fmt.Errorf("reportedFiles requires the actual loaded Program")
+  }
+  resolve := func(file string) string {
+    native := filepath.FromSlash(file)
+    if !filepath.IsAbs(native) {
+      native = filepath.Join(context.Cwd, native)
+    }
+    return filepath.Clean(native)
+  }
+  selected := make(map[string]bool, len(files))
+  for _, file := range files {
+    selected[resolve(file)] = false
+  }
+  var actual []string
+  // The upstream accessor does not dispatch driver linked hooks again from
+  // inside ApplyProgram, unlike driver.Program.SourceFiles.
+  for _, source := range program.TSProgram.GetSourceFiles() {
+    if source.IsDeclarationFile {
+      continue
+    }
+    key := resolve(source.FileName())
+    if seen, wanted := selected[key]; wanted && !seen {
+      selected[key] = true
+      actual = append(actual, source.FileName())
+    }
+  }
+  for file, found := range selected {
+    if !found {
+      return fmt.Errorf("reportedFiles source is not in the loaded Program: %s", file)
+    }
+  }
+  for _, file := range actual {
+    for _, dependency := range dependencies {
+      context.ReportFileDependency(file, dependency)
+    }
+    context.ReportFileDependenciesComplete(file)
+  }
+  return nil
 }
 
 // appendContextReceipt records an actually invoked entry's supplied config.
