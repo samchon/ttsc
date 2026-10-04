@@ -31,11 +31,11 @@ func unicornConsistentExistenceIndexCheckMarkedRanges(t *testing.T, source strin
   }
 }
 
-// TestRuleCorpusUnicornConsistentExistenceIndexCheck verifies every
-// upstream-invalid comparison on a `const` bound to an index-returning call
-// reports with the upstream range, message, and autofix.
+// TestRuleCorpusUnicornConsistentExistenceIndexCheck verifies the authored
+// comparison matrix on a `const` bound to an index-method call
+// against independent range, message and autofix expectations.
 //
-// The rule is scope analysis, not syntax: upstream only ever reaches a
+// The rule resolves binding identity: it reaches a
 // comparison through the references of a `const` initialized from `indexOf`,
 // `lastIndexOf`, `findIndex`, or `findLastIndex`. Pinning all three magnitude
 // spellings (`< 0`, `>= 0`, `> -1`) on `indexOf`, plus one comparison each on the other three methods, through a closure
@@ -45,20 +45,20 @@ func unicornConsistentExistenceIndexCheckMarkedRanges(t *testing.T, source strin
 // match or a missing operator arm would show up here immediately.
 //
 // The initializer arms matter as much: a non-null-asserted receiver and a
-// parenthesis-capped optional chain are both plain method calls upstream (the
+// parenthesis-capped optional chain are both admitted method calls (the
 // `!` is transparent, and the parens end the ChainExpression before the call),
 // so they must still report — the negative twin, an uncapped `a?.b.indexOf(x)`,
 // lives in the skips case.
 //
 //  1. Enable unicorn/consistent-existence-index-check on one type-clean source
-//     that stacks every upstream-invalid form.
+//     that stacks the authored reporting forms.
 //  2. Mark the expected `<operator> <right>` span of each with `/*<*/ … /*>*/`.
 //  3. Assert range, message, and fix edits per finding, in source order, with
-//     the replacement operators and values taken from the upstream oracle.
+//     independently authored replacement operators and values.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings compare exact authored ranges/messages/token edits across all marked index-reference comparisons, exposing omitted methods or wrong binding resolution.
 // @evidence contracts/testing.md#independent-expectations The independent supported method/operator table and index-method -1 sentinel define authored edit expectations; marker spans come from source rather than emitted findings.
-// @evidence contracts/testing.md#distinguishing-cases Four index methods, three magnitude forms, closures, repeated comparisons, parentheses, non-null receiver, capped optional chain and exported binding report; SkipsUpstreamValidForms owns adjacent exclusions.
+// @evidence contracts/testing.md#distinguishing-cases Four index methods, three magnitude forms, closures, repeated comparisons, parentheses, non-null receiver, capped optional chain and exported binding report; this entry compares only its marked reporting forms.
 // @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentExistenceIndexCheck owns this authored source matrix as one discoverable Go unit entry. The owning checker-backed engine executes in the shared Go process; failed source/count or indexed range/edit comparisons retain the authored case identity. No installed consumer, native build or child product host runs.
 func TestRuleCorpusUnicornConsistentExistenceIndexCheck(t *testing.T) {
   engine := NewEngine(RuleConfig{"unicorn/consistent-existence-index-check": SeverityError})
@@ -119,7 +119,7 @@ export const exported = array.indexOf(10);
 void (exported /*<*/>= 0/*>*/);
 `
 
-  // The upstream replacement table, in the order the marked ranges appear.
+  // The authored replacement table, in the order the marked ranges appear.
   // `> -1` already spells the sentinel, so only its operator is edited.
   expectations := []struct {
     originalOperator string
