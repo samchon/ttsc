@@ -1,5 +1,6 @@
 import { assertGraphEncodedCorpus, writeGraphEncodedInputs } from "../batch/graphEncodedCorpus";
 import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
+import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
 import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
 import assert from "node:assert/strict";
@@ -81,6 +82,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     await assertGraphDispatchCorpus(client);
     await assertGraphReverseCorpus(client);
     await assertGraphMcpCorpus(client, initialization);
+    await assertGraphTourInputCorpus(client);
     await assertGraphNativeShapeCorpus(client, workspace.root);
     await assertGraphRefreshCorpus(client, workspace.root);
     await assertGraphEncodedCorpus(client, workspace.root);
