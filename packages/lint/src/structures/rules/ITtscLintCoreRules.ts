@@ -23,8 +23,8 @@ import type {
 } from "./ITtscLintCoreRuleOptions";
 
 /**
- * Generic ESLint-compatible rules that apply to both JavaScript and TypeScript
- * source.
+ * Generic ESLint-compatible rule settings for the host's selected TypeScript
+ * and TSX source files.
  *
  * Rules use bare kebab-case ids, including ESLint core names and the
  * `prefer-for-of` iteration policy. TypeScript-only rules and
@@ -56,12 +56,10 @@ export interface ITtscLintCoreRules {
   curly?: TtscLintRuleSetting;
 
   /**
-   * Require `switch` statements to include a `default` clause.
+   * Require a default clause or a recognized intentional-omission comment on
+   * nonempty switch statements.
    *
-   * A switch without `default` silently drops every discriminant value that no
-   * `case` label matched. The rule forces the catch-all branch to be written
-   * out so unhandled cases become an intentional decision instead of a hidden
-   * fall-through.
+   * The rule allows a trailing omission marker; an empty switch is also exempt.
    *
    * @reference https://eslint.org/docs/latest/rules/default-case
    */
@@ -118,8 +116,9 @@ export interface ITtscLintCoreRules {
    * Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when
    * the string key is a valid JavaScript identifier.
    *
-   * Bracket access remains accepted for reserved words, dynamic keys, or keys
-   * containing characters that cannot appear in an identifier.
+   * Dynamic and non-identifier keys are left alone. Reserved-word keys and
+   * comment-bearing bracket spans produce explicit suggestions instead of
+   * automatic edits.
    *
    * @reference https://eslint.org/docs/latest/rules/dot-notation
    */
@@ -155,7 +154,7 @@ export interface ITtscLintCoreRules {
 
   /**
    * Require the `get` and `set` accessors of a single property to be declared
-   * adjacent in the class body.
+   * adjacent in class bodies or object literals, with optional relative order.
    *
    * When the read and write halves of a property are split apart by unrelated
    * members, a reader scanning the class has to chase the pair across the body
@@ -166,10 +165,9 @@ export interface ITtscLintCoreRules {
   "grouped-accessor-pairs"?: TtscLintCoreGroupedAccessorPairsRuleSetting;
 
   /**
-   * Require the body of every `for (key in obj)` loop to begin with a guard
-   * against inherited keys: `Object.hasOwn(obj, key)` or the older
-   * `Object.prototype.hasOwnProperty.call(obj, key)`. The inverted-guard
-   * early-skip shape `if (!Object.hasOwn(...)) continue;` is also accepted.
+   * Require a recognized structural guard in a nonempty for-in body: a sole
+   * if statement or a leading if whose consequent is a bare or single-block
+   * continue. The native rule does not prove that the predicate checks own keys.
    *
    * Without the guard the loop processes every enumerable name on the prototype
    * chain — including monkey-patches someone else attached to
@@ -188,8 +186,9 @@ export interface ITtscLintCoreRules {
   "id-length"?: TtscLintRuleSetting;
 
   /**
-   * Require every `var` / `let` declaration to be initialized at its
-   * declaration site.
+   * Require var/let declarations in variable statements to have initializers.
+   * Const declarations and declaration lists in loop headers are outside this
+   * native visit scope.
    *
    * @reference https://eslint.org/docs/latest/rules/init-declarations
    */
@@ -263,8 +262,9 @@ export interface ITtscLintCoreRules {
   "no-alert"?: TtscLintRuleSetting;
 
   /**
-   * Reject `Array(...)` and `new Array(...)` constructor calls in favor of
-   * array literals.
+   * Reject identifier-based Array calls with zero or multiple arguments in
+   * favor of array literals. Single-argument and explicit-type-argument forms
+   * are exempt.
    *
    * `Array(n)` and `[n]` behave differently for a single numeric argument, and
    * the array literal is uniformly clearer.
@@ -276,9 +276,9 @@ export interface ITtscLintCoreRules {
   /**
    * Reject `new Promise(async (resolve, reject) => { ... })`.
    *
-   * Promises thrown asynchronously inside the executor are dropped silently
-   * because the constructor has already returned the outer Promise. Use a
-   * regular function and call `reject` explicitly.
+   * Errors in an async executor reject the promise returned by that executor,
+   * which the Promise constructor does not adopt. Use a regular executor and
+   * reject the outer promise explicitly.
    *
    * @reference https://eslint.org/docs/latest/rules/no-async-promise-executor
    */
@@ -287,8 +287,8 @@ export interface ITtscLintCoreRules {
   /**
    * Reject `await` expressions evaluated inside a loop body. The loop runs
    * strictly serially because each iteration blocks on the previous one's
-   * microtask hop; when the operations are independent the equivalent
-   * `Promise.all([…])` is dramatically faster. The rule intentionally exempts
+   * microtask hop; independent operations may instead be started concurrently.
+   * The rule intentionally exempts
    * `for await … of` because the awaitable iterator is the loop's whole reason
    * for existing.
    *
@@ -362,7 +362,7 @@ export interface ITtscLintCoreRules {
   /**
    * Reject calls to `console.*`.
    *
-   * Typically configured as `"warning"` so leftover logging stays visible
+   * Typically configured as `"warn"` so leftover logging stays visible
    * without breaking the build.
    *
    * @reference https://eslint.org/docs/latest/rules/no-console
@@ -374,8 +374,8 @@ export interface ITtscLintCoreRules {
    * (true)` or `if (false)`, in `if`, `while`, `do/while`, `for`, and ternary
    * expressions.
    *
-   * The default `checkLoops` configuration still permits intentional infinite
-   * loops in a few forms; see upstream for the matrix.
+   * This severity-only native policy exempts literal `while (true)` and
+   * omitted for conditions; it does not expose upstream's checkLoops option.
    *
    * @reference https://eslint.org/docs/latest/rules/no-constant-condition
    */
@@ -508,8 +508,8 @@ export interface ITtscLintCoreRules {
   /**
    * Reject empty regex character classes (`[]`).
    *
-   * An empty class never matches anything, so the entire pattern can never
-   * succeed; the negated form `[^]` (matches any character) is allowed.
+   * An empty class cannot match a character; other alternatives in a pattern
+   * may still match. The negated form `[^]` is allowed.
    *
    * @reference https://eslint.org/docs/latest/rules/no-empty-character-class
    */
@@ -559,16 +559,16 @@ export interface ITtscLintCoreRules {
    *
    * Use `x === null` or the explicit `x === null || x === undefined`.
    *
-   * Pairs with `eqeqeq` but kept separate so the loose null shortcut can be
-   * allowed under `"smart"`-style `eqeqeq` exceptions.
+   * This is a separate severity-only policy from eqeqeq; the native core
+   * setting does not expose upstream's smart equality option.
    *
    * @reference https://eslint.org/docs/latest/rules/no-eq-null
    */
   "no-eq-null"?: TtscLintRuleSetting;
 
   /**
-   * Reject `eval(...)` and indirect `eval` calls — almost always a security or
-   * correctness bug.
+   * Reject calls whose syntactically recognized callee name is eval. This
+   * native rule does not resolve arbitrary aliases of the eval function.
    *
    * @reference https://eslint.org/docs/latest/rules/no-eval
    */
@@ -651,9 +651,8 @@ export interface ITtscLintCoreRules {
    * Reject writes to a binding introduced by an `import` declaration —
    * assignment (`x = …`), compound assignment, or increment/decrement of an
    * imported name, plus property mutations of a namespace import (`ns.foo =
-   * …`). Imported bindings are read-only at runtime; mutating them either
-   * throws under strict mode or silently desynchronises the module's view of
-   * its own exports.
+   * …`). Imported bindings are read-only; the rule uses binding identity to
+   * distinguish imported names from same-spelled local shadows.
    *
    * @reference https://eslint.org/docs/latest/rules/no-import-assign
    */
@@ -717,8 +716,8 @@ export interface ITtscLintCoreRules {
   "no-lone-blocks"?: TtscLintRuleSetting;
 
   /**
-   * Reject `if (cond) { if (...) { ... } }` where the inner `if` is the only
-   * statement in an `else` — prefer `else if`.
+   * Reject `if (cond) { ... } else { if (...) { ... } }` where the inner if
+   * is the only statement in the else block; prefer `else if`.
    *
    * @reference https://eslint.org/docs/latest/rules/no-lonely-if
    */
@@ -759,8 +758,8 @@ export interface ITtscLintCoreRules {
   "no-misleading-character-class"?: TtscLintRuleSetting;
 
   /**
-   * Reject mixing operators of different precedence families in the same
-   * expression without explicit parentheses around the inner sub-expression.
+   * Reject unparenthesized mixes of distinct operators in one configured
+   * group when their precedence differs, or when allowSamePrecedence is false.
    * The famous case is `a && b || c`: readers expect left-to-right grouping but
    * the parser sees `(a && b) || c` because `&&` binds tighter than `||`.
    *
@@ -926,9 +925,8 @@ export interface ITtscLintCoreRules {
   /**
    * Reject declaring the same binding more than once in the same scope (`var x
    * = 1; var x = 2;`, two `function foo()` declarations side by side, or a
-   * parameter rebound by a later `var` in the body). The second declaration
-   * silently overwrites the first; shadowing the binding in a nested scope is
-   * left alone.
+   * parameter rebound by a later `var` in the body). Repeated declarations
+   * refer to the same binding; a nested same-spelled binding is independent.
    *
    * @reference https://eslint.org/docs/latest/rules/no-redeclare
    */
@@ -995,15 +993,16 @@ export interface ITtscLintCoreRules {
   "no-self-compare"?: TtscLintRuleSetting;
 
   /**
-   * Reject comma expressions (`a, b`) outside the heads of `for` statements.
+   * Reject comma expressions except when immediately parenthesized or directly
+   * inside a for-statement header.
    *
    * @reference https://eslint.org/docs/latest/rules/no-sequences
    */
   "no-sequences"?: TtscLintRuleSetting;
 
   /**
-   * Reject explicit `return` from a setter — setters' return values are
-   * ignored.
+   * Reject value-bearing returns from a setter without crossing a nested
+   * function boundary. Bare returns are accepted.
    *
    * @reference https://eslint.org/docs/latest/rules/no-setter-return
    */
@@ -1052,15 +1051,16 @@ export interface ITtscLintCoreRules {
   "no-this-before-super"?: TtscLintRuleSetting;
 
   /**
-   * Reject throwing non-Error operands (`throw "boom"`, `throw 1`).
+   * Reject syntactically recognized literal throw operands such as strings and
+   * numbers. This rule does not type-check every thrown value as an Error.
    *
    * @reference https://eslint.org/docs/latest/rules/no-throw-literal
    */
   "no-throw-literal"?: TtscLintRuleSetting;
 
   /**
-   * Reject initializing a variable to the literal `undefined` (`let x =
-   * undefined`) — declaring without an initializer has the same effect.
+   * Reject fresh var/let declarations initialized with the identifier
+   * undefined. Const declarations are exempt; their initializer is required.
    *
    * @reference https://eslint.org/docs/latest/rules/no-undef-init
    */
@@ -1125,8 +1125,9 @@ export interface ITtscLintCoreRules {
   "no-unsafe-optional-chaining"?: TtscLintRuleSetting;
 
   /**
-   * Reject expression statements with no observable effect, like a bare `x;`,
-   * `a === b;`, or a tagged template literal statement.
+   * Reject expression statements classified as unused, such as a bare `x;`
+   * or `a === b;`. Tagged template statements are rejected by default and
+   * accepted when allowTaggedTemplates is true; this is a syntax policy.
    *
    * Directive prologues — the leading run of string-literal statements at the
    * top of a script, module, namespace body, or function body — are accepted
@@ -1382,7 +1383,8 @@ export interface ITtscLintCoreRules {
   /**
    * Require an explicit radix argument for `parseInt(str, radix)`.
    *
-   * Without it, `"0123"` parses as decimal or octal depending on the engine.
+   * An explicit radix states the intended base without relying on parseInt's
+   * decimal/hex prefix inference.
    *
    * @reference https://eslint.org/docs/latest/rules/radix
    */
@@ -1421,9 +1423,9 @@ export interface ITtscLintCoreRules {
   "use-isnan"?: TtscLintRuleSetting;
 
   /**
-   * Restrict the right-hand operand of `typeof` to the documented strings
-   * (`"number"`, `"object"`, ...) so `typeof x === "undefiend"` typos are
-   * caught.
+   * Check string literals on either side of an equality comparison with
+   * typeof against the documented result vocabulary, catching spellings such
+   * as `"undefiend"`. Ordering comparisons are outside this native policy.
    *
    * @reference https://eslint.org/docs/latest/rules/valid-typeof
    */
