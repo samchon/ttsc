@@ -19,6 +19,8 @@ export namespace BatchWorkspace {
     programRunLog: string;
     contextReceipt: string;
     factoryContextProbe: string;
+    configPathReceipt: string;
+    projectAlias: string;
     installationOnly: boolean;
     expected: readonly { title: string; units: number[] }[];
   }
@@ -75,6 +77,12 @@ export namespace BatchWorkspace {
     return fs.readFileSync(workspace.contextReceipt, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
   }
 
+  /** Read actual native option delivery without treating it as a content proof. */
+  export function readConfigPathReceipts(workspace: Workspace): Record<string, unknown>[] {
+    if (!fs.existsSync(workspace.configPathReceipt)) return [];
+    return fs.readFileSync(workspace.configPathReceipt, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  }
+
   /** Match one observed native entry sequence against independently configured literals. */
   export function assertContextReceipts(records: Record<string, unknown>[], prefix = "a:", orderedPrefix = "a:"): void {
     assert.ok(records.length > 0, "the actual native producer must admit configured entries");
@@ -114,8 +122,10 @@ export namespace BatchWorkspace {
   /** Release shared inputs only after all consumers have returned. */
   export async function close(): Promise<void> {
     if (preparation === undefined) return;
-    const { root } = await preparation;
+    const { root, projectAlias } = await preparation;
     if (!fs.existsSync(root)) return;
+    if (root !== projectAlias)
+      fs.rmSync(path.dirname(projectAlias), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 
@@ -156,6 +166,14 @@ export namespace BatchWorkspace {
     const programRunLog = path.join(root, "program-runs.bin");
     const contextReceipt = path.join(root, "native-context.jsonl");
     const factoryContextProbe = path.join(root, "factory-context.json");
+    const configPathReceipt = path.join(root, "native-config-paths.jsonl");
+    let projectAlias = root;
+    if (!installationOnly) {
+      const aliasParent = TestProject.tmpdir("ttsc-shared-project-alias-");
+      TestProject.retainTemporaryDirectory(aliasParent, "Shared linked project consumers have not completed");
+      projectAlias = path.join(aliasParent, "project");
+      fs.symlinkSync(fs.realpathSync.native(root), projectAlias, "junction");
+    }
     if (!installationOnly)
       for (const name of ["cjs-dep", "esm-dep"])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
@@ -174,7 +192,7 @@ export namespace BatchWorkspace {
         fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
+      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt });
       const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
       fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
       config.compilerOptions.plugins.push(
@@ -199,7 +217,7 @@ export namespace BatchWorkspace {
     if (installationOnly) {
       fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
-    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, cache: TestProject.sharedPluginCache() };
+    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */

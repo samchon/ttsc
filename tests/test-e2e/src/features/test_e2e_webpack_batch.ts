@@ -30,6 +30,7 @@ import { runRspackShared } from "../batch/runRspackShared";
  */
 export async function test_e2e_webpack_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  const configReceiptOffset = BatchWorkspace.readConfigPathReceipts(workspace).length;
   const previous = process.env.TTSC_CACHE_DIR;
   process.env.TTSC_CACHE_DIR = workspace.cache;
   let compiler: webpack.Compiler | undefined;
@@ -44,7 +45,7 @@ export async function test_e2e_webpack_batch(): Promise<void> {
         { test: /\.tsx?$/, exclude: /[\\/]map\.ts$/, use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }] },
       ] },
       output: { path: directory, filename: "[name].js" },
-      plugins: [adapter({ compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
+      plugins: [adapter({ project: path.join(workspace.projectAlias, "tsconfig.json"), compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
     });
     const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
     const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
@@ -73,6 +74,15 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     if (failures.length !== 0) throw new AggregateError(failures.map((failure) => failure.reason), "shared webpack/rspack deliveries failed");
     assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves both retained compiler leases");
     BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset), "c:");
+    const configReceipts = BatchWorkspace.readConfigPathReceipts(workspace).slice(configReceiptOffset);
+    assert.equal(configReceipts.length, 1, "both retained compiler owners must share the actual linked-project delivery");
+    const receipt = configReceipts[0]!;
+    const physicalConfig = fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json"));
+    assert.equal(receipt.name, "shared-real-program-probe");
+    assert.equal(receipt.config, physicalConfig);
+    assert.equal(receipt.configFile, physicalConfig);
+    assert.equal(path.isAbsolute(String(receipt.tsconfig)), true);
+    assert.equal(fs.realpathSync.native(String(receipt.cwd)), fs.realpathSync.native(workspace.root));
   } finally {
     try {
       if (compiler !== undefined) {

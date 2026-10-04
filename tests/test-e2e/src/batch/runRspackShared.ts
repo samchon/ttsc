@@ -43,7 +43,7 @@ export async function runRspackShared(workspace: BatchWorkspace.Workspace): Prom
         { test: /\.tsx?$/, exclude: /[\\/]map\.ts$/, use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }] },
       ] },
       output: { path: directory, filename: "[name].js" },
-      plugins: [adapter({ compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
+      plugins: [adapter({ project: path.join(workspace.projectAlias, "tsconfig.json"), compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
     });
     const owned = compiler;
     const stats = await new Promise<Stats>((resolve, reject) => {
