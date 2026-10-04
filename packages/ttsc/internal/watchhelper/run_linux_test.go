@@ -256,10 +256,10 @@ func TestAddReportsAnUnwatchableDirectory(t *testing.T) {
 
 // The helper exits cleanly once its client closes stdin.
 //
-// @evidence contracts/testing.md#behavioral-verification The helper exits with code 0 within ten seconds after its client closes stdin.
+// @evidence contracts/testing.md#behavioral-verification Actual in-process Run returns code 0 and its session wrapper reports that result within ten seconds after the input pipe is closed. A built child-process exit, output-reader join and descendant shutdown are not exercised.
 // @evidence contracts/testing.md#independent-expectations Exit code 0 is the documented clean-shutdown status.
 // @evidence contracts/testing.md#distinguishing-cases A helper that kept running would fail the timeout branch.
-// @evidence contracts/testing.md#execution-ownership TestExitsWhenStdinCloses is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
+// @evidence contracts/testing.md#execution-ownership The Linux-only discoverable Go unit runs actual Run in a goroutine over owned input/output pipes and a real inotify instance. Closing the writer delivers EOF; the wrapper closes its output writer before reporting the return code. No temporary filesystem fixture, native child or built product host is started, and the output-reader goroutine's completion is not asserted.
 func TestExitsWhenStdinCloses(t *testing.T) {
   s := start(t)
   s.stdin.Close()
@@ -273,14 +273,14 @@ func TestExitsWhenStdinCloses(t *testing.T) {
   }
 }
 
-// The event decoder: an overflow reaches every subscription at once, a
-// directory entry's attribute change is a rename as libuv reports it, a
+// The event decoder: an overflow produces one unscoped overflow response, a
+// directory entry's attribute change produces a rename response, a
 // nameless event and an unknown descriptor are dropped, and the end of a watch
 // is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The event decoder reports an overflow to every subscription, an attribute change on a directory entry as a rename, drops nameless events and unknown descriptors, and reports the end of a watch once.
-// @evidence contracts/testing.md#independent-expectations The expected output lines are literal JSON messages written from the helper protocol.
-// @evidence contracts/testing.md#distinguishing-cases Overflow, directory attribute, nameless, unknown-descriptor and end-of-watch events each take a different branch.
+// @evidence contracts/testing.md#behavioral-verification Actual dispatch emits ordered change/rename responses for two subscribers, one unscoped overflow response, and one gone response per subscriber, then forgets both subscription maps. A nameless attribute, unknown descriptor and post-ignored event emit nothing. Actual kernel generation, libuv execution and downstream overflow fan-out are not observed.
+// @evidence contracts/testing.md#independent-expectations Seven complete Response values and empty subscription maps are authored expectations. Input headers are independently hand-encoded with native byte order and declared inotify masks; actual JSON output is decoded before comparing semantic values rather than byte formatting.
+// @evidence contracts/testing.md#distinguishing-cases Modify, directory-attribute, nameless attribute, unknown descriptor, queue overflow, ignored-watch and post-ignored create events cover distinct branches. Two out-of-order inserted subscriber IDs require ascending response order. Truncated headers/payloads and native descriptor removal are not exercised.
 // @evidence contracts/testing.md#execution-ownership TestDispatchMapsEventsAsLibuvDoes is a Go unit test built only on Linux: it feeds hand-encoded inotify event bytes to the decoder of an in-process helper and starts no process.
 func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
   var out bytes.Buffer
