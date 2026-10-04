@@ -12,7 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitPluginWriteErrorsFailBuild Verifies write failures remain failures on every plugin output lane.
+// TestEmitPluginWriteErrorsFailBuild verifies write failures for the configured
+// JavaScript, declaration and source-map artifacts in both publication modes.
 //
 // The declaration emitter converts callback errors into diagnostics, whereas
 // JS and buffered flushes return Go errors directly. All must reject success.
