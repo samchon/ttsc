@@ -26,13 +26,15 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_and_ttsc_follow_a_forwarded_root_dir at this path, selected by tests/test-e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
  * @evidence contracts/e2e.md#necessary-boundary Three real CLI invocations connect forwarded arguments, native compiler output naming and runtime loading; argument parser units alone do not establish that connection.
  * @evidence contracts/e2e.md#shared-execution One project and installed compiler serve all three invocations; lib is removed between the two ttsc emissions, while each invocation remains a fresh host.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture has independent temporary ownership; synchronous hosts finish before lib removal, and TestProject retains the project until process-exit cleanup.
- * @evidence contracts/e2e.md#preserved-coverage All three existing host results and emitted-file marker assertions remain here; no source-unit ownership is inferred from a similar parser case.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The standalone fixture has independent temporary ownership; the consolidated caller stages the same exact inputs on its borrowed root and supplies its guarded actual spawn; synchronous hosts finish before lib removal, and TestProject retains the project until process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All three existing host results and emitted-file marker assertions remain in this same owning body for standalone and shared calls; no source-unit ownership is inferred from a similar parser case.
  */
-export function test_ttsx_and_ttsc_follow_a_forwarded_root_dir() {
-  const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_and_ttsc_follow_a_forwarded_root_dir/inputs-1"));
+export function test_ttsx_and_ttsc_follow_a_forwarded_root_dir(
+  prepared?: { root: string; spawn: typeof TestProject.spawn },
+) {
+  const root = prepared?.root ?? TestProject.createProject(FixtureFiles.read("ttsc/ttsx_and_ttsc_follow_a_forwarded_root_dir/inputs-1"));
 
-  const run = TestProject.spawn(
+  const run = (prepared?.spawn ?? TestProject.spawn)(
     TestProject.TTSX_BIN,
     ["--cwd", root, "--rootDir", ".", "src/main.ts"],
     { cwd: root },
@@ -42,7 +44,7 @@ export function test_ttsx_and_ttsc_follow_a_forwarded_root_dir() {
 
   for (const forwarded of [".", "src"]) {
     fs.rmSync(path.join(root, "lib"), { recursive: true, force: true });
-    const emitted = TestProject.spawn(
+    const emitted = (prepared?.spawn ?? TestProject.spawn)(
       TestProject.TTSC_BIN,
       ["--cwd", root, "src/main.ts", "--rootDir", forwarded],
       { cwd: root },
