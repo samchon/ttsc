@@ -47,6 +47,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
     "--noEmit", "--emitDeclarationOnly", "--target", "es2019", "@runtime-args.txt",
+    "--sourceMap", "false", "--inlineSourceMap",
   ];
   if (!workspace.installationOnly) fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
   try {
@@ -105,6 +106,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
   assert.ok(Array.isArray(nativeFrames));
   assert.equal(nativeFrames.length, 2);
+  // The one actual Runtime receives inlineSourceMap after explicitly clearing
+  // the shared external-map setting. These are Node-consumed native frames,
+  // rather than JSON map metadata or a synthetic source API map.
   assert.match(nativeFrames[0], /inside\.cts:5:\d+/);
   assert.match(nativeFrames[1], /outside\.cts:5:\d+/);
   assert.deepEqual((payload as { requireBindings: unknown }).requireBindings, ["@lib/message", "local:@lib/message", "imported:@lib/message", "ok", "ok"]);
