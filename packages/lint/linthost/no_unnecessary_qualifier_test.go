@@ -14,7 +14,8 @@ import "testing"
 // enclosing namespace/enum symbol AND the unqualified member name must
 // resolve, from the same location, to the same symbol the qualified access
 // reaches. These cases pin both the positive fire and each shadowing arm
-// that must stay silent, with expectations taken from the upstream rule.
+// that must stay silent, with authored binding-identity expectations; issue #600
+// records the upstream comparison for the two shadowing cases.
 //
 //  1. Report `Foo.Bar` inside `namespace Foo`, `Color.Red` inside
 //     `enum Color`, and the type qualifier `NS.Item` inside `namespace NS`,
