@@ -30,7 +30,7 @@ func TestLSPServerDenyNpmInstall(t *testing.T) {
   if !strings.Contains(err.Error(), "npm install disabled") {
     t.Fatalf("error message mismatch: %v", err)
   }
-  if !strings.Contains(err.Error(), "install") {
+  if !strings.Contains(err.Error(), "install @types/node") {
     t.Fatalf("error should echo the requested args: %v", err)
   }
 }

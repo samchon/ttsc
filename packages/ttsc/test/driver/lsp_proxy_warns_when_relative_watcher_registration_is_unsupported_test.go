@@ -21,7 +21,7 @@ import (
 //     pattern support, while a declared input sits outside the project.
 //  2. Complete the initialize handshake.
 //  3. Assert the proxy logs the unsupported-capability notice.
-//  4. Assert no registration request follows it.
+//  4. Observe no further editor frame within 100ms.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run logs unsupported relative-pattern capability and sends no registration during 100ms.
 // @evidence contracts/testing.md#independent-expectations The client lacks relative support and the authored input is outside its project.

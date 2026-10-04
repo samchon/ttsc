@@ -24,9 +24,9 @@ import (
 // 3. Release the callback with a plugin error.
 // 4. Assert the response is JSON null rather than a JSON-RPC error.
 //
-// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns neither error nor non-null result for a failure released after didChange.
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns literal JSON null with no error field for a failure released after didChange.
 // @evidence contracts/testing.md#independent-expectations The independent sentinel is released only after forwarding the edit, establishing stale generation.
-// @evidence contracts/testing.md#distinguishing-cases Stale failure contrasts with ordinary failure; decoded any does not distinguish absent from explicit-null result.
+// @evidence contracts/testing.md#distinguishing-cases Stale failure contrasts with ordinary failure; raw result bytes distinguish explicit null from a missing result.
 // @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxySuppressesStaleExecuteCommandError in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxySuppressesStaleExecuteCommandError(t *testing.T) {
   started := make(chan struct{})
@@ -64,13 +64,13 @@ func TestLSPProxySuppressesStaleExecuteCommandError(t *testing.T) {
 
   body := h.recvEditor()
   var decoded struct {
-    Error  any `json:"error"`
-    Result any `json:"result"`
+    Error  json.RawMessage `json:"error"`
+    Result json.RawMessage `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("executeCommand response not JSON: %v\n%s", err, body)
   }
-  if decoded.Error != nil || decoded.Result != nil {
+  if decoded.Error != nil || string(decoded.Result) != "null" {
     t.Fatalf("stale command failure was not suppressed:\n%s", body)
   }
 }

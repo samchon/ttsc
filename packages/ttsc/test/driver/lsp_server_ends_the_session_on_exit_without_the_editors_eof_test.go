@@ -14,11 +14,10 @@ import (
 //
 // The specification has `exit` ask the server to exit its process, and plain
 // tsgo does. A proxy that also waited for the editor's stream to close would
-// depend on closing the editor's stdin to interrupt a blocked read, which is
-// not possible on every platform (a Windows pipe is not), so ttscserver would
-// keep running after `exit` until the editor happened to close the pipe. The
-// editor input here cannot be closed at all, as that stdin cannot be
-// interrupted.
+// depend on an editor-input Close capability that some supplied readers do
+// not expose. This test hides Close on its pipe reader and keeps the writer
+// open through server completion; it does not certify native stdin interruption
+// behavior on any operating system.
 //
 //  1. Give RunLSPServer an editor input that never ends and has no Close, and
 //     an upstream that answers `shutdown` and returns on `exit`, as tsgo does.
@@ -26,9 +25,9 @@ import (
 //  3. Assert RunLSPServer returns nil promptly and the editor got the
 //     `shutdown` response.
 //
-// @evidence contracts/testing.md#behavioral-verification RunLSPServer returns nil after shutdown/exit despite uncloseable input and delivers a nonempty response id.
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer returns nil after shutdown/exit despite an input with hidden Close and delivers response id 1.
 // @evidence contracts/testing.md#independent-expectations LSP shutdown-before-exit requires clean completion independently of editor EOF.
-// @evidence contracts/testing.md#distinguishing-cases Open uncloseable reader is covered; the response checks nonempty id rather than exact id 1.
+// @evidence contracts/testing.md#distinguishing-cases The pipe writer remains open until server completion while its reader hides Close; the shutdown response must carry the independently authored id 1.
 // @evidence contracts/testing.md#execution-ownership Go unit TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF in test/driver invokes RunLSPServer with an injected in-process upstream runner. No native upstream artifact is built or started.
 func TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF(t *testing.T) {
   editorInR, editorInW := io.Pipe()
@@ -80,8 +79,8 @@ func TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF(t *testing.T) {
   }
   select {
   case id := <-answered:
-    if id == "" {
-      t.Fatal("the shutdown response carried no id")
+    if id != "1" {
+      t.Fatalf("shutdown response id = %q, want 1", id)
     }
   case <-time.After(5 * time.Second):
     t.Fatal("the editor never received the shutdown response")

@@ -60,13 +60,13 @@ func TestLSPProxySuppressesURILessStaleExecuteCommandError(t *testing.T) {
 
   body := h.recvEditor()
   var decoded struct {
-    Error  any `json:"error"`
-    Result any `json:"result"`
+    Error  json.RawMessage `json:"error"`
+    Result json.RawMessage `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("executeCommand response not JSON: %v\n%s", err, body)
   }
-  if decoded.Error != nil || decoded.Result != nil {
+  if decoded.Error != nil || string(decoded.Result) != "null" {
     t.Fatalf("URI-less stale command failure was not suppressed:\n%s", body)
   }
 }
