@@ -28,6 +28,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDropsStaleAsyncPluginDiagnostics in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDropsStaleAsyncPluginDiagnostics(t *testing.T) {
   release := make(chan struct{})
+  started := make(chan struct{}, 1)
   var releaseCallbackOnce sync.Once
   releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
   t.Cleanup(releaseCallback)
@@ -35,6 +36,10 @@ func TestLSPProxyDropsStaleAsyncPluginDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnosticsFor: func(doc driver.LSPDocumentVersion) []driver.LSPDiagnostic {
       if doc.Version != nil && *doc.Version == 1 {
+        select {
+        case started <- struct{}{}:
+        default:
+        }
         <-release
         return []driver.LSPDiagnostic{{Source: "ttsc/lint", Message: "stale"}}
       }
@@ -46,9 +51,16 @@ func TestLSPProxyDropsStaleAsyncPluginDiagnostics(t *testing.T) {
   uri := writeLSPDiskFile(t, "export {};")
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":%q,"version":1,"languageId":"typescript","text":"export {};"}}}`, uri)))
   _ = h.recvUpstream()
+  select {
+  case <-started:
+  case <-time.After(2 * time.Second):
+    t.Fatal("older diagnostic callback did not enter its blocked boundary")
+  }
   upstream := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":%q,"version":2,"diagnostics":[]}}`, uri))
   h.sendUpstream(upstream)
-  _ = h.recvEditor()
+  if got := h.recvEditor(); string(got) != string(upstream) {
+    t.Fatalf("newer upstream publication was not forwarded unchanged:\n%s", got)
+  }
   releaseCallback()
   h.expectNoEditorFrame(150 * time.Millisecond)
 }

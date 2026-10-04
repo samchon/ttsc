@@ -57,6 +57,7 @@ func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
 
   body := h.recvEditor()
   var decoded struct {
+    ID int `json:"id"`
     Result []driver.LSPCodeAction `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
@@ -64,5 +65,8 @@ func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
   }
   if len(decoded.Result) != 0 {
     t.Fatalf("closed-document plugin actions were not dropped: %#v", decoded.Result)
+  }
+  if decoded.ID != 12 || decoded.Result == nil {
+    t.Fatalf("closed action must receive its correlated empty array: %s", body)
   }
 }

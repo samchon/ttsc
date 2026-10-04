@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "encoding/json"
   "strings"
   "sync"
   "sync/atomic"
@@ -59,8 +60,24 @@ func TestLSPProxyDropsOlderVersionlessPluginDiagnosticsGeneration(t *testing.T) 
   }
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":"file:///a.ts"}}}`))
   _ = h.recvUpstream()
-  if body := h.recvEditor(); !strings.Contains(string(body), "new") || strings.Contains(string(body), "old") {
+  body := h.recvEditor()
+  if !strings.Contains(string(body), "new") || strings.Contains(string(body), "old") {
     t.Fatalf("expected only newest diagnostics, got:\n%s", body)
+  }
+  var publication struct {
+    Method string `json:"method"`
+    Params struct {
+      URI string `json:"uri"`
+      Diagnostics []struct {
+        Message string `json:"message"`
+      } `json:"diagnostics"`
+    } `json:"params"`
+  }
+  if err := json.Unmarshal(body, &publication); err != nil {
+    t.Fatalf("newest diagnostic publication is not JSON: %v", err)
+  }
+  if publication.Method != "textDocument/publishDiagnostics" || publication.Params.URI != "file:///a.ts" || len(publication.Params.Diagnostics) != 1 || publication.Params.Diagnostics[0].Message != "new" {
+    t.Fatalf("newest publication did not contain only the new finding:\n%s", body)
   }
   releaseCallback()
   h.expectNoEditorFrame(150 * time.Millisecond)
