@@ -1,3 +1,4 @@
+import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,9 +26,9 @@ import { cachedGeneration } from "../../internal/transform-terminal-verdict/cach
  * 3. Deliver the remaining modules and assert they are served from that
  *    generation.
  *
- * @evidence contracts/testing.md#behavioral-verification Authored transformTtsc delivers a recorded successful three-module consumer generation, returns undefined for an out-of-program file, preserves the exact cached Promise and still serves both sibling modules.
+ * @evidence contracts/testing.md#behavioral-verification Authored transformTtsc delivers a recorded successful three-module consumer generation, returns undefined for an out-of-program file, preserves the exact cached Promise and still serves both sibling modules; the pass-through routing config is handed over, a literal missing-output warning appears once per file/pass and a new pass reports again.
  * @evidence contracts/testing.md#independent-expectations A literal output map contains exactly the three src modules and no outside/helper.ts. Supported host fallback is undefined, while identity equality distinguishes a missing-output fallback from failure or generation eviction without computing expected values from the selector.
- * @evidence contracts/testing.md#distinguishing-cases A present module precedes one existing file excluded by include src, then two present siblings prove the excluded module did not poison the pass. The fixture is established before observation, separating absence of program output from a membership mutation.
+ * @evidence contracts/testing.md#distinguishing-cases A present module precedes one existing file excluded by include src, then two present siblings prove the excluded module did not poison the pass. Repeated same-file deliveries and the next pass additionally distinguish warning suppression from routing handoff. The exact stderr descriptor is restored in finally. The fixture is established before observation, separating absence of program output from a membership mutation.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual delivery coordinator over literal successful consumer metadata and real resolver files; no compiler, contributor or product host is built or substituted. Actual capture-to-native-output connection remains in test_transformttsc_failed_generation_recovery_batch and test_transformttsc_unavailable_notifications_keep_the_persistent_cache.
  */
 export async function test_transformttsc_an_out_of_program_module_does_not_fail_the_pass(): Promise<void> {
@@ -60,12 +61,24 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       undefined,
       cache,
     );
+  const stderrDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const stderrWrite = process.stderr.write;
+  const chunks: string[] = [];
+  const batches: string[][] = [];
+  process.stderr.write = ((chunk: unknown) => {
+    chunks.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  const outsideDelivery = () => api.transformTtsc(
+    outside, fs.readFileSync(outside, "utf8"), options, undefined, cache,
+    { addWatchFiles: (inputs) => batches.push(inputs.map((input) => input.file)) },
+  );
   try {
     assert.ok(await deliver(modules[0]!));
     const generation = cachedGeneration(cache);
 
     assert.equal(
-      await deliver(outside),
+      await outsideDelivery(),
       undefined,
       "a module the program does not contain is left to the host, not failed",
     );
@@ -75,6 +88,18 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       "a generation that compiled fine must survive a module it has no output for",
     );
 
+    assert.equal(await outsideDelivery(), undefined);
+    assert.equal(chunks.length, 1, "one missing-output warning per file and pass");
+    const line = `ttsc: ${outside} is not part of the program described by ${path.join(root, "tsconfig.json")}, so it was left untransformed. Add it to that project's "include" if ttsc plugins should apply to it.\n`;
+    assert.deepEqual(chunks, [line]);
+    assert.equal(batches.length, 2);
+    for (const inputs of batches)
+      assert.ok(inputs.includes(path.join(root, "tsconfig.json")), "pass-through must retain its routing config");
+    beginTtscTransformBuild(cache);
+    assert.equal(await outsideDelivery(), undefined);
+    assert.deepEqual(chunks, [line, line], "a new pass reports again");
+    assert.equal(cachedGeneration(cache), generation);
+
     for (const file of modules.slice(1)) {
       assert.ok(
         await deliver(file),
@@ -82,6 +107,9 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       );
     }
   } finally {
+    if (stderrDescriptor) Object.defineProperty(process.stderr, "write", stderrDescriptor);
+    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    assert.equal(process.stderr.write, stderrWrite);
     fixture.dispose();
   }
 }

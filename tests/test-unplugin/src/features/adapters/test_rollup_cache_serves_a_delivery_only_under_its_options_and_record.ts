@@ -32,7 +32,7 @@ import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/
  * @evidence contracts/testing.md#independent-expectations
  *   A cached delivery can be served only under the same options and unchanged record bytes; absent proof requires transformation. Node's independent SHA-256 over the authored record literals establishes digest expectations. A CSS module outside the owned target set is left to Rollup.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin and adoption of a fresh delivered proof.
+ *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin, quiet mid-pass observation, independently owed delivery for two modules and adoption of fresh delivered proofs.
  * @evidence contracts/testing.md#execution-ownership
  *   test_rollup_cache_serves_a_delivery_only_under_its_options_and_record calls createRollupCachedModuleProof.deliver/moved/begin over a temporary record and captured options; all metadata states belong to this entry, with no Rollup process.
  */
@@ -94,4 +94,28 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
     },
   });
   assert.equal(ask(again), false, "a delivery of the bytes now held is served");
+
+  // A pass observes one record frontier, while each module owns its delivery.
+  const second = proof.deliver({
+    options: "A",
+    record: { digest: createHash("sha256").update('{"signal":1}').digest("hex"), file },
+  });
+  fs.writeFileSync(file, '{"signal":2}');
+  assert.equal(ask(again), false, "quiet mid-pass state uses its recorded frontier");
+  proof.begin();
+  assert.equal(ask(again), true);
+  assert.equal(ask(second, "second.ts"), true);
+  const firstFresh = proof.deliver({
+    options: "A",
+    record: { digest: createHash("sha256").update('{"signal":2}').digest("hex"), file },
+  });
+  assert.equal(ask(firstFresh), false);
+  assert.equal(ask(second, "second.ts"), true, "another module still owes delivery");
+  const secondFresh = proof.deliver({
+    options: "A",
+    record: { digest: createHash("sha256").update('{"signal":2}').digest("hex"), file },
+  });
+  proof.begin();
+  assert.equal(ask(firstFresh), false);
+  assert.equal(ask(secondFresh, "second.ts"), false);
 }
