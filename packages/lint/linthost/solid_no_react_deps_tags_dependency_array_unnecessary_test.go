@@ -3,24 +3,18 @@ package linthost
 import (
   "strings"
   "testing"
-
-  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // TestSolidNoReactDepsTagsDependencyArrayUnnecessary verifies
-// `solid/no-react-deps` tags its findings Unnecessary over exactly the dead
-// array, and that its near-miss sibling stays untagged.
+// `solid/no-react-deps` reports exactly the dependency array without promising
+// its evaluation can be safely deleted. The historical entry name is retained.
 //
-// Unnecessary claims that deleting the reported range is the resolution, so it
-// is only sound when the range is the dead text and nothing wider — the editor
-// fades whatever the finding covers. The tag is read once per rule, which is
-// why `solid/no-react-specific-props` cannot carry it: its `key` arm is a
-// deletion, but its `className` and `htmlFor` arms are renames, and greying a
-// prop that only needs renaming would tell the author to delete a live
-// attribute.
+// The callback does not consume the array value, but array evaluation can call
+// functions, read getters or throw. The rule-wide Unnecessary classification
+// cannot establish safe deletion for all of those reported expressions.
 //
-//  1. Report a `createEffect` dependency array and assert one Unnecessary tag.
-//  2. Assert the tagged range is the array literal alone, not the whole call.
+//  1. Report a `createEffect` dependency array and assert no tags.
+//  2. Assert the reported range is the array literal alone, not the whole call.
 //  3. Prove aliased and namespace Solid imports retain the same classification.
 //  4. Keep a same-named local helper, shadowed named and namespace imports, and
 //     a similarly named custom module silent, so only the exact Solid binding
@@ -28,9 +22,9 @@ import (
 //  5. Assert the negative twin `solid/no-react-specific-props` reports both
 //     `className` and `key` with no tags at all.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies the exact dependency-array span receives Unnecessary while React-specific prop reports remain untagged; the assertions below retain the observable identity of every expected result.
-// @evidence contracts/testing.md#independent-expectations Solid tracks dependencies without a React array; deleting only the independently marked array is meaningful, whereas className requires renaming and cannot receive a rule-wide deletion tag.
-// @evidence contracts/testing.md#distinguishing-cases Named/aliased/namespace imports are positive; local, shadowed and similarly named custom APIs stay clean, and className/key reports have no tag.
+// @evidence contracts/testing.md#behavioral-verification The actual engine reports the exact dependency-array span with no tags. Calls, getter reads, spread calls and throwing expressions retain that untagged range; React-specific prop reports also remain untagged.
+// @evidence contracts/testing.md#independent-expectations Array evaluation can have effects even when its resulting value is unused. The public safe-to-delete tag contract therefore requires no Unnecessary claim without an effect proof. Independent literal array markers determine the expected ranges; the expressions are parsed, not executed here.
+// @evidence contracts/testing.md#distinguishing-cases Named/aliased/namespace imports report; local, shadowed and similarly named custom APIs stay clean. Four effect-bearing array shapes expose the unsafe rule-wide deletion claim, while className/key reports have no tag.
 // @evidence contracts/testing.md#execution-ownership TestSolidNoReactDepsTagsDependencyArrayUnnecessary owns the explicit variants below as one discoverable Go unit entry; its parsed-source engine calls, with an in-process checker when required, execute in the shared process without a Solid installation or native product host.
 func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
   source := "import { createEffect } from \"solid-js\";\n\ncreateEffect(() => {}, [first, second]);\n"
@@ -39,8 +33,8 @@ func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
     t.Fatalf("findings = %d, want 1 (%+v)", len(findings), findings)
   }
   finding := findings[0]
-  if len(finding.Tags) != 1 || finding.Tags[0] != publicrule.DiagnosticTagUnnecessary {
-    t.Fatalf("tags = %v, want [Unnecessary]", finding.Tags)
+  if len(finding.Tags) != 0 {
+    t.Fatalf("tags = %v, want none", finding.Tags)
   }
   marker := "[first, second]"
   start := strings.Index(source, marker)
@@ -62,9 +56,25 @@ func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
   } {
     _, _, importedFindings := runRuleFindingsSnapshot(t, "solid/no-react-deps", imported, nil)
     if len(importedFindings) != 1 ||
-      len(importedFindings[0].Tags) != 1 ||
-      importedFindings[0].Tags[0] != publicrule.DiagnosticTagUnnecessary {
+      len(importedFindings[0].Tags) != 0 {
       t.Fatalf("imported Solid findings = %+v", importedFindings)
+    }
+  }
+
+  for _, array := range []string{
+    "[recordEffect()]",
+    "[getter.value]",
+    "[...readValues()]",
+    "[(() => { throw new Error(\"dependency\"); })()]",
+  } {
+    source := "import { createEffect } from \"solid-js\";\ncreateEffect(() => {}, " + array + ");\n"
+    _, _, effectFindings := runRuleFindingsSnapshot(t, "solid/no-react-deps", source, nil)
+    if len(effectFindings) != 1 || len(effectFindings[0].Tags) != 0 {
+      t.Fatalf("effect-bearing array %q findings = %+v, want one untagged finding", array, effectFindings)
+    }
+    start := strings.Index(source, array)
+    if effectFindings[0].Pos != start || effectFindings[0].End != start+len(array) {
+      t.Fatalf("effect-bearing array %q range = [%d,%d), want [%d,%d)", array, effectFindings[0].Pos, effectFindings[0].End, start, start+len(array))
     }
   }
 

@@ -14,22 +14,10 @@ type solidRule struct {
 
 func (r solidRule) Name() string { return "solid/" + r.name }
 
-// DiagnosticTags marks `solid/no-react-deps` findings as unnecessary code so an
-// editor greys the dependency array out.
-//
-// The rule reports the dependency-array literal and nothing around it, and
-// Solid tracks dependencies automatically, so the array is inert: deleting
-// exactly the reported range is the whole resolution, which is what greying
-// tells the author to do.
-//
-// The marker is rule-level, so a rule whose findings do not all mean "delete
-// this" cannot take it. `solid/no-react-specific-props` is the near miss — its
-// `key` arm does mean deletion, but its `className` and `htmlFor` arms mean
-// "rename this", and one tag cannot say both.
+// DiagnosticTags leaves these findings untagged. Evaluating a dependency array
+// can call functions, read getters or throw. The rule does not prove those
+// effects are absent, so its rule-wide tag cannot promise safe deletion.
 func (r solidRule) DiagnosticTags() []publicrule.DiagnosticTag {
-  if r.name == "no-react-deps" {
-    return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
-  }
   return nil
 }
 func (r solidRule) NeedsTypeChecker() bool {
