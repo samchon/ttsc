@@ -8,8 +8,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsOldProjectURIBeforeNewSelection Verifies changing selected
-// configs cannot leave an orphaned project problem in the editor.
+// TestLSPProxyClearsOldProjectURIBeforeNewSelection verifies the proxy emits
+// an empty old-config publication before the new selected-config finding.
+// The case observes ordered frames, not an editor's retained problem state.
 //
 // The proxy must clear the prior URI before publishing the replacement set at
 // the new logical config URI. (Whether the publications carry a version is
@@ -46,7 +47,10 @@ func TestLSPProxyClearsOldProjectURIBeforeNewSelection(t *testing.T) {
   uri := writeLSPDiskFile(t, "export {};\n")
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":%q,"version":1,"languageId":"typescript","text":"export {};\n"}}}`, uri)))
   _ = h.recvUpstream()
-  _ = h.recvEditor()
+  initial := decodeProjectPublishForSelectionTest(t, h.recvEditor())
+  if initial.URI != oldURI || len(initial.Diagnostics) != 1 {
+    t.Fatalf("old config must first receive a project finding: %#v", initial)
+  }
 
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":%q,"version":2}}}`, uri)))
   // Upstream forwarding and asynchronous editor publication are independent
@@ -71,10 +75,14 @@ type projectPublishForSelectionTest struct {
 func decodeProjectPublishForSelectionTest(t *testing.T, body []byte) projectPublishForSelectionTest {
   t.Helper()
   var decoded struct {
+    Method string `json:"method"`
     Params projectPublishForSelectionTest `json:"params"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("project publication is not JSON: %v\n%s", err, body)
+  }
+  if decoded.Method != "textDocument/publishDiagnostics" {
+    t.Fatalf("expected a diagnostic publication: %s", body)
   }
   return decoded.Params
 }

@@ -37,12 +37,29 @@ func TestLSPProxyClearsCleanProjectPublication(t *testing.T) {
   uri := writeLSPDiskFile(t, "export {};\n")
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":%q,"version":1,"languageId":"typescript","text":"export {};\n"}}}`, uri)))
   _ = h.recvUpstream()
-  _ = h.recvEditor()
+  firstBody := h.recvEditor()
+  var first struct {
+    Method string `json:"method"`
+    Params struct {
+      URI string `json:"uri"`
+      Version *int `json:"version,omitempty"`
+      Diagnostics []struct {
+        Message string `json:"message"`
+      } `json:"diagnostics"`
+    } `json:"params"`
+  }
+  if err := json.Unmarshal(firstBody, &first); err != nil {
+    t.Fatalf("initial project publication is not JSON: %v", err)
+  }
+  if first.Method != "textDocument/publishDiagnostics" || first.Params.URI != configURI || first.Params.Version != nil || len(first.Params.Diagnostics) != 1 || first.Params.Diagnostics[0].Message != "project rejected" {
+    t.Fatalf("initial project finding was not published:\n%s", firstBody)
+  }
 
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":%q,"version":2}}}`, uri)))
   body := h.recvEditor()
   _ = h.recvUpstream()
   var decoded struct {
+    Method string `json:"method"`
     Params struct {
       URI         string            `json:"uri"`
       Version     *int              `json:"version,omitempty"`
@@ -54,5 +71,8 @@ func TestLSPProxyClearsCleanProjectPublication(t *testing.T) {
   }
   if decoded.Params.URI != configURI || decoded.Params.Version != nil || len(decoded.Params.Diagnostics) != 0 {
     t.Fatalf("clean project should clear the unversioned config publication: %s", body)
+  }
+  if decoded.Method != "textDocument/publishDiagnostics" {
+    t.Fatalf("clean project result is not a diagnostic publication: %s", body)
   }
 }
