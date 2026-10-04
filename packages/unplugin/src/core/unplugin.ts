@@ -25,6 +25,7 @@ import { resolveOptions } from "./options/resolveOptions";
 import type { TtscRollupDelivery } from "./rollup/TtscRollupDelivery";
 import { createRollupCachedModuleProof } from "./rollup/createRollupCachedModuleProof";
 import { rollupDeliveryOptions } from "./rollup/rollupDeliveryOptions";
+import { selectRollupCachedModuleTransform } from "./rollup/selectRollupCachedModuleTransform";
 import type { TtscTransformResult } from "./transform/TtscTransformResult";
 import { createAliasPaths } from "./transform/alias/createAliasPaths";
 import { beginTtscTransformBuild } from "./transform/cache/beginTtscTransformBuild";
@@ -214,7 +215,7 @@ const unpluginFactory: UnpluginFactory<
     id: string;
     meta?: Record<string, unknown>;
   }): true | null =>
-    bridge?.owes() === true || cachedModules.moved(module) ? true : null;
+    selectRollupCachedModuleTransform(bridge, cachedModules, module);
 
   return {
     name,
