@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 import { fingerprintInitialLSPProjectInputSnapshot } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/fingerprintInitialLSPProjectInputSnapshot";
 import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/initialLSPProjectInputSnapshotIsCurrent";
 import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest";
@@ -27,9 +28,12 @@ import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/l
  *    directory-link target digest to independently framed sha256 values.
  * 4. Materialize a manifest larger than a Windows environment block, prove it
  *    travels by private file and dispose it idempotently.
+ * 5. Frame an empty existing directory and a missing directory independently,
+ *    and prove each captured baseline is current. Windows missing-suffix casing
+ *    follows the observed directory authority, not a platform-default guess.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
- * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; the raw-symlink and POSIX directory digests are re-derived in the test with sha256 over the documented framing (`symlink\0`/`directory\0`, target or path bytes, NUL, `missing\0` or the empty-topology hash), so a change to that framing fails. The test cannot prove agreement with the Go validator itself, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
+ * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Preparation errors are failures; manifest contents and repeated disposal are asserted separately.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
@@ -88,6 +92,52 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         "immediate directory topology drift must invalidate startup selection",
       );
       });
+
+      const existingDirectory = path.join(root, "ExistingDirectory");
+      const missingDirectory = path.join(root, "MissingDirectory");
+      fs.mkdirSync(existingDirectory);
+      const realpath = fs.realpathSync.native ?? fs.realpathSync;
+      const parentCaseSensitive = process.platform === "win32"
+        ? createProjectInputPathIdentityContext().caseSensitive(root)
+        : undefined;
+      for (const [directory, topology] of [
+        [existingDirectory, createHash("sha256").update(Buffer.alloc(0)).digest("hex")],
+        [missingDirectory, createHash("sha256").update("missing\0").digest("hex")],
+      ] as const) {
+        verify(`empty or missing directory frame: ${path.basename(directory)}`, () => {
+          if (directory === existingDirectory) {
+            assert.deepEqual(fs.readdirSync(directory), []);
+          } else {
+            assert.equal(fs.existsSync(directory), false);
+          }
+          const identity = process.platform === "win32"
+            ? Buffer.from((directory === existingDirectory
+              ? path.resolve(realpath(directory))
+              : path.resolve(realpath(root), parentCaseSensitive === false
+                ? "missingdirectory"
+                : "MissingDirectory")).replaceAll("\\", "/"))
+            : directory === existingDirectory
+              ? realpath(Buffer.from(directory), { encoding: "buffer" })
+              : Buffer.concat([
+                realpath(Buffer.from(root), { encoding: "buffer" }),
+                Buffer.from("/MissingDirectory"),
+              ]);
+          const expected = createHash("sha256").update(Buffer.concat([
+            Buffer.from("directory\0"),
+            identity,
+            Buffer.from([0]),
+            Buffer.from(topology),
+          ])).digest("hex");
+          const snapshot = fingerprintInitialLSPProjectInputSnapshot({
+            files: [],
+            globs: [],
+            reloadDirectories: [directory],
+            root,
+          });
+          assert.equal(snapshot.reloadDirectoryDigests[directory], expected);
+          assert.equal(initialLSPProjectInputSnapshotIsCurrent(snapshot), true);
+        });
+      }
 
       verify("native exact-file link retarget", () => {
       const firstTarget = path.join(root, "first-target.cjs");
