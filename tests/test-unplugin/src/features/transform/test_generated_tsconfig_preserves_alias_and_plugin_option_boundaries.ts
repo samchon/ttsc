@@ -19,7 +19,7 @@ import { readTransformTsconfigState } from "../../../../../packages/unplugin/src
  *
  * @evidence contracts/testing.md#behavioral-verification Calls readTransformTsconfigState/createAliasPaths/createTransformTsconfig/resolveOptions over real JSONC and package-manifest presets. Actual wrapper JSON must extend the selected config, preserve inherited and inline mappings, add absolute bundler exact/subtree mappings, avoid invented baseUrl and anchor plugin config/configFile/transform paths at the project rather than scratch.
  * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test.
- * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together. Actual allocator rows contrast direct/aliased project temp parents with an outside native alias; independently observed realpaths prove physical refusal and canonical returned ownership without compiler capture. Saved temp environment and owned empty children are restored/released in finally.
+ * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Top-level-only caller props keep the original config; combined caller props materialize only the normalized inline list and leave the separate native override channel unchanged. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together. Actual allocator rows contrast direct/aliased project temp parents with an outside native alias; independently observed realpaths prove physical refusal and canonical returned ownership without compiler capture. Saved temp environment and owned empty children are restored/released in finally.
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit owns these actual filesystem/configuration operations in process. It installs nothing and starts no compiler, Go peer, plugin binary or host. Native type errors, banner output, plugin execution order and forwarded configFile evidence remain E2E producer/consumer connections; JSON preparation is not their certificate.
  */
 export function test_generated_tsconfig_preserves_alias_and_plugin_option_boundaries(): void {
@@ -89,6 +89,43 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
     const inline = resolveOptions({ compilerOptions: { plugins: inlinePlugins } });
     assert.equal(inline.plugins, undefined);
     assert.equal(inline.compilerOptions.plugins, inlinePlugins);
+    // Capture passes these two channels separately: compilerOptions into the
+    // wrapper and top-level plugins directly into TtscCompiler. Do not merge
+    // them in a unit fixture and then claim the production caller did so.
+    const topLevelOnly = {
+      aliasPaths: {}, compilerOptions: resolved.compilerOptions,
+      plugins: resolved.plugins, tsconfig,
+    };
+    assert.equal(createTransformTsconfig(topLevelOnly, scratch, state,
+      { configDir: root, tsconfig }).path, tsconfig,
+      "top-level compiler overrides alone do not materialize a wrapper");
+    const bothChannels = resolveOptions({
+      plugins: ordered,
+      compilerOptions: { plugins: inlinePlugins },
+    });
+    const callerProps = {
+      aliasPaths: {}, compilerOptions: bothChannels.compilerOptions,
+      plugins: bothChannels.plugins, tsconfig,
+    };
+    const separated = createTransformTsconfig(callerProps, scratch, state,
+      { configDir: root, tsconfig });
+    assert.equal(separated.path, path.join(scratch, "tsconfig.json"));
+    const separatedWrapper = JSON.parse(fs.readFileSync(separated.path, "utf8"));
+    assert.deepEqual(separatedWrapper.compilerOptions.plugins, [{
+      transform: path.join(root, "plugin.cjs"), name: "fixture",
+      config: path.join(root, "fixture.config.json"),
+      configFile: path.join(root, "config", "banner.config.json"),
+      operation: "kept-operation", path: "./opaque-payload", prefix: "a:",
+    }, { transform: "package-plugin", name: "package" }],
+    "the wrapper preserves inline order and payload without adding top-level overrides");
+    assert.equal(callerProps.plugins, ordered);
+    assert.deepEqual(ordered, [
+      { transform: "./plugin.cjs", name: "prefix", prefix: "a:" },
+      { transform: "./plugin.cjs", name: "upper" },
+      { transform: "./plugin.cjs", name: "suffix", suffix: ":z" },
+    ], "wrapper normalization leaves the separate override channel unchanged");
+    assert.equal(inlinePlugins[0]!.transform, "./plugin.cjs");
+    assert.equal(inlinePlugins[0]!.config, "./fixture.config.json");
     assert.deepEqual(createAliasPaths([{ find: "@trail/", replacement: target }]), {
       "@trail//*": [slash(target) + "/*"],
     });
