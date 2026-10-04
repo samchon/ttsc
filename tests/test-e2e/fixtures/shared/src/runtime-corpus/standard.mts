@@ -1,4 +1,5 @@
-﻿const effects: unknown[][] = [];
+console.warn("must-be-stripped");
+const effects: unknown[][] = [];
 const effectConsole = { log(...values: unknown[]): void { effects.push(values); } };
 
 function sayHelloClass<T extends { new (...args: any[]): {} }>(ClassType: T, context: ClassDecoratorContext) {
