@@ -12,11 +12,12 @@ import "testing"
 //
 // 1. Splice a plugin call whose argument nests a template in a template.
 // 2. Splice a call whose template expression holds a string with a `)`.
-// 3. Assert each whole call is replaced and the trailing text is kept.
+// 3. Splice an expression containing an object literal with a nested template.
+// 4. Assert each whole call is replaced and the trailing text is kept.
 //
-// @evidence contracts/testing.md#behavioral-verification spliceForTest returns exactly the replacement plus the untouched trailing statement when the consumed call holds a nested template or a parenthesis inside a template expression string.
+// @evidence contracts/testing.md#behavioral-verification spliceForTest returns exactly the replacement plus untouched trailing statement for a nested template, a quoted parenthesis in an interpolation, and an object literal containing a nested template.
 // @evidence contracts/testing.md#independent-expectations The whole-call rewrite contract yields the literal statement; the nested backtick and the quoted parenthesis cannot close the argument list.
-// @evidence contracts/testing.md#distinguishing-cases A nested template and a quoted parenthesis inside a template expression are separate cases of the same expression-scanning rule.
+// @evidence contracts/testing.md#distinguishing-cases Separate named inputs cover recursive templates, quoted parentheses and object-literal brace depth inside interpolation; each retains the following statement.
 // @evidence contracts/testing.md#execution-ownership Go test/driver calls the existing private scanner linkname through spliceForTest in process, without compile or runtime execution.
 func TestDriverSpliceCallConsumesNestedTemplateExpression(t *testing.T) {
   for name, tc := range map[string]struct{ text, want string }{

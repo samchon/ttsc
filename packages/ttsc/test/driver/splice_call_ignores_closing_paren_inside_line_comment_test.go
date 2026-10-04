@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The linked splice helper consumes the complete call across a line-comment parenthesis.
 // @evidence contracts/testing.md#independent-expectations The whole literal const out assignment supplies independent expected bytes.
 // @evidence contracts/testing.md#distinguishing-cases Comment-contained close followed by another argument differs from the real delimiter.
-// @evidence contracts/testing.md#execution-ownership Go unit TestDriverSpliceCallIgnoresClosingParenInsideLineComment is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit invokes the actual private splice scanner through spliceForTest and its existing linkname, without a filesystem fixture, Program, compiler process or output runtime.
 func TestDriverSpliceCallIgnoresClosingParenInsideLineComment(t *testing.T) {
   got := spliceForTest(t, "const out = plugin.make(\n  1, // )\n  2\n);")
   want := `const out = replacement;`
