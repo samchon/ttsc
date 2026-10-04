@@ -269,7 +269,6 @@ export namespace TtscGraphLinePeer {
    * unknown exit, signal, forced termination or actual transport failure.
    * This internal decision does not establish joining before Node closes stdio.
    *
-   * @internal
    * @evidence contracts/common.md#principled-implementation A numeric normal exit after the caller's authoritative close event distinguishes known process release from request success; transport errors, signals, unknown status and forced termination remain failures.
    * @evidence contracts/common.md#clear-and-simple-design The actual close callback delegates only its completion qualification; process joining and deadlines stay in open.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts This shared production decision neither fabricates an exit nor suppresses the separate request owner's exit error.
