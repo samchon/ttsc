@@ -80,9 +80,6 @@ func buildNativeSidecarBatch() {
 
 func writeNativeSidecarBatch(directory string) error {
   fixtures := []string{
-    nativePluginSourceStdoutAtLimitSidecar,
-    nativePluginSourceOversizedStdoutSidecar,
-    nativePluginSourceOversizedStderrSidecar,
     fakeLSPSidecarSource,
   }
   if err := os.WriteFile(filepath.Join(directory, "go.mod"), []byte(nativeSidecarModule), 0o644); err != nil { return err }

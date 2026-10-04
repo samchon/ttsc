@@ -45,6 +45,19 @@ func TestNativeReplyPolicies(t *testing.T) {
     if n, err := buffer.Write([]byte(payload)); n != 1024*1024+4 || err != nil { t.Fatalf("stderr write = %d, %v", n, err) }
     if !buffer.truncated || buffer.Len() != 1024*1024 || buffer.String() != strings.Repeat("x", 1024*1024) { t.Fatal("stderr limit did not retain exactly its prefix") }
   })
+  t.Run("original_oversized_reply_literals", func(t *testing.T) {
+    plugin := NativeLSPPluginEntry{Name: "@ttsc/fake"}
+    stdout := limitedBuffer{limit: nativePluginCommandStdoutLimit}
+    stderr := limitedBuffer{limit: nativePluginCommandStderrLimit}
+    if n, err := stdout.Write([]byte(strings.Repeat("x", 6*1024*1024))); n != 6*1024*1024 || err != nil { t.Fatalf("6 MiB stdout write = %d, %v", n, err) }
+    if !stdout.truncated || stdout.String() != strings.Repeat("x", 4*1024*1024) { t.Fatal("6 MiB stdout did not retain its exact 4 MiB prefix") }
+    if body, err := nativePluginCommandResult(plugin, "lsp-code-actions", nil, &stdout, &stderr); body != nil || err == nil || err.Error() != "ttscserver: @ttsc/fake lsp-code-actions produced more than 4194304 bytes on stdout" { t.Errorf("6 MiB result = %q, %v", body, err) }
+    if n, err := stderr.Write([]byte(strings.Repeat("x", 2*1024*1024))); n != 2*1024*1024 || err != nil { t.Fatalf("2 MiB stderr write = %d, %v", n, err) }
+    if !stderr.truncated || stderr.String() != strings.Repeat("x", 1024*1024) { t.Fatal("2 MiB stderr did not retain its exact 1 MiB prefix") }
+    body, err := nativePluginCommandResult(plugin, "lsp-code-actions", errors.New("exit status 1"), &stdout, &stderr)
+    expected := "ttscserver: @ttsc/fake lsp-code-actions failed: "+strings.Repeat("x", 1024*1024)+" (stderr truncated)"
+    if body != nil || err == nil || err.Error() != expected || len(err.Error()) > 1024*1024+4096 { t.Error("2 MiB failure lost its exact retained prefix, truncation marker or error bound") }
+  })
   t.Run("diagnostics_rich_legacy_and_invalid", func(t *testing.T) {
     for _, body := range []string{
       `[{"source":"ttsc/fake","code":"fake-rule","message":"marker"}]`,
