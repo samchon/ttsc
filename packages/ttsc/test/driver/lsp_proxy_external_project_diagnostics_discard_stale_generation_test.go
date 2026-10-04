@@ -108,7 +108,7 @@ func TestLSPProxyExternalProjectDiagnosticsDiscardStaleGeneration(t *testing.T) 
   }
   publication := decodeProjectPublication(t, h.recvEditor())
   if publication.URI != "file:///project/tsconfig.json" ||
-    len(publication.Diagnostics) != 0 {
+    publication.Diagnostics == nil || len(publication.Diagnostics) != 0 {
     t.Fatalf("latest project publication = %#v", publication)
   }
   h.expectNoEditorFrame(150 * time.Millisecond)
