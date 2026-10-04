@@ -213,8 +213,9 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
 // appendContextReceipt records an actually invoked entry's supplied config.
 // Optional absolute destinations belong to the E2E coordinator. The
 // records preserve the existing context schema and keep raw config-path anchors
-// separate. A paths receipt reads the actual loaded Program options only when
-// requested; it does not reparse the config or infer successful alias resolution.
+// separate. Paths and case-policy receipts read the actual loaded Program only
+// when requested; they do not reparse config, infer alias resolution or guess a
+// compiler case policy from the operating-system name.
 // No receipt proves source rewriting, emit or project-root identity, and
 // absent/empty destination config performs no IO.
 func appendContextReceipt(program *driver.Program, context driver.PluginContext) error {
@@ -253,6 +254,7 @@ func appendContextReceipt(program *driver.Program, context driver.PluginContext)
       },
     },
     { option: "pathsReceipt" },
+    { option: "casePolicyReceipt" },
   }
   for _, record := range records {
     configured, present := context.Entry.Config[record.option]
@@ -291,6 +293,17 @@ func appendContextReceipt(program *driver.Program, context driver.PluginContext)
       }{
         Name: context.Entry.Name,
         Paths: paths,
+      }
+    } else if record.option == "casePolicyReceipt" {
+      if program == nil || program.TSProgram == nil {
+        return fmt.Errorf("casePolicyReceipt requires the actual loaded Program")
+      }
+      value = struct {
+        Name string `json:"name"`
+        UseCaseSensitiveFileNames bool `json:"useCaseSensitiveFileNames"`
+      }{
+        Name: context.Entry.Name,
+        UseCaseSensitiveFileNames: program.TSProgram.UseCaseSensitiveFileNames(),
       }
     }
     file, err := os.OpenFile(receipt, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
