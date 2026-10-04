@@ -12,13 +12,14 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/sr
 import { TestProject } from "../../../../utils/src/TestProject";
 import { createTickPinnedFilesystem } from "../../internal/transform-project-cache/createTickPinnedFilesystem";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
+import { PINNED_TICK } from "../../internal/transform-project-cache/PINNED_TICK";
 
 /**
  * Verifies complete proof reads unchanged stamps rather than trusting an
  * unfinished tick.
  *
  * Four unchanged modules share a literal consumer generation. Same-length
- * source and external rewrites change bytes under the identical pinned native
+ * source, external, global and manifest rewrites change bytes under identical pinned
  * metadata view, forcing actual cache eviction and a capture request. Fresh
  * consumer checkpoints supply inputs, not a simulated compiler response.
  *
@@ -27,16 +28,21 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * 2. Rewrite one source with same-length bytes under identical metadata and
  *    require the cache to evict its generation and request a capture.
  * 3. Record a new checkpoint, rewrite an external input the same way and require
- *    another eviction and capture.
+ *    another eviction and capture. Repeat for a global declaration and a
+ *    same-size manifest key-order change, with the manifest mtime ahead of ctime.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual selectCachedGenerationAction and complete snapshot validators serve four unchanged modules, then evict the recorded Promise for a sibling source rewrite and an external graph rewrite under unchanged timestamps.
+ * @evidence contracts/testing.md#behavioral-verification The actual selectCachedGenerationAction and complete snapshot validators serve four unchanged modules, then evict the recorded Promise independently for sibling source, external graph, global declaration and universal manifest rewrites under unchanged timestamps.
  * @evidence contracts/testing.md#independent-expectations Literal serve then capture decisions and unequal cache identities follow from changed bytes, independently of metadata equality. The supported cache-local clock view pins all metadata ticks while native bytes are actually rewritten; fresh fixture snapshots are inputs only.
- * @evidence contracts/testing.md#distinguishing-cases Stable four-module serving contrasts with a same-length source edit delivered through a sibling and a same-length out-of-walk edit. Both paths lack notification trackers and must retain content comparison because no tick ever separates its evidence.
- * @evidence contracts/testing.md#execution-ownership Unit test: a synchronous function runs the real selectCachedGenerationAction and complete-snapshot validators through a cache created with the tick-pinned filesystem seam (createTickPinnedFilesystem), counting capture decisions (0 while steady, then 1 and 2 after the two rewrites). No compiler or host runs; the shared native producer/consumer connection belongs to tests/test-e2e/src/features/test_e2e_metro_batch.ts#test_e2e_metro_batch.
+ * @evidence contracts/testing.md#distinguishing-cases Stable four-module serving contrasts with same-length source and out-of-walk edits, a number-to-string global edit, and JSON key reordering without a size change. Manifest mtime is one tick ahead of pinned ctime throughout, so it cannot justify skipping a different input's content comparison. Each fresh checkpoint serves all four modules before the next isolated edit. There are no notification trackers; this does not certify silent-watcher authority.
+ * @evidence contracts/testing.md#execution-ownership This synchronous source unit runs actual selectCachedGenerationAction and complete-snapshot validators through the cache-local tick-pinned filesystem, counting decision results zero through four. No compiler, host, native clock acquisition or silent watcher proof runs; the shared native producer/consumer connection belongs to tests/test-e2e/src/features/test_e2e_metro_batch.ts#test_e2e_metro_batch.
  */
 export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_generation(): void {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-pinned-snapshot-unit-"));
-  TestProject.writeFiles(root, { "tsconfig.json": '{"include":["src"]}' });
+  TestProject.writeFiles(root, {
+    "tsconfig.json": '{"include":["src"]}',
+    "package.json": '{"private":true,"type":"commonjs"}',
+    "node_modules/global0/index.d.ts": "declare const ambient0: number;\n",
+  });
   const modules: string[] = [];
   for (let index = 0; index < 4; index += 1) {
     const file = path.join(root, "src", "mod" + index + ".ts");
@@ -51,6 +57,8 @@ export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_gener
     watch: "refused",
   });
   const cache = createTtscTransformCache(pinned.operations);
+  const manifest = path.join(root, "package.json");
+  pinned.modificationStamps.set(manifest, PINNED_TICK + 1n);
   let captures = 0;
   const metadata = (file: string) => {
     const stat = transformFilesystem(cache).lstat(file);
@@ -63,11 +71,11 @@ export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_gener
       typescript: Object.fromEntries(modules.map((file) => [path.relative(root, file), "export const input = 1;\n"])),
       graph: {
         edges: Object.fromEntries(modules.map((file) => [path.relative(root, file), Array.from({ length: 4 }, (_, index) => "node_modules/dep" + index + "/index.d.ts")])),
-        globals: [], configs: ["tsconfig.json"],
+        globals: ["node_modules/global0/index.d.ts"], configs: ["tsconfig.json"],
       },
-      hostInputs: [config],
-      hostInputHashes: { [config]: createHash("sha256").update(fs.readFileSync(config)).digest("hex") },
-      hostInputRealpaths: { [config]: fs.realpathSync.native(config) },
+      hostInputs: [config, manifest],
+      hostInputHashes: Object.fromEntries([config, manifest].map((file) => [file, createHash("sha256").update(fs.readFileSync(file)).digest("hex")])),
+      hostInputRealpaths: Object.fromEntries([config, manifest].map((file) => [file, fs.realpathSync.native(file)])),
     };
     TRANSFORM_RESULT_FILESYSTEM.set(result, transformFilesystem(cache));
     const observed = observeValidationUnitGeneration(root, result);
@@ -95,6 +103,7 @@ export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_gener
     assert.notEqual([...cache.values()][0], firstGeneration, "the walk must re-read a project file whose tick never provably ended");
     assert.equal(captures, 1);
     observed = checkpoint();
+    for (const file of modules) assert.equal(decide(file), "serve");
     const externalGeneration = [...cache.values()][0];
     const externalFile = path.join(root, "node_modules", "dep0", "index.d.ts");
     const externalMetadata = metadata(externalFile);
@@ -103,6 +112,34 @@ export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_gener
     assert.equal(decide(modules[0]!), "capture");
     assert.notEqual([...cache.values()][0], externalGeneration, "the out-of-walk re-check must re-read an unseparated external input");
     assert.equal(captures, 2);
+    observed = checkpoint();
+    for (const file of modules) assert.equal(decide(file), "serve");
+    assert.equal(transformFilesystem(cache).lstat(manifest).mtimeNs, PINNED_TICK + 1n);
+    assert.equal(transformFilesystem(cache).lstat(manifest).ctimeNs, PINNED_TICK);
+    const globalGeneration = cache.get("fixture");
+    const globalFile = path.join(root, "node_modules", "global0", "index.d.ts");
+    const globalMetadata = metadata(globalFile);
+    fs.writeFileSync(globalFile, "declare const ambient0: string;\n");
+    assert.deepEqual(metadata(globalFile), globalMetadata);
+    assert.equal(decide(modules[0]!), "capture");
+    assert.notEqual(cache.get("fixture"), globalGeneration);
+    assert.equal(captures, 3);
+    observed = checkpoint();
+    for (const file of modules) assert.equal(decide(file), "serve");
+    const manifestGeneration = cache.get("fixture");
+    const manifestMetadata = metadata(manifest);
+    const beforeManifest = fs.readFileSync(manifest, "utf8");
+    const reorderedManifest = '{"type":"commonjs","private":true}';
+    assert.equal(Buffer.byteLength(reorderedManifest), Buffer.byteLength(beforeManifest));
+    assert.notEqual(reorderedManifest, beforeManifest);
+    fs.writeFileSync(manifest, reorderedManifest);
+    assert.deepEqual(metadata(manifest), manifestMetadata);
+    assert.equal(decide(modules[0]!), "capture");
+    assert.notEqual(cache.get("fixture"), manifestGeneration);
+    assert.equal(captures, 4);
+    observed = checkpoint();
+    for (const file of modules) assert.equal(decide(file), "serve");
+    assert.equal(captures, 4);
   } finally {
     resetTtscTransformCache(cache);
   }
