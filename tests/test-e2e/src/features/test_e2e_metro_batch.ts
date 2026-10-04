@@ -11,14 +11,14 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
- * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, matching map and dependency records. The actual ApplyProgram log grows by one across both joined workers.
+ * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, matching map and dependency records. The actual ApplyProgram log grows by one across both joined workers. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Original coordinates, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair while preserving initial arguments/map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -33,7 +33,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }));
   const contractPath = path.join(workspace.root, "src/contract.ts");
   const originalContract = fs.readFileSync(contractPath);
-  const bannerPath = path.join(workspace.root, "banner.config.json");
+  const bannerPath = path.join(workspace.root, "config", "banner.config.json");
   const originalBanner = fs.readFileSync(bannerPath);
   const unrelatedPath = path.join(workspace.root, "batch-unrelated-candidate.txt");
   const ignoredOutput = path.join(workspace.root, "dist/batch-hashed-a9137.js");
@@ -51,6 +51,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.deepEqual(metro.ast.plugins, ["authored-babel-plugin"]);
   assert.equal(typeof metro.ast.source, "string");
   assert.match(metro.ast.source, /Shared boundary corpus/);
+  assert.doesNotMatch(metro.ast.source, /WRONG ROOT BANNER DECOY/, "explicit nested configFile must win over discovered root config");
   assert.match(metro.ast.source, /Authored source positions remain observable/);
   assert.notEqual(metro.ast.source, fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"));
   assert.equal(/(?:^|[;\n])\s*discard\.call\(\)/.test(metro.ast.source), false);

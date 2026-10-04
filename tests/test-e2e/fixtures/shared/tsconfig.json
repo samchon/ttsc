@@ -25,7 +25,8 @@
                                       },
                             "plugins":  [
                                             {
-                                                "transform":  "@ttsc/banner"
+                                                "transform":  "@ttsc/banner",
+                                                "configFile": "./config/banner.config.json"
                                             },
                                             {
                                                 "transform":  "@ttsc/paths"
