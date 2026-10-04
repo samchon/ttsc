@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
@@ -66,6 +67,10 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
       type: "success",
       typescript: { "src/main.ts": "export const value = 1;\n" },
       hostInputs: ["tsconfig.json"],
+      hostInputHashes: {
+        [tsconfig]: createHash("sha256").update(fs.readFileSync(tsconfig)).digest("hex"),
+      },
+      hostInputRealpaths: { [tsconfig]: fs.realpathSync.native(tsconfig) },
       dependencies: {
         "src/main.ts": ["tsconfig.json", tsconfig, "tsconfig.json", "src/main.ts"],
       },

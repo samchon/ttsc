@@ -58,11 +58,23 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         globals: ["node_modules/@types/empty"], configs: [],
         candidates: { "src/main.ts": ["node_modules/typed/preferred.d.ts"] },
         resolutionInputs: ["node_modules/@types/empty"],
-        inputHashes: { "src/main.ts": digest(fixture.file), "node_modules/typed/index.d.ts": declarationHash },
-        inputRealpaths: { "src/main.ts": fs.realpathSync.native(fixture.file), "node_modules/typed/index.d.ts": fs.realpathSync.native(declaration) },
+        inputHashes: {
+          "src/main.ts": digest(fixture.file),
+          "node_modules/typed/index.d.ts": declarationHash,
+          "node_modules/@types/empty": createHash("sha256").update("ttsc:host-input:directory\0").digest("hex"),
+        },
+        inputRealpaths: {
+          "src/main.ts": fs.realpathSync.native(fixture.file),
+          "node_modules/typed/index.d.ts": fs.realpathSync.native(declaration),
+          "node_modules/@types/empty": fs.realpathSync.native(listed),
+        },
         inputObservations: {
           "node_modules/typed/preferred.d.ts": { fileExists: false },
-          "node_modules/@types/empty": { stat: "directory" as const, accessibleEntries: { directories: [], files: [] } },
+          "node_modules/@types/empty": {
+            stat: "directory" as const,
+            accessibleEntries: { directories: [], files: [] },
+            realpath: { ok: true as const, path: fs.realpathSync.native(listed) },
+          },
         },
       },
       hostInputs: [config], hostInputHashes: { [config]: digest(config) },
