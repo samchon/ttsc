@@ -1,9 +1,13 @@
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { withIdentityBoundary } from "../../../internal/graph/internal/identityBoundary";
-import { assert } from "../../../internal/graph/internal/ttsgraph";
-
+type Client = {
+  request(method: string, params: unknown): Promise<unknown>;
+  assertInputMutationAllowed(): void;
+  preventInputReuse(reason: string): void;
+};
+const names = ["Utf8Bom", "Utf16Le", "Utf16Be", "Lf", "CrLf", "Cr", "Ls", "Ps"];
 interface ToolResult {
   structuredContent?: unknown;
 }
@@ -31,45 +35,40 @@ const detailsOf = (result: ToolResult): DetailsResult => {
   return value.result;
 };
 
+/** Materializes raw byte inputs in the shared graph preparation before any native snapshot. */
+export function writeGraphEncodedInputs(root: string): void {
+  const source = (name: string, terminator = "\n") => [
+    `/** ${name} docs. */`, `export function ${name}(): string {`,
+    `  return "${name}";`, "}", "",
+  ].join(terminator);
+  fs.writeFileSync(path.join(root, "src", "Utf8Bom.ts"), Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(source("Utf8Bom")),
+  ]));
+  fs.writeFileSync(path.join(root, "src", "Utf16Le.ts"), Buffer.concat([
+    Buffer.from([0xff, 0xfe]), Buffer.from(source("Utf16Le"), "utf16le"),
+  ]));
+  fs.writeFileSync(path.join(root, "src", "Utf16Be.ts"), Buffer.concat([
+    Buffer.from([0xfe, 0xff]), Buffer.from(source("Utf16Be"), "utf16le").swap16(),
+  ]));
+  for (const [name, terminator] of [
+    ["Lf", "\n"], ["CrLf", "\r\n"], ["Cr", "\r"], ["Ls", "\u2028"], ["Ps", "\u2029"],
+  ]) fs.writeFileSync(path.join(root, "src", `${name}.ts`), source(name!, terminator));
+  fs.writeFileSync(path.join(root, "src", "encoding-peer.ts"),
+    "export function encodingPeer(n: number): number { return n * 2; }\n");
+}
+
 /**
- * Verifies graph details preserves display facts across source encodings and
- * ECMAScript line terminators.
- *
- * The native snapshot hashes raw on-disk bytes separately from the decoded
- * source text that its checker parsed. The Node reader must prove both domains
- * before it slices declarations. Otherwise ordinary Windows-generated files
- * fail the checker-digest gate forever and details silently drops signatures
- * and docs.
- *
- * 1. Materialize equivalent functions with three BOM encodings and five ECMAScript
- *    line-terminator spellings in the same project.
- * 2. Ask the real resident `ttscgraph` server for all eight declaration details.
- * 3. Advance the same resident session through an unrelated edit, edits in all
- *    eight encodings, restoration and unchanged requests; collect every head
- *    and documentation assertion independently.
- *
- * @evidence contracts/testing.md#behavioral-verification MCP details reads eight actual encoded source files and returns each declaration head and documentation under UTF-8 BOM, UTF-16 LE/BE and several line separators, before and after unrelated edits, encoded documentation edits and byte-exact restoration.
- * @evidence contracts/testing.md#independent-expectations Each encoded byte fixture has a literal function name, expected declaration-head string and doc sentence; expected text is not produced by the graph decoder.
- * @evidence contracts/testing.md#distinguishing-cases BOM and UTF-16 endianness contrast LF, CRLF, CR, line separator and paragraph separator inputs; unchanged, unrelated-edit, encoded-edit and restored snapshots preserve the original declaration heads and independently expected documentation.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_details_reads_bom_and_utf16_source_snapshot borrows the experiment's shared built workspace MCP/native session and drives its actual stdio connection with the explicit workspace binary override; this is not a consumer-local packed SDK installation. It remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
- * @evidence contracts/e2e.md#necessary-boundary Real compiler decoding, snapshot provenance and MCP detail display must agree on these bytes and coordinates; a predecoded synthetic source cannot test that integration.
- * @evidence contracts/e2e.md#shared-execution Identity consumers share one project and resident MCP/native session. Immutable producer assertions and built workspace decoders borrow one cached CLI dump; checker dispatch uses both. Raw dump preparation alone starts no MCP. Cold escape and a controlled unlinked transition reuse the identity project, with one additional dump for changed membership. Ranking, tag and tour/hub inputs retain closed source universes; edits and config restoration advance actual generations without fresh clients. Sharing the client/project is not proof of Program-object reuse, total construction or packed publication identity.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
- * @evidence contracts/e2e.md#preserved-coverage Every original per-file exact signature and documentation assertion remains and is repeated across warm generations; encoded files and the unrelated source restore their original captured bytes finally. The case establishes supported encoding/display behavior, not a timing or filesystem-platform benchmark.
+ * Observes all raw encodings through the existing resident graph boundary.
+ * @evidence contracts/testing.md#behavioral-verification Each real UTF8 BOM/UTF16 endian/line-separator declaration retains exact signature and documentation in initial, unchanged, unrelated edit, encoded edit and restored native MCP replies.
+ * @evidence contracts/testing.md#independent-expectations Eight authored raw-byte functions prescribe literal heads/docs independently of graph decoding; the unrelated peer body actually changes and does not define expected facts.
+ * @evidence contracts/testing.md#distinguishing-cases Every encoding is asserted separately through original byte restoration; unrelated versus documentation edit distinguishes stale display from refresh.
+ * @evidence contracts/testing.md#execution-ownership Called once with the selected graph entry's existing initialized client and shared upfront byte population; per-file loops write/read assertions, never prepare/load/launch another host or profile.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native decoder/checker digest and MCP display must agree on raw bytes; no predecoded fake snapshot is supplied.
+ * @evidence contracts/e2e.md#shared-execution All eight initial files coexist before the first native snapshot; two edit categories and restoration advance the same resident generation with explicit refresh cost, without client recreation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original encoded and peer bytes restore individually under client mutation authority; failed restoration withdraws input reuse and the selected entry joins host exit.
+ * @evidence contracts/e2e.md#preserved-coverage Every original per-file exact signature/doc assertion and reset/recovery phase is retained. No global Program1 or executed-success claim is made.
  */
-export const case_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
-  async () => {
-    const names = [
-      "Utf8Bom",
-      "Utf16Le",
-      "Utf16Be",
-      "Lf",
-      "CrLf",
-      "Cr",
-      "Ls",
-      "Ps",
-    ];
-    await withIdentityBoundary(async (client, root) => {
+export async function assertGraphEncodedCorpus(client: Client, root: string): Promise<void> {
       const failures: unknown[] = [];
       const originals = new Map(
         names.map((name) => [
@@ -77,7 +76,7 @@ export const case_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
           fs.readFileSync(path.join(root, "src", `${name}.ts`)),
         ]),
       );
-      const peer = path.join(root, "src", "identity3.ts");
+      const peer = path.join(root, "src", "encoding-peer.ts");
       const peerBytes = fs.readFileSync(peer);
       const restorationErrors: unknown[] = [];
       const verify = async (stage: string, suffix = ""): Promise<void> => {
@@ -208,5 +207,5 @@ export const case_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
       await verify("restored unchanged");
       if (failures.length !== 0)
         throw new AggregateError(failures, "Encoded source detail failures");
-    });
-  };
+
+}

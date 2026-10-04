@@ -1,3 +1,4 @@
+import { assertGraphEncodedCorpus, writeGraphEncodedInputs } from "../batch/graphEncodedCorpus";
 import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
 import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
 import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
@@ -33,6 +34,7 @@ type NodeDetails = {
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   await FileSystemIterator.write(workspace.root, await FileSystemIterator.read(path.join(workspace.root, "graph-stage")));
+  writeGraphEncodedInputs(workspace.root);
   const client = TtsgraphClient.start(workspace.root, path.join(workspace.root, "graph-native-starts.jsonl"));
   try {
     const initialization = await client.request("initialize", {
@@ -81,6 +83,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     await assertGraphMcpCorpus(client, initialization);
     await assertGraphNativeShapeCorpus(client, workspace.root);
     await assertGraphRefreshCorpus(client, workspace.root);
+    await assertGraphEncodedCorpus(client, workspace.root);
     const response = await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
