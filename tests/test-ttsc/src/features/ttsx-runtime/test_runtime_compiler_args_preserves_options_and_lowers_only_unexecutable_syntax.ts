@@ -18,6 +18,8 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  * checking or output isolation.
  * CommonJS helper/rewrite booleans remain visible reader and argument inputs;
  * their actual emitted helper shapes and live getter effects are not observed.
+ * Declared emit suppression is disabled only in returned runtime arguments;
+ * absent roots and declared output coordinates remain unchanged metadata.
  *
  * 1. Resolve one fixture project through the authored config reader.
  * 2. Apply the target and JSX decision matrix directly to the argument owner.
@@ -25,7 +27,7 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  *
  * @evidence contracts/testing.md#behavioral-verification runtimeCompilerArgs uses the real effective-option reader for visible arguments and returns exact runtime-only overrides while retaining the original tokens.
  * @evidence contracts/testing.md#independent-expectations Node cannot execute preserved JSX or proposal decorators; supported ES2025 and React emit modes, unchanged explicit libraries/modules and false emit suppression establish the independent suffix expectations.
- * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch; four CommonJS helper/rewrite combinations retain configured and forwarded booleans without adding an implicit module override or changing project options.
+ * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch; four CommonJS helper/rewrite combinations retain configured and forwarded booleans without adding an implicit module override or changing project options. Four declared noEmit/declaration-only configurations preserve absent or explicit root/output metadata while the returned runtime tail disables emit suppression; this does not certify native root inference or actual cache output isolation.
  * @evidence contracts/testing.md#execution-ownership This named source unit resolves fixture configuration and calls authored functions in one process; no compiler binary, installation or product host executes.
  */
 export function test_runtime_compiler_args_preserves_options_and_lowers_only_unexecutable_syntax() {
@@ -155,6 +157,21 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
     const before = [...flags];
     assert.deepEqual(runtimeCompilerArgs(project, flags), [...flags, ...tail]);
     assert.deepEqual(flags, before);
+  });
+  for (const [name, configured] of [
+    ["absent root and output", { noEmit: true }],
+    ["nested source without output", { noEmit: true, rootDir: "src" }],
+    ["declared output without root", { noEmit: true, outDir: "lib" }],
+    ["declaration-only configured output", { emitDeclarationOnly: true, declaration: true, rootDir: "src", outDir: "lib" }],
+  ] as const) check("declared-runtime-emit/" + name, () => {
+    project.compilerOptions = { plugins: [], target: "ES2022", module: "commonjs", ...configured };
+    const before = JSON.stringify(project.compilerOptions);
+    const effective = readEffectiveCompilerOptions(project, []);
+    assert.ok(effective);
+    assert.equal(effective("noEmit"), "noEmit" in configured ? true : undefined);
+    assert.equal(effective("emitDeclarationOnly"), "emitDeclarationOnly" in configured ? true : undefined);
+    assert.deepEqual(runtimeCompilerArgs(project, [], undefined, effective), tail);
+    assert.equal(JSON.stringify(project.compilerOptions), before);
   });
   if (failures.length) throw new AggregateError(failures, "runtime compiler policy counterparts failed");
 }
