@@ -11,7 +11,8 @@ import (
 
 // TestLSPFrameReaderRejectsOversizeHeader Verifies that FrameReader reports ErrFrameTooLarge for oversized headers with and without a newline.
 //
-// Completed and unterminated header inputs distinguish both streaming-cap paths.
+// Inputs with and without a later newline both exceed the streaming header cap;
+// this does not establish two different rejection branches.
 //
 // 1. Feed a frame with a header line larger than MaxHeaderBytes.
 // 2. Assert Read returns ErrFrameTooLarge.
@@ -19,7 +20,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification FrameReader reports ErrFrameTooLarge for oversized headers with and without a newline.
 // @evidence contracts/testing.md#independent-expectations The public MaxHeaderBytes bound and errors.Is identity establish independent expectations.
-// @evidence contracts/testing.md#distinguishing-cases Completed and unterminated header inputs distinguish both streaming-cap paths.
+// @evidence contracts/testing.md#distinguishing-cases A later newline versus no newline supplies two over-cap inputs; rejection can occur before that terminator in the same streaming-cap branch.
 // @evidence contracts/testing.md#execution-ownership Two in-memory readers exercise the Go header parser without transport processes. Go discovers TestLSPFrameReaderRejectsOversizeHeader under ./test/driver.
 func TestLSPFrameReaderRejectsOversizeHeader(t *testing.T) {
   frame := []byte(

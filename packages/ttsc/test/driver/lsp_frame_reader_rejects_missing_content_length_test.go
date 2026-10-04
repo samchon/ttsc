@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification FrameReader.Read reports missing Content-Length.
 // @evidence contracts/testing.md#independent-expectations The LSP framing contract needs a body-length header.
 // @evidence contracts/testing.md#distinguishing-cases Colonless and unrelated headers jointly supply no length; valid framing is covered elsewhere.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPFrameReaderRejectsMissingContentLength is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls the actual frame reader on authored in-memory headers, without filesystem inputs, shim operations or a product transport.
 func TestLSPFrameReaderRejectsMissingContentLength(t *testing.T) {
   body := []byte("NoColonHeaderLine\r\nContent-Type: application/json\r\n\r\n{}")
   fr := driver.NewFrameReader(bytes.NewReader(body))
