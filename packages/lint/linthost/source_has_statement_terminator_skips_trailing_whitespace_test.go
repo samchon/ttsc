@@ -5,16 +5,14 @@ import (
 )
 
 // TestSourceHasStatementTerminatorSkipsTrailingWhitespace verifies that
-// whitespace (spaces, tabs, newlines) after the `;` is stepped over
+// the authored space and LF after the `;` are stepped over
 // correctly and the semicolon is still found.
 //
 // The backward scan skips `' '`, `'\t'`, `'\r'`, and `'\n'` before
-// inspecting the next byte. When `end` lands inside trailing whitespace
-// (the pattern TypeScript-Go uses when the ImportDeclaration's End()
-// reaches past the `\n` into trivia), the scan must step back through
-// that whitespace to locate the `;`. This test exercises the `i--; continue`
-// whitespace branch by supplying an `end` that starts in the trailing
-// newline rather than on the `;` itself.
+// inspecting the next byte. This authored end position includes the space and
+// LF, so the scan steps back through both to locate the semicolon. The direct
+// call exercises the `i--; continue` branch without observing compiler End()
+// positions or claiming an input cell for tab or CR.
 //
 //  1. Build a source string ending with `; \n` (semicolon then whitespace).
 //  2. Call sourceHasStatementTerminator with end == len(src) so the scan

@@ -9,8 +9,8 @@ import (
 //
 // This is the primary success path of sourceHasStatementTerminator: the
 // backward scan finds `;` immediately and returns true. Without this
-// branch covered, the printer's decision to append a `;` token to the
-// reconstructed import declaration is untested at the unit level.
+// branch covered, this direct success case is missing. The test does not
+// reconstruct an import declaration or observe the printer's output.
 //
 // 1. Build a source string ending with a literal semicolon.
 // 2. Call sourceHasStatementTerminator with end == len(src).

@@ -11,9 +11,8 @@ import (
 // The inner j-walk searches backwards for the `/*` open marker. When
 // `j-1` drops below zero before finding it the helper concludes the
 // source is malformed and returns false. This branch protects the caller
-// from an infinite loop or out-of-bounds access on corrupted source
-// slices — a realistic scenario when the printer receives a partial edit
-// buffer rather than a complete file.
+// from an unbounded backward search or out-of-bounds access on this malformed
+// literal. The test does not exercise a printer or a partial edit buffer.
 //
 // 1. Build a minimal source string that ends with `*/` but has no `/*`.
 // 2. Call sourceHasStatementTerminator with end == len(src).

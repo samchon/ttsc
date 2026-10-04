@@ -8,9 +8,9 @@ import (
 // source string without a trailing semicolon reports false.
 //
 // The printer must not emit a spurious `;` when the user omitted one.
-// This test exercises the final `return false` branch of the backward
-// scan, reached when the last non-trivia character is not `;` and not
-// the start of a block comment.
+// This test exercises the in-loop `return false` branch of the backward
+// scan: the terminal quote is neither `;` nor a trailing block-comment closer.
+// Printer output is not observed by this direct predicate call.
 //
 //  1. Build a source string whose last meaningful character is `"` (end of
 //     a module specifier with no semicolon).
