@@ -9,8 +9,8 @@ import (
 // whose syntactic matches admit user-defined objects do not stamp every
 // finding with a Node deprecation tag.
 //
-// `detect-new-buffer` and `detect-pseudoRandomBytes` intentionally mirror
-// upstream name-based detection. A local constructor named `Buffer` or object
+// `detect-new-buffer` and `detect-pseudoRandomBytes` perform syntactic,
+// name-based detection. A local constructor named `Buffer` or object
 // named `crypto` is therefore still reported, but it is not necessarily Node's
 // DEP0005 / DEP0115 API. The rule-level tag grain cannot distinguish those
 // findings, so leaving the rules untagged is the sound classification.
