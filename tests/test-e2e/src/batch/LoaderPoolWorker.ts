@@ -54,12 +54,13 @@ export function createLoaderPoolWorker(props: {
   }));
   void closed.catch(() => undefined);
   return {
-    request: () => new Promise<LoaderPoolOutcome>((resolve, reject) => {
+    request: (sourceSuffix = "") => new Promise<LoaderPoolOutcome>((resolve, reject) => {
       const id = ++next;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: delivery remains unresolved: ${stderr}`)); }, 120_000);
       pending.set(id, { resolve, reject, timer });
-      child.stdin.write(JSON.stringify({ id }) + "\n");
+      child.stdin.write(JSON.stringify({ id, sourceSuffix }) + "\n");
     }),
+    diagnostics: () => stderr,
     close: async () => {
       child.stdin.end(JSON.stringify({ close: true }) + "\n");
       let timer: ReturnType<typeof setTimeout> | undefined;

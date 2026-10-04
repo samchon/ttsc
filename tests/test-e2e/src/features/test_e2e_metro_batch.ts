@@ -14,7 +14,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, matching map and dependency records. The actual ApplyProgram log grows by one across both joined workers.
  * @evidence contracts/testing.md#independent-expectations Original coordinates, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
@@ -92,6 +92,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(repaired[1]!.value.content, turbopack.content, "repair restores the actual Turbopack native output");
   assert.ok(publications().some((publication) => publication.type === "success"), "repair observes an actual successful publication");
   fs.writeFileSync(bannerPath, JSON.stringify({ text: "Pooled second banner\nIndependent external-config state" }));
+  const divergentSuffix = "\n// changed by the host before native delivery\n";
   const external = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of external) { assert.equal(reply.error, undefined); assert.ok(reply.value); }
   assert.match(external[0]!.value.ast.source, /Pooled second banner/);
@@ -101,12 +102,18 @@ export async function test_e2e_metro_batch(): Promise<void> {
   fs.writeFileSync(unrelatedPath, "Unrelated text is not a resolution/config input.\n");
   fs.mkdirSync(path.dirname(ignoredOutput), { recursive: true });
   fs.writeFileSync(ignoredOutput, "console.log('hashed generated output');\n");
-  const externalReplay = await Promise.all(workers.map((worker) => worker.request()));
+  const externalReplay = await Promise.all(workers.map((worker) => worker.request(divergentSuffix)));
   for (const reply of externalReplay) assert.equal(reply.error, undefined);
   assert.equal(externalReplay[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(externalReplay[1]!.value.content, external[1]!.value.content);
   assert.deepEqual(publications(), changedExternal, "unrelated candidate-directory and excluded output churn keep the publication");
   assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn, "ignored churn does not invoke native ApplyProgram again");
+  const repeatedDivergence = await Promise.all(workers.map((worker) => worker.request(divergentSuffix)));
+  for (const reply of repeatedDivergence) assert.equal(reply.error, undefined);
+  assert.equal(repeatedDivergence[0]!.value.ast.source, external[0]!.value.ast.source);
+  assert.equal(repeatedDivergence[1]!.value.content, external[1]!.value.content);
+  assert.deepEqual(publications(), changedExternal, "repeated divergent host text preserves the native generation");
+  assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn);
   } catch (error) { bodyFailure = error; } finally {
     fs.writeFileSync(contractPath, originalContract);
     fs.writeFileSync(bannerPath, originalBanner);
@@ -114,7 +121,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.rmSync(ignoredOutput, { force: true });
     const closes = await Promise.allSettled(workers.map((worker) => worker.close()));
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
-    const failures = failedCloses.map((entry) => entry.reason);
+    const failures: unknown[] = failedCloses.map((entry) => entry.reason);
+    if (bodyFailure === undefined && failedCloses.length === 0)
+      for (const worker of workers) {
+        try { assert.equal(worker.diagnostics().split("differs from the file on disk").length - 1, 1, "each real resident reports divergent delivery once"); }
+        catch (error) { failures.push(error); }
+      }
     if (bodyFailure !== undefined) failures.unshift(bodyFailure);
     if (failures.length) throw new AggregateError(failures, "resident loader pool delivery and close");
   }
