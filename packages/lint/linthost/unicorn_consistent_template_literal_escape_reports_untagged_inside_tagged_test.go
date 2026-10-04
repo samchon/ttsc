@@ -9,7 +9,7 @@ import (
 // verifies the tagged-template guard stops at the tagged quasi and does
 // not shadow nested untagged templates.
 //
-// Upstream's isTaggedTemplateLiteral answers for the template literal
+// The owning isTaggedTemplateQuasi guard answers for the template node
 // itself, so an untagged template nested inside a tagged template's
 // substitution still reports, while every element of the tagged outer
 // template (including one carrying a bad escape) stays silent. A guard

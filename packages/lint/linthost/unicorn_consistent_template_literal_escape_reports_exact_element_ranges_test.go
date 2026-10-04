@@ -9,8 +9,8 @@ import (
 // verifies each finding highlights one template element token and carries
 // one payload-only edit.
 //
-// Upstream reports the TemplateElement node, whose ESTree range equals
-// the TS element token: opening backtick or `}` through the closing `${`
+// The owning rule reports the element node using the authored
+// TS element-token range: opening backtick or `}` through the closing `${`
 // or backtick. The autofix must rewrite only the raw payload between the
 // delimiters, so an off-by-one on either side corrupts the template or
 // its substitutions. Head, middle, tail, and no-substitution elements
@@ -18,13 +18,13 @@ import (
 //
 //  1. Lint one template with head/middle/tail escapes plus one
 //     no-substitution template.
-//  2. Assert four findings with the upstream message at the exact token
+//  2. Assert four findings with the authored expected message at the exact token
 //     ranges.
 //  3. Assert each fix is a single edit spanning exactly the element
 //     payload with the canonical replacement.
 //
 // @evidence contracts/testing.md#behavioral-verification four findings have the exact message, token ranges and single payload-only edits.
-// @evidence contracts/testing.md#independent-expectations Authored marker substrings, closing-delimiter widths and canonical replacement bytes independently specify the upstream element-token report and payload edit contract.
+// @evidence contracts/testing.md#independent-expectations Authored marker substrings, closing-delimiter widths and canonical replacement bytes independently specify the expected element-token report and payload edit without certifying upstream parser-range equivalence.
 // @evidence contracts/testing.md#distinguishing-cases Head, middle, tail and no-substitution element delimiters differ in width; expression delimiters are excluded from edits, preventing off-by-one corruption.
 // @evidence contracts/testing.md#execution-ownership The literal expectation table belongs to this discoverable Go unit entry and failures retain finding index and marker identity. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeReportsExactElementRanges(t *testing.T) {
