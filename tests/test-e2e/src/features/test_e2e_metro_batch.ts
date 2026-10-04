@@ -5,18 +5,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. The actual ApplyProgram log grows by one across both joined workers. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
- * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/absent-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/absent-map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/absent-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/absent-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -26,18 +27,25 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const session = path.join(workspace.root, "loader-pool-session");
   const recreatedOutputDirectory = path.join(workspace.root, "dist/batch-recreated-output");
   assert.equal(fs.existsSync(recreatedOutputDirectory), false, "the pool owns its output recreation subtree exclusively");
-  const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
-    mode, root: workspace.root, cache: workspace.cache, session,
-    metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
-    options: pathToFileURL(path.join(lib, "core/options.mjs")).href,
-    turbopack: TestUnpluginRuntime.libUrl("turbopack"),
-  }));
   const contractPath = path.join(workspace.root, "src/contract.ts");
   const originalContract = fs.readFileSync(contractPath);
   const bannerPath = path.join(workspace.root, "config", "banner.config.json");
   const originalBanner = fs.readFileSync(bannerPath);
   const unrelatedPath = path.join(workspace.root, "batch-unrelated-candidate.txt");
   const ignoredOutput = path.join(workspace.root, "dist/batch-hashed-a9137.js");
+  const candidate = path.join(workspace.root, "node_modules/batch-record-dependency/index.ts");
+  const declaration = path.join(workspace.root, "node_modules/batch-record-dependency/index.d.ts");
+  const unrelatedPackageFile = path.join(workspace.root, "node_modules/batch-record-dependency/unrelated.txt");
+  const addedRoot = path.join(workspace.root, "src/pooled-membership.d.ts");
+  for (const owned of [candidate, unrelatedPackageFile, addedRoot]) assert.equal(fs.existsSync(owned), false);
+  const originalDeclaration = fs.readFileSync(declaration);
+  const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
+    mode, root: workspace.root, cache: workspace.cache, session,
+    metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
+    options: pathToFileURL(path.join(lib, "core/options.mjs")).href,
+    turbopack: TestUnpluginRuntime.libUrl("turbopack"),
+  }));
+  let finalRecord: string | undefined;
   let bodyFailure: unknown;
   try {
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
@@ -70,6 +78,42 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(record.tsconfig, fs.realpathSync.native(path.join(workspace.root, "tsconfig.json")));
   for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
+  assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
+  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
+  finalRecord = projectRecordFile;
+  for (const input of [declaration, candidate])
+    assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `native resolution must record ${input}`);
+  assert.ok(record.membership !== null, "the real record carries project membership");
+  const signal = () => fs.readFileSync(projectRecordFile, "utf8");
+  const quiet = async (message: string) => {
+    const before = signal();
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    assert.equal(signal(), before, message);
+  };
+  const signalBeforeEdit = signal();
+  fs.appendFileSync(declaration, "export declare const retainedMetadata: 1;\n");
+  await waitFor(() => signal() !== signalBeforeEdit, "the resident record to move for an actual declaration edit");
+  const firstSignal = signal();
+  await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
+  const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
+  for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
+  assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
+  await quiet("a delivery that consumed the declaration edit settles the actual record");
+  fs.writeFileSync(unrelatedPackageFile, "unrelated package bytes\n");
+  await quiet("unrelated package content does not move the actual record");
+  const beforeCandidate = signal();
+  fs.writeFileSync(candidate, "export interface RecordWitness { label: string; native?: 1 }\n");
+  await waitFor(() => signal() !== beforeCandidate, "a preferred missing native candidate to move the record");
+  const candidateDelivery = await Promise.all(workers.map((worker) => worker.request()));
+  for (const reply of candidateDelivery) assert.equal(reply.error, undefined);
+  assert.deepEqual(candidateDelivery[1]!.value.dependencies, [projectRecordFile]);
+  await quiet("delivery of the new candidate settles its actual record");
+  const beforeRoot = signal();
+  fs.writeFileSync(addedRoot, "declare const pooledMembership: 1;\n");
+  await waitFor(() => signal() !== beforeRoot, "new source membership to move the record");
+  const membershipDelivery = await Promise.all(workers.map((worker) => worker.request()));
+  for (const reply of membershipDelivery) assert.equal(reply.error, undefined);
+  await quiet("delivery of the new root settles actual membership");
   for (const dependency of turbopack.dependencies) {
     assert.ok(fs.existsSync(dependency));
     const relative = path.relative(workspace.root, dependency);
@@ -78,8 +122,6 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }
   assert.equal(turbopack.map, undefined, "the native api-transform source-text envelope does not emit a source map");
   assert.equal(turbopack.content.replace(/\r\n/g, "\n"), fs.readFileSync(path.join(workspace.root, "expected-map-source.txt"), "utf8").replace(/\r\n/g, "\n"), "the native preparse banner changes the source text without fabricating an emitted map");
-  assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
-  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
   const publications = () => fs.readdirSync(session).filter((name) => name.endsWith(".json")).sort().map((name) => {
     const value = JSON.parse(fs.readFileSync(path.join(session, name), "utf8"));
     return { name, type: value.result.type, scratchDirectory: value.scratchDirectory };
@@ -148,12 +190,17 @@ export async function test_e2e_metro_batch(): Promise<void> {
   } catch (error) { bodyFailure = error; } finally {
     fs.writeFileSync(contractPath, originalContract);
     fs.writeFileSync(bannerPath, originalBanner);
+    fs.writeFileSync(declaration, originalDeclaration);
+    for (const owned of [candidate, unrelatedPackageFile, addedRoot]) fs.rmSync(owned, { force: true });
     fs.rmSync(unrelatedPath, { force: true });
     fs.rmSync(ignoredOutput, { force: true });
     fs.rmSync(recreatedOutputDirectory, { recursive: true, force: true });
     const closes = await Promise.allSettled(workers.map((worker) => worker.close()));
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
     const failures: unknown[] = failedCloses.map((entry) => entry.reason);
+    if (bodyFailure === undefined && failedCloses.length === 0)
+      try { assert.ok(finalRecord !== undefined && fs.existsSync(finalRecord), "joined worker close retains the real record for later sessions"); }
+      catch (error) { failures.push(error); }
     if (bodyFailure === undefined && failedCloses.length === 0)
       for (const worker of workers) {
         try { assert.equal(worker.diagnostics().split("differs from the file on disk").length - 1, 1, "each real resident reports divergent delivery once"); }

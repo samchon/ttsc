@@ -171,7 +171,7 @@ export namespace BatchWorkspace {
     if (!installationOnly) prepareEvidenceDependencies(modules, "snapshot", "installed");
     for (const name of installationOnly ? [] : ["banner", "paths", "strip", "wasm", "playground", "unplugin"])
       fs.symlinkSync(path.join(TestProject.WORKSPACE_ROOT, "packages", name), path.join(modules, "@ttsc", name), "junction");
-    for (const name of ["path-dependency", "trace-dependency"]) {
+    for (const name of ["path-dependency", "trace-dependency", "batch-record-dependency"]) {
       const target = path.join(modules, name);
       fs.mkdirSync(target, { recursive: true });
       for (const filename of ["package.json", "index.d.ts"])

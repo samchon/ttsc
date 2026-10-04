@@ -11,7 +11,7 @@ export interface LoaderPoolOutcome { value?: any; error?: string }
  * @evidence contracts/testing.md#behavioral-verification The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
  * @evidence contracts/testing.md#independent-expectations Authored command ids route literal child outcomes; the caller compares native outputs, diagnostic markers and publication identities independently of this transport.
  * @evidence contracts/testing.md#distinguishing-cases Concurrent outstanding ids, fragmented lines, delivery deadline, child error/nonzero close and unresolved close are explicit ownership states; none invents a native result.
- * @evidence contracts/testing.md#execution-ownership Called exactly twice by the one loader-pool experiment; subsequent request calls reuse those two processes and do not allocate hosts or compiler profiles.
+ * @evidence contracts/testing.md#execution-ownership Called exactly twice by the one loader-pool experiment, with the existing Turbopack worker owning its actual watching bridge; subsequent request calls reuse those two processes and do not allocate hosts or compiler profiles.
  * @evidence contracts/e2e.md#necessary-boundary Actual built adapter processes and their session-native producer must communicate before publication sharing can be observed.
  * @evidence contracts/e2e.md#shared-execution One command stream keeps each adapter module/cache owner resident across the same project states.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination.
@@ -23,7 +23,7 @@ export function createLoaderPoolWorker(props: {
 }) {
   const child = spawn(process.execPath, [path.join(props.root, "loader-pool.mjs"), props.mode, props.root, props.metro, props.options, props.turbopack], {
     cwd: props.root, windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env, NODE_ENV: "production", TTSC_CACHE_DIR: props.cache, TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session },
+    env: { ...process.env, NODE_ENV: props.mode === "turbopack" ? "development" : "production", TTSC_CACHE_DIR: props.cache, TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session },
   });
   let buffered = "", stderr = "", next = 0;
   const pending = new Map<number, { resolve(reply: LoaderPoolOutcome): void; reject(error: unknown): void; timer: ReturnType<typeof setTimeout> }>();
