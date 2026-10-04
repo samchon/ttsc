@@ -8,10 +8,9 @@ import (
 // TestResolveTtsxLauncherResolvesTheProjectLauncherWithoutTheEnvironment
 // verifies the Go config resolver selects the `ttsc` launcher the project installed.
 //
-// This branch fires one step before the compiler one and had no middle step at
-// all: the variable, then a bare `ttsx` that only a global install puts on
-// PATH. For the ordinary project-local install the spawn failed with a
-// not-found error while the launcher sat in the project's own node_modules.
+// The authored local launcher must be selected before the bare-command
+// fallback when inherited pins are absent. This path-only assertion does not
+// establish launcher execution or a former spawn failure.
 //
 //  1. Seed a project holding `ttsc` and its `lib/launcher/ttsx.js`.
 //  2. Shed TTSC_TSGO_BINARY and TTSC_TTSX_BINARY.

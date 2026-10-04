@@ -8,10 +8,9 @@ import (
 // TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary verifies an explicit
 // TTSC_TTSX_BINARY still wins over the project's own install.
 //
-// The launcher twin of the compiler's pinning guarantee, and the reason the
-// repository's own Go lint suite keeps working: `go test` points
-// the variable at the freshly built launcher, which must outrank whatever
-// `ttsc` a fixture happens to install.
+// This direct lookup compares an explicit launcher pin with an available
+// project launcher. It does not execute either path or establish the suite's
+// build and environment preparation.
 //
 //  1. Seed a project holding a resolvable `ttsc` install.
 //  2. Point TTSC_TTSX_BINARY at a different path.
