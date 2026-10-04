@@ -1,7 +1,9 @@
 package lspserver
 
 import (
+  "crypto/sha256"
   "errors"
+  "fmt"
   "net/url"
   "os"
   "path/filepath"
@@ -23,10 +25,43 @@ import (
 //  4. Where privilege permits, require a symlink retarget to match.
 //
 // @evidence contracts/testing.md#behavioral-verification Direct ProjectInputReloadMatchesChange calls return false for two content edits and true for immediate create/delete, directory delete/replace, a declared nested child's creation, drift after explicit baseline preservation and the conditional symlink retarget. Directory-self matches are identity policy, not assertions that its digest changed.
-// @evidence contracts/testing.md#independent-expectations Each mutation has an authored literal true/false expectation rather than an expected digest computed by the SUT. Snapshots establish actual stored baselines; no particular hash value or client event/restart behavior is certified.
+// @evidence contracts/testing.md#independent-expectations Each mutation has an authored literal true/false expectation. Empty and missing directory topology and directory framing are independently hashed; the physical path key is an observed input to that framing, not an independent identity oracle. No client event/restart or JavaScript interoperability is certified.
 // @evidence contracts/testing.md#distinguishing-cases Content versus immediate topology, undeclared versus declared nested territory, same-topology directory replacement and retained versus recomputed baseline are distinguished by supplied operations. The symlink subtest reports Windows privilege-only unavailability explicitly instead of silently omitting it.
 // @evidence contracts/testing.md#execution-ownership The discoverable Go unit runs actual normalizer, fingerprint preservation and reload matcher over owned temporary native files/directories. It starts no child, installs no consumer or host and substitutes no operation. The symlink lane skips only Windows privilege-not-held; other fixture errors fail.
 func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
+  t.Run("empty_and_missing_directory_protocol_frames", func(t *testing.T) {
+    root := t.TempDir()
+    existing := filepath.Join(root, "ExistingDirectory")
+    if err := os.Mkdir(existing, 0o755); err != nil {
+      t.Fatal(err)
+    }
+    for _, row := range []struct {
+      directory string
+      topologyInput string
+    }{
+      {existing, ""},
+      {filepath.Join(root, "MissingDirectory"), "missing\x00"},
+    } {
+      topology := sha256.Sum256([]byte(row.topologyInput))
+      frame := "directory\x00" + projectInputPhysicalPathKey(row.directory) + "\x00" + fmt.Sprintf("%x", topology)
+      expected := sha256.Sum256([]byte(frame))
+      digest := fmt.Sprintf("%x", expected)
+      if got := projectInputReloadDirectoryDigest(row.directory); got != digest {
+        t.Fatalf("directory %q frame = %s, want %s", row.directory, got, digest)
+      }
+      snapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
+        Root: root,
+        ReloadDirectories: []string{row.directory},
+        ReloadDirectoryDigests: map[string]string{row.directory: digest},
+      }, root)
+      if err != nil {
+        t.Fatal(err)
+      }
+      if !projectInputReloadFingerprintsAreCurrent(snapshot) {
+        t.Fatalf("unchanged directory %q began stale", row.directory)
+      }
+    }
+  })
   root := t.TempDir()
   reloadDirectory := filepath.Join(root, "config-deps")
   nested := filepath.Join(reloadDirectory, "nested")
