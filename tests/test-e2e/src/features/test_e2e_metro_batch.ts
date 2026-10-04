@@ -14,10 +14,10 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, matching map and dependency records. The actual ApplyProgram log grows by one across both joined workers.
  * @evidence contracts/testing.md#independent-expectations Original coordinates, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair while preserving initial arguments/map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
@@ -35,6 +35,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const originalContract = fs.readFileSync(contractPath);
   const bannerPath = path.join(workspace.root, "banner.config.json");
   const originalBanner = fs.readFileSync(bannerPath);
+  const unrelatedPath = path.join(workspace.root, "batch-unrelated-candidate.txt");
+  const ignoredOutput = path.join(workspace.root, "dist/batch-hashed-a9137.js");
   let bodyFailure: unknown;
   try {
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
@@ -95,14 +97,21 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.match(external[0]!.value.ast.source, /Pooled second banner/);
   assert.doesNotMatch(external[0]!.value.ast.source, /Shared boundary corpus/);
   const changedExternal = publications();
+  const beforeIgnoredChurn = fs.statSync(workspace.programRunLog).size;
+  fs.writeFileSync(unrelatedPath, "Unrelated text is not a resolution/config input.\n");
+  fs.mkdirSync(path.dirname(ignoredOutput), { recursive: true });
+  fs.writeFileSync(ignoredOutput, "console.log('hashed generated output');\n");
   const externalReplay = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of externalReplay) assert.equal(reply.error, undefined);
   assert.equal(externalReplay[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(externalReplay[1]!.value.content, external[1]!.value.content);
-  assert.deepEqual(publications(), changedExternal, "steady external state is adopted without another publication");
+  assert.deepEqual(publications(), changedExternal, "unrelated candidate-directory and excluded output churn keep the publication");
+  assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn, "ignored churn does not invoke native ApplyProgram again");
   } catch (error) { bodyFailure = error; } finally {
     fs.writeFileSync(contractPath, originalContract);
     fs.writeFileSync(bannerPath, originalBanner);
+    fs.rmSync(unrelatedPath, { force: true });
+    fs.rmSync(ignoredOutput, { force: true });
     const closes = await Promise.allSettled(workers.map((worker) => worker.close()));
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
     const failures = failedCloses.map((entry) => entry.reason);
