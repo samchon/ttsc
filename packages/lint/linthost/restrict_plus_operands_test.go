@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusRestrictPlusOperands verifies the lint rule corpus fixture
-// typescript-restrict-plus-operands.ts under a real Program.
+// TestRuleCorpusRestrictPlusOperands verifies an authored typed trigger for
+// typescript/restrict-plus-operands under a real Program.
 //
 // `typescript/restrict-plus-operands` is type-aware: it queries `GetTypeAtLocation`
 // on both operands of `+`, so a parser-only engine run skips it because

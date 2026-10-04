@@ -5,12 +5,13 @@ import (
   "testing"
 )
 
-// TestRuleCorpusRestrictTemplateExpressions verifies the lint rule corpus
-// fixture typescript-restrict-template-expressions.ts under a real Program.
+// TestRuleCorpusRestrictTemplateExpressions verifies an authored typed trigger for the lint rule
+// typescript/restrict-template-expressions under a real Program.
 //
 // `typescript/restrict-template-expressions` is type-aware: it reads each `${expr}`
-// slot's static type via `ctx.Checker.GetTypeAtLocation` and flags anything outside
-// the string / number / bigint / boolean union. A parser-only engine run skips the
+// slot's static type via `ctx.Checker.GetTypeAtLocation`. It accepts primitive
+// string-like types and exempts any, unknown and never; this input's object type
+// is rejected. A parser-only engine run skips the
 // rule because Context.Checker is nil, so this Go scenario reuses the
 // `seedLintProject` shape from `only-throw-error` and `require-array-sort-compare`:
 // materialize a tsconfig project, run `ttsc lint check`, and assert on the rendered
