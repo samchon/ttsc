@@ -5,10 +5,10 @@ import (
   "testing"
 )
 
-// TestLSPProxyAdvertisesDocumentFormattingProvider Verifies the initialize
-// augmentation advertises documentFormattingProvider when ttsc owns
-// ttsc.format.document, so editors send textDocument/formatting (formatOnSave)
-// that the proxy intercepts and routes through the buffer formatter.
+// TestLSPProxyAdvertisesDocumentFormattingProvider verifies that initialize
+// augmentation advertises documentFormattingProvider when the injected source
+// owns ttsc.format.document. The case observes the returned capability, not an
+// editor request, buffer formatter execution or format-on-save effect.
 //
 // The configured ttsc.format.document command requires exposing formatting to the editor.
 //
