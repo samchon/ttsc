@@ -14,7 +14,7 @@ import (
 // `.d.ts` is typings rather than authored source (the bundled `lib.*.d.ts` set
 // and every published package's typings arrive the same way), and unselected
 // JavaScript is only in the Program because `allowJs` let an import pull it in.
-// Admitting either would put lint diagnostics on files the project never wrote.
+// Admitting either would widen this TypeScript lint scope to imported typings or JavaScript; their exclusion does not claim the project never authored them.
 //
 // 1. Materialize a tsconfig whose only root is `src/root.ts`, with allowJs on.
 // 2. Import a JavaScript module and a declaration file from that root.

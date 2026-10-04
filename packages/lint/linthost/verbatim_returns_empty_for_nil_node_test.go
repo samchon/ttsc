@@ -14,7 +14,7 @@ import "testing"
 //
 //  1. Parse any valid TypeScript source so a PrintContext is available.
 //  2. Call verbatim directly with a nil node.
-//  3. Assert the returned Doc equals the zero value.
+//  3. Assert the returned Doc has the nil discriminator through IsNil.
 //
 // @evidence contracts/testing.md#behavioral-verification verbatim must return a no-op Doc for an absent source node.
 // @evidence contracts/testing.md#independent-expectations No node provides a source span, so the layout identity is the supported safe result.

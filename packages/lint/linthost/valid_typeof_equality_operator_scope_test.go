@@ -12,9 +12,9 @@ import (
 //
 // Upstream valid-typeof gates on OPERATORS = {==, ===, !=, !==}: a relational
 // comparison orders two strings rather than naming a type, so `typeof x < "m"`
-// is not a mistyped type name and ESLint stays silent. This port used to gate on
-// the shared isComparisonOperator, which also admits <, >, <= and >=, and
-// reported there. Both halves of the fix need pinning: the equality arm must
+// is not a mistyped type name and ESLint stays silent. The authored table keeps
+// the equality-only policy distinct from the shared relational predicate:
+// the equality arm must
 // still catch every typo shape (either operand order, parentheses, static
 // template literal), and use-isnan, no-self-compare, no-compare-neg-zero and
 // yoda — whose upstream operator sets do span ordering — must still report on
