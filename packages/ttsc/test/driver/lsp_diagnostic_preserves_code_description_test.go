@@ -64,10 +64,10 @@ func TestLSPDiagnosticPreservesCodeDescription(t *testing.T) {
 // 1. Construct a diagnostic without CodeDescription.
 // 2. Marshal it and assert the optional key is absent.
 //
-// @evidence contracts/testing.md#behavioral-verification Marshalling an unset CodeDescription omits its key.
+// @evidence contracts/testing.md#behavioral-verification Marshalling an unset CodeDescription omits its key while retaining independently literal code, source and message fields.
 // @evidence contracts/testing.md#independent-expectations An optional unset LSP field must not become an empty object.
 // @evidence contracts/testing.md#distinguishing-cases Absent field contrasts with the href round trip; other fields are not byte-compared.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPDiagnosticOmitsAbsentCodeDescription is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit marshals the maintained LSPDiagnostic wire type through encoding/json and inspects the actual returned object; it opens no temporary project or editor connection.
 func TestLSPDiagnosticOmitsAbsentCodeDescription(t *testing.T) {
   diagnostic := lspserver.LSPDiagnostic{
     Code:    "no-var",
@@ -80,5 +80,12 @@ func TestLSPDiagnosticOmitsAbsentCodeDescription(t *testing.T) {
   }
   if strings.Contains(string(encoded), "codeDescription") {
     t.Fatalf("absent codeDescription leaked into JSON:\n%s", encoded)
+  }
+  var fields map[string]any
+  if err := json.Unmarshal(encoded, &fields); err != nil {
+    t.Fatalf("decode: %v", err)
+  }
+  if fields["code"] != "no-var" || fields["source"] != "@ttsc/lint" || fields["message"] != "Unexpected var." {
+    t.Fatalf("ordinary diagnostic fields were lost while omitting codeDescription: %#v", fields)
   }
 }

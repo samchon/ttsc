@@ -57,7 +57,7 @@ func TestLSPDiagnosticPreservesData(t *testing.T) {
 // 1. Decode the diagnostic fixture without data.
 // 2. Re-encode it and require the data key to remain absent.
 //
-// @evidence contracts/testing.md#behavioral-verification JSON round-trip of a diagnostic without data must not produce a data key.
+// @evidence contracts/testing.md#behavioral-verification JSON round-trip of a diagnostic without data must not produce a data key while retaining the literal code, message and end character.
 // @evidence contracts/testing.md#independent-expectations LSP optional data absence must remain absence, rather than a synthesized null or empty value.
 // @evidence contracts/testing.md#distinguishing-cases This owns absent data; TestLSPDiagnosticPreservesData owns the populated object case.
 // @evidence contracts/testing.md#execution-ownership Go discovers the absence unit beside its populated twin in test/driver and serializes the actual diagnostic type in process.
@@ -74,5 +74,12 @@ func TestLSPDiagnosticOmitsAbsentData(t *testing.T) {
   }
   if strings.Contains(string(reencoded), "data") {
     t.Fatalf("absent data must not appear on the wire:\n%s", reencoded)
+  }
+  var roundTripped lspserver.LSPDiagnostic
+  if err := json.Unmarshal(reencoded, &roundTripped); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  if roundTripped.Code != "no-x" || roundTripped.Message != "m" || roundTripped.Range.End.Character != 4 {
+    t.Fatalf("ordinary diagnostic fields were lost while omitting data: %+v", roundTripped)
   }
 }
