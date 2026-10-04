@@ -3,13 +3,12 @@ package linthost
 import "testing"
 
 // TestSelectTextEditGroupsKeepsDisjointMultiEditFindingWhole is the positive
-// twin of the drop-whole test: a multi-edit finding whose every edit is disjoint
-// from the already-selected findings must apply in full, in one pass.
+// twin of the drop-whole test: an authored valid multi-edit group whose edits
+// are disjoint from the already-selected group must be selected in full.
 //
 // Without this arm, selectTextEditGroups could regress into rejecting every
-// multi-edit group (making noImportTypeSideEffects, trailing-comma batches, and
-// the like never converge). Pinning the accept path proves the group gate only
-// fires on a genuine collision.
+// multi-edit group. This input pins acceptance of valid disjoint edits; it does
+// not apply them or establish downstream rule convergence.
 //
 //  1. Group A is a single interior replace selected first.
 //  2. Group B is a two-edit finding, both edits disjoint from A and each other.
