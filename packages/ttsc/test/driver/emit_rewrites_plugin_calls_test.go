@@ -12,9 +12,8 @@ import (
 
 // TestDriverEmitRewritesPluginCalls Verifies the public driver emit contract.
 //
-// This scenario is isolated in its own file so a failure names the exact native
-// host behavior under test, matching the one-feature-per-file style used by the
-// TypeScript fixture suites.
+// This case directly observes the in-process driver emit facade's output.
+// It does not start a native host or certify executable runtime behavior.
 //
 // 1. Build a real tsconfig project with a plugin-owned call expression.
 // 2. Register one emit-time rewrite against the parsed source file.

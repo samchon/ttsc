@@ -12,7 +12,8 @@ import (
 
 // TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites
 // Verifies a sibling barrel output whose source has no registered rewrite is
-// emitted unchanged while the rewritten source in the same directory is patched.
+// emitted without the supplied replacement or sentinel while the rewritten
+// source in the same directory is patched. Full barrel byte identity is not checked.
 //
 // The motivating report (nestia-generated barrel `index.ts` files next to
 // modules holding `typia.random` calls) involved a basename-only suffix match
@@ -92,7 +93,7 @@ export const value = plugin.make("input");
     t.Fatalf("target rewrite not applied:\n%s", emitted["target.js"])
   }
   indexJs, ok := emitted["index.js"]
-  if !ok {
+  if !ok || indexJs == "" {
     t.Fatal("barrel index.js was not emitted")
   }
   if strings.Contains(indexJs, `"replaced"`) {
