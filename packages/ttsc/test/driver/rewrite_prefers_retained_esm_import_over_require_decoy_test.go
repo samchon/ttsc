@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Runs actual driver emission, requiring unchanged plugin_99 call, retained ./plugin.js default import and literal export value.
 // @evidence contracts/testing.md#independent-expectations Authored retained plugin import, decoy call and rewritten-esm literal independently distinguish the target and protected expression.
 // @evidence contracts/testing.md#distinguishing-cases A retained ESM import coexists with a same-module CommonJS-shaped helper/require declaration; CommonJS ownership is covered by sibling units.
-// @evidence contracts/testing.md#execution-ownership The Go unit directly emits and inspects its Program; the E2E batch independently imports this ESM artifact and preserves decoy/value runtime assertions.
+// @evidence contracts/testing.md#execution-ownership The Go unit directly emits and inspects its Program; the separate direct compiler/Node-oracle unit TestDriverRewriteRuntimeBatch imports its ESM output and owns decoy/value runtime assertions. This case does not certify that unit's execution or artifact sharing.
 func TestDriverRewritePrefersRetainedESMImportOverRequireDecoy(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "package.json", `{"type":"module"}
