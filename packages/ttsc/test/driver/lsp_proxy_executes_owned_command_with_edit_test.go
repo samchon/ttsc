@@ -12,8 +12,8 @@ import (
 // TestLSPProxyExecutesOwnedCommandWithEdit Verifies the local dispatch
 // path for ttsc-owned executeCommand requests when the source returns a
 // WorkspaceEdit. The proxy must respond directly to the editor with the
-// edit in the result field and never forward the request to tsgo
-// upstream. This local dispatch lets plugin commands work
+// edit in the result field; the harness observes no forwarded request within
+// its 150ms window. This local dispatch lets plugin commands work
 // without an upstream code action provider.
 //
 // 1. Configure a source that owns "ttsc.lint.fix" and returns a WorkspaceEdit.
@@ -47,6 +47,23 @@ func TestLSPProxyExecutesOwnedCommandWithEdit(t *testing.T) {
   request := []byte(`{"jsonrpc":"2.0","id":5,"method":"workspace/executeCommand","params":{"command":"ttsc.lint.fix","arguments":[]}}`)
   h.sendEditor(request)
   body := h.recvEditor()
+
+  var response struct {
+    ID int `json:"id"`
+    Result *driver.LSPWorkspaceEdit `json:"result"`
+  }
+  if err := json.Unmarshal(body, &response); err != nil {
+    t.Fatalf("decode command response: %v", err)
+  }
+  if response.ID != 5 || response.Result == nil {
+    t.Fatalf("expected owned request 5 edit result: %s", body)
+  }
+  edits := response.Result.Changes["file:///a.ts"]
+  if len(response.Result.Changes) != 1 || len(edits) != 1 || edits[0].NewText != "X" ||
+    edits[0].Range.Start.Line != 0 || edits[0].Range.Start.Character != 0 ||
+    edits[0].Range.End.Line != 0 || edits[0].Range.End.Character != 1 {
+    t.Fatalf("unexpected owned result edit: %s", body)
+  }
 
   if !strings.Contains(string(body), `"changes"`) {
     t.Fatalf("response missing WorkspaceEdit changes:\n%s", body)
