@@ -63,7 +63,7 @@ func runAwaitMicrotaskProgram(t *testing.T, source string) string {
   t.Helper()
   cmd := exec.Command("node", "-e", source)
   observation := newLintTraceInvocation()
-  observeLintCommandArtifact(observation, cmd.Path, "await-thenable-node-oracle", "await-thenable-node-artifact")
+  observeLintCommandFile(observation, cmd.Path, "await-thenable-node-oracle")
   lower := recordLintCommandAttempt(observation, cmd, "await-thenable-node-oracle")
   output, err := cmd.CombinedOutput()
   recordLintCommandResult(observation, cmd, "await-thenable-node-oracle", "CombinedOutput", lower, err)

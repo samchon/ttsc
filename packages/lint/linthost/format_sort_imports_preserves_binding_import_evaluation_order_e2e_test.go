@@ -55,7 +55,7 @@ export const aNamed = 0;
 `)
   cmd := exec.Command("node", filePath)
   observation := newLintTraceInvocation()
-  observeLintCommandArtifact(observation, cmd.Path, "sort-imports-node-evaluation-oracle", "sort-imports-node-artifact")
+  observeLintCommandFile(observation, cmd.Path, "sort-imports-node-evaluation-oracle")
   lower := recordLintCommandAttempt(observation, cmd, "sort-imports-node-evaluation-oracle")
   output, err := cmd.CombinedOutput()
   recordLintCommandResult(observation, cmd, "sort-imports-node-evaluation-oracle", "CombinedOutput", lower, err)

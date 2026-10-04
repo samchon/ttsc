@@ -138,3 +138,78 @@ func observeLintCommandArtifact(observation *lintTraceInvocation, path, owner, l
   data["raw"] = raw
   data["outcome"] = raw["outcome"]
 }
+
+// observeLintCommandFile hashes the selected prepared executable before the
+// actual command call. The bounded stream retains no raw payload. Native
+// handle/path checks bind the observed bytes, not a later loaded process image.
+func observeLintCommandFile(observation *lintTraceInvocation, path, owner string) {
+  if observation == nil {
+    return
+  }
+  const limit = 512 << 20
+  data := map[string]any{
+    "owner": owner, "requestedPath": path,
+    "fileObservation": "native-streamed-hash",
+    "binding": "requested-file-before-call", "imageLoadedCertified": false,
+  }
+  defer func() { observation.record("selected-file-observation", data) }()
+  fail := func(err error) {
+    data["outcome"] = "IO-failed"
+    data["error"] = err.Error()
+    observation.record("trace-integrity-failure", map[string]any{
+      "operation": "selected-file-observation", "requestedPath": path, "error": err.Error(),
+    })
+  }
+  realPath, err := filepath.EvalSymlinks(path)
+  if err != nil {
+    fail(err)
+    return
+  }
+  data["realPath"] = realPath
+  file, err := os.Open(path)
+  if err != nil {
+    fail(err)
+    return
+  }
+  before, statErr := file.Stat()
+  if statErr != nil {
+    closeErr := file.Close()
+    fail(fmt.Errorf("stat=%v close=%v", statErr, closeErr))
+    return
+  }
+  data["identityBefore"] = map[string]any{
+    "size": before.Size(), "mode": before.Mode().String(), "modified": before.ModTime().UTC().Format(time.RFC3339Nano),
+  }
+  if !before.Mode().IsRegular() || before.Size() < 0 || before.Size() > limit {
+    closeErr := file.Close()
+    fail(fmt.Errorf("selected file is not regular or exceeds streaming limit: size=%d mode=%s close=%v", before.Size(), before.Mode(), closeErr))
+    return
+  }
+  digest := sha256.New()
+  observedBytes, readErr := io.CopyBuffer(digest, io.LimitReader(file, limit+1), make([]byte, 64<<10))
+  after, afterErr := file.Stat()
+  pathAfter, pathErr := os.Stat(path)
+  realPathAfter, realPathErr := filepath.EvalSymlinks(path)
+  closeErr := file.Close()
+  data["observedBytes"] = observedBytes
+  if readErr != nil || afterErr != nil || pathErr != nil || realPathErr != nil || closeErr != nil {
+    fail(fmt.Errorf("read=%v handleStat=%v pathStat=%v realPath=%v close=%v", readErr, afterErr, pathErr, realPathErr, closeErr))
+    return
+  }
+  data["identityAfter"] = map[string]any{
+    "size": after.Size(), "mode": after.Mode().String(), "modified": after.ModTime().UTC().Format(time.RFC3339Nano),
+  }
+  data["sameHandleIdentity"] = os.SameFile(before, after)
+  data["samePathIdentity"] = os.SameFile(after, pathAfter)
+  data["realPathAfter"] = realPathAfter
+  data["metadataUnchanged"] = before.Size() == after.Size() && before.Mode() == after.Mode() && before.ModTime().Equal(after.ModTime())
+  if observedBytes > limit || observedBytes != before.Size() ||
+    !os.SameFile(before, after) || !os.SameFile(after, pathAfter) || realPath != realPathAfter ||
+    before.Size() != after.Size() || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) ||
+    after.Size() != pathAfter.Size() || after.Mode() != pathAfter.Mode() || !after.ModTime().Equal(pathAfter.ModTime()) {
+    fail(fmt.Errorf("selected file identity, metadata or bounded byte count changed during observation"))
+    return
+  }
+  data["sha256"] = fmt.Sprintf("%x", digest.Sum(nil))
+  data["outcome"] = "complete"
+}
