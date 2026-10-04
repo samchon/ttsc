@@ -162,6 +162,10 @@ export function test_plugin_free_build_arguments_preserve_configured_emit_and_fi
         assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: false }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false"]);
       }
       assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: true, passthrough: ["--rootDir", "forwarded-root"] }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false", ...rootPrefix, "--rootDir", "forwarded-root"]);
+      const suppliedRoot = path.join(root, "supplied private root");
+      assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: true, privateEmitRootDir: suppliedRoot, passthrough: ["--rootDir", "forwarded-root"] }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false", "--rootDir", suppliedRoot, "--rootDir", "forwarded-root"]);
+      assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: false, privateEmitRootDir: suppliedRoot }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false"]);
+      assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: false, pinInferredRootDir: true, privateEmitRootDir: suppliedRoot }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit"]);
     });
     check("private layout root policy", () => {
       const project = process.platform === "win32" ? "C:\\fixture\\project" : "/fixture/project";
