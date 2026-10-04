@@ -4,7 +4,9 @@ import path from "node:path";
  * Select the layout root for JavaScript written only to a runtime-owned emit
  * directory. Explicit roots and composite-project containment remain compiler
  * policy. An ordinary project without a root uses its native volume root so
- * adding private output does not reject imports outside the config directory.
+ * adding private output does not reject same-volume imports outside the config
+ * directory. A different Windows volume still cannot fit this one output root
+ * and remains subject to the compiler's cross-volume layout diagnostics.
  * This changes only private output coordinates, not the program's input set.
  * Actual emitted-source provenance remains required before serving any file.
  *
