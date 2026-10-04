@@ -9,6 +9,10 @@ import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/co
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
+import { createGenerationProofFailures } from "../../../../../packages/unplugin/src/core/transform/generation/createGenerationProofFailures";
+import { createUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/generation/createUnstableGenerationError";
+import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkFailureFingerprint";
+import { recordGenerationProofFailure } from "../../../../../packages/unplugin/src/core/transform/generation/recordGenerationProofFailure";
 import { walkSnapshotComplete } from "../../../../../packages/unplugin/src/core/transform/validation/walkSnapshotComplete";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
@@ -21,7 +25,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * @evidence contracts/testing.md#behavioral-verification Actual createTtscTransformCache/transformFilesystem/collectProjectInputSnapshot isolate two provider tables. One nested readdir EACCES yields incomplete directory authority while the sibling reads and independently hashes both files; recovering that provider yields a complete first snapshot without changing the sibling's observations.
  * @evidence contracts/testing.md#independent-expectations Native roots, literal directory-read-failed classification, true/false completeness and Node SHA-256 over authored main/hidden bytes are independent expectations. Provider traces must never enter the sibling root, detecting cross-cache observation or global mutation.
  * @evidence contracts/testing.md#distinguishing-cases Concurrently retained views contrast refused and healthy enumeration, omitted defaults preserve native reading, and a subsequent recovered first view contrasts with a still-healthy unchanged sibling. Both caches and all trace ledgers have distinct owners.
- * @evidence contracts/testing.md#execution-ownership This exported unit invokes source snapshot owners in process over two native temporary corpora and supported cache-local filesystem arguments. It starts no compiler, peer, process or host; actual bounded capture attempts and coordinator errors remain separate operations. Finally resets both caches.
+ * @evidence contracts/testing.md#execution-ownership This exported unit invokes source snapshot owners in process over two native temporary corpora and supported cache-local filesystem arguments. It starts no compiler, peer, process or host; actual capture-loop selection remains separate. Two refused native snapshots also feed the actual terminal diagnostic owner, preserving exact two-attempt text and project/directory-read-failed attribution without asserting compiler retry execution. Finally resets both caches.
  */
 export function test_cache_local_filesystem_views_isolate_failure_and_recovery(): void {
   const roots = [0, 1].map(() => TestProject.tmpdir("ttsc-local-view-unit-"));
@@ -79,6 +83,43 @@ export function test_cache_local_filesystem_views_isolate_failure_and_recovery()
         assert.ok(relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative), "a cache must never observe its sibling project");
       }
     }
+    const failedAgain = observe(0);
+    const attempts = [failed, failedAgain].map((snapshot) => {
+      const failures = createGenerationProofFailures();
+      for (const failure of snapshot.walkFailures) recordGenerationProofFailure(failures, {
+        domain: "project", kind: failure.kind, path: failure.path,
+      });
+      return failures;
+    });
+    const filesystem = transformFilesystem(caches[0]);
+    const identities = createHostPathIdentityContext(filesystem);
+    const validation = {
+      cached: {
+        inputHashes: failedAgain.hashes,
+        membershipPolicy: readProjectMembershipPolicy(path.join(roots[0]!, "tsconfig.json")),
+        projectRoot: roots[0]!,
+        result: { type: "success" as const, typescript: {} },
+        tsconfig: path.join(roots[0]!, "tsconfig.json"),
+      },
+      declaredInputs: undefined,
+      inputStates: new Map(),
+      projectInputHashes: failedAgain.hashes,
+      projectWalkComplete: false,
+      projectWalkFailures: projectWalkFailureFingerprint(failedAgain, undefined, roots[0]!, identities),
+    };
+    const terminal = createUnstableGenerationError(roots[0]!, attempts, validation);
+    assert.equal(terminal.validation, validation);
+    assert.equal(terminal.message, [
+      "ttsc: could not capture a reusable transform generation after 2 attempts.",
+      "  project: " + JSON.stringify(roots[0]!),
+      "  attempt 1:",
+      '    - project/directory-read-failed: "src/nested"',
+      "  attempt 2:",
+      '    - project/directory-read-failed: "src/nested"',
+      "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
+    ].join("\n"));
+    // These are two actual observation inputs to the renderer. They do not
+    // assert that transformProject executed or exhausted its capture loop.
     blocked = false;
     const recovered = observe(0);
     assert.equal(walkSnapshotComplete(recovered, undefined), true);
