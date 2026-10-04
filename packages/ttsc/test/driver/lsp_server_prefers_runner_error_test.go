@@ -31,8 +31,8 @@ func TestLSPServerPrefersRunnerError(t *testing.T) {
   runnerSentinel := errors.New("synthetic upstream failure")
   proxySentinel := errors.New("synthetic editor write failure")
   runner := func(_ context.Context, _ io.Reader, out io.Writer, _ driver.LSPServerOptions) error {
-    // The pipe write returns only after the proxy has read the frame, so the
-    // proxy's failing editor write is already under way when the runner fails.
+    // The pipe write returns after the proxy reads the frame; its subsequent
+    // editor write may occur before or after the runner returns its sentinel.
     if err := driver.WriteFrame(out, []byte(`{"jsonrpc":"2.0","method":"window/logMessage","params":{}}`)); err != nil {
       return err
     }

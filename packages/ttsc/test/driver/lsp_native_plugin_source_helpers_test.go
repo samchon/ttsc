@@ -122,14 +122,14 @@ func writeNativeSidecarBatch(directory string) error {
 }
 
 // TestMain owns the one batch artifact until every case and -count repetition
-// returns. Each source fixture cleanup establishes its native-child callback
-// barrier before suite teardown. Only bounded Windows image-release denials
+// returns. Normal source fixture cleanup awaits its supported completion
+// callback before suite teardown; this is not a full scheduler join. Only bounded Windows image-release denials
 // are retried; persistent cleanup fails the suite. An unresolved source callback
 // retains the producer directory instead of deleting a potentially running image.
 //
-// @evidence contracts/testing.md#behavioral-verification TestMain runs the package's tests and then removes the one shared sidecar producer directory, failing the suite when a fixture directory was retained or removal fails.
+// @evidence contracts/testing.md#behavioral-verification TestMain preserves m.Run status when no batch exists; for an allocated batch it attempts removal unless completion was retained, and retained or failed removal changes the exit status to 1.
 // @evidence contracts/testing.md#independent-expectations The exit code is the oracle: a retained or undeletable directory turns a passing run into a failure instead of being ignored.
-// @evidence contracts/testing.md#distinguishing-cases Normal release, a retained directory after an unresolved source completion and Windows access or sharing denials that clear within two seconds are the distinguished outcomes.
+// @evidence contracts/testing.md#distinguishing-cases The entry implements no-batch, normal release, retained completion and bounded Windows access/sharing-denial branches; this declaration does not itself inject and prove every cleanup failure outcome.
 // @evidence contracts/testing.md#execution-ownership TestMain is the package entry point for the test/driver binary; the sidecar batch is built lazily by the first test that needs it and released here after every case and -count repetition.
 func TestMain(m *testing.M) {
   code := m.Run()

@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification WriteFrame wraps the injected failure with a body-write message.
 // @evidence contracts/testing.md#independent-expectations The independently counted 21-byte header succeeds before the four-byte body fails.
 // @evidence contracts/testing.md#distinguishing-cases Header-success/body-failure isolates the second write branch.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPWriteFramePropagatesBodyWriteError is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the actual frame writer with an injected in-memory byte-counting writer; no temporary file, shim compiler, host artifact or process transport is used.
 func TestLSPWriteFramePropagatesBodyWriteError(t *testing.T) {
   sentinel := errors.New("body broken")
   // "Content-Length: 4\r\n\r\n" is 21 bytes; fail after them so only the
