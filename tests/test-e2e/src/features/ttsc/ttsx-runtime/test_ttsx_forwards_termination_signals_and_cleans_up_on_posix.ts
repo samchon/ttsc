@@ -60,14 +60,6 @@ export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_po
  * Executes the original three POSIX signal lifetimes on an already staged
  * project. The standalone and consolidated entries share these real sessions.
  *
- * @evidence contracts/common.md#principled-implementation Actual native signal sessions and original close receipts determine outcomes; no predicted termination or generated successful receipt replaces them.
- * @evidence contracts/common.md#clear-and-simple-design One existing session owner supplies signaling and close; this helper only sequences original modes and literal assertions on the supplied root.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Retains real process groups, token readiness, all signal modes and native directory checks. Unjoined failure cannot acknowledge assembler ownership.
- * @evidence contracts/common.md#meaningful-documentation States shared caller ownership, separate process lifetimes and the retained failure boundary without certifying execution.
- * @evidence contracts/portability.md#os-neutral-implementation The callers retain original POSIX admission; Windows is unselected rather than a simulated signal success.
- * @evidence contracts/performance.md#efficient-algorithms Exactly three fixed session invocations retain their original output and directory costs; no complete workspace scan is added.
- * @evidence contracts/performance.md#reuse-equivalent-work Supplied source graph and tools are reused; changed signal outcomes require separate actual lifetimes, and their compiler work is not inferred to vanish.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Existing timeout/error/close handling owns group cleanup and timers. Optional ownership acknowledgment follows the returned close receipt only; unresolved state retains inputs.
  * @evidence contracts/testing.md#behavioral-verification Handled launcher SIGTERM returns 3 and its literal output; unhandled SIGTERM reports SIGTERM; group SIGINT returns 3 with exactly one handler receipt. All three native runtime indices are empty after their closes.
  * @evidence contracts/testing.md#independent-expectations Literal handler strings, code3, native SIGTERM and empty directory reads are independent of forwarding implementation. Authenticated stdout readiness determines when the real kernel signal is delivered.
  * @evidence contracts/testing.md#distinguishing-cases Launcher-only handled/unhandled SIGTERM and group SIGINT retain three independent termination modes; no session is replaced by an expected process count.
@@ -128,14 +120,14 @@ export async function runRuntimeSignalSessions(
 /**
  * Original signal program bytes shared by both owning entries.
  *
- * @evidence contracts/common.md#principled-implementation Authored TypeScript installs the optional native handlers before publishing the actual child-local ready token; each handler preserves original code3.
- * @evidence contracts/common.md#clear-and-simple-design One boolean selects original handler statements while common readiness and waiting bytes remain shared.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The value is program input, not a fabricated process outcome; real launcher execution owns the assertions.
- * @evidence contracts/common.md#meaningful-documentation Identifies literal input ownership without claiming that the generated program ran.
- * @evidence contracts/portability.md#os-neutral-implementation Original POSIX signal literals are used only by callers preserving POSIX admission.
- * @evidence contracts/performance.md#efficient-algorithms Joins a fixed original statement population into a string with work linear in those bytes.
- * @evidence contracts/performance.md#reuse-equivalent-work Standalone and consolidated entries consume the same literal source producer; handled versus unhandled inputs stay distinct.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Returns only an immutable input string; execution timers and processes belong to the session owner.
+ * @evidence contracts/testing.md#behavioral-verification Deliberate executable input is consumed by runRuntimeSignalSessions, which asserts native handled exit3, unhandled SIGTERM and exactly one group SIGINT handler output. No assertion merely checks this string's arrangement.
+ * @evidence contracts/testing.md#independent-expectations Authored handlers print the received signal and exit3; independent native close code/signal and empty runtime indices supply the observed result outside this producer.
+ * @evidence contracts/testing.md#distinguishing-cases The boolean supplies handled SIGTERM/SIGINT versus a program without handlers. Both publish authenticated readiness and stay live until the real signal.
+ * @evidence contracts/testing.md#execution-ownership The named POSIX test and legacy canonical Runtime caller execute these fixture bytes through runRuntimeSignalSessions. This helper is not another discovered experiment.
+ * @evidence contracts/e2e.md#necessary-boundary Actual ttsx executes this input; constructing its bytes alone proves neither kernel signal delivery nor cleanup.
+ * @evidence contracts/e2e.md#shared-execution Both modes reuse supplied project tools; their three distinct termination lifetimes and repeated checked compilation remain explicit unfinished consolidation costs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each real session receives a fresh ready token. The session owner joins close and cleans its group; this immutable input owns no process or timer.
+ * @evidence contracts/e2e.md#preserved-coverage Original handled/unhandled programs, code3, exact output occurrence, native SIGTERM and three directory cleanup assertions remain in runRuntimeSignalSessions; authored input replaces no actual result.
  */
 export function runtimeSignalProgram(handles: boolean): string {
   return [
