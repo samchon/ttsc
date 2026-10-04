@@ -11,6 +11,7 @@ import (
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // TestAutomaticTypeResolutionReplayPreservesConfigSpelling verifies stable
@@ -25,6 +26,7 @@ import (
 //  2. Repeat with a generated config and with a pnpm-shaped package link.
 //  3. Assert exact containing filenames, unchanged replay and graph proofs,
 //     and an ordinary source's independent type-reference context.
+//
 // @evidence contracts/testing.md#behavioral-verification Loads real authored configurations and inspects actual resolution tasks, unchanged replay and graph proof failures through the in-process compiler API.
 // @evidence contracts/testing.md#independent-expectations Literal required directive names, missing-types unresolved status and exact lexical synthetic/source filenames are established from authored fixture layout; expected filenames are composed without the resolver.
 // @evidence contracts/testing.md#distinguishing-cases Four wrapper/link combinations retain mixed-case cwd, package/scoped/relative/wildcard directives and the ordinary source reference; unchanged proofs are distinguished from the sibling retargeting case.
@@ -64,7 +66,10 @@ func TestAutomaticTypeResolutionReplayPreservesConfigSpelling(t *testing.T) {
           link := filepath.Join(root, "node_modules", "client-pkg")
           if runtime.GOOS == "windows" {
             command := exec.Command("node", "-e", `require("node:fs").symlinkSync(process.argv[1], process.argv[2], "junction")`, target, link)
-            if output, err := command.CombinedOutput(); err != nil {
+            observation := e2etrace.BeginCommand(command, "CombinedOutput", "automatic-type-junction-fixture")
+            output, err := command.CombinedOutput()
+            observation.Result(err)
+            if err != nil {
               t.Fatalf("create package junction: %v: %s", err, output)
             }
           } else if err := os.Symlink(target, link); err != nil {
