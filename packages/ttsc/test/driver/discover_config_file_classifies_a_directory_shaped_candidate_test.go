@@ -11,12 +11,10 @@ import (
 // directory wearing a config file's name is rejected as a directory rather than
 // as an absent path.
 //
-// The two are different observations to the host-input contract: an absent path
-// is recorded by a nil hash, an existing directory by the directory-kind digest
-// and its physical path, so that replacing it with a real config invalidates the
-// generation. Reporting the directory as absent instead leaves every consumer
-// comparing nil against a digest its own filesystem keeps producing, and the
-// generation is refused on every delivery for the rest of its life.
+// The distinction lets a later reporter retain directory kind rather than
+// observed-missing state. That reporter resolves a physical path only when
+// native resolution succeeds. This unit asserts discovery classification; it
+// does not observe reporter digests, config replacement or generation reuse.
 //
 // 1. Create an actual config beside a directory named as another config candidate.
 // 2. Discover the config and compare the selected path and rejected directory kind with the authored paths.
