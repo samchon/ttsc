@@ -4,6 +4,7 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
 import type { BuildExecution } from "./BuildExecution";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
+import { privateRuntimeRootDir } from "./privateRuntimeRootDir";
 
 /**
  * The argv ttsc hands to TypeScript-Go, directly or through a native host.
@@ -90,13 +91,15 @@ export namespace TsgoArguments {
    *   helper does not independently verify that an outDir was injected;
    * - This pass emits, because a no-emit pass has no layout to pin (tsgo skips
    *   the check for `noEmit` too);
-   * - The project declares no `rootDir` of its own, so a declared layout is never
-   *   overridden.
+   * - The runtime supplies its already selected effective layout, or the
+   *   project declares no root of its own. Without runtime selection a declared
+   *   layout is left to the compiler; supplied selection preserves the effective
+   *   declared root or explicit reset and is replayed before user arguments.
    *
-   * Preserve the selected project-root spelling rather than adding another
-   * physical alias expansion here. This is the caller's inferred-layout policy,
-   * not a proof that every compiler input shares one realpath transaction or
-   * that arbitrary aliases have identical lexical containment behavior.
+   * An ordinary undeclared root uses the native volume root for private output,
+   * avoiding a new containment restriction on imported sources. Composite
+   * projects retain their config-root restriction. Explicit user roots still
+   * win; selected lexical paths do not establish filesystem identity.
    */
   function pinnedRootDirArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -104,9 +107,18 @@ export namespace TsgoArguments {
   ): string[] {
     if (options.pinInferredRootDir !== true) return [];
     if (options.emit !== true) return [];
+    if (options.privateEmitRootDir !== undefined)
+      return ["--rootDir", options.privateEmitRootDir];
     if (typeof execution.project.compilerOptions.rootDir === "string")
       return [];
-    return ["--rootDir", execution.projectRoot];
+    return [
+      "--rootDir",
+      privateRuntimeRootDir(
+        execution.projectRoot,
+        undefined,
+        execution.project.compilerOptions.composite,
+      ),
+    ];
   }
 
   /**
@@ -179,7 +191,7 @@ export namespace TsgoArguments {
    * travel the same channel every other tsgo option takes to it — the host flag
    * set does not declare `--rootDir`, and `filterHostArgs` would strip it.
    *
-   * @evidence contracts/common.md#principled-implementation The same project-derived inferred root used by direct builds is placed in the sidecar compiler-option channel, preserving emit layout without requiring a new host flag.
+   * @evidence contracts/common.md#principled-implementation The same private layout root used by direct builds is placed in the sidecar compiler-option channel, preserving declared/composite containment while avoiding a new ordinary config-directory restriction without a new host flag.
    * @evidence contracts/common.md#clear-and-simple-design Root pinning stays in one helper and general payload ordering/serialization stays in createNativeTsgoArgs.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported environment payload carries compiler options instead of injecting unknown flags into strict foreign host parsers.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains why rootDir travels with compiler options rather than through the host flag set.

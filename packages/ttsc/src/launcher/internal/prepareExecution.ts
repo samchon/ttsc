@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
+import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
@@ -420,15 +421,11 @@ function discoverOwningProject(
  * The source-tree root the emit mirrors, in the same physical spelling as the
  * entry it will be compared against.
  *
- * Undeclared, the root is the project's own directory, because that is the one
- * tsgo uses: with a config file in play `GetCommonSourceDirectory` answers that
- * file's directory and never computes a common directory of the input files.
- * The entry's directory is not that root — it is only the same directory when
- * the entry happens to sit beside the tsconfig, which is precisely why a
- * `src/`-shaped project mislaid its emit here while a flat one
- * worked. `installRuntimeHooks.ts::resolveDependencySourceRoot` and
- * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model the same
- * rule, and `TsgoArguments.ts::pinnedRootDirArgs` pins it for tsgo itself.
+ * Private ordinary emit without a declared root uses the native volume root.
+ * Unlike the compiler's config-directory default, this does not impose a new
+ * containment error when a check-only project imports sources outside that
+ * directory. Explicit and composite roots retain their containment policy.
+ * TsgoArguments and dependency serving use the same private layout selection.
  *
  * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
  * leaves the comparison mixed rather than merely imprecise. `project.root`
@@ -454,7 +451,7 @@ function resolveRuntimeSourceRoot(
   // config, so it is the root the outputs are laid out against. Invalid
   // arguments fail the build on their own; an unreadable effective config keeps
   // the declared root until then. A readable explicit reset uses the project
-  // default instead of reviving the declared root.
+  // private default instead of reviving the declared root.
   const effective = readEffectiveCompilerOptions(
     project,
     options.passthrough,
@@ -466,11 +463,13 @@ function resolveRuntimeSourceRoot(
     throwOnRealpathError: false,
   });
   return identities.resolve(
-    typeof rootDir !== "string"
-      ? project.root
-      : path.isAbsolute(rootDir)
-        ? rootDir
-        : path.resolve(project.root, rootDir),
+    privateRuntimeRootDir(
+      project.root,
+      rootDir,
+      effective === null
+        ? project.compilerOptions.composite
+        : effective("composite"),
+    ),
   ).path;
 }
 
@@ -512,12 +511,12 @@ function buildProject(
       options.binary,
     ),
     // `context.emitDir` is ttsx's own temp directory, not an output the project
-    // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
-    // `outDir` is in play. Pinning the root tsgo would infer keeps a check-only
-    // project runnable without moving its emit; a project that
-    // declares `rootDir` is left exactly as it is, which is also the root
-    // `resolveRuntimeSourceRoot` published above.
+    // asked for. A private ordinary volume-root layout permits the full input
+    // graph without adding config-directory containment to a check-only
+    // project. Declared and composite roots retain their compiler policy,
+    // matching the root recorded by resolveRuntimeSourceRoot above.
     pinInferredRootDir: true,
+    privateEmitRootDir: context.runtimeRootDir,
     // Emit a source map on the transient entry emit (a PID-isolated temp dir,
     // never the consumer's `outDir`) so the serve path can inline it under the
     // source URL. Routed as a dedicated build option, not a forwarded tsgo

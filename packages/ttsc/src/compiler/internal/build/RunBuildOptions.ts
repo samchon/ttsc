@@ -64,21 +64,29 @@ export type RunBuildOptions = TtscBuildOptions & {
    * --emit` all accept — into one that must configure the layout of output the
    * user never asked for and never sees.
    *
-   * Without declared rootDir, the pinned compiler's configured-program default
-   * common source directory is the config file's directory; config-less
-   * programs instead consult source filenames. This request supplies the
-   * selected execution project root as the inferred-layout policy. It does not
-   * independently prove that arbitrary explicit project-root/config placement
-   * or physical aliases have identical layout. Callers own that premise.
+   * Without a declared rootDir, ordinary runtime output uses the native volume
+   * root instead of adding the compiler's config-directory containment to a
+   * check-only project. Composite projects retain their config root. This is
+   * private output layout, not inference of source membership or physical
+   * alias equivalence; emitted-source provenance remains authoritative.
    *
-   * Ignored when the project declares its own `rootDir`: that project already
-   * satisfies tsgo, and overriding it would relocate the emit out from under
-   * every consumer that mirrors the declared root.
+   * Without a runtime-selected privateEmitRootDir, ignored when the project
+   * declares rootDir. A supplied runtime root already represents effective
+   * declared/forwarded root policy and is replayed before user arguments.
    *
    * Never set for a user-supplied `--outDir`. That outDir is the user's own
    * request, and TS5011 is then tsgo's genuine answer to it.
    */
   pinInferredRootDir?: boolean;
+
+  /**
+   * Runtime-selected private output root, after the owning runtime has read
+   * effective compiler options. Passed only with pinInferredRootDir; argv
+   * replay still puts user assignments afterward. This internal layout value
+   * keeps compiler arguments and served-output coordinates in agreement and
+   * introduces no public flag or replacement producer.
+   */
+  privateEmitRootDir?: string;
 
   /**
    * Receives selected native-plugin source roots after the project resolves.

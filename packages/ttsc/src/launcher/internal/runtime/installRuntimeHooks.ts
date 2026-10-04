@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
+import { privateRuntimeRootDir } from "../../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
@@ -2146,12 +2147,12 @@ function buildDependency(
       // the user's tree.
       isolateOutputsTo: emitDir,
       // The generation directory is an `outDir` this lane injected, not one the
-      // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
-      // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
-      // a source-shipping dependency that declares no output buildable, and it is
-      // the same root `resolveDependencySourceRoot` publishes for it below —
-      // without it that dependency falls back to type-stripping.
+      // dependency declared. Private ordinary emit uses a volume-root layout
+      // without restricting imported sources to the config directory; declared
+      // and composite roots keep their compiler containment policy. The same
+      // root is published by resolveDependencySourceRoot below.
       pinInferredRootDir: true,
+      privateEmitRootDir: resolveDependencySourceRoot(project),
       // Emit a source map on the transient dependency emit (it never reaches the
       // dependency's published `lib/`) so the serve path can inline it under the
       // source URL, but only when the dependency configures none itself. Routed
@@ -2405,7 +2406,10 @@ function readFileOrNull(file: string | null): string | null {
 }
 
 /**
- * The source-tree root a dependency's emit mirrors, in physical spelling.
+ * The private layout root a dependency's emit mirrors, in physical spelling.
+ * Ordinary undeclared roots use the volume root, while declared and composite
+ * roots retain their compiler containment. Argument composition and serving
+ * metadata use the same selection; the output ledger proves source ownership.
  *
  * Both branches need the pass, for different reasons. A declared `rootDir`
  * arrives from `readProjectConfig` joined against the config that declared it
@@ -2417,21 +2421,19 @@ function readFileOrNull(file: string | null): string | null {
  * it answer wrongly, but a physical one keeps every lookup on its cheap forward
  * mirror instead of the inverse scan.
  *
- * This is the same pass the entry lane applies to the same mixed pair, so the
- * two lanes read alike, `path.isAbsolute` guard included. `readProjectConfig`
- * absolutizes every path option against the config that declared it, so that
- * guard is a mirror of the entry lane rather than a live branch.
+ * The entry lane applies the same private-root policy and physical-resolution
+ * pass. Volume roots do not enumerate or authorize other source files.
  */
 function resolveDependencySourceRoot(
   project: ReturnType<typeof readProjectConfig>,
 ): string {
   const rootDir = project.compilerOptions.rootDir;
   return DependencyBuildGeneration.resolvePhysicalPath(
-    typeof rootDir !== "string"
-      ? project.root
-      : path.isAbsolute(rootDir)
-        ? rootDir
-        : path.resolve(project.root, rootDir),
+    privateRuntimeRootDir(
+      project.root,
+      rootDir,
+      project.compilerOptions.composite,
+    ),
   );
 }
 

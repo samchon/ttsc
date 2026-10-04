@@ -49,6 +49,7 @@ export function dependencyCacheKey(
       .createHash("sha256")
       .update(tsconfig)
       .update("\0runtime-es2025")
+      .update("\0private-output-volume-root-v1")
       .update(`\0compiler:${options.compilerIdentity ?? ""}`)
       .update(options.plugins === false ? "\0plugins:disabled" : "\0plugins:discover")
       .update(options.root === undefined ? "" : `\0root:${options.root}`)
