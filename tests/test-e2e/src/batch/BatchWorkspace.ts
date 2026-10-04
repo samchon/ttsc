@@ -213,7 +213,19 @@ export namespace BatchWorkspace {
       const automaticPackage = path.join(root, "packages/batch-auto-discovery");
       const automaticManifestFile = path.join(automaticPackage, "package.json");
       const automaticManifest = JSON.parse(fs.readFileSync(automaticManifestFile, "utf8"));
+      const reportedFiles = ["src/bundle.ts", "src/map.ts"];
+      // The explicitly complete files declare their real imported input tree
+      // as well as the relative/absolute/duplicate/self reporting controls.
+      const reportedDependencies = [
+        "src/contract.ts", path.join(root, "src/console.d.ts"),
+        "src/contract.ts", "src/bundle.ts", "src/map.ts",
+        "src/factory-values.tsx", "src/native-pipeline.ts", "src/data.json",
+        "src/type-population/foo.ts", "src/metadata-population.ts",
+        path.join(root, "node_modules/batch-record-dependency/index.d.ts"),
+      ];
       automaticManifest.ttsc.plugin.contextReceipt = contextReceipt;
+      automaticManifest.ttsc.plugin.reportedFiles = reportedFiles;
+      automaticManifest.ttsc.plugin.reportedDependencies = reportedDependencies;
       fs.writeFileSync(automaticManifestFile, JSON.stringify(automaticManifest));
       fs.symlinkSync(automaticPackage, path.join(modules, "batch-auto-discovery"), "junction");
       const consumerManifestFile = path.join(root, "package.json");
@@ -228,7 +240,11 @@ export namespace BatchWorkspace {
         { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
       );
       for (const entry of config.compilerOptions.plugins)
-        if (entry.fixtureSource === fixtureSource) entry.contextReceipt = contextReceipt;
+        if (entry.fixtureSource === fixtureSource) {
+          entry.contextReceipt = contextReceipt;
+          entry.reportedFiles = reportedFiles;
+          entry.reportedDependencies = reportedDependencies;
+        }
       fs.writeFileSync(configPath, JSON.stringify(config));
       const loaderPath = path.join(root, "typed-loader.cjs");
       fs.writeFileSync(loaderPath, fs.readFileSync(loaderPath, "utf8").replace("__ESBUILD_ENTRY__", createRequire(import.meta.url).resolve("esbuild").replace(/\\/g, "/")));

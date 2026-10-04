@@ -10,7 +10,7 @@ import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFo
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
- * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. The actual ApplyProgram log grows by one across both joined workers. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
+ * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers before their changed input epochs. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
@@ -91,29 +91,28 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.equal(signal(), before, message);
   };
   const signalBeforeEdit = signal();
+  // These inputs have no conflicting values or configuration requirements.
+  // One invalidated generation can consume all three changes together.
   fs.appendFileSync(declaration, "export declare const retainedMetadata: 1;\n");
-  await waitFor(() => signal() !== signalBeforeEdit, "the resident record to move for an actual declaration edit");
+  const candidateSource = "export interface RecordWitness { label: string; native?: 1 }\n";
+  const membershipSource = "declare const pooledMembership: 1;\n";
+  fs.writeFileSync(candidate, candidateSource);
+  fs.writeFileSync(addedRoot, membershipSource);
+  await waitFor(() => signal() !== signalBeforeEdit, "the resident record to move for the combined native input epoch");
   const firstSignal = signal();
   await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
   const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
   assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
-  await quiet("a delivery that consumed the declaration edit settles the actual record");
+  const acknowledged = JSON.parse(signal());
+  for (const input of [candidate, addedRoot])
+    assert.ok(Object.prototype.hasOwnProperty.call(acknowledged.inputs, input), `the same native delivery must acknowledge ${input}`);
+  assert.equal(fs.readFileSync(declaration, "utf8"), originalDeclaration.toString("utf8") + "export declare const retainedMetadata: 1;\n");
+  assert.equal(fs.readFileSync(candidate, "utf8"), candidateSource);
+  assert.equal(fs.readFileSync(addedRoot, "utf8"), membershipSource);
+  await quiet("one delivery that consumed the combined epoch settles the actual record");
   fs.writeFileSync(unrelatedPackageFile, "unrelated package bytes\n");
-  await quiet("unrelated package content does not move the actual record");
-  const beforeCandidate = signal();
-  fs.writeFileSync(candidate, "export interface RecordWitness { label: string; native?: 1 }\n");
-  await waitFor(() => signal() !== beforeCandidate, "a preferred missing native candidate to move the record");
-  const candidateDelivery = await Promise.all(workers.map((worker) => worker.request()));
-  for (const reply of candidateDelivery) assert.equal(reply.error, undefined);
-  assert.deepEqual(candidateDelivery[1]!.value.dependencies, [projectRecordFile]);
-  await quiet("delivery of the new candidate settles its actual record");
-  const beforeRoot = signal();
-  fs.writeFileSync(addedRoot, "declare const pooledMembership: 1;\n");
-  await waitFor(() => signal() !== beforeRoot, "new source membership to move the record");
-  const membershipDelivery = await Promise.all(workers.map((worker) => worker.request()));
-  for (const reply of membershipDelivery) assert.equal(reply.error, undefined);
-  await quiet("delivery of the new root settles actual membership");
+  await quiet("unrelated package content does not move the acknowledged record");
   for (const dependency of turbopack.dependencies) {
     assert.ok(fs.existsSync(dependency));
     const relative = path.relative(workspace.root, dependency);
