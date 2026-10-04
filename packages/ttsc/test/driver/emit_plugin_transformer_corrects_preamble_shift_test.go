@@ -28,13 +28,14 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 // but an executable-transform host emits through EmitWithPluginTransformer (a
 // wrapper over EmitWithPluginTransformers) instead, where a linked banner's
 // preamble would still shift the map. That emit corrects the map for the
-// preamble too; without it every mapping would land four lines too deep.
+// preamble too; the authored-source coordinates otherwise retain that shift.
 //
 //  1. Register a SourcePreamblePlugin and load a `sourceMap` project, so the
 //     source is preamble-shifted by four lines and prog.SourcePreamble is set.
 //  2. Emit through EmitWithPluginTransformer with an identity transform.
-//  3. Decode the `.js.map` and assert every mapping segment names a source line
-//     in {0, 1} (not the shifted {4, 5}) and that both lines 0 and 1 are mapped.
+//  3. Decode source-bearing `.js.map` segments and require their source lines
+//     in {0, 1} (not the shifted {4, 5}) and both authored lines represented.
+//     The test decoder ignores generated-column-only segments.
 // @evidence contracts/testing.md#behavioral-verification Registers a real preamble plugin and emits through the actual identity-transform route, decoding source-map JSON/VLQ and requiring mappings to both authored zero/one lines and no shifted lines.
 // @evidence contracts/testing.md#independent-expectations Literal two authored lines and four injected lines independently establish permitted original mapping coordinates; test-local decoding does not call production map correction.
 // @evidence contracts/testing.md#distinguishing-cases Applied preamble presence plus nonempty mappings and both source-line controls prevent vacuous success from absent preamble or map output.

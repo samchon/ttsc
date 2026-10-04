@@ -33,9 +33,9 @@ func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-  // Color.Green must inline to 1; Color.Red to 0. We keep an unrelated `0`
-  // literal that the plugin rewrites, forcing the visitor to walk (and rebuild
-  // ancestors of) the whole file, including the statement holding `Color.Green`.
+  // Color.Green must inline to 1. Rewriting the zero-valued initializers makes
+  // the visitor walk the file and rebuild changed ancestors; the unchanged
+  // statement holding Color.Green remains an original-member control.
   writeProjectFile(t, root, "index.ts",
     "const enum Color { Red = 0, Green = 1, Blue = 2 }\n"+
       "export const picked: Color = Color.Green;\n"+
@@ -49,8 +49,8 @@ func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
   }
   defer prog.Close()
 
-  // Rewrite the unrelated `0` (the `flag` initializer) to `99`; leave the const
-  // enum access alone so emit's inliner is the thing under test.
+  // Rewrite both zero initializers to 99, including flag and Color.Red. Leave
+  // the explicit Green value and its member access unchanged for the inliner.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
