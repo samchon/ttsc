@@ -6,19 +6,19 @@ import (
 
 // TestUnicornImportStyleBannedModuleReportsDedicatedMessage verifies
 // the misuse diagnostic: a module whose four canonical styles are all
-// explicitly `false` reports upstream's banned-module message on every
+// explicitly `false` reports the authored banned-module message on the retained
 // import form, with and without `extendDefaultStyles`.
 //
 // The banned set is computed from explicit `false` entries only, so a
 // near-miss (one style merely omitted) must stay completely silent.
 //
-//  1. Ban a module and exercise every syntax family.
+//  1. Ban a module and exercise ten import, require and export forms.
 //  2. Assert the dedicated message on each form.
 //  3. Assert the three-of-four near-miss produces no findings.
 //
 // @evidence contracts/testing.md#behavioral-verification The engine checks ten banned forms, inherited-table mode and an almost-banned clean counterpart.
 // @evidence contracts/testing.md#independent-expectations Explicit false for all four canonical styles independently requires the authored banned-module message; omitted styles are not false.
-// @evidence contracts/testing.md#distinguishing-cases Every original syntax family reports for banned, while three-of-four false almost-banned remains unrestricted.
+// @evidence contracts/testing.md#distinguishing-cases The ten retained syntax forms report for banned, while omitting the unassigned false entry leaves almost-banned clean.
 // @evidence contracts/testing.md#execution-ownership TestUnicornImportStyleBannedModuleReportsDedicatedMessage owns these literal source/options variants as a discoverable Go unit entry; actual engine/config/fix functions execute in one shared Go process without installation, native producer or product child host, retaining named malformed subcases where present.
 func TestUnicornImportStyleBannedModuleReportsDedicatedMessage(t *testing.T) {
   bannedOptions := `{

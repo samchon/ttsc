@@ -9,9 +9,8 @@ import (
 // imports, `chalk` rejects named imports, and `node:` specifiers keep
 // their spelling in the diagnostic while inheriting the bare policy.
 //
-// Upstream renders `Use {{allowedStyles}} import for module
-// \x60{{moduleName}}\x60.`; the exact message text and the whole-declaration
-// range are the observable contract, so both are asserted verbatim.
+// Independent literal messages and whole-declaration source ranges establish
+// the expected diagnostics, including the original `node:` module spelling.
 //
 //  1. Run the rule with no options over six violations and four
 //     compliant twins.

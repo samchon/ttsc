@@ -6,8 +6,8 @@ import (
 
 // TestUnicornImportStyleDefaultModulePolicyMatrix verifies the
 // `default`-only module: default bindings pass, and the require paths
-// additionally accept namespace-shaped targets because CommonJS interop
-// cannot distinguish `x = require(...)` from a compiled default export.
+// additionally accept namespace-shaped targets under the native require-only
+// compatibility policy. These assertions do not execute CommonJS interop.
 //
 // The interop extension applies to `require` only — `const x = await
 // import("default")` stays a violation — which is the branch most

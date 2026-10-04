@@ -10,7 +10,9 @@ import (
 // allows both named and default.
 //
 // The report predicate is `every actual ∈ allowed`; asserting the
-// two-style positive prevents an accidental `some` in the port.
+// two-style positive prevents rejecting a mixed declaration merely because it
+// uses more than one allowed style. The named-only matrix owns the rejection
+// that distinguishes allowing some styles from requiring every style.
 //
 //  1. Allow named and default for one module.
 //  2. Import both styles in one declaration.
