@@ -9,7 +9,7 @@ import { isDeclarationFile } from "../utils/isDeclarationFile";
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 import { derivationIdentity } from "./derivationIdentity";
-import { graphInputObservationCompatible } from "./graphInputObservationCompatible";
+import { mergeGraphInputObservations } from "./mergeGraphInputObservations";
 import { legacyProjectionOfGraphInputObservation } from "./legacyProjectionOfGraphInputObservation";
 import { normalizeGraphInputObservation } from "./normalizeGraphInputObservation";
 import { selectListedFiles } from "./selectListedFiles";
@@ -334,34 +334,3 @@ export function envelopeGraphIndexes(
   return built;
 }
 
-/**
- * Join normalized duplicate lexical keys only when repeated predicates agree.
- *
- * Normalization fixes object member order before structural comparison. List
- * order remains part of the recorded directory observation, and the merged
- * record must also satisfy cross-predicate compatibility. Undefined marks a
- * conflict; it does not mean that the path was absent.
- */
-function mergeGraphInputObservations(
-  left: ITtscCompilerTransformation.IInputObservation,
-  right: ITtscCompilerTransformation.IInputObservation,
-): ITtscCompilerTransformation.IInputObservation | undefined {
-  for (const property of [
-    "accessibleEntries",
-    "directoryExists",
-    "fileExists",
-    "readFile",
-    "realpath",
-    "stat",
-  ] as const) {
-    if (
-      left[property] !== undefined &&
-      right[property] !== undefined &&
-      JSON.stringify(left[property]) !== JSON.stringify(right[property])
-    ) {
-      return undefined;
-    }
-  }
-  const merged = { ...left, ...right };
-  return graphInputObservationCompatible(merged) ? merged : undefined;
-}

@@ -9,6 +9,7 @@ import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENE
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
 import { captureTransformGeneration } from "./captureTransformGeneration";
+import { carryTransformAttemptInputs } from "./carryTransformAttemptInputs";
 import { createUnstableGenerationError } from "./createUnstableGenerationError";
 import { selectTransformAttemptDisposition } from "./selectTransformAttemptDisposition";
 
@@ -73,7 +74,7 @@ import { selectTransformAttemptDisposition } from "./selectTransformAttemptDispo
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
- * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt scans its external dependencies into the cumulative witnessed Set and copies that Set for the next capture; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work.
+ * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt copies the cumulative witnessed Set and scans its external dependencies into that copy; the next capture receives a separate array of its names; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work.
  * @evidence contracts/performance.md#reuse-equivalent-work Learned dependency names and reported compiler case policy carry into the next capture, which takes new observations; previous witness bytes are not reused as fresh proof. Refuted publication state bypasses its next lookup while a changed state may adopt a separately proven publication. This loop shares no cache entry itself; its caller owns generation/terminal Promise sharing and current-environment replay admission.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each nonterminal rejected capture is detached through the shared disposer before retry; terminal error construction does the same for the final failed capture, while diagnostic/success/fresh-only return transfers the generation to its caller. Cleanup failures do not certify native release. Up to four attempt aggregates remain, but their path/detail bytes and cumulative witnessed dependency names have no byte cap; the terminal error retains comparison data under cache-owner lifetime. Capture owns its own acquisition-failure cleanup and escaped errors.
  */
@@ -141,7 +142,7 @@ export async function transformProject(props: {
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
   let moved = 0;
-  const witnessed = new Set(props.witnessedDependencies);
+  let witnessed = new Set(props.witnessedDependencies);
   let useCaseSensitiveFileNames = props.useCaseSensitiveFileNames;
   for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({
@@ -178,12 +179,13 @@ export async function transformProject(props: {
       return cached;
     }
     attempts.push(disposition.failures);
-    for (const dependency of cached.externalDependencyInputs ?? []) {
-      witnessed.add(dependency);
-    }
-    useCaseSensitiveFileNames =
-      cached.membershipPolicy.useCaseSensitiveFileNames ??
-      useCaseSensitiveFileNames;
+    const nextInputs = carryTransformAttemptInputs(
+      witnessed,
+      useCaseSensitiveFileNames,
+      cached,
+    );
+    witnessed = nextInputs.witnessed;
+    useCaseSensitiveFileNames = nextInputs.useCaseSensitiveFileNames;
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:

@@ -5,7 +5,6 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
-import { policyUsesCaseSensitiveFileNames } from "../../tsconfig/policyUsesCaseSensitiveFileNames";
 import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
 import { traceInvocation } from "../../tracing/traceInvocation";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
@@ -60,6 +59,7 @@ import { generationNotificationsAvailable, retainGenerationNotifications } from 
 import { removeCaptureScratch } from "./removeCaptureScratch";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
+import { selectReportedMembershipPolicy } from "./selectReportedMembershipPolicy";
 
 const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
 
@@ -250,7 +250,9 @@ export async function captureTransformGeneration(props: {
     // under this attempt's environment. The approximation does not observe
     // the executable's actual answer; a differing report below refuses this
     // primed walk and supplies the retry's comparison rule.
-    const primedPolicy: ITtscProjectMembershipPolicy = {
+    const primedPolicy: ITtscProjectMembershipPolicy & {
+      useCaseSensitiveFileNames: boolean;
+    } = {
       ...mergedPolicy,
       useCaseSensitiveFileNames:
         props.useCaseSensitiveFileNames ??
@@ -380,21 +382,8 @@ export async function captureTransformGeneration(props: {
     // cold subprocess and SDK reads stay off this host's event loop, and the
     // config/walk/notification checks below include that asynchronous window.
     await preparePluginBuildEnvironments(result, props.filesystem);
-    const reportedCaseSensitivity =
-      result.type === "exception"
-        ? undefined
-        : result.graph?.useCaseSensitiveFileNames;
-    const membershipPolicy: ITtscProjectMembershipPolicy =
-      reportedCaseSensitivity === undefined
-        ? primedPolicy
-        : {
-            ...primedPolicy,
-            useCaseSensitiveFileNames: reportedCaseSensitivity,
-          };
-    const casePolicyLearned =
-      reportedCaseSensitivity !== undefined &&
-      reportedCaseSensitivity !==
-        policyUsesCaseSensitiveFileNames(primedPolicy);
+    const { membershipPolicy, casePolicyLearned } =
+      selectReportedMembershipPolicy(primedPolicy, result);
     TRANSFORM_RESULT_MEMBERSHIP.set(result, {
       // Only the actual complete directory walk authorizes replacing a listing
       // with program membership. A policy match cannot prove that a linked or
