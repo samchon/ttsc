@@ -9,6 +9,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * Some rules duplicate (and supersede) the regex-related rules in
  * {@link ITtscLintCoreRules}; both ids exist so projects can keep the legacy
  * ESLint names alongside the regexp-plugin variants.
+ * Native automatic fixes and suggestions are withheld when the rewritten
+ * literal fails the pinned compiler's diagnostic-free regexp admission gate;
+ * that gate is not an independent proof of equivalent matching behavior.
  *
  * @reference https://github.com/ota-meshi/eslint-plugin-regexp
  *
@@ -151,8 +154,8 @@ export interface ITtscLintRegexpRules {
   "regexp/no-useless-two-nums-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom never
-   * matches, so the quantifier is either dead code or a typo for `{1,…}`.
+   * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom contributes
+   * no repetitions. The surrounding pattern can still match.
    *
    * Diagnostic-only: the correction is to delete the atom or repair the bound,
    * and which one was meant is not recoverable from the source.
