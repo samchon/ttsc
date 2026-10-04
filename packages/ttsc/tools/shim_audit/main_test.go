@@ -77,9 +77,9 @@ func TestDedupe(t *testing.T) {
 
 // TestTierOf pins the kind→tier mapping the gate and report depend on.
 //
-// @evidence contracts/testing.md#behavioral-verification tierOf maps each finding kind to its confidence tier.
+// @evidence contracts/testing.md#behavioral-verification tierOf maps the six authored finding kinds to their literal confidence tiers; the enum-removal tier is checked by the removal-specific test.
 // @evidence contracts/testing.md#independent-expectations The expected tier numbers are literals from the audit's stated tier policy.
-// @evidence contracts/testing.md#distinguishing-cases Every kind has a different expected tier or shares one deliberately, so a swapped mapping fails.
+// @evidence contracts/testing.md#distinguishing-cases The six rows include tier-one, tier-two, tier-three and default-tier cases; their authored mapping detects a changed result for those kinds.
 // @evidence contracts/testing.md#execution-ownership TestTierOf is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestTierOf(t *testing.T) {
   cases := map[string]int{"ENUM": 1, "FUNC": 2, "PRODUCER": 2, "ESCAPE": 3, "ENUM?": 4, "UNEXPORTED": 4}

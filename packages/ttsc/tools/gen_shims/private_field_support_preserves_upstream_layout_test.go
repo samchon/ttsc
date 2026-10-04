@@ -22,7 +22,7 @@ import (
 //  2. Generate and type-check the real support against those exact types.
 //  3. Compare field order, types, size and offsets, and reject an absent field.
 //
-// @evidence contracts/testing.md#behavioral-verification Real support generation and Go type checking exercise the mirror and accessor; complete layout and private getter assertions detect a wrong-offset read or unintended public producer.
+// @evidence contracts/testing.md#behavioral-verification Real support generation and Go type checking verify the mirror layout and accessor signature; complete layout and private getter assertions detect changed field offsets or an unintended public producer, without executing an unsafe getter read.
 // @evidence contracts/testing.md#independent-expectations The authored upstream fixture fixes four ordered fields and the selected impl pointer. Go's architecture-specific size authority independently establishes alignment and offsets.
 // @evidence contracts/testing.md#distinguishing-cases Slice, interface and pointer fields surround the accessed field; an unknown field must fail, and only the selected private accessor may exist.
 // @evidence contracts/testing.md#execution-ownership This generator source unit runs in tools/gen_shims in one Go process using parser and type-checker operations without a native artifact, installation or subprocess.
