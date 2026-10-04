@@ -6,12 +6,10 @@ import (
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript verifies an
-// unresolvable project still hands the child no `--binary`.
+// unresolvable project produces no compiler path.
 //
-// The negative twin of the project-anchored resolution. An empty result is the
-// unchanged last resort: the child re-derives the compiler itself and its own
-// `ttsc: typescript is required` names the missing package, which is a better
-// diagnostic than a guessed path that does not exist.
+// This direct lookup checks the empty-path fallback. It does not launch the
+// evaluator child or assert the child's compiler discovery or diagnostic.
 //
 //  1. Seed a project with no node_modules anywhere in its ancestry.
 //  2. Shed both tool variables.

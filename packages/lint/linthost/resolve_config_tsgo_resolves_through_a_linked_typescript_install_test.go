@@ -22,8 +22,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification resolveConfigTsgo follows the actual fixture TypeScript directory symlink and locates the platform compiler beside the physical store package instead of the project link.
 // @evidence contracts/testing.md#independent-expectations Node resolves package dependencies from the real install location; the authored store layout and seedProjectTypeScript compiler path establish the independent expected executable.
-// @evidence contracts/testing.md#distinguishing-cases Owns a symlinked project package whose platform dependency is present only beside its target; missing platform and unlinked project resolution have separate units. Windows junction and actual Windows symlink routes are retained in TestWindowsResolveConfigTsgoThroughLinkedTypeScriptInstall.
-// @evidence contracts/testing.md#execution-ownership This selected Go unit invokes resolveConfigTsgo in-process with fixture manifests and an actual symlink, without installing a consumer or launching a host; an unavailable symlink is an explicit environmental limitation, while the mandatory Windows junction case owns the former fallback.
+// @evidence contracts/testing.md#distinguishing-cases Owns a symlinked project package whose platform dependency is present only beside its target; missing platform and unlinked project resolution have separate units. The separate TestWindowsResolveConfigTsgoThroughLinkedTypeScriptInstall entry owns its Windows-specific linked-install cases.
+// @evidence contracts/testing.md#execution-ownership This selected Go unit invokes resolveConfigTsgo in-process with fixture manifests and an actual symlink, without installing a consumer or launching a host; an unavailable symlink is an explicit environmental limitation rather than a passing path observation.
 func TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall(t *testing.T) {
   shedConfigToolEnvironment(t)
   root := realpathIfPossible(t.TempDir())
