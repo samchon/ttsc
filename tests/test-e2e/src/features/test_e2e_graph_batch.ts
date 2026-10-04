@@ -1,6 +1,7 @@
 ﻿import assert from "node:assert/strict";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertGraphReadonlyCorpus } from "../batch/graphReadonlyCorpus";
+import { assertGraphDispatchCorpus } from "../batch/graphDispatchCorpus";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
 
 type NodeDetails = {
@@ -32,6 +33,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     });
     client.notify("notifications/initialized", {});
     await assertGraphReadonlyCorpus(client);
+    await assertGraphDispatchCorpus(client);
     const response = await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
