@@ -4,12 +4,12 @@ import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/T
 import type { TtscGraphLinePeer } from "../../../../packages/graph/src/model/TtscGraphLinePeer";
 
 /** Declared port recordings only; input lines/events are supplied by each case. */
-const fixture = () => {
+const fixture = (retirement?: Promise<void>) => {
   const ports: { events: TtscGraphLinePeer.Events; writes: { verb: string; invalidate: boolean }[]; closed: number }[] = [];
   const daemon = new TtscLintDaemonState((events) => {
     const port = { events, writes: [] as { verb: string; invalidate: boolean }[], closed: 0 };
     ports.push(port);
-    return { stderr: "", alive: () => port.closed === 0, write: (line, done) => { port.writes.push(JSON.parse(line)); done(); }, close: () => { port.closed++; } };
+    return { stderr: "", alive: () => port.closed === 0, write: (line, done) => { port.writes.push(JSON.parse(line)); done(); }, close: () => { port.closed++; return retirement; } };
   });
   return { daemon, ports };
 };
@@ -32,14 +32,15 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
  *
  * 1. Ask two supported verbs and check each reply's content, the invalidate flag
  *    written for each, and the lint argv builder's flags.
- * 2. Answer a verb with a nonzero code, and exit the transport before any reply;
- *    require null for that ask and for every later ask, with no new port.
+ * 2. Decline a verb, or supply exit(2, null) without a reply; require pending
+ *    and later asks to wait for release, then return null only after joined
+ *    completion, or preserve an unjoined failure with no new port.
  * 3. Ask two verbs at once and require the second request line to be written
  *    only after the first reply arrives.
  *
- * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask must return the parsed result text of a code-0 reply for "project-inputs" and "graph-nodes" and write [verb, invalidate] pairs [["project-inputs", true], ["graph-nodes", false]]; a code-1 reply must yield null, close the port once and make the next ask null; an exit event must yield null for the pending and later asks; and two simultaneous asks must be written one at a time in order. TtscGraphNativeArguments.lint must start with "lsp-serve" and carry --cwd=, --tsconfig=, --plugins-json= and --project-context-json=.
- * @evidence contracts/testing.md#independent-expectations The verbs, the "servedBy" marker, the invalidate flags, the reply codes, the expected null outcomes, the port count of one and the close count of one are literals authored in the test; the replies are JSON lines written by the test through the port events, not produced by a daemon.
- * @evidence contracts/testing.md#distinguishing-cases Five scenario families contrast a served reply, a declined reply (code 1), a transport exit with no reply, and concurrent asks; the concurrent scenario shows the second write absent after five microtask turns and present only after the first reply. Malformed JSON and a reply without a numeric code each return null, retire the port once and prevent another port. Write failure is not exercised.
+ * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask returns parsed supported code-0 replies and literal invalidate flags, while a code-1 reply retires once and yields null. An unsupported-sidecar exit(2, null) keeps pending and queued fallback asks unsettled until release resolves, then yields null without another port; rejected release propagates the original Error to pending, queued and subsequent asks and close. Concurrent supported asks write one at a time. Native lint arguments retain lsp-serve and the four target/config/plugin/context flags.
+ * @evidence contracts/testing.md#independent-expectations Verbs, servedBy marker, flags, reply/exit codes, null results, opener/close count one and unchanged write count one are authored literals. Deferred release and original unjoined Error are declared transport inputs; replies are authored JSON lines, not daemon output. Null is the owning fallback signal, not proof of actual direct-command execution.
+ * @evidence contracts/testing.md#distinguishing-cases Served, declined, malformed, no-numeric-code and concurrent replies remain covered. Exit without a reply now contrasts delayed joined numeric-nonzero release with unjoined rejection; neither publishes fallback nor writes a queued ask before release. A separate retirement decision case qualifies zero/nonzero, signal, forced, unknown and transport-error coordinates; write failure is not exercised here.
  * @evidence contracts/testing.md#execution-ownership Runs TtscLintDaemonState and TtscGraphNativeArguments.lint in the test process against recorded line ports that the test feeds JSON lines and exit events through the declared events; no lint sidecar process, direct-command fallback or real transport is involved.
  */
 export async function test_ttscgraph_lint_daemon_answers_or_says_it_cannot(): Promise<void> {
@@ -89,15 +90,49 @@ async function verifyRejectedVerb(): Promise<void> {
 }
 
 async function verifyMissingServe(): Promise<void> {
-  const { daemon, ports } = fixture();
-  try {
-    const first = daemon.ask("project-inputs", true);
-    const port = await admitted(ports, 1);
-    port.events.exit(2, null);
-    assert.equal(await first, null);
-    assert.equal(await daemon.ask("graph-nodes", false), null);
-    assert.equal(ports.length, 1);
-  } finally { await daemon.close(); }
+  const failures: Error[] = [];
+  for (const outcome of ["joined", "unjoined"] as const) {
+    let release!: () => void;
+    let refuse!: (error: Error) => void;
+    const retirement = new Promise<void>((resolve, reject) => { release = resolve; refuse = reject; });
+    const { daemon, ports } = fixture(retirement);
+    try {
+      const first = daemon.ask("project-inputs", true);
+      const port = await admitted(ports, 1);
+      const later = daemon.ask("graph-nodes", false);
+      let settlements = 0;
+      for (const ask of [first, later])
+        void ask.then(() => { settlements++; }, () => { settlements++; });
+      port.events.exit(2, null);
+      for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+      assert.equal(settlements, 0, "fallback published before release");
+      assert.equal(port.writes.length, 1, "queued ask reached failed daemon");
+      assert.equal(port.closed, 1);
+      if (outcome === "joined") {
+        release();
+        assert.equal(await first, null);
+        assert.equal(await later, null);
+        assert.equal(await daemon.ask("project-inputs", true), null);
+        await daemon.close();
+      } else {
+        const unjoined = new Error("authored lint release could not be joined");
+        refuse(unjoined);
+        await assert.rejects(first, (error) => error === unjoined);
+        await assert.rejects(later, (error) => error === unjoined);
+        await assert.rejects(daemon.ask("project-inputs", true), (error) => error === unjoined);
+        await assert.rejects(daemon.close(), (error) => error === unjoined);
+      }
+      assert.equal(ports.length, 1);
+      assert.equal(port.closed, 1);
+      assert.equal(port.writes.length, 1);
+    } catch (error) {
+      failures.push(new Error(`${outcome}: ${String(error)}`, { cause: error }));
+    } finally {
+      release();
+      await daemon.close().catch(() => undefined);
+    }
+  }
+  if (failures.length > 0) throw new AggregateError(failures, "missing serve release matrix failed");
 }
 
 async function verifyConcurrent(): Promise<void> {

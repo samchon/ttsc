@@ -16,8 +16,8 @@ export interface StatePort {
   live: boolean;
 }
 
-/** Exercise authored state with explicit caller-supplied typed envelopes/events. */
-export function sessionState() {
+/** Exercise authored state with explicit envelopes/events and optional first-peer release. */
+export function sessionState(firstRetirement?: Promise<void>) {
   const ports: StatePort[] = [];
   let closed = 0;
   let artifact = "";
@@ -32,7 +32,13 @@ export function sessionState() {
         get stderr() { return port.diagnostic; },
         alive: () => port.live,
         write: (line, done) => { port.writes.push(JSON.parse(line)); done(); },
-        close: (terminate) => { port.retirement.push(terminate); if (terminate) port.live = false; },
+        close: (terminate) => {
+          port.retirement.push(terminate);
+          if (terminate) {
+            port.live = false;
+            if (ports[0] === port) return firstRetirement;
+          }
+        },
       };
       ports.push(port);
       return port.peer;
