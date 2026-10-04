@@ -8,11 +8,10 @@ import (
 // TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage verifies a
 // `typescript` install whose platform dependency is missing resolves to nothing.
 //
-// The boundary between the two resolution hops. `typescript` carries the native
-// compiler in an optional per-platform package, so an install made with
-// optional dependencies disabled has the manifest and no executable. Returning
-// the path anyway would hand the child a `--binary` that cannot be spawned, and
-// replace a clear "reinstall typescript" diagnostic with an exec failure.
+// This checks the boundary between the main manifest and platform-package
+// lookup. The fixture authors only the main manifest and guards against an
+// ambient platform install. It observes an empty resolver path, without
+// asserting a child's argument, spawn failure or diagnostic.
 //
 //  1. Seed a project holding only the `typescript` manifest.
 //  2. Shed both tool variables.
