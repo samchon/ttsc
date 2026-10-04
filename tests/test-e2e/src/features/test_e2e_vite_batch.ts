@@ -16,8 +16,8 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
  * 2. Interpret its one IIFE graph and compare all literal values.
  * 3. Require original API sentinels and one JavaScript output graph.
  *
- * @evidence contracts/testing.md#behavioral-verification One real Vite/Rollup output runs the complete source graph with contract42, JSON42/retained and661 exact UTF-16 values; the emit-only effect function is not invoked by this API consumer.
- * @evidence contracts/testing.md#independent-expectations Original pre-print string inputs and authored JSON/contract literals determine expected runtime values independently of bundler output.
+ * @evidence contracts/testing.md#behavioral-verification One real Vite/Rollup output runs the complete source graph with contract42, JSON42/retained and661 exact UTF-16 values; actual native Program Options receipts additionally require the absolute JSON alias, root-relative typed alias's root-first target pair and the distinct find-only trailing-slash key. The emit-only effect function is not invoked by this API consumer.
+ * @evidence contracts/testing.md#independent-expectations Original pre-print string inputs and authored JSON/contract literals determine expected runtime values independently of bundler output. Literal native alias keys and ordered targets come from Vite's root-first resolution and the directly owned trailing-slash grammar, not by parsing the generated wrapper back into an expected answer.
  * @evidence contracts/testing.md#distinguishing-cases Quoted JSX entities, expression strings, raw strings and retained versus stripped effects are simultaneous members of one bundle.
  * @evidence contracts/testing.md#execution-ownership The selected batch calls build once and only interprets returned output afterward; no legacy Vite, Rollup or profile function is invoked.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite and Rollup must load the emitted adapter, native source delivery and output graph. Direct cache or hook policy units cannot prove this assembly.
@@ -28,6 +28,7 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 export async function test_e2e_vite_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
+  const pathsReceiptOffset = BatchWorkspace.readPathsReceipts(workspace).length;
   const previousCache = process.env.TTSC_CACHE_DIR;
   const previousMode = process.env.NODE_ENV;
   process.env.TTSC_CACHE_DIR = workspace.cache;
@@ -35,7 +36,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
     const result = await build({
       root: workspace.root, configFile: false, logLevel: "silent",
-      resolve: { alias: { "@data": path.join(workspace.root, "src/data.json"), "@typed": path.join(workspace.root, "src/type-population") } },
+      resolve: { alias: { "@data": path.join(workspace.root, "src/data.json"), "@typed": "/src/type-population", "@trail/": path.join(workspace.root, "src/type-population") } },
       plugins: [adapter({ plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry) })],
       build: { minify: false, write: false, sourcemap: true,
         rollupOptions: { input: path.join(workspace.root, "src/bundle.ts"), output: { format: "iife", name: "SharedBoundary" } } },
@@ -46,6 +47,16 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const code = chunks[0]!.code;
     BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
     BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset), "a:", "d:");
+    const nativePaths = BatchWorkspace.readPathsReceipts(workspace).slice(pathsReceiptOffset);
+    assert.equal(nativePaths.length, 1, "one shared native Program observes the entire alias population");
+    assert.equal(nativePaths[0]!.name, "shared-real-program-probe");
+    const slash = (value: string) => value.replace(/\\/g, "/");
+    assert.deepEqual(nativePaths[0]!.paths?.["@data"], [slash(path.join(workspace.root, "src/data.json"))]);
+    assert.deepEqual(nativePaths[0]!.paths?.["@typed"], [slash(path.join(workspace.root, "src/type-population")), slash(path.resolve("/src/type-population"))]);
+    assert.deepEqual(nativePaths[0]!.paths?.["@typed/*"], [slash(path.join(workspace.root, "src/type-population/*")), slash(path.resolve("/src/type-population/*"))]);
+    assert.deepEqual(nativePaths[0]!.paths?.["@trail//*"], [slash(path.join(workspace.root, "src/type-population/*"))]);
+    for (const unsupportedKey of ["@trail", "@trail/", "@trail/*"])
+      assert.equal(Object.prototype.hasOwnProperty.call(nativePaths[0]!.paths ?? {}, unsupportedKey), false, "find-only trailing slash retains its independently specified grammar");
     assert.ok(chunks[0]!.map, "the actual host must return a source map");
   } finally {
     if (previousCache === undefined) delete process.env.TTSC_CACHE_DIR; else process.env.TTSC_CACHE_DIR = previousCache;
