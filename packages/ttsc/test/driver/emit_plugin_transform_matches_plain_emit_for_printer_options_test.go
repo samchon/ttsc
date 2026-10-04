@@ -40,9 +40,8 @@ export class Widget {
 )
 
 // TestEmitPluginTransformMatchesPlainEmitForPrinterOptions verifies that the
-// plugin-transform emit lane honors every compiler option the pinned tsgo
-// emitter applies while printing a file, and emits the same bytes as a plain
-// build.
+// plugin-transform emit lane honors the authored printer-option cases and
+// emits the same artifact set and bytes as the plain lane for those inputs.
 //
 // `EmitWithPluginTransformers` hand-assembles tsgo's JavaScript emit because
 // `Program.Emit` has no transformer hook, and prints through the shim's
@@ -51,9 +50,10 @@ export class Widget {
 // omits takes the Go zero value, so the option is silently ignored on the plugin
 // lane while a plain build honors it. `removeComments`, `noEmitHelpers`, and
 // `target` are among the fields that coverage spot-checking `sourceMap` alone
-// would miss. Comparing the two lanes per field, rather than asserting
-// one lane's output in isolation, is what makes the next omission fail here: a
-// wrong-but-consistent emit cannot pass, because the plain lane is the oracle.
+// would miss. Independent literal witnesses check the named properties, while
+// lane comparison detects byte or artifact divergence for the authored inputs.
+// The shared native implementation is not an independent oracle for every
+// possible printing defect or compiler option.
 //
 // `emitBOM` belongs in the same table even though it is not a `PrinterOptions`
 // field: `printSourceFile` applies it to the printed text, outside the struct,
