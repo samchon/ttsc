@@ -47,28 +47,14 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * and recursive sorted path population without claiming existing-byte identity.
  * Computed missing imports preserve all three native error codes in one host
  * before rethrowing a captured Node error through the launcher boundary.
- * A real fork rescues absent child.js to its original child.ts and preserves
- * status/output. Its same owned leaf close gates parent completion and reuse;
- * arbitrary descendant termination is not inferred.
- * Combined forwarded emission suppression retains one real emitted-entry
- * handoff and its exact status/output beyond the existing argument-policy units.
- * The nested-config root installation and nearer empty installation use
- * separate original fixtures with the same cache-query/runtime/query sequence.
- * Native permission-denied stages retain excluded/included entry results
- * and read-only execution without explicit cache plus top-level name equality
- * and restores the original POSIX mode or saved Windows DACL before reuse;
- * unresolved host or restoration failure retains its graphs.
- * A distinct driver directory beneath the external input island preserves
- * relative cache resolution against the selected project cwd and both cache
- * location oracles without another consumer allocation.
  * A descriptor-retargeted run-index alias preserves the original and victim
  * generation observations using this consumer and the existing external input
  * island; unknown launch or failed alias removal stops reuse and retains both.
- * A dependency profile reads its two live physical root publications; a
- * nearer empty installation profile retains cache queries before and after its
- * host. Its child-local empty cache override preserves that native ancestry
- * input rather than substituting the cohort cache. Original unavailable link
- * creation remains a named skip without coverage.
+ * The configured host already owns both live dependency root publications,
+ * fork rescue, suppression and relative cache oracles. Existing readonly stages
+ * and two installation-boundary runtimes keep their native observations;
+ * portable cache-query projections stay with their mapped source owners.
+ * Newly added equivalent standalone profiles do not repeat those hosts.
  * Flat and nested check-only profiles stage their original inferred-root
  * inputs on this root after the previous graph is held; each public request
  * retains its exact greeting and both source-adjacent JavaScript absence

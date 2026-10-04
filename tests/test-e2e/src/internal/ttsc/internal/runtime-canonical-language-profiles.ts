@@ -24,6 +24,9 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * ESM member and public JSX inputs on
  * the already joined canonical root. Every profile retains its actual public
  * compiler/register/launcher transport and independent literal observations.
+ * The existing parent already combines suppression, relative cache placement,
+ * fork rescue/owned close, dependency publication, both installation cache
+ * boundaries and readonly stages. These callbacks do not repeat their hosts.
  *
  * @evidence contracts/common.md#principled-implementation Original byte snapshots and actual ordinary emit, runtime and public preload calls determine outcomes; compiler emission or effects are not simulated.
  * @evidence contracts/common.md#clear-and-simple-design Publication, rejection, option, package-export and JSX/member profiles share the existing staging owner and fixture constants, keeping incompatible configs separate.
@@ -31,16 +34,16 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * @evidence contracts/common.md#meaningful-documentation States original transport, staged preparation and independent output/nonmutation oracles without claiming execution.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins address exact extension-selected emits; public Node/TTSC/TTSX argv and actual package link preserve their existing owning operations.
  * @evidence contracts/performance.md#efficient-algorithms Source maps scale with original fixture bytes; publication profiles read their actual outputs before and after. Each native command retains independent cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Up to one hundred two original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Up to ninety-three original allocations borrow the canonical root and shipped tools. Different module, extension, library, invalid program, JSX mode and public entry transports remain separate requests and Program work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Existing assembler owns launch receipts and holds exact completed graphs before another stage; callback file reads close synchronously and unknown launches retain inputs.
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
  * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Profiles call maintained public tools instead of a test-output generator.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
- * @evidence contracts/e2e.md#shared-execution Up to one hundred two original roots become staged configurations on the one canonical allocation; up to one hundred fifty-nine authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement. Live physical dependency roots retain both native spelling comparisons with the original capability-false outcome; the empty nearer install retains two cache queries around its one host and child-local empty override. Native write denial keeps two public requests and read-only default placement keeps one; both preserve the original root-user false outcome. Each Windows permission profile adds four actual DACL save/deny/restore/save commands, while POSIX restores and checks its captured mode. These setup processes are separately observed rather than inferred from public-request totals. Linked run-index descriptor retarget keeps fresh original/victim indices beneath the existing external input island and its one negative host; unresolved launch or failed alias removal retains those inputs and aborts reuse. Flat and nested check-only inputs retain separate inferred-root requests and both source-adjacent emit absence checks; they reuse the canonical allocation only after the prior graph is held. The POSIX failure memo profile records all actual native argv while its single failed project emit count excludes enabled terminal config/source-list inspections; their process costs remain measured. The compiled owner preload uses three original Node lifetimes for existing-run admission, missing-run rejection and empty-manifest independence.
+ * @evidence contracts/e2e.md#shared-execution Up to ninety-three original roots become staged configurations on the one canonical allocation; up to one hundred forty-five authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement. Linked run-index descriptor retarget keeps fresh original/victim indices beneath the existing external input island and its one negative host; unresolved launch or failed alias removal retains those inputs and aborts reuse. Flat and nested check-only inputs retain separate inferred-root requests and both source-adjacent emit absence checks; they reuse the canonical allocation only after the prior graph is held. The POSIX failure memo profile records all actual native argv while its single failed project emit count excludes enabled terminal config/source-list inspections; their process costs remain measured. The compiled owner preload uses three original Node lifetimes for existing-run admission, missing-run rejection and empty-manifest independence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
- * @evidence contracts/e2e.md#preserved-coverage test_ttsx_missing_import_branches_preserve_native_errors_in_one_host preserves the ordered three exact branch names/ERR_MODULE_NOT_FOUND codes, failed launcher status and native diagnostic. Authored modules collect all rejections before rethrowing one actual error. test_ttsx_forks_a_child_whose_entry_path_is_javascript preserves real fork of absent child.js/only child.ts, inherited stdio, parent status0 and exact child:rescued-from-source. Final parent propagates the same leaf exit status on close rather than exiting at exit, so the staged graph waits for owned stream closure; arbitrary descendants remain unproved. test_ttsx_runs_the_entry_when_emit_suppressing_flags_are_forwarded preserves its one real combined noEmit/emitDeclarationOnly/declaration request with status0/entry-ran. Existing source units retain individual-switch ordering; their arrays are not native emitter/Node handoff proof. test_ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root preserves explicit empty TTSC_CACHE_DIR, root installation cache before/after, status0/nested-cache-root, absent nested node_modules and empty runtime index. Its two cache queries remain separate public requests around the runtime. test_ttsx_runs_a_read_only_project_without_a_cache_dir preserves no explicit cache argument, status0/read-only-ran, top-level sorted names before/after restoration and original root-user false outcome. Recursive bytes and actual fallback cache placement remain unasserted. test_ttsx_dependency_build_leaves_its_declared_outputs_untouched preserves included/excluded runtime values and exact recursive sorted dependency path population around its composite/declarationDir/tsBuildInfoFile build. This oracle detects added/removed paths rather than replacement of existing bytes. test_ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry preserves original root-user false outcome, native permission denial, excluded status2/directory/include-files remedy/no effect and included status0/value. POSIX mode is restored and checked; Windows DACL is saved/restored and saved bytes compared before reuse. Four Windows ACL commands remain real setup costs (two more than the donor denial/removal pair). test_ttsx_relative_cache_dir_resolves_from_cwd_option retains the distinct driver cwd, literal .ttsx-cache, exact relative-runner-cache output/status, project cache existence/emptiness and wrong driver-cache absence. test_ttsx_failure_cleanup_pins_a_linked_run_index preserves nonzero status/missing-source diagnostic/single victim generation/literal sentinel/empty original index across a descriptor-retargeted cache child alias, distinct from the cache-root alias profile. test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink preserves VALUE output/two live manifest roots/native physical equality without asserting per-package association; test_ttsx_preserves_an_empty_nested_node_modules_cache_boundary preserves both cache-root observations/runtime marker/status and empty project cache. Flat/nested test_ttsx_runs_a_*_entry_whose_project_declares_no_rootdir preserve noEmit with absent rootDir/outDir, exact greeting/status and both independent adjacent JavaScript absence paths. Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs; test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it exact typed-to-mistyped writes/status/value/root diagnostic/no-output transition; and test_ttsx_runs_a_source_file_the_entry_generates_at_runtime extensionless VALUE:42; and test_ttsx_preserves_custom_node_builtin_remaps child-local actual user hooks and both custom-remap/non-builtin-exact-strip values; and test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options distinct same-name dep-b:3 owning-option witness. Actual surviving execution and donor removal remain pending.
+ * @evidence contracts/e2e.md#preserved-coverage test_ttsx_missing_import_branches_preserve_native_errors_in_one_host preserves the ordered three exact branch names/ERR_MODULE_NOT_FOUND codes, failed launcher status and native diagnostic. Authored modules collect all rejections before rethrowing one actual error. test_ttsx_failure_cleanup_pins_a_linked_run_index preserves nonzero status/missing-source diagnostic/single victim generation/literal sentinel/empty original index across a descriptor-retargeted cache child alias, distinct from the cache-root alias profile. Flat/nested test_ttsx_runs_a_*_entry_whose_project_declares_no_rootdir preserve noEmit with absent rootDir/outDir, exact greeting/status and both independent adjacent JavaScript absence paths. Retains test_ttsx_executes_standard_decorators_at_esnext four emit/runtime pairs and all byte assertions; test_ttsx_standard_decorators_preserve_member_initialization ESM value/order; test_ttsx_runs_preserved_jsx_through_the_automatic_runtime HTML/config bytes; test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime both exact HTML outputs; test_ttsx_standard_decorators_reject_invalid_programs_before_effects five status/diagnostic/no-effect triples; test_ttsx_standard_decorators_preserve_cli_and_library_options three complete effects; and test_ttsx_decorator_export_discovery_never_removes_runtime_values complete effects plus 17/42 exports; and test_ttsx_register_executes_excluded_standard_decorators all four direct/public-register format outputs and statuses; test_ttsx_register_stops_diagnostics_before_entry_effects both diagnostic/status/marker matrices, initial empty cache and prior FIRST ordering; and test_ttsx_rejects_a_require_without_a_value original launcher rejection; test_ttsx_classifies_module_preserve_as_ecmascript_modules original ESM output; and test_ttsx_classifies_the_entry_by_a_forwarded_module_flag all six owned/excluded direct/response status and output pairs; test_ttsx_classifies_a_node_modules_package_type_over_the_project_module_option exact dependency/project values; test_runner_corpus_invalid_tsconfig_prevents_entry_execution diagnostic/location/no stdout effect/no marker; and test_ttsx_compiles_a_required_source_whose_project_lists_no_files fallback arguments=3; test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error installed-root arguments=3; and test_ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error wrapped-7 project-built=true live manifest/cache witness; test_ttsx_follows_directory_references_nested_solutions_and_cycles exact entry=3 dependency=3; test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag ENTRY/explicit-runner-project pair; and test_ttsx_resolves_config_dir_paths_for_an_installed_package_root area-9; test_ttsx_runs_the_entry_as_the_main_module all six native main/argv/handled/exit/throw/rejection observations; and test_ttsx_runs_preserved_jsx_in_a_dependency_and_an_orphan both HTML outputs and independent failure inputs; test_ttsx_checks_a_typescript_file_the_program_generates_before_running_it exact typed-to-mistyped writes/status/value/root diagnostic/no-output transition; and test_ttsx_runs_a_source_file_the_entry_generates_at_runtime extensionless VALUE:42; and test_ttsx_preserves_custom_node_builtin_remaps child-local actual user hooks and both custom-remap/non-builtin-exact-strip values; and test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options distinct same-name dep-b:3 owning-option witness. Actual surviving execution and donor removal remain pending.
  */
 export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonicalRuntimeProfiles>[1] {
   const profiles: Parameters<typeof runCanonicalRuntimeProfiles>[1][number][] = [];
@@ -878,38 +881,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       try { assert.notEqual(result.status, 0); } catch (error) { failures.push(error); }
       try { assert.match(result.stderr, /ERR_MODULE_NOT_FOUND/); } catch (error) { failures.push(error); }
       if (failures.length) throw new AggregateError(failures, "native missing-import branch assertions failed");
-    },
-  });
-  const forkInputs = FixtureFiles.read("ttsc/ttsx_forks_a_child_whose_entry_path_is_javascript/inputs-1");
-  const forkMain = forkInputs["src/main.ts"];
-  assert.ok(typeof forkMain === "string" && forkMain.includes('child.on("exit", (code) => process.exit(code ?? 1));'));
-  // The same owned leaf child must close before this staged input graph moves.
-  // Exit status propagation and all main-entry rescue inputs stay unchanged.
-  forkInputs["src/main.ts"] = forkMain.replace(
-    'child.on("exit", (code) => process.exit(code ?? 1));',
-    'child.on("close", (code) => process.exit(code ?? 1));');
-  profiles.push({
-    name: "native-fork-rescues-absent-javascript-main-and-closes-owned-leaf",
-    files: E2eProcessTrace.fixtureFiles(forkInputs),
-    run: (root, _persistent, spawn) => {
-      assert.equal(fs.existsSync(path.join(root, "src", "child.js")), false);
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      const failures: unknown[] = [];
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.equal(result.stdout.trim(), "child:rescued-from-source"); } catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, "fork main source rescue assertions failed");
-    },
-  });
-  profiles.push({
-    name: "combined-forwarded-emission-suppression-still-executes-runtime-entry",
-    files: FixtureFiles.read("ttsc/ttsx_runs_the_entry_when_emit_suppressing_flags_are_forwarded/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN,
-        ["--cwd", root, "--noEmit", "--emitDeclarationOnly", "--declaration", "src/main.ts"], { cwd: root });
-      const failures: unknown[] = [];
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.equal(result.stdout.trim(), "entry-ran"); } catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, "combined runtime emission suppression assertions failed");
     },
   });
   profiles.push({
@@ -1780,71 +1751,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       if (failures.length) throw new AggregateError(failures, "symlinked rootDir whole-project membership assertions failed");
     },
   });
-  profiles.push({
-    name: "dependency-root-publication-keeps-linked-and-inferred-physical-spellings",
-    files: FixtureFiles.read("ttsc/ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      try { fs.symlinkSync(path.join(root, "node_modules", "dep", "sources"),
-        path.join(root, "node_modules", "dep", "src"), "junction"); }
-      catch { return false; }
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      const failures: unknown[] = [];
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.match(result.stdout, /VALUE:dep-value\/dep2-value/); } catch (error) { failures.push(error); }
-      try {
-        const line = result.stdout.split(/\r?\n/).find(text => text.startsWith("ROOTS:"));
-        assert.notEqual(line, undefined, result.stdout);
-        const roots = JSON.parse(line!.slice("ROOTS:".length)) as string[];
-        assert.equal(roots.length, 2, `the dependency lane did not publish a marker per dependency: ${result.stdout}`);
-        for (const published of roots) {
-          try { assert.equal(fs.realpathSync.native(published), published,
-            "a published dependency rootDir is not its own physical path, so the exact-mirror lookup compares two spellings of one directory"); }
-          catch (error) { failures.push(error); }
-        }
-      } catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, "physical dependency root publication assertions failed");
-    },
-  });
-  for (const cacheBoundary of [
-    { name: "empty-nested-install-boundary-remains-authoritative-after-runtime-cache-write",
-      fixture: "ttsx_preserves_an_empty_nested_node_modules_cache_boundary",
-      nearer: true, marker: "empty-install-boundary" },
-    { name: "nested-tsconfig-retains-root-install-cache-before-and-after-runtime",
-      fixture: "ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root",
-      nearer: false, marker: "nested-cache-root" },
-  ]) profiles.push({
-    name: cacheBoundary.name,
-    files: FixtureFiles.read(`ttsc/${cacheBoundary.fixture}/inputs-1`),
-    run: (root, _persistent, spawn) => {
-      const installRoot = cacheBoundary.nearer ? path.join(root, "test") : root;
-      fs.mkdirSync(path.join(installRoot, "node_modules"));
-      const expected = path.join(fs.realpathSync(installRoot), "node_modules", ".cache", "ttsc");
-      const failures: unknown[] = [];
-      // Both original fixtures clear the override so native installation
-      // ancestry selects its cache rather than the cohort observation root.
-      const env = { TTSC_CACHE_DIR: "" };
-      for (const phase of ["before", "after"]) {
-        if (phase === "after") {
-          const result = spawn(TestProject.TTSX_BIN,
-            ["--cwd", root, "--project", "test/tsconfig.json", "test/main.ts"], { cwd: root, env });
-          try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-          try { assert.equal(result.stdout.trim(), cacheBoundary.marker); } catch (error) { failures.push(error); }
-          if (!cacheBoundary.nearer) {
-            try { assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false); }
-            catch (error) { failures.push(error); }
-          }
-        }
-        const query = spawn(TestProject.TTSC_BIN,
-          ["cache", "paths", "--json", "--cwd", root, "--project", "test/tsconfig.json"], { cwd: root, env });
-        try { assert.equal(query.status, 0, query.stderr); } catch (error) { failures.push(error); }
-        try { assert.equal((JSON.parse(query.stdout) as { cacheRoot: string }).cacheRoot, expected, phase); }
-        catch (error) { failures.push(error); }
-      }
-      try { assert.deepEqual(fs.readdirSync(path.join(expected, "ttsx", "project")), []); }
-      catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, cacheBoundary.name + " assertions failed");
-    },
-  });
   // Source depth is an input distinction: stage the original layouts in
   // separate compiler profiles rather than changing either inferred root.
   for (const layout of [
@@ -1884,140 +1790,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
       try { assert.equal(result.stdout.trim(), "nested-tsconfig-ok"); } catch (error) { failures.push(error); }
       if (failures.length) throw new AggregateError(failures, "nested entry discovers package tsconfig assertions failed");
-    },
-  });
-  profiles.push({
-    name: "dependency-composite-and-excluded-emit-add-no-declared-output-files",
-    files: FixtureFiles.read("ttsc/ttsx_dependency_build_leaves_its_declared_outputs_untouched/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      function listTree(directory: string): string[] {
-        const files: string[] = [];
-        const walk = (current: string): void => {
-          for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-            const location = path.join(current, entry.name);
-            if (entry.isDirectory()) walk(location);
-            else files.push(path.relative(directory, location).split(path.sep).join("/"));
-          }
-        };
-        walk(directory);
-        return files.sort();
-      }
-      const before = listTree(path.join(root, "dep"));
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      const failures: unknown[] = [];
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["inside", "extra"]); }
-      catch (error) { failures.push(error); }
-      try { assert.deepEqual(listTree(path.join(root, "dep")), before); } catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, "dependency declared output path assertions failed");
-    },
-  });
-  for (const permissionProfile of [
-    { name: "native-write-denial-distinguishes-excluded-and-included-entry",
-      fixture: "ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry", excluded: true },
-    { name: "native-read-only-project-runs-without-explicit-cache-and-gains-no-top-level-names",
-      fixture: "ttsx_runs_a_read_only_project_without_a_cache_dir", excluded: false },
-  ]) profiles.push({
-    name: permissionProfile.name,
-    files: FixtureFiles.read(`ttsc/${permissionProfile.fixture}/inputs-1`),
-    run: (root, _persistent, spawn, _ownAsyncProcess, abortReuse) => {
-      if (process.getuid?.() === 0) return false;
-      const beforeNames = fs.readdirSync(root).sort();
-      const nativeInputs = path.join(linkedInputs, permissionProfile.name);
-      fs.mkdirSync(nativeInputs);
-      const cacheDir = path.join(nativeInputs, "runtime-cache");
-      if (permissionProfile.excluded) fs.mkdirSync(cacheDir);
-      const mode = fs.statSync(root).mode;
-      const aclBefore = path.join(nativeInputs, "before.acl");
-      const aclAfter = path.join(nativeInputs, "after.acl");
-      let aclPending = false;
-      const aclCommand = (args: string[], cwd: string): void => {
-        aclPending = true;
-        const receipt = E2eProcessTrace.spawnSync("icacls", args, { cwd, encoding: "utf8" });
-        assert.equal(receipt.error, undefined);
-        assert.equal(receipt.signal, null);
-        assert.ok(Number.isSafeInteger(receipt.pid) && receipt.pid > 0);
-        assert.ok(Number.isInteger(receipt.status) && receipt.status !== null && receipt.status >= 0);
-        aclPending = false;
-        assert.equal(receipt.status, 0, receipt.stderr || receipt.stdout);
-      };
-      const failures: unknown[] = [];
-      let permissionMutationAttempted = false;
-      let hostPending = false;
-      try {
-        if (process.platform === "win32")
-          aclCommand([path.basename(root), "/save", aclBefore, "/q"], path.dirname(root));
-        permissionMutationAttempted = true;
-        if (process.platform === "win32")
-          aclCommand([root, "/deny", "*S-1-1-0:(WD,AD)"], path.dirname(root));
-        else fs.chmodSync(root, 0o555);
-        if (permissionProfile.excluded) {
-          hostPending = true;
-          const outside = spawn(TestProject.TTSX_BIN,
-            ["--cwd", root, "--cache-dir", cacheDir, "clear.ts"], { cwd: root });
-          hostPending = false;
-          try { assert.equal(outside.status, 2, outside.stdout); } catch (error) { failures.push(error); }
-          try { assert.match(outside.stderr, /is not writable/); } catch (error) { failures.push(error); }
-          try { assert.ok(outside.stderr.includes(fs.realpathSync.native(root)) || outside.stderr.includes(root), outside.stderr); }
-          catch (error) { failures.push(error); }
-          try { assert.match(outside.stderr, /"include" or "files"/); } catch (error) { failures.push(error); }
-          try { assert.doesNotMatch(outside.stdout, /outside-ran/); } catch (error) { failures.push(error); }
-        }
-        hostPending = true;
-        const included = spawn(TestProject.TTSX_BIN,
-          permissionProfile.excluded
-            ? ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"]
-            : ["--cwd", root, "src/main.ts"], { cwd: root });
-        hostPending = false;
-        try { assert.equal(included.status, 0, included.stderr); } catch (error) { failures.push(error); }
-        try { assert.equal(included.stdout.trim(), permissionProfile.excluded ? "included-ran" : "read-only-ran"); } catch (error) { failures.push(error); }
-      } catch (error) { failures.push(error); }
-      finally {
-        if (hostPending || aclPending) {
-          TestProject.retainTemporaryDirectory(linkedInputs, "Unresolved permission host or ACL command retains its external cache and DACL snapshots");
-          abortReuse(new AggregateError(failures, "unresolved write-denied runtime host"));
-        }
-        if (permissionMutationAttempted) {
-          try {
-            if (process.platform === "win32") {
-              aclCommand([path.dirname(root), "/restore", aclBefore, "/q"], path.dirname(root));
-              aclCommand([path.basename(root), "/save", aclAfter, "/q"], path.dirname(root));
-              assert.deepEqual(fs.readFileSync(aclAfter), fs.readFileSync(aclBefore));
-            } else {
-              fs.chmodSync(root, mode);
-              assert.equal(fs.statSync(root).mode, mode);
-            }
-          } catch (error) {
-            TestProject.retainTemporaryDirectory(linkedInputs, "Failed native permission restoration retains cache and DACL evidence");
-            abortReuse(new AggregateError([...failures, error], "failed write-denied project restoration"));
-          }
-        }
-      }
-      if (!permissionProfile.excluded) {
-        try { assert.deepEqual(fs.readdirSync(root).sort(), beforeNames); }
-        catch (error) { failures.push(error); }
-      }
-      if (failures.length) throw new AggregateError(failures, permissionProfile.name + " assertions failed");
-    },
-  });
-  profiles.push({
-    name: "relative-runtime-cache-resolves-from-selected-cwd-not-driver",
-    files: FixtureFiles.read("ttsc/ttsx_relative_cache_dir_resolves_from_cwd_option/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const driverCwd = path.join(linkedInputs, "relative-cache-driver");
-      fs.mkdirSync(driverCwd);
-      const cacheDir = ".ttsx-cache";
-      const result = spawn(TestProject.TTSX_BIN,
-        ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"], { cwd: driverCwd });
-      const failures: unknown[] = [];
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.equal(result.stdout.trim(), "relative-runner-cache"); } catch (error) { failures.push(error); }
-      const projectCache = path.join(root, cacheDir, "project");
-      try { assert.equal(fs.existsSync(projectCache), true); } catch (error) { failures.push(error); }
-      try { assert.deepEqual(fs.readdirSync(projectCache), []); } catch (error) { failures.push(error); }
-      try { assert.equal(fs.existsSync(path.join(driverCwd, cacheDir, "project")), false); }
-      catch (error) { failures.push(error); }
-      if (failures.length) throw new AggregateError(failures, "relative runtime cache cwd assertions failed");
     },
   });
   profiles.push({
