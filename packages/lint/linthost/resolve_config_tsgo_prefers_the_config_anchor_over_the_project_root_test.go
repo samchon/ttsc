@@ -8,7 +8,7 @@ import (
 // TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot verifies the
 // config file's own install outranks the resolution root's.
 //
-// Anchor order is the whole policy, and it is shared with the JS evaluator's
+// The config-before-project anchor order is also used by the JS evaluator's
 // `resolveConfigTsgo`: the config file decides, because its imports were
 // written against the toolchain its own installation carries. In a monorepo
 // where a workspace pins a different `typescript` than the root, taking the
