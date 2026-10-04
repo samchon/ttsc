@@ -16,18 +16,21 @@ import (
 )
 
 // TestRuntimeEmittedExportPopulation verifies a compatible source DAG through
-// one library Program and one independent Node evaluation of its output files.
+// one lowered library Program and one independent Node evaluation of its output files.
+// A second ordinary ESNext Program over the same inputs observes retained
+// decorator syntax without executing that syntax in Node.
 // The .ts population uses NodeNext with a CommonJS root; explicit .mts and .cts
 // inputs retain their distinct output formats. This does not exercise ttsx's
 // ESM extensionless loader, installed consumers, plugin stripping or cache life.
 //
-// @evidence contracts/testing.md#behavioral-verification LoadProgram and EmitAllRaw produce the actual files consumed by native Node require/import. Complete decorator and member transcripts, live reexports, namespace values, dynamic CommonJS exports, cyclic exports, directory-index resolution and side-effect values are compared to authored literals.
+// @evidence contracts/testing.md#behavioral-verification LoadProgram and EmitAllRaw produce the actual files consumed by native Node require/import. Complete decorator and member transcripts, live reexports, namespace values, dynamic CommonJS exports, cyclic exports, directory-index resolution and side-effect values are compared to authored literals. One additional ordinary ESNext Program retains the actual standard/member decorator spellings in its four .mts/.cts outputs; input files retain their original bytes across both emits.
 // @evidence contracts/testing.md#independent-expectations Expected strings and numbers are independent constants. Hidden and ghost modules throw if executed; template/comment/type-only export decoys must remain absent. The runtime provider is the existing tslib package copied without rewriting, not an authored helper substitute.
 // @evidence contracts/testing.md#distinguishing-cases The same Program contains CommonJS .ts packages, explicit ESM .mts and CommonJS .cts decorators, star/renamed/namespace reexports, a cycle, dynamic property creation, a live value mutation and directory/side-effect edges. Missing outputs, configuration/emit diagnostics, Node failure or any literal mismatch fail. No native type-check, ESM extensionless policy, export-name scanner, orphan ownership, source cache or stripping claim is made.
-// @evidence contracts/testing.md#execution-ownership An owned temporary project receives package-owned byte inputs and an unchanged existing tslib provider. One compiler Program is closed after its emission; one synchronous Node child reads those emitted files and completes before cleanup. Its Output call runs once and private trace records the actual Cmd outcome. No SDK installation, product CLI, shared host, foreign-method replacement or per-donor Program loop occurs. Existing console warnings are retained on stderr and are not a strip oracle.
+// @evidence contracts/testing.md#execution-ownership An owned temporary project receives package-owned byte inputs and an unchanged existing tslib provider. Two compiler Programs cover the incompatible ES2022 lowering and ordinary ESNext syntax-preservation targets over the same source DAG; both close before temporary cleanup. One synchronous Node child reads only the lowered output files and completes before cleanup. Its Output call runs once and private trace records the actual Cmd outcome. No SDK installation, product CLI, shared host, foreign-method replacement or per-donor Program loop occurs. Existing console warnings are retained on stderr and are not a strip oracle.
 func TestRuntimeEmittedExportPopulation(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
+  sourceBytes := make(map[string]string)
   write := func(name string, data []byte) {
     if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil { t.Fatal(err) }
     if err := os.WriteFile(name, data, 0o644); err != nil { t.Fatal(err) }
@@ -44,6 +47,7 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
       data, err := os.ReadFile(name)
       if err != nil { return err }
       write(filepath.Join(destination, relative), data)
+      if destination == root { sourceBytes[filepath.Join(destination, relative)] = string(data) }
       return nil
     })
     if err != nil { t.Fatal(err) }
@@ -149,5 +153,36 @@ const load=(name)=>require(path.join(root,name));
     want, err := json.Marshal(value)
     if err != nil { t.Fatal(err) }
     if strings.TrimSpace(string(actual[name])) != string(want) { t.Errorf("%s = %s, want %s", name, actual[name], want) }
+  }
+  compilerOptions := config["compilerOptions"].(map[string]any)
+  compilerOptions["target"] = "ESNext"
+  compilerOptions["outDir"] = "dist-esnext"
+  encoded, err = json.Marshal(config)
+  if err != nil { t.Fatal(err) }
+  write(filepath.Join(root, "tsconfig.json"), encoded)
+  ordinary, diagnostics, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: []string{}})
+  if err != nil { t.Fatal(err) }
+  if ordinary == nil || len(diagnostics) != 0 { t.Fatalf("ordinary ESNext Program/configuration: %v, %#v", ordinary, diagnostics) }
+  defer ordinary.Close()
+  ordinaryOutput := make(map[string]string)
+  _, diagnostics, err = ordinary.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+    ordinaryOutput[filepath.Clean(name)] = text
+    return nil
+  })
+  if err != nil || len(diagnostics) != 0 { t.Fatalf("ordinary ESNext emit: %v, %#v", err, diagnostics) }
+  for _, extension := range []string{"mjs", "cjs"} {
+    standard := ordinaryOutput[filepath.Join(root, "dist-esnext", "standard."+extension)]
+    for _, spelling := range []string{"@sayHelloClass", "@sayHelloMethod"} {
+      if !strings.Contains(standard, spelling) { t.Errorf("standard.%s lost ordinary ESNext syntax %q", extension, spelling) }
+    }
+    member := ordinaryOutput[filepath.Join(root, "dist-esnext", "member."+extension)]
+    for _, spelling := range []string{"@tagged", "@field", "@accessor", "@method"} {
+      if !strings.Contains(member, spelling) { t.Errorf("member.%s lost ordinary ESNext syntax %q", extension, spelling) }
+    }
+  }
+  for name, before := range sourceBytes {
+    after, err := os.ReadFile(name)
+    if err != nil { t.Fatal(err) }
+    if string(after) != before { t.Errorf("compiler emission changed source input: %s", name) }
   }
 }
