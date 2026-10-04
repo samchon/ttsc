@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource requires zero findings for eight canonical or unsupported labels.
 // @evidence contracts/testing.md#independent-expectations The literal zero oracle follows the supported label vocabulary, not a generated table copied from the product.
 // @evidence contracts/testing.md#distinguishing-cases utf8/ascii, four unknown encodings, empty string and canonical template remain clean; the corpus fixture unicorn-text-encoding-identifier-case.ts owns the noncanonical twins.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseSkipsCanonicalAndUnknownLabels is a discoverable Go unit host; its source/option fixtures exercise owning AST engine and fix operations in the shared Go process without consumer installation, native builds or product child hosts. Helper failures retain the source/expected fixture identity.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseSkipsCanonicalAndUnknownLabels is a discoverable Go unit host; the real parser and AST engine require zero findings for its eight authored sources in the shared Go process without consumer installation, native builds or product child hosts. Helper failures retain the source identity; this entry does not apply fixes.
 func TestUnicornTextEncodingIdentifierCaseSkipsCanonicalAndUnknownLabels(t *testing.T) {
   for _, source := range []string{
     "const enc = \"utf8\";\nvoid enc;\n",

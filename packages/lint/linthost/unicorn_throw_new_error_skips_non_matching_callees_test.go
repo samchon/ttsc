@@ -8,9 +8,10 @@ import "testing"
 // Matching any `*Error` name instead of eight built-ins is only safe with the
 // counter-examples pinned: the name pattern is anchored and case-sensitive
 // (`fooError`, `ERROR`, `Errors` must stay silent), computed member access is
-// opaque (`lib["Error"]()`), and an optional chain must never be reported
-// because the autofix would emit `new lib?.Error()`, which is a syntax error —
-// the fix, not just the report, is what makes these exclusions load-bearing.
+// opaque (`lib["Error"]()`), and a direct optional chain must not be rewritten
+// as `new lib?.Error()`, which is a syntax error. Grouped optional callees
+// remain excluded by the rule's conservative policy too; not every grouped
+// construction would be syntactically invalid.
 // `Data.TaggedError()` is upstream's Effect-library carve-out; it builds an
 // error class, so `new` would be wrong.
 //
@@ -18,7 +19,7 @@ import "testing"
 //  2. Assert the engine emits no finding at all.
 //
 // @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource executes the actual engine for each named source and requires no findings, exposing widened names or unsafe new fixes.
-// @evidence contracts/testing.md#independent-expectations The supported anchored Error-name policy, JavaScript optional-chain constructor restriction and official Effect Data exception establish acceptance independently of findings.
+// @evidence contracts/testing.md#independent-expectations The supported anchored Error-name policy and exact Effect Data exception establish the literal exclusions. JavaScript forbids a direct optional chain in a new callee; the rule additionally preserves grouped or assertion-wrapped optional callees conservatively rather than asserting every grouped form is a syntax error.
 // @evidence contracts/testing.md#distinguishing-cases Constructed values, wrong names/cases, noncalls, computed final keys, optional chains at every object/call link and Data.TaggedError remain clean; ReportsCustomAndMemberCallees owns reportable twins.
 // @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorSkipsNonMatchingCallees is the named Go unit owner of these authored sources and any named t.Run variants. The lint engine reads authored fixtures in the shared Go process; no installation, native build or real product child runs.
 func TestUnicornThrowNewErrorSkipsNonMatchingCallees(t *testing.T) {
