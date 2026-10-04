@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestUnicornNumberLiteralCaseFixesLiteralsInEverySyntacticPosition verifies the
-// rule fires wherever a numeric literal token can appear, not only in a value
+// rule fixes the six authored numeric-token positions, beyond a value
 // initializer.
 //
 // The rule dispatches on the literal kind rather than on its parent, so a
@@ -21,7 +21,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification exact fix snapshots preserve surrounding syntax in six distinct numeric-token positions.
 // @evidence contracts/testing.md#independent-expectations Authored whole-source outputs encode case-only canonicalization while retaining parent tokens and trivia independently of the scanner.
-// @evidence contracts/testing.md#distinguishing-cases Type literal, enum, object key, template substitution, preceding comment and TSX attribute all change safely; TestUnicornNumberLiteralCaseSkipsCanonicalLiterals owns canonical negatives.
+// @evidence contracts/testing.md#distinguishing-cases Type literal, enum, object key, template substitution, preceding comment and TSX attribute all change safely;
 // @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseFixesLiteralsInEverySyntacticPosition is a discoverable Go unit host; owning engine and fixer operations run its literal fixtures in the shared process without installation, native builds or product children. Failures retain the source and literal expected replacement or finding identity.
 func TestUnicornNumberLiteralCaseFixesLiteralsInEverySyntacticPosition(t *testing.T) {
   for _, testCase := range []struct {

@@ -5,11 +5,10 @@ import "testing"
 // TestUnicornNumberLiteralCaseFixIsIdempotent verifies the fixed source is a
 // fixed point: re-linting it reports nothing.
 //
-// `ttsc fix` runs the cascade until no edit is produced, so a fixer that
-// emitted a still-non-canonical literal would re-report its own output and burn
-// every pass before the harness gives up. Feeding each rewritten source back
-// through the rule proves the emitted spelling is the one the rule accepts —
-// for the exponent, prefix, hex-digit, and BigInt branches alike.
+// Six independent full-source goldens establish the intended spelling.
+// The same six inputs then run the actual fix helper and feed its output
+// back through the owning rule. This separately checks output correctness
+// and stability for the authored exponent, prefix, hex-digit and BigInt cases.
 //
 //  1. Fix a non-canonical literal of each branch.
 //  2. Re-run the rule on the rewritten source.

@@ -3,15 +3,15 @@ package linthost
 import "testing"
 
 // TestUnicornNoUnusedPropertiesTypeLiteralSemantics verifies the TypeScript
-// half of the upstream analysis: inline type-literal containers on parameters
+// cases of the native analysis: inline type-literal containers on parameters
 // and variable declarations.
 //
-// Upstream only analyzes an annotation when it is a literal `{...}` type on
+// The authored expectations analyze an inline type annotation on
 // an identifier (named aliases and interfaces are opaque), prefers an
 // object-literal initializer over the annotation, filters non-property
 // members (methods, index/call signatures), and sees through TypeScript
 // expression wrappers when following reference chains. Each arm below pins
-// one of those decisions with a used/unused pair.
+// one of those decisions with marked unused members or an unmarked control.
 //
 //  1. Declare parameters and variables covering annotation containers,
 //     initializer priority, assertion wrappers, and signature filtering.
@@ -19,7 +19,7 @@ import "testing"
 //  3. Assert exactly the `/* unused:NAME */`-marked members are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual Program/checker findings compare exactly with authored unused-member markers, detecting incorrect annotation selection or references through TypeScript wrappers.
-// @evidence contracts/testing.md#independent-expectations The supported inline-type analysis and official Unicorn initializer-priority/member-filtering policy establish independently authored used/unused pairs.
+// @evidence contracts/testing.md#independent-expectations Independent source markers specify inline-type, initializer-priority and member-filtering expectations; expected names and lines are obtained from those annotations rather than production container selection.
 // @evidence contracts/testing.md#distinguishing-cases Inline parameters/nested types/annotations/wrappers report unused twins; whole escapes, dynamic keys, writes/calls, named aliases/interfaces, destructuring, ambient/uninitialized declarations and this-only parameter-property use retain their documented exclusions.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesTypeLiteralSemantics owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesTypeLiteralSemantics(t *testing.T) {
