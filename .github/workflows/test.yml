@@ -25,5 +25,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ttsc/lint run build
       - run: pnpm --filter @ttsc/evidence run build
+      - name: Prepare generated Graph implementation once
+        run: |
+          pnpm --filter ttsc run build
+          pnpm --filter @ttsc/linux-x64 run build
+          pnpm --filter @ttsc/graph run build
       - run: pnpm run test:go
       - run: pnpm run test:units
