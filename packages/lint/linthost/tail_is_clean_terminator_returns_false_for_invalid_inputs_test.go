@@ -9,12 +9,10 @@ import (
 // containing two semicolons, and a gap containing a non-whitespace token.
 //
 // The function guards three distinct false cases: (1) out-of-range bounds
-// prevent a slice panic; (2) two semicolons would produce double-semicolons
-// if the caller re-minted the trailing `;`; (3) any character that is
-// neither whitespace nor a single semicolon (e.g. a comment token `/`) means
-// there is trivia in the gap that the printer cannot safely reproduce. All
-// three must return false so the caller falls back to verbatim, preserving
-// the original source rather than emitting corrupt output.
+// prevent a slice panic; (2) two semicolons exceed the one-terminator policy;
+// (3) a slash is outside the admitted whitespace/semicolon bytes. The actual
+// printer uses rejection to select a verbatim fallback, but these direct calls
+// observe only the predicate results, not reconstructed or fallback output.
 //
 //  1. Call tailIsCleanTerminator with exprEnd=-1, with stmtEnd before
 //     exprEnd and with stmtEnd past the end of the source (all three
@@ -49,7 +47,7 @@ func TestTailIsCleanTerminatorReturnsFalseForInvalidInputs(t *testing.T) {
   }
 
   // Case 3: non-whitespace non-semicolon character in the tail gap.
-  // src = "foo() /* */;", exprEnd=5, stmtEnd=12 → gap " /* */;" contains "/"
+  // src = "foo() /* */;", exprEnd=5, stmtEnd=len(src) → gap " /* */;" contains "/"
   src3 := "foo() /* */;"
   if tailIsCleanTerminator(src3, 5, len(src3)) {
     t.Fatalf("expected false for tail containing comment characters")
