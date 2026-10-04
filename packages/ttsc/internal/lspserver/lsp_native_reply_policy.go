@@ -99,6 +99,23 @@ func nativePluginCommandArgs(plugin NativeLSPPluginEntry, command, cwd, tsconfig
   return append(allArgs, args...)
 }
 
+// nativeSidecarContext selects nonblank supplied physical context fields while
+// leaving client spelling with the caller. Common: It validates JSON shape but
+// does not establish filesystem identity or prove the producer's physical claim.
+// Parsing/scanning follows context bytes; returned strings own no native handle.
+func nativeSidecarContext(cwd, tsconfig string, context json.RawMessage) (string, string, error) {
+  if len(context) > 0 {
+    var identity struct {
+      PhysicalConfigPath string `json:"physicalConfigPath"`
+      PhysicalProjectRoot string `json:"physicalProjectRoot"`
+    }
+    if err := json.Unmarshal(context, &identity); err != nil { return "", "", fmt.Errorf("ttscserver: decode project context: %w", err) }
+    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" { cwd = identity.PhysicalProjectRoot }
+    if strings.TrimSpace(identity.PhysicalConfigPath) != "" { tsconfig = identity.PhysicalConfigPath }
+  }
+  return cwd, tsconfig, nil
+}
+
 // nativePluginCommandResult adapts the actual Run outcome and bounded buffers.
 // A failed command uses stderr or the returned error, marking retained stderr
 // at its limit. Successful stdout overflow is rejected before bytes are served.

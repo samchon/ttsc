@@ -329,23 +329,8 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   if err != nil {
     return nil, fmt.Errorf("ttscserver: encode plugin manifest: %w", err)
   }
-  sidecarCwd := opts.Cwd
-  sidecarTsconfig := opts.Tsconfig
-  if len(manifest.ProjectContext) > 0 {
-    var identity struct {
-      PhysicalConfigPath  string `json:"physicalConfigPath"`
-      PhysicalProjectRoot string `json:"physicalProjectRoot"`
-    }
-    if err := json.Unmarshal(manifest.ProjectContext, &identity); err != nil {
-      return nil, fmt.Errorf("ttscserver: decode project context: %w", err)
-    }
-    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" {
-      sidecarCwd = identity.PhysicalProjectRoot
-    }
-    if strings.TrimSpace(identity.PhysicalConfigPath) != "" {
-      sidecarTsconfig = identity.PhysicalConfigPath
-    }
-  }
+  sidecarCwd, sidecarTsconfig, err := nativeSidecarContext(opts.Cwd, opts.Tsconfig, manifest.ProjectContext)
+  if err != nil { return nil, err }
   source := &NativePluginSource{
     cwd:                sidecarCwd,
     err:                opts.Err,

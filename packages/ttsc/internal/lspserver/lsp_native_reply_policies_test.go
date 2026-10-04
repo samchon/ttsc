@@ -163,6 +163,25 @@ func TestNativeReplyPolicies(t *testing.T) {
     }
     if !slices.Equal(extra, []string{"--uri=file:///tmp/a.ts"}) { t.Error("extra argv input mutated") }
   })
+  t.Run("logical_client_and_physical_sidecar_context", func(t *testing.T) {
+    context := json.RawMessage(`{"invocationCwd":"/logical","logicalConfigPath":"/logical/tsconfig.json","logicalProjectRoot":"/logical","physicalConfigPath":"/physical root/physical-tsconfig.json","physicalProjectRoot":"/physical root"}`)
+    original := string(context)
+    cwd, config, err := nativeSidecarContext("/client", "logical-tsconfig.json", context)
+    if err != nil || cwd != "/physical root" || config != "/physical root/physical-tsconfig.json" || string(context) != original { t.Fatalf("physical context = %q, %q, %v", cwd, config, err) }
+    plugins := `[{"config":{"mode":"strict"},"name":"@ttsc/fake","stage":"check"}]`
+    for _, command := range []string{"lsp-command-ids", "lsp-code-action-kinds", "lsp-diagnostics", "lsp-code-actions", "lsp-execute-command"} {
+      actual := nativePluginCommandArgs(NativeLSPPluginEntry{ProjectContextArgs: true}, command, cwd, config, plugins, original, nil)
+      expected := []string{command, "--cwd=/physical root", "--tsconfig=/physical root/physical-tsconfig.json", "--plugins-json="+plugins, "--project-context-json="+original}
+      if !slices.Equal(actual, expected) { t.Errorf("physical command input = %v", actual) }
+    }
+    for _, raw := range []json.RawMessage{nil, json.RawMessage(`null`), json.RawMessage(`{"physicalProjectRoot":" \t","physicalConfigPath":""}`)} {
+      cwd, config, err := nativeSidecarContext("/client", "logical-tsconfig.json", raw)
+      if err != nil || cwd != "/client" || config != "logical-tsconfig.json" { t.Errorf("absent physical context = %q, %q, %v", cwd, config, err) }
+    }
+    if _, _, err := nativeSidecarContext("/client", "logical-tsconfig.json", json.RawMessage(`{"physicalProjectRoot":1}`)); err == nil || !strings.HasPrefix(err.Error(), "ttscserver: decode project context: ") { t.Errorf("invalid physical context = %v", err) }
+    edit, err := decodeNativeLSPWorkspaceEdit(NativeLSPPluginEntry{Name: "@ttsc/fake"}, []byte(`{"changes":{"file:///tmp/main.ts":[{"newText":"let"}]}}`))
+    if err != nil || edit == nil || len(edit.Changes["file:///tmp/main.ts"]) != 1 || edit.Changes["file:///tmp/main.ts"][0].NewText != "let" { t.Errorf("route edit literal = %#v, %v", edit, err) }
+  })
   t.Run("result_precedence_and_stderr_format", func(t *testing.T) {
     plugin := NativeLSPPluginEntry{Name: "literal"}
     stdout := limitedBuffer{limit: nativePluginCommandStdoutLimit}
