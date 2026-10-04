@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoClassAssign verifies class binding identity and every write surface.
+// TestRuleCorpusNoClassAssign verifies class binding identity across the authored write forms.
 //
 // A file-wide name set conflates unrelated shadows and only sees bare binary
 // assignments. The checker must connect each modifying reference to the class
@@ -13,7 +13,7 @@ import (
 // class-body references and TypeScript declaration merges.
 //
 //  1. Write class bindings through assignment, update, destructuring, loop, and TypeScript wrapper forms.
-//  2. Place official clean twins and same-spelled parameter, local, block, catch, loop, and sibling shadows beside them.
+//  2. Place authored clean controls and same-spelled parameter, local, block, catch, loop, and sibling shadows beside them.
 //  3. Assert exactly the marked identifier ranges are reported once with the canonical message.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual Checker-backed Engine compares every marked identifier range, rule, severity and canonical class message and forbids edits.
