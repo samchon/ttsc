@@ -5,20 +5,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
-import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
-import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
- * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, matching map and dependency records. The actual ApplyProgram log grows by one across both joined workers. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
- * @evidence contracts/testing.md#independent-expectations Original coordinates, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
+ * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. The actual ApplyProgram log grows by one across both joined workers. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
+ * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/absent-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/absent-map/dependency delivery; arbitrary restart, dead-owner takeover and observer transitions remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -78,11 +76,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.equal(relative.startsWith("..") || path.isAbsolute(relative), false);
     assert.notEqual(dependency, path.join(workspace.root, "src/map.ts"));
   }
-  const generated = positionOf(turbopack.content, '"authored-marker"');
-  const original = originalPositionFor(turbopack.map, generated.line, generated.column);
-  assert.ok(original);
-  assert.match(original.source, /map\.ts$/);
-  assert.deepEqual({ line: original.line, column: original.column }, positionOf(fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8"), '"authored-marker"'));
+  assert.equal(turbopack.map, undefined, "the native api-transform source-text envelope does not emit a source map");
+  assert.equal(turbopack.content.replace(/\r\n/g, "\n"), fs.readFileSync(path.join(workspace.root, "expected-map-source.txt"), "utf8").replace(/\r\n/g, "\n"), "the native preparse banner changes the source text without fabricating an emitted map");
   assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
   BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
   const publications = () => fs.readdirSync(session).filter((name) => name.endsWith(".json")).sort().map((name) => {
