@@ -2,26 +2,19 @@ package linthost
 
 import "testing"
 
-// TestSolidImportsRelocatesAMisroutedSpecifier verifies `solid/imports` fixes
-// every shape a misrouted specifier can be in, not only the one where it stands
-// alone.
-//
-// The fix used to return no edits whenever the specifier had a sibling or the
-// declaration carried a default binding, so `import { createEffect, render }
-// from "solid-js"` — the most common way a Solid file goes wrong — produced a
-// message and nothing else. `ReportFix` with no edits is a diagnostic, and the
-// corpus asserted only that the diagnostic appeared, so the restriction was
-// invisible.
+// TestSolidImportsRelocatesAMisroutedSpecifier verifies six authored relocation
+// shapes: sole, sibling and default bindings, matching existing destinations,
+// and a type-only source declaration. Every case compares complete fixed bytes,
+// rather than accepting a diagnostic with no edits.
 //
 // The destination is consulted before the in-place rewrite. Checking the other
 // order lets the rewrite win on a file that already imports from the correct
 // module, leaving two declarations of it — the duplicate the rule's own
 // description promises to avoid.
 //
-// A type-only declaration relocates into a type-only one. Appending a value
-// import into `import type { … }` makes every use of it a TS1361 error, and
-// dropping `type` from a synthesized declaration emits a runtime import for a
-// symbol with no runtime existence.
+// The authored type-only declaration remains type-only after relocation, so
+// its render binding is not turned into a runtime import. These source oracles
+// do not compile or emit the results or establish every use is a TS1361 error.
 //
 // @evidence contracts/testing.md#behavioral-verification assertFixSnapshot exercises the actual engine and fixer to verify six named fix cases relocate render into solid-js/web and preserve sibling/default/type bindings; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations Solid module ownership puts render in solid-js/web; literal whole-source expected strings establish the required relocation and retained syntax independently of the fixer.
@@ -58,7 +51,7 @@ func TestSolidImportsRelocatesAMisroutedSpecifier(t *testing.T) {
     },
     {
       // The braces go with the specifier: `import Solid, {} from` is not what
-      // anyone meant. This shape had no fix at all before.
+      // anyone meant; the expected result preserves only the default binding here.
       "a default binding no longer blocks the fix",
       "import Solid, { render } from \"solid-js\";\nJSON.stringify({ Solid, render });\n",
       "import { render } from \"solid-js/web\";\nimport Solid from \"solid-js\";\nJSON.stringify({ Solid, render });\n",
