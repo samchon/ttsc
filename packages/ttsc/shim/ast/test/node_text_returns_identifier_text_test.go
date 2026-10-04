@@ -9,11 +9,9 @@ import (
 // TestNodeTextReturnsIdentifierText verifies NodeText returns the
 // identifier text when the node Kind already has an upstream Text() arm.
 //
-// Covers the delegated branch: for Kinds upstream supports (Identifier,
-// StringLiteral, template parts, …), NodeText must forward to the
-// upstream method verbatim. Falling back to the source slice would
-// return "" for synthesised nodes that have no source range, breaking
-// every factory-built tree we hand to the typia metadata factory.
+// Covers the Identifier delegated branch. Falling back to a source slice
+// would lose Foo on a synthesized node without a source range. Other token
+// kinds and downstream metadata consumers are not exercised by this case.
 //
 // 1. Construct a synthesised Identifier via NewIdentifier("Foo").
 // 2. Call NodeText on it.

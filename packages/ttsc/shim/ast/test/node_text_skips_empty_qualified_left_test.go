@@ -10,11 +10,10 @@ import (
 // stray leading "." when the left segment of a QualifiedName resolves
 // to the empty string.
 //
-// Parser recovery (and synthesised trees) can produce a QualifiedName
-// whose Left identifier carries empty text. A naive `left + "." + right`
-// concatenation would yield `.Inner`, which downstream code (the typia
-// metadata factory uses this as a map key) would treat as a distinct
-// parameter name. The arm has to drop the empty segment instead.
+// Synthesized trees can contain empty or absent qualified components. A naive
+// `left + "." + right` concatenation would yield `.Inner` for an empty left
+// component. This factory-only case checks separator omission without parsing
+// recovery input or exercising a downstream metadata map.
 //
 // 1. Build a QualifiedName whose Left is an Identifier created with "".
 // 2. Call NodeText on the qualified node.
