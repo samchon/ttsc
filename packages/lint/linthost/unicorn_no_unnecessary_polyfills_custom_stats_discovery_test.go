@@ -10,10 +10,9 @@ import (
 // discovery and when it is supplied through the `targets` option.
 //
 // `chrome 80` supports `Object.assign` but not `Array#toSorted`, so the stats
-// query must reproduce exactly the `{chrome: 80}` decision for both — proving
-// it resolves to that browser rather than to an empty (vacuously-available)
-// target list. A port that dropped custom-stats support would either
-// under-report or over-report.
+// query must give the authored opposite feature outcomes. This distinguishes
+// the stats-driven behavior from an empty-target fallback; it does not compare
+// the complete resolved browser list or prove that only Chrome 80 was resolved.
 //
 //  1. Discover the query from `.browserslistrc` + stats file: `object-assign`
 //     reports, `array/to-sorted` stays silent.

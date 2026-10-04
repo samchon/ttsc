@@ -10,7 +10,8 @@ import (
 //
 // The directory's `.browserslistrc` says `node 6` (which would report), but the
 // option pins `node 0.12` (which still needs the polyfill), so the option must
-// silence the rule — proving the option short-circuits config discovery.
+// silence the rule. The outcome proves decision precedence, not whether the
+// configuration file was read.
 //
 //  1. Materialize a `.browserslistrc` that alone would report.
 //  2. Lint with `targets: {node: "0.12"}`.
