@@ -141,8 +141,8 @@ var ttscserverBuild struct {
 // TestMain releases the suite-owned command only after every case has returned.
 //
 // @evidence contracts/testing.md#behavioral-verification TestMain runs the package's tests and then removes the shared ttscserver build directory, failing the suite when removal fails.
-// @evidence contracts/testing.md#independent-expectations The exit code is the oracle for cleanup failure.
-// @evidence contracts/testing.md#distinguishing-cases Release after all cases versus a bounded Windows retry of access and sharing denials.
+// @evidence contracts/testing.md#independent-expectations Explicit policy sets status one when cleanup fails; no injected cleanup failure or independent branch assertion is performed by this entry.
+// @evidence contracts/testing.md#distinguishing-cases No-build and allocated-directory cleanup branches include bounded Windows denial retry; retry/error outcomes are not individually exercised here.
 // @evidence contracts/testing.md#execution-ownership TestMain is the package entry point for the test/ttscserver binary.
 func TestMain(m *testing.M) {
   code := m.Run()

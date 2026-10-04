@@ -108,13 +108,14 @@ func buildPlatformCommand(t *testing.T) string {
   return platformCommandBuild.binary
 }
 
-// TestMain joins the artifact lifetime after every command has been waited for.
+// TestMain removes the artifact after m.Run returns; command helpers wait for
+// their direct children, not arbitrary descendants or failed-start paths.
 // Windows can briefly retain an exited image; only its access/share denials are
 // retried, matching Go TempDir cleanup, and persistent failure fails the suite.
 //
 // @evidence contracts/testing.md#behavioral-verification TestMain runs the package's tests and then removes the shared platform helper build directory, failing the suite when removal fails.
-// @evidence contracts/testing.md#independent-expectations The exit code is the oracle for cleanup failure.
-// @evidence contracts/testing.md#distinguishing-cases Release after all cases versus a bounded Windows retry of access and sharing denials.
+// @evidence contracts/testing.md#independent-expectations Cleanup errors set suite status one by explicit policy; this entry does not inject errors or independently assert that branch.
+// @evidence contracts/testing.md#distinguishing-cases No-build and allocated-directory branches implement release and bounded Windows denial retry; those failure branches are not individually exercised here.
 // @evidence contracts/testing.md#execution-ownership TestMain is the package entry point for the test/platform binary.
 func TestMain(m *testing.M) {
   code := m.Run()
