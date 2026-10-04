@@ -19,9 +19,9 @@ import (
 // Elision tests the clause's bindings rather than the ImportDeclaration, so a
 // named specifier, a default binding, and a namespace import arrive at the
 // resolver as three different node kinds. The named and default shapes are
-// pinned by siblings. This one also drags in the `__importStar` helper, which
-// the emitted file needs and which disappears with the binding, so the failure
-// is larger than one missing line.
+// pinned by siblings. This case observes the generated namespace binding and
+// its authored dependency, without certifying interop-helper definitions or
+// execution of the emitted module.
 //
 //  1. `index.ts` binds `./dep` with `import * as ns` and reads `ns.foo`.
 //  2. A plugin rebuilds that reference from a fresh ec.Factory identifier,
@@ -91,5 +91,8 @@ func TestEmitWithPluginTransformerRebuiltNamespaceImportReferenceKeepsItsBinding
   }
   if !strings.Contains(js, "const "+alias[1]+" = ") || !strings.Contains(js, `require("./dep")`) {
     t.Fatalf("reference aliased to %s but its namespace binding was elided, so the module throws ReferenceError:\n%s", alias[1], js)
+  }
+  if !regexp.MustCompile(`const ` + alias[1] + ` = [^\n]*require\("\./dep"\)`).MatchString(js) {
+    t.Fatalf("namespace binding %s does not reference the authored ./dep dependency:\n%s", alias[1], js)
   }
 }

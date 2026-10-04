@@ -17,8 +17,8 @@ import (
 //
 // The sibling rebuilt-reference tests all emit CommonJS, where the damage is a
 // missing `require` binding beside an alias that still mentions it. Under
-// `module: esnext` there is no alias and no binding: the module transformer
-// leaves the source `import` statement in place, so losing its mark deletes the
+// `module: esnext` there is no generated require binding or namespace alias:
+// the source `import` statement supplies the lexical binding, so eliding it deletes the
 // import declaration outright and the emitted file references a name it never
 // imports. Same cause, different transformer, and a fix proved only on the
 // CommonJS lane would not prove this one.
