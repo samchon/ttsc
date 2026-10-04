@@ -9,12 +9,8 @@ import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENE
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
 import { captureTransformGeneration } from "./captureTransformGeneration";
-import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { createUnstableGenerationError } from "./createUnstableGenerationError";
-import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
-
-/** One retry absorbs a transient watch write without admitting an infinite loop. */
-const TRANSFORM_GENERATION_ATTEMPTS = 2;
+import { selectTransformAttemptDisposition } from "./selectTransformAttemptDisposition";
 
 /**
  * Compile one whole project generation, retrying within a bound while its proof
@@ -73,7 +69,7 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * retain the stabilization gate.
  *
  * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
- * @evidence contracts/common.md#clear-and-simple-design The loop owns attempt classification and resource handoff, while capture owns proof construction and the shared error builder owns terminal rendering and final disposal.
+ * @evidence contracts/common.md#clear-and-simple-design The pure attempt policy selects acceptance and retry budgets; this loop owns mutable learned facts and resource handoff, capture owns proof construction, and the shared error builder owns terminal rendering and final disposal.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
@@ -154,43 +150,34 @@ export async function transformProject(props: {
       useCaseSensitiveFileNames,
       witnessedDependencies: [...witnessed],
     });
-    if (
-      cached.result.type === "failure" &&
-      (cached.result.observationsComplete === false ||
-        Object.keys(cached.result.hostInputProofFailures ?? {}).length !== 0)
-    ) {
-      // Diagnostics still follow the existing current-verdict admission below,
-      // but incomplete host observations cannot authorize pass verdict reuse.
+    const disposition = selectTransformAttemptDisposition({
+      resultType: cached.result.type,
+      configStateComplete: cached.configStateComplete,
+      projectSnapshotComplete: cached.projectSnapshotComplete,
+      projectHeldStill: cached.projectHeldStill,
+      observationsComplete:
+        cached.result.type === "failure"
+          ? cached.result.observationsComplete
+          : undefined,
+      hostInputProofFailureCount:
+        cached.result.type === "failure"
+          ? Object.keys(cached.result.hostInputProofFailures ?? {}).length
+          : 0,
+      failures: TRANSFORM_GENERATION_FAILURES.get(cached.result),
+      adopted: TRANSFORM_ADOPTED_RESULTS.get(cached.result),
+      attempt,
+      moved,
+      rejected,
+    });
+    if (disposition.freshDeliveryOnly) {
+      // Neither incomplete diagnostic observations nor a permitted local fresh
+      // success authorizes this generation's reuse beyond its current delivery.
       cached.freshDeliveryOnly = true;
     }
-    if (
-      cached.configStateComplete !== false &&
-      (cached.result.type === "success"
-        ? cached.projectSnapshotComplete === true
-        : cached.projectHeldStill !== false)
-    ) {
+    if (disposition.kind === "accepted" || disposition.kind === "fresh-only") {
       return cached;
     }
-    const failures =
-      TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
-      createGenerationProofFailures();
-    if (
-      cached.result.type === "success" &&
-      cached.configStateComplete === true &&
-      cached.projectHeldStill === true &&
-      !TRANSFORM_ADOPTED_RESULTS.has(cached.result) &&
-      failures.omitted === 0 &&
-      failures.entries.length !== 0 &&
-      failures.entries.every(
-        (failure) =>
-          failure.domain === "host" &&
-          failure.kind === "observation-unavailable",
-      )
-    ) {
-      cached.freshDeliveryOnly = true;
-      return cached;
-    }
-    attempts.push(failures);
+    attempts.push(disposition.failures);
     for (const dependency of cached.externalDependencyInputs ?? []) {
       witnessed.add(dependency);
     }
@@ -204,22 +191,14 @@ export async function transformProject(props: {
     // worker had just published, while the next edit was already landing. An
     // adoption whose own window moved refutes nothing, and is counted as the
     // compile it stood in for.
-    const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
-    if (adopted?.refuted === true) rejected = adopted.state;
-    else if (!onlyLearnedCompileFacts(failures)) moved += 1;
-    const last =
-      moved === TRANSFORM_GENERATION_ATTEMPTS ||
-      attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;
+    rejected = disposition.rejected;
+    moved = disposition.moved;
     // A failed compile the project moved under twice still names its own
     // diagnostics, which say more than an unstable-generation error.
-    if (
-      last &&
-      cached.result.type !== "success" &&
-      cached.configStateComplete !== false
-    ) {
+    if (disposition.kind === "diagnostic") {
       return cached;
     }
-    if (last) {
+    if (disposition.kind === "terminal") {
       const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
         cached.result,
       );
