@@ -277,7 +277,7 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
           })));
           assert.equal(first.omitted, 4);
         } else if (mode === "producer-candidate") {
-          assert.deepEqual(first.entries, [{ domain: "graph", kind: "proof-missing",
+          assert.deepEqual(first.entries, [{ domain: "graph", kind: "proof-conflict",
             detail: "file-exists-changed", path: candidate }]);
           assert.equal(first.omitted, 0);
         } else {
@@ -295,7 +295,7 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         const witnessLines = mode === "missing-content"
           ? dependencyNames.slice(0, 8).map((name) => '    - graph/proof-missing: ' + JSON.stringify(name) + ' (producer: "content-unavailable")')
           : mode === "producer-candidate"
-            ? ['    - graph/proof-missing: ' + JSON.stringify(relative(candidate)) + ' (producer: "file-exists-changed")']
+            ? ['    - graph/proof-conflict: ' + JSON.stringify(relative(candidate)) + ' (producer: "file-exists-changed")']
             : externalFiles.map((file) => '    - external/graph-proof-missing: ' + JSON.stringify(relative(file)));
         const omitted = mode === "missing-content" ? ['    - ... 4 additional witness(es) omitted'] : [];
         assert.equal(terminal.message, [
