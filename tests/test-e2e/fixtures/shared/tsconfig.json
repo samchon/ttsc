@@ -3,6 +3,7 @@
                             "target":  "ESNext",
                             "module":  "NodeNext",
                             "strict":  true,
+                            "preserveConstEnums": true,
                             "rootDir":  "src",
                             "outDir":  "dist",
                             "declaration":  true,

@@ -11,6 +11,13 @@ export async function observeExportPopulation(): Promise<Record<string, unknown>
   const dynamic = await import(dynamicName);
 
   const lowering = await import(loweringName);
+  const enumDirectName: string = "../enum-values.cjs";
+  const enumBarrelName: string = "../enum-barrel.cjs";
+  const enumDirect = await import(enumDirectName);
+  const enumBarrel = await import(enumBarrelName);
+  const enumRepeated = await import(enumBarrelName);
+  const enumBefore = [enumDirect.live, enumBarrel.live, enumBarrel.default.live];
+  enumDirect.change();
   const before = [inert.nested, inert.default.nested];
   inert.change();
   return {
@@ -18,5 +25,12 @@ export async function observeExportPopulation(): Promise<Record<string, unknown>
     dynamic: { actual: [dynamic.actual, dynamic.default.actual], computed: dynamic.default.dynamic, decorators: dynamic.observed },
     collision: projectOnly + ":" + packageValue,
     lowering: [lowering.default.answer, lowering.default.shout("ok"), lowering.default.namespaceBox.value].join(":"),
+    enums: {
+      value: [enumDirect.Value.Entry, enumBarrel.Value.Entry],
+      identity: enumDirect.Value === enumDirect.default.Value && enumBarrel.Value === enumBarrel.default.Value && enumDirect.Value === enumBarrel.Value,
+      typeAbsent: !("OnlyType" in enumDirect) && !("OnlyType" in enumBarrel) && !("OnlyType" in enumBarrel.default),
+      actual: [enumDirect.actual, enumBarrel.actual], before: enumBefore, after: enumBarrel.default.live,
+      repeated: enumRepeated === enumBarrel, loads: enumBarrel.loadCount(), decorators: enumBarrel.decorators,
+    },
   };
 }
