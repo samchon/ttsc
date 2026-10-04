@@ -25,15 +25,17 @@ export namespace CompilerArgumentsInspection {
    * Expand observed response frames while preserving native operand positions.
    * Throws when read-only reporting cannot safely extend the original frame.
    * The producer still receives the caller's original argv and owns diagnostics.
+   * Response text is read separately between two hashed observations; equality
+   * does not establish an atomic snapshot or detect a change restored in between.
    *
    * @evidence contracts/common.md#principled-implementation A stack preserves each response frame and occurrence widths skip scalar operands; bare booleans receive an explicit value only in the inspection projection so parent tokens cannot bind across frames.
    * @evidence contracts/common.md#clear-and-simple-design One cursor per frame and one active physical-path set distinguish ordered reuse from cycles, returning projected argv and the observations needed by the emission owner.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts This is conservative inspection admission, not a second native option validator; unknown or unsafe frames throw without rewriting the actual producer request.
    * @evidence contracts/common.md#meaningful-documentation The comment describes projected argv, refusal and retained native diagnostic ownership.
    * @evidence contracts/portability.md#os-neutral-implementation Native real paths and bigint file metadata identify response files; UTF-8 and BOM-selected UTF-16 decoding preserve the existing native filesystem text boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Each frame token is visited once and each response read is hashed; time follows expanded token/text bytes and observed file bytes, with stack and output space proportional to the expanded invocation.
+   * @evidence contracts/performance.md#efficient-algorithms Cursors advance through expanded occurrences; each response expansion performs two hashed file observations and a separate decoded read, plus native path resolution and tokenization. Cost follows all reread bytes, expanded argument text and path/metadata work; repeated frames and expansion depth have no fixed cap.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Response files are reread for each invocation because bytes and identity may change; no earlier request establishes continued validity.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads retain no handles; active paths leave the set as frames close, and projected arguments and observations transfer to the caller.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads retain no handles; active paths leave the set as frames close, and projected arguments and observations transfer to the caller. Stack, decoded buffers and output follow the uncapped expanded invocation; failures leave only call-local state for collection.
    */
   export function inspect(args: readonly string[], cwd: string) {
     const observations = new Map<string, string>();
@@ -108,7 +110,7 @@ export namespace CompilerArgumentsInspection {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No path spelling, same-stem output or version label substitutes for observed physical identity and bytes; the documented gap is not claimed atomic.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains metadata bracketing, executable ctime and the observation gap.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath and bigint stat values represent physical objects without assuming platform case policy or inode precision in JavaScript numbers.
-   * @evidence contracts/performance.md#efficient-algorithms One file read and hash are linear in its bytes, with constant metadata comparisons and a transient buffer of that file's size.
+   * @evidence contracts/performance.md#efficient-algorithms One file read and SHA256 hash scan the file bytes; two native realpath resolutions and two bigint stats also contribute filesystem cost. Signature construction, comparisons and JSON serialization follow path and metadata text, with a transient file-sized buffer and returned signature.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A current observation cannot reuse earlier bytes without validating the same current identity and contents; no history is cached here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous readFile and stat operations retain no open handle; the signature transfers to its caller.
    */
