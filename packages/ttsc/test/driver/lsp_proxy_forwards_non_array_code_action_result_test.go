@@ -8,11 +8,9 @@ import (
 )
 
 // TestLSPProxyForwardsNonArrayCodeActionResult Verifies the result-shape
-// guard in appendCodeActions. LSP allows editors to reuse ids after a
-// response is observed. If the editor cancels a codeAction id and
-// reuses it for a different method, the upstream response carries a
-// non-array result. Without the guard the proxy would unmarshal that
-// foreign result, prepend ttsc actions, and corrupt the answer.
+// guard in appendCodeActions using an authored id-correlated object result.
+// Cancellation and request-ID reuse are not exercised. The guard preserves
+// this object instead of replacing it with a plugin action array.
 //
 // 1. Configure a source that would contribute an action.
 // 2. Send a codeAction request and drain it upstream.

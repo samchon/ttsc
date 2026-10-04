@@ -261,7 +261,8 @@ func TestLSPProxyFormattingErrorReturnsEmptyArray(t *testing.T) {
 
 // TestLSPProxyForwardsFormattingWhenUnowned Verifies the proxy leaves
 // textDocument/formatting to upstream tsgo when ttsc does not own the document
-// formatter, so tsgo's own formatter keeps working in non-ttsc projects.
+// formatter. The upstream request bytes are observed, not an actual tsgo
+// formatting result or editor effect.
 //
 // 1. Configure a source that owns lint but not document formatting.
 // 2. Require its formatting request to reach upstream byte-for-byte.

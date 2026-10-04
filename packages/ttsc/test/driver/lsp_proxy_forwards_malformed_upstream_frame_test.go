@@ -6,9 +6,8 @@ import (
 )
 
 // TestLSPProxyForwardsMalformedUpstreamFrame Verifies Proxy.Run forwards non-JSON upstream bytes unchanged.
-// fail-safe on the upstream-to-editor pump. The proxy must not eat
-// frames whose envelope fails to decode. the editor's parser will tell
-// the user, which is more useful than silent dropping.
+// The upstream-to-editor pump preserves frames whose envelope fails to decode.
+// Actual editor parsing or user-facing diagnostics are not exercised here.
 //
 // The authored upstream blob supplies independent expected bytes.
 //
