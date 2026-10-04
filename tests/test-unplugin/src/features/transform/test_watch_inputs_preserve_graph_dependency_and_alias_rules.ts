@@ -22,7 +22,7 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  *
  * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file.
  * @evidence contracts/testing.md#independent-expectations Literal graph edges and dependencies reproduce the original E2E inputs; enumerated expected paths reproduce their five watch-list assertions. Real links establish equal physical files independently. Expected lists do not call the selector, traversal or normalization under test.
- * @evidence contracts/testing.md#distinguishing-cases Transitive reach, a cycle back to the delivered module, an unreachable edge, overlapping globals/configs, graph/dependency overlap and exclusive inputs, duplicate relative and absolute dependencies, and aliased versus canonical deliveries retain their contrasting lists. Every graph/dependency envelope is independent; alias deliveries share one immutable envelope to exercise its lexical memo keys.
+ * @evidence contracts/testing.md#distinguishing-cases Transitive reach, a cycle back to the delivered module, an unreachable edge, overlapping globals/configs, graph/dependency overlap and exclusive inputs, duplicate relative and absolute dependencies, and aliased versus canonical deliveries retain their contrasting lists. Every graph/dependency envelope is independent; Repeated deliveries of one immutable dependency envelope each receive the exact universal and nearer-config/source watch tail. Alias deliveries share one immutable envelope to exercise its lexical memo keys.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls notifyWatchInputs through createWatchInputUnitFixture, which reads a real temporary membership config. It executes no native producer or process. test_transformttsc_composes_a_mixed_completeness_envelope_per_file retains actual native output, dependency/graph transport and one-capture assertions; test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook retains native alias delivery. Prepared unit envelopes establish only the watch-input selection rules.
  */
 export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): void {
@@ -48,6 +48,15 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
   check("no reported dependencies", () =>
     assert.deepEqual(fixture.collect({ ...base }), fixture.universal.sort()),
   );
+  check("repeat handoff for the same recorded dependency envelope", () => {
+    const recorded: ITtscCompilerTransformation.ISuccess = {
+      ...base,
+      dependencies: { "src/main.ts": ["src/types.d.ts"] },
+    };
+    const expected = [path.join(root, "src", "types.d.ts"), ...fixture.universal].sort();
+    assert.deepEqual(fixture.collect(recorded), expected);
+    assert.deepEqual(fixture.collect(recorded), expected, "cache replay must not suppress a new host's watch handoff");
+  });
   check("graph reach, globals and configs", () =>
     assert.deepEqual(
       fixture.collect({
