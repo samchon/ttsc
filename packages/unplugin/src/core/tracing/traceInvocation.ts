@@ -23,7 +23,8 @@ import path from "node:path";
  *   Native paragraphs distinguish disabled IO, integrity failure and root ownership.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Native path.isAbsolute/join and appendFileSync address a coordinator-owned
- *   root; native PID and UTC ISO timestamps describe this writer, not an OS start.
+ *   root; native PID, process.version and UTC ISO timestamps describe this writer,
+ *   not an OS start or an inferred child runtime.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Disabled calls read one environment value. Enabled events serialize their
  *   supplied fields and append their UTF8 bytes; temporary text follows event size.
@@ -59,14 +60,27 @@ export function traceInvocation():
         at: new Date().toISOString(),
         invocation,
       };
-      let line = `${JSON.stringify({ ...fields, ...core })}\n`;
+      let line = `${JSON.stringify({
+        ...fields,
+        ...core,
+        data: {
+          ...(fields.data !== null && typeof fields.data === "object"
+            ? fields.data
+            : {}),
+          writerRuntime: process.version,
+        },
+      })}\n`;
       let bytes = Buffer.byteLength(line);
       if (bytes > EVENT_LIMIT || written + bytes > WRITER_LIMIT) {
         line = `${JSON.stringify({
           ...core,
           event: "integrity-failure",
           pid: process.pid,
-          data: { reason: "trace-byte-budget", observedBytes: bytes },
+          data: {
+            reason: "trace-byte-budget",
+            observedBytes: bytes,
+            writerRuntime: process.version,
+          },
         })}\n`;
         bytes = Buffer.byteLength(line);
         if (written + bytes > WRITER_LIMIT) return;
