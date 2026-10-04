@@ -115,11 +115,11 @@ func named(lines []Response, name string) []Response {
 }
 
 // Shared watch descriptors: two subscriptions of one directory each hear its
-// events, typed as libuv types them, until one is removed.
+// events as rename/change responses until one is removed.
 //
-// @evidence contracts/testing.md#behavioral-verification Two subscriptions of one directory each hear its events typed as libuv types them (rename on creation, change on modification) until one is removed.
+// @evidence contracts/testing.md#behavioral-verification Both subscription IDs receive a rename response for native creation and a change response for modification; after removal of ID 1, deletion responses for the file contain only ID 2 with type rename. Actual libuv execution and exact native descriptor identity are not observed.
 // @evidence contracts/testing.md#independent-expectations The expected event types and subscription ids are literals from the helper protocol.
-// @evidence contracts/testing.md#distinguishing-cases Both subscriptions are checked before and after one is removed.
+// @evidence contracts/testing.md#distinguishing-cases Native creation/modification are checked for both IDs; explicit removal followed by a sync barrier leaves only the remaining ID observing deletion. Exact response counts and physical descriptor sharing are not asserted.
 // @evidence contracts/testing.md#execution-ownership TestSharedDescriptorsAndRemoval is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSharedDescriptorsAndRemoval(t *testing.T) {
   root := t.TempDir()
@@ -138,7 +138,7 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
   for _, id := range []int64{1, 2} {
     found := false
     for _, line := range created {
-      found = found || line.ID == id
+      found = found || (line.ID == id && line.Type == "rename")
     }
     if !found {
       t.Fatalf("subscription %d missed the creation: %+v", id, created)
@@ -151,6 +151,15 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
   modified := named(s.sync(101), "a.ts")
   if len(modified) == 0 || modified[0].Type != "change" {
     t.Fatalf("modification: %+v", modified)
+  }
+  for _, id := range []int64{1, 2} {
+    found := false
+    for _, line := range modified {
+      found = found || (line.ID == id && line.Type == "change")
+    }
+    if !found {
+      t.Fatalf("subscription %d missed the modification: %+v", id, modified)
+    }
   }
 
   // Requests are served in order, so once this sync is answered the removal
@@ -201,9 +210,9 @@ func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
 // A deleted directory ends its subscription with `gone`, and its parent hears
 // the deletion as a rename of the entry.
 //
-// @evidence contracts/testing.md#behavioral-verification Deleting a watched directory reports gone for its subscription and a rename of the entry to its parent's subscription, after which a recreated directory is not reported through the released subscription.
-// @evidence contracts/testing.md#independent-expectations The expected gone and rename lines are literal protocol messages.
-// @evidence contracts/testing.md#distinguishing-cases The deleted directory, its parent and a later recreation are the three observed states.
+// @evidence contracts/testing.md#behavioral-verification Native deletion yields a gone response for child ID 2 and a parent ID 1 rename for child. After an explicit remove request for ID 2, recreation yields no response for that ID before the next sync reply; this does not independently certify automatic helper-map cleanup before explicit removal.
+// @evidence contracts/testing.md#independent-expectations Authored IDs 1/2, name child, type rename and gone=true are checked in decoded responses, then any ID-2 response is forbidden in the next sync interval. These are semantic field expectations rather than literal full JSON lines or exact response counts.
+// @evidence contracts/testing.md#distinguishing-cases Watched child deletion, simultaneous parent attention and recreation after explicit removal have different expected responses. Gone/rename ordering and duplicate response counts are not asserted.
 // @evidence contracts/testing.md#execution-ownership TestSelfDeletionEndsTheSubscription is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSelfDeletionEndsTheSubscription(t *testing.T) {
   root := t.TempDir()
@@ -227,7 +236,7 @@ func TestSelfDeletionEndsTheSubscription(t *testing.T) {
     t.Fatalf("gone=%v renamed=%v: %+v", gone, renamed, lines)
   }
 
-  // The descriptor is released, so a later event reaches nobody through it.
+  // Explicit removal precedes recreation; ID 2 must not hear the later event.
   s.send(Request{Op: "remove", ID: 2})
   if err := os.Mkdir(child, 0o755); err != nil {
     t.Fatal(err)
