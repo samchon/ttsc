@@ -6,7 +6,7 @@ import (
 
 // TestUnicornImportStyleNamespaceModulePolicyMatrix verifies the
 // `namespace`-only module: namespace bindings and whole-object require
-// targets pass, everything else is reported.
+// targets pass, while the retained unassigned/default/named forms report.
 //
 // `const x = require("namespace")` is valid because identifier targets
 // are namespace-style; `const { default: x }` is a default-style

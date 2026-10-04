@@ -10,9 +10,9 @@ import (
 // templates with static substitutions all resolve, while expressions
 // with non-static parts stay silent.
 //
-// Upstream resolves these through eslint-utils' getStringIfConstant;
-// the port must at least cover the concatenation forms upstream's own
-// test suite pins.
+// The native evaluator resolves literal concatenation and template parts;
+// these four authored spellings independently establish the module text the
+// rule must use. Identifier-dependent module text remains unknown.
 //
 //  1. Require `util` through four static spellings under default
 //     options.

@@ -13,7 +13,7 @@ import (
 // module lookup to exact (prefix-stripped) names.
 //
 //  1. Import every default-table module in its allowed style.
-//  2. Import unrelated modules in every style.
+//  2. Import fs in default, namespace and named styles plus unrelated modules.
 //  3. Assert zero findings under default options.
 //
 // @evidence contracts/testing.md#behavioral-verification The real engine requires silence for every retained compliant or unconfigured module import.
