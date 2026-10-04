@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification LSPDiagnostic round trip preserves ordered tags [1,2].
 // @evidence contracts/testing.md#independent-expectations Literal LSP tag values and their authored order establish the list.
 // @evidence contracts/testing.md#distinguishing-cases Two present tags contrast with the separate absence case.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPDiagnosticPreservesTags is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit decodes and encodes the maintained LSPDiagnostic wire type through encoding/json and checks its ordered authored tags; no sidecar, temporary project or editor connection runs.
 func TestLSPDiagnosticPreservesTags(t *testing.T) {
   input := []byte(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},"code":"no-unused-vars","message":"'x' is never used","tags":[1,2]}`)
 

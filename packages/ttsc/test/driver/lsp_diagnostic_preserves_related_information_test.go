@@ -47,6 +47,17 @@ func TestLSPDiagnosticPreservesRelatedInformation(t *testing.T) {
       t.Fatalf("relatedInformation did not round-trip intact (missing %s):\n%s", want, reencoded)
     }
   }
+  var roundTripped lspserver.LSPDiagnostic
+  if err := json.Unmarshal(reencoded, &roundTripped); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  if len(roundTripped.RelatedInformation) != 1 {
+    t.Fatalf("encoded related-information membership was lost: %+v", roundTripped.RelatedInformation)
+  }
+  related := roundTripped.RelatedInformation[0]
+  if related.Location.URI != "file:///a.ts" || related.Location.Range.Start.Character != 4 || related.Message != "'x' was first defined here." {
+    t.Fatalf("authored values were not preserved inside the related-information entry: %+v", related)
+  }
 }
 
 // TestLSPDiagnosticOmitsAbsentRelatedInformation Verifies that LSPDiagnostic encoding omits relatedInformation when input lacks it.
