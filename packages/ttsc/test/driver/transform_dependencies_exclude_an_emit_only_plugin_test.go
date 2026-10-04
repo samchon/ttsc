@@ -40,6 +40,7 @@ func (emitOnlyPlugin) EmitTransform(_ driver.PluginContext) (driver.PluginTransf
 // @evidence contracts/testing.md#execution-ownership Two synthetic Go plugins and one directly loaded Program execute without a sidecar build. Go discovers TestTransformDependenciesExcludeAnEmitOnlyPlugin under ./test/driver.
 func TestTransformDependenciesExcludeAnEmitOnlyPlugin(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"declaring","stage":"transform","config":{}},{"name":"emitOnly","stage":"transform","config":{}}]`)
   driver.RegisterPlugin(declaringProgramPlugin{})
   driver.RegisterPlugin(emitOnlyPlugin{})

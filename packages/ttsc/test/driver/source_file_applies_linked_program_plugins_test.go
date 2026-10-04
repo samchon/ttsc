@@ -19,15 +19,16 @@ import (
 //
 //  1. Register a linked ProgramPlugin that rewrites "linked-pending" into
 //     "linked-applied" and pair it with one manifest entry.
-//  2. Fetch index.ts via Program.SourceFile (never calling SourceFiles).
+//  2. Fetch index.ts via Program.SourceFile; only the hook traverses SourceFiles.
 //  3. Print the returned file and assert the linked rewrite is present.
 //
 // @evidence contracts/testing.md#behavioral-verification Program.SourceFile returns a tree with linked-applied and without linked-pending.
 // @evidence contracts/testing.md#independent-expectations The stub owns two distinct literals, so old-value absence detects missed hooks.
-// @evidence contracts/testing.md#distinguishing-cases Single-file access never calls SourceFiles; whole-program access has separate coverage.
+// @evidence contracts/testing.md#distinguishing-cases The host fetches only SourceFile; the registered hook itself traverses SourceFiles to rewrite literals. Whole-program host access has separate coverage.
 // @evidence contracts/testing.md#execution-ownership Go unit TestSourceFileAppliesLinkedProgramPlugins is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestSourceFileAppliesLinkedProgramPlugins(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"rewrite","stage":"transform","config":{}}]`)
   driver.RegisterPlugin(&stringRewriteProgramPlugin{from: "linked-pending", to: "linked-applied"})
 

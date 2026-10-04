@@ -58,4 +58,11 @@ func TestTransformGraphReportsTheCompilersCasePolicy(t *testing.T) {
   if _, ok := fields["useCaseSensitiveFileNames"]; !ok {
     t.Fatalf("the encoded graph omits its case policy: %s", encoded)
   }
+  var encodedPolicy bool
+  if err := json.Unmarshal(fields["useCaseSensitiveFileNames"], &encodedPolicy); err != nil {
+    t.Fatal(err)
+  }
+  if encodedPolicy != graph.UseCaseSensitiveFileNames {
+    t.Fatalf("encoded policy %t, graph policy %t", encodedPolicy, graph.UseCaseSensitiveFileNames)
+  }
 }

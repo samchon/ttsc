@@ -71,4 +71,11 @@ func TestTransformGraphReportsSupersedingModuleCandidates(t *testing.T) {
   if realpath := graph.InputRealpaths[selected]; realpath == nil || !filepath.IsAbs(*realpath) {
     t.Fatalf("selected source realpath = %#v, want absolute", realpath)
   }
+  physical, err := filepath.EvalSymlinks(filepath.Join(root, "src", "value.js"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if *graph.InputRealpaths[selected] != filepath.Clean(physical) {
+    t.Fatalf("selected source realpath = %q, want %q", *graph.InputRealpaths[selected], filepath.Clean(physical))
+  }
 }

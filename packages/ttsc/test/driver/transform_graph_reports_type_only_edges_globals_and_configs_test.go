@@ -20,8 +20,8 @@ import (
 // Bundlers erase type-only imports from their
 // module graphs and persistent caches replay stale generated code unless the
 // compiler host itself reports the language-semantic input set of a
-// transform. The graph must therefore carry exactly the edges tsgo's own
-// incremental engine stores in `referencedMap`, keyed like the transform
+// transform. This case checks the authored resolved edges from tsgo's
+// incremental reference helper, keyed like the transform
 // envelope's typescript map, with the embedded `bundled:///` standard library
 // excluded (those files are not filesystem inputs).
 //
@@ -87,8 +87,8 @@ export const value: MyType = { id: "x" };
   }
 
   // A file that references nothing remains an explicit leaf node. Its
-  // compiler-time proof closes the A-B-A window that project snapshots alone
-  // cannot detect.
+  // compiler-time proof must match its independently authored bytes. This
+  // fixture does not inject an A-B-A mutation during compilation.
   entry, ok := graph.Edges["mytype.ts"]
   if !ok || len(entry) != 0 {
     t.Fatalf("mytype.ts leaf adjacency = %v, %v; want present and empty", entry, ok)
