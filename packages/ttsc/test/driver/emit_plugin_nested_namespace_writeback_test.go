@@ -22,7 +22,7 @@ import (
 // 1. Transform the nested namespace initializer while rebuilding its ancestors.
 // 2. Require outer and inner writebacks, the value export and the changed 0 + 5 initializer.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs actual nested initializer rebuilding and requires outer/inner namespace writebacks, Bar.value export and changed 0 + 5 initializer.
+// @evidence contracts/testing.md#behavioral-verification Runs actual nested initializer rebuilding and requires outer/inner namespace writebacks and the literal Bar.value assignment to the changed 0 + 5 initializer.
 // @evidence contracts/testing.md#independent-expectations Literal Foo/Bar/value topology and authored 0 + 5 expression independently define expected generated structure.
 // @evidence contracts/testing.md#distinguishing-cases Two namespace levels distinguish partial parent/writeback loss; changed deepest initializer verifies the transform actually rebuilt ancestors.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes actual compiler and visitor APIs with private Program cleanup and local write map; it inspects emitted structure without a host executable.
@@ -96,5 +96,8 @@ func TestEmitWithPluginTransformerNestedNamespaceWriteback(t *testing.T) {
   // The rebuilt initializer actually applied.
   if !strings.Contains(js, "0 + 5") {
     t.Fatalf("rebuilt initializer `0 + 5` not present, rewrite did not apply:\n%s", js)
+  }
+  if !strings.Contains(js, "Bar.value = 0 + 5;") {
+    t.Fatalf("deepest member assignment `Bar.value = 0 + 5;` dropped:\n%s", js)
   }
 }

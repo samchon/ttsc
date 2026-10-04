@@ -20,7 +20,7 @@ import (
 // 1. Load the namespace fixture and transform its sibling literal.
 // 2. Require clean load and emit, the changed sibling, retained Foo.bar and namespace export writeback.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs actual sibling-literal transformation and requires clean load/emit, changed exports.x, retained Foo.bar and exported namespace writeback.
+// @evidence contracts/testing.md#behavioral-verification Runs actual sibling-literal transformation and requires clean load/emit, changed exports.x, a Foo.bar assignment and exported namespace writeback.
 // @evidence contracts/testing.md#independent-expectations Authored Foo/bar and literal sibling replacement one independently define namespace member and transform-control expectations.
 // @evidence contracts/testing.md#distinguishing-cases Unchanged exported namespace and changed sibling coexist; the control rewrite rejects a plain emitter that never ran the visitor.
 // @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes direct compiler/transformer APIs with captured writes and private Program cleanup; no product binary or runtime consumer runs.
@@ -55,6 +55,9 @@ func TestEmitWithPluginTransformerNamespace(t *testing.T) {
   js := emitted["index.js"]
   if !strings.Contains(js, "exports.x = 1;") || !strings.Contains(js, "Foo.bar") {
     t.Fatalf("plugin control rewrite or exported namespace member missing:\n%s", js)
+  }
+  if !strings.Contains(js, "Foo.bar =") {
+    t.Fatalf("exported namespace member assignment missing:\n%s", js)
   }
   if strings.Contains(js, "exports.Foo = Foo = {}") {
     t.Logf("OK namespace emitted")

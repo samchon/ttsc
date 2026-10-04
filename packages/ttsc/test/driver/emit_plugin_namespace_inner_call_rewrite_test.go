@@ -22,7 +22,7 @@ import (
 // 1. Rebuild the namespace call with the authored replacement expression.
 // 2. Require namespace writeback, the compute export and the seed(7 + 35) call.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls actual transform emission with a rebuilt namespace call and requires outer writeback, Foo.compute export and seed(7 + 35).
+// @evidence contracts/testing.md#behavioral-verification Calls actual transform emission with a rebuilt namespace call and requires outer writeback, Foo.compute assignment and seed(7 + 35).
 // @evidence contracts/testing.md#independent-expectations Literal Foo/compute identity and independently authored rebuilt call specify structure without a reference emitter.
 // @evidence contracts/testing.md#distinguishing-cases An inner fresh CallExpression forces ancestor regeneration; writeback/member/control checks distinguish retained namespace from skipped rewrite.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes an actual emit visitor and compiler with private Program, local write map and deferred close, without runtime execution.
@@ -96,6 +96,9 @@ func TestEmitWithPluginTransformerNamespaceInnerCallRewrite(t *testing.T) {
   // 2) The inner export member must still be wired onto the namespace object.
   if !strings.Contains(js, "Foo.compute") {
     t.Fatalf("inner export member `Foo.compute` was dropped:\n%s", js)
+  }
+  if !strings.Contains(js, "Foo.compute =") {
+    t.Fatalf("inner export member assignment `Foo.compute =` was dropped:\n%s", js)
   }
   // 3) The call must actually have been rebuilt (proves the visitor reconstructed
   //    namespace ancestors, not just left the original text).
