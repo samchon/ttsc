@@ -102,8 +102,8 @@ func assertUnicornFilenameCaseMessageAbsolute(t *testing.T, absolutePath, option
 //
 // @evidence contracts/testing.md#behavioral-verification NewEngine.Run compares rule/severity/line triples for PascalCase FooBar.ts under the actual virtual project path.
 // @evidence contracts/testing.md#independent-expectations The annotated error independently follows the supported default kebab-case filename policy, rather than a repository file-presence check.
-// @evidence contracts/testing.md#distinguishing-cases The source-relative src/utils/FooBar.ts path owns the corpus report; UpstreamValidFilenames supplies compliant path counterparts.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornFilenameCase owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
+// @evidence contracts/testing.md#distinguishing-cases The authored src/utils/FooBar.ts path has compliant directory segments and a noncompliant PascalCase stem under default kebab-case; this entry pins that single report.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornFilenameCase owns its corpus body and one literal virtual path under default options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
 func TestRuleCorpusUnicornFilenameCase(t *testing.T) {
   source := "// expect: unicorn/filename-case error\nexport const utilities = [] as string[];\n"
   expected := parseRuleExpectations(t, source)
