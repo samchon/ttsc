@@ -4,6 +4,9 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
 import { createWatchInputUnitFixture } from "../../internal/transform-complete/createWatchInputUnitFixture";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
 
 /**
  * Verifies graph reach, reported dependencies and lexical module exclusions
@@ -20,10 +23,10 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  *    spelling while excluding only the delivered one.
  * 3. Collect every independent list failure before reporting the matrix.
  *
- * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file.
- * @evidence contracts/testing.md#independent-expectations Literal graph edges and dependencies reproduce the original E2E inputs; enumerated expected paths reproduce their five watch-list assertions. Real links establish equal physical files independently. Expected lists do not call the selector, traversal or normalization under test.
- * @evidence contracts/testing.md#distinguishing-cases Transitive reach, a cycle back to the delivered module, an unreachable edge, overlapping globals/configs, graph/dependency overlap and exclusive inputs, duplicate relative and absolute dependencies, and aliased versus canonical deliveries retain their contrasting lists. Every graph/dependency envelope is independent; Repeated deliveries of one immutable dependency envelope each receive the exact universal and nearer-config/source watch tail. Alias deliveries share one immutable envelope to exercise its lexical memo keys.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls notifyWatchInputs through createWatchInputUnitFixture, which reads a real temporary membership config. It executes no native producer or process. test_transformttsc_composes_a_mixed_completeness_envelope_per_file retains actual native output, dependency/graph transport and one-capture assertions; test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook retains native alias delivery. Prepared unit envelopes establish only the watch-input selection rules.
+ * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file. Two direct calls with Bun's callback-absent hook shape must return undefined without invoking markVolatile or altering the observed consumer baseline.
+ * @evidence contracts/testing.md#independent-expectations Literal graph edges and dependencies reproduce the original E2E inputs; enumerated expected paths reproduce their five watch-list assertions. Real links establish equal physical files independently. Expected lists do not call the selector, traversal or normalization under test. Without a consuming module/project channel no handoff or refused-record volatility is owed; independent copies and native bytes check that both calls preserve their input.
+ * @evidence contracts/testing.md#distinguishing-cases Transitive reach, a cycle back to the delivered module, an unreachable edge, overlapping globals/configs, graph/dependency overlap and exclusive inputs, duplicate relative and absolute dependencies, and aliased versus canonical deliveries retain their contrasting lists. Every graph/dependency envelope is independent; Repeated deliveries of one immutable dependency envelope each receive the exact universal and nearer-config/source watch tail. Alias deliveries share one immutable envelope to exercise its lexical memo keys. Callback-absent first/repeat calls contrast those consuming hosts while retaining relative/absolute/duplicate/self dependency metadata.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls notifyWatchInputs through createWatchInputUnitFixture and directly with an actual native-observed consumer baseline. It executes no native producer or process. test_transformttsc_composes_a_mixed_completeness_envelope_per_file retains actual native output, dependency/graph transport and one-capture assertions; test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook retains native alias delivery. Prepared unit envelopes establish only the watch-input selection and optional-channel rules, not Bun onLoad/parser, private cache lifetime or native capture.
  */
 export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): void {
   const fixture = createWatchInputUnitFixture();
@@ -56,6 +59,44 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
     const expected = [path.join(root, "src", "types.d.ts"), ...fixture.universal].sort();
     assert.deepEqual(fixture.collect(recorded), expected);
     assert.deepEqual(fixture.collect(recorded), expected, "cache replay must not suppress a new host's watch handoff");
+  });
+  check("Bun-shaped delivery without watch or project callbacks", () => {
+    const tsconfig = path.join(root, "tsconfig.json");
+    const result: ITtscCompilerTransformation.ISuccess = {
+      type: "success",
+      typescript: { "src/main.ts": "export const value = 1;\n" },
+      hostInputs: ["tsconfig.json"],
+      dependencies: {
+        "src/main.ts": ["tsconfig.json", tsconfig, "tsconfig.json", "src/main.ts"],
+      },
+    };
+    const cached = observeValidationUnitGeneration(root, result);
+    const baseline = structuredClone(result);
+    const inputHashes = { ...cached.inputHashes };
+    const externalHashes = { ...cached.externalInputHashes };
+    const sourceBytes = fs.readFileSync(file);
+    const configBytes = fs.readFileSync(tsconfig);
+    let volatileCalls = 0;
+    const hooks = Object.freeze({
+      exactPath: true,
+      watching: false,
+      markVolatile: () => { ++volatileCalls; },
+    });
+    const selection = {
+      consulted: [],
+      filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
+      tsconfig,
+    };
+    for (let delivery = 0; delivery < 2; ++delivery) {
+      assert.equal(notifyWatchInputs(hooks, cached, file, selection), undefined);
+      assert.equal(volatileCalls, 0, "no refused record asks for volatility");
+      assert.equal(cached.result, result);
+      assert.deepEqual(result, baseline);
+      assert.deepEqual(cached.inputHashes, inputHashes);
+      assert.deepEqual(cached.externalInputHashes, externalHashes);
+      assert.deepEqual(fs.readFileSync(file), sourceBytes);
+      assert.deepEqual(fs.readFileSync(tsconfig), configBytes);
+    }
   });
   check("graph reach, globals and configs", () =>
     assert.deepEqual(
