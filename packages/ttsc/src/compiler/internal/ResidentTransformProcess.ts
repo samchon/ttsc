@@ -3,6 +3,7 @@ import { type Interface, createInterface } from "node:readline";
 
 import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentReplyKind } from "./ResidentReplyKind";
+import { ResidentTransformReply } from "./ResidentTransformReply";
 import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
 
@@ -217,7 +218,7 @@ export class ResidentTransformProcess {
       }
       return;
     }
-    const reply = parseReplyObject(trimmed);
+    const reply = ResidentTransformReply.parse(trimmed);
     if (reply === undefined) {
       // Framing violation: the line is not a JSON object, so it cannot
       // represent any reply. Reject this request and retire the whole process:
@@ -234,7 +235,7 @@ export class ResidentTransformProcess {
       this.fail(error);
       return;
     }
-    if (!isValidReply(reply, request.kind)) {
+    if (!ResidentTransformReply.isValid(reply, request.kind)) {
       // Operation-shape violation: a well-formed JSON object that is not a valid
       // reply for the operation this request sent. FIFO framing is intact — one
       // line consumed exactly one slot — so only this request is corrupt; later
@@ -389,46 +390,6 @@ function stderrSuffix(stderr: string): string {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
-}
-
-/**
- * Parse one reply line into a plain object, or `undefined` when the line is not
- * a JSON object. Invalid JSON, arrays, primitives, and `null` all yield
- * `undefined`: none of them can carry a reply's fields, so the caller treats
- * them as a framing failure rather than an empty reply. Returning `{}` here
- * would let a corrupt line masquerade as a valid negative result.
- */
-function parseReplyObject(line: string): Record<string, unknown> | undefined {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
-    return undefined;
-  }
-  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-    return parsed as Record<string, unknown>;
-  }
-  return undefined;
-}
-
-/**
- * Whether a parsed reply object is a well-formed reply for the given operation.
- * A transform reply must carry a boolean `found`, and when `found` is `true` a
- * string `typescript` (a found file always carries its transformed text); when
- * `found` is `false` the text is irrelevant. An update reply must carry a
- * boolean `updated`. Every other object shape is a protocol error.
- */
-function isValidReply(
-  reply: Record<string, unknown>,
-  kind: ResidentReplyKind,
-): boolean {
-  if (kind === "transform") {
-    if (typeof reply.found !== "boolean") {
-      return false;
-    }
-    return reply.found ? typeof reply.typescript === "string" : true;
-  }
-  return typeof reply.updated === "boolean";
 }
 
 /** Truncate an offending reply line so error messages stay bounded. */
