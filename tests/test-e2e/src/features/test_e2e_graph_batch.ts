@@ -1,5 +1,7 @@
 ﻿import assert from "node:assert/strict";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import fs from "node:fs";
+import path from "node:path";
 import { assertGraphReadonlyCorpus } from "../batch/graphReadonlyCorpus";
 import { assertGraphDispatchCorpus } from "../batch/graphDispatchCorpus";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
@@ -19,19 +21,54 @@ type NodeDetails = {
  * @evidence contracts/testing.md#distinguishing-cases String, implicitly numbered and duplicate-value enums distinguish declared member identity from a deduplicated type-value set; the class outline must remain unaffected.
  * @evidence contracts/testing.md#execution-ownership One TtsgraphClient.start owns one resident MCP/native session; a multi-handle details request and abstract dispatch trace serve all these declarations without CLI dumps or legacy scene dispatch.
  * @evidence contracts/e2e.md#necessary-boundary Real native checker extraction, snapshot transport and built MCP projection must carry each member fact. A synthetic graph cannot certify this producer boundary.
- * @evidence contracts/e2e.md#shared-execution The session borrows the unchanged common source graph and extracts all requested declarations in one request; no per-scene fixture is created.
+ * @evidence contracts/e2e.md#shared-execution The session first observes graph-free escape under invalid config with zero native starts, restores exact config bytes and initializes its one resident native snapshot. All later declaration, dispatch and readonly requests borrow that unchanged source graph; no per-scene fixture is created.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The MCP host's stdin is closed and actual process exit awaited after the body. Unknown closure rejects and shared inputs remain retained; no source mutation or force-kill substitutes for completion.
  * @evidence contracts/e2e.md#preserved-coverage Preserves the original enum-details exact assertions with renamed authored Dup/Cls declarations replaced by Duplicate/Service. Retains both original signature head/body controls and both abstract implementation dispatch/terminal controls in this same resident session. Remaining impact and refresh distinctions are not certified.
  */
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  const client = TtsgraphClient.start(workspace.root);
+  const client = TtsgraphClient.start(workspace.root, path.join(workspace.root, "graph-native-starts.jsonl"));
   try {
     await client.request("initialize", {
       protocolVersion: "2025-06-18", capabilities: {},
       clientInfo: { name: "shared-e2e", version: "1" },
     });
     client.notify("notifications/initialized", {});
+    const configFile = path.join(workspace.root, "tsconfig.json");
+    const originalConfig = fs.readFileSync(configFile);
+    assert.equal(client.nativeSpawnCount(), 0, "the escape control must precede the native producer");
+    try {
+      client.assertInputMutationAllowed();
+      fs.writeFileSync(configFile, "{ invalid compiler configuration");
+      const escaped = await client.request("tools/call", {
+        name: "inspect_typescript_graph",
+        arguments: {
+          question: "This request needs no TypeScript graph.",
+          draft: { reason: "Use evidence outside the graph.", type: "escape" },
+          review: "Keep the graph-free escape.",
+          request: { type: "escape", reason: "No graph is needed.", nextStep: "Use non-graph evidence." },
+        },
+      }) as { isError?: boolean; structuredContent?: { result?: { type?: string; skipped?: boolean } } };
+      assert.equal(escaped.isError, undefined);
+      assert.equal(escaped.structuredContent?.result?.type, "escape");
+      assert.equal(escaped.structuredContent?.result?.skipped, true);
+      assert.equal(client.nativeSpawnCount(), 0, "escape must not start the selected native graph producer");
+    } finally {
+      client.assertInputMutationAllowed();
+      fs.writeFileSync(configFile, originalConfig);
+    }
+    const recovered = await client.request("tools/call", {
+      name: "inspect_typescript_graph",
+      arguments: {
+        question: "Find Recoverable in the restored project.",
+        draft: { reason: "Read actual native facts after escape.", type: "lookup" },
+        review: "Keep the restored project's lookup.",
+        request: { type: "lookup", query: "Recoverable" },
+      },
+    }) as { isError?: boolean; structuredContent?: unknown };
+    assert.equal(recovered.isError, undefined);
+    assert.match(JSON.stringify(recovered.structuredContent ?? {}), /Recoverable/);
+    assert.equal(client.nativeSpawnCount(), 1, "the restored lookup starts the same resident producer once");
     await assertGraphReadonlyCorpus(client);
     await assertGraphDispatchCorpus(client);
     const response = await client.request("tools/call", {
