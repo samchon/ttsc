@@ -542,15 +542,8 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
       continue
     }
     for _, action := range actions {
-      switch nativeCodeActionRejection(action, func(command string) bool { return s.pluginOwnsCommand(plugin, command) }) {
-      case "direct-edit":
-        s.log("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
-        continue
-      case "commandless":
-        s.log("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
-        continue
-      case "unowned":
-        s.log("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command)
+      if rejection := nativeCodeActionRejection(plugin, action, func(command string) bool { return s.pluginOwnsCommand(plugin, command) }); rejection != "" {
+        s.log("%s", rejection)
         continue
       }
       out = append(out, action)
@@ -1008,9 +1001,9 @@ func (s *NativePluginSource) discoverCommandIDs() {
       continue
     }
     for _, id := range ids {
-      accepted, duplicate := registerNativeCommandID(id, plugin, seen, &s.commandIDs, s.owners)
-      if duplicate {
-        s.log("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin))
+      accepted, warning := registerNativeCommandID(id, plugin, seen, &s.commandIDs, s.owners)
+      if warning != "" {
+        s.log("%s", warning)
       }
       if !accepted {
         continue

@@ -77,13 +77,13 @@ func TestNativeReplyPolicies(t *testing.T) {
   t.Run("action_admission_order", func(t *testing.T) {
     for _, row := range []struct { name string; action LSPCodeAction; owned bool; want string; calls int }{
       {"null", LSPCodeAction{Edit: json.RawMessage(`null`), Command: &LSPCommand{Command: "ttsc.fake.fix"}}, true, "", 1},
-      {"direct", LSPCodeAction{Edit: json.RawMessage(`{}`)}, true, "direct-edit", 0},
-      {"commandless", LSPCodeAction{}, true, "commandless", 0},
-      {"unowned", LSPCodeAction{Command: &LSPCommand{Command: "ttsc.fake.fix"}}, false, "unowned", 1},
+      {"direct", LSPCodeAction{Edit: json.RawMessage(`{}`)}, true, `ttscserver: literal returned direct LSP edit for action ""; command-backed actions are required`, 0},
+      {"commandless", LSPCodeAction{}, true, `ttscserver: literal returned commandless LSP action ""; command-backed actions are required`, 0},
+      {"unowned", LSPCodeAction{Command: &LSPCommand{Command: "ttsc.fake.other"}}, false, `ttscserver: literal returned unowned LSP command "ttsc.fake.other"`, 1},
     } {
       t.Run(row.name, func(t *testing.T) {
         calls := 0
-        got := nativeCodeActionRejection(row.action, func(command string) bool { calls++; if command != "ttsc.fake.fix" { t.Errorf("command = %q", command) }; return row.owned })
+        got := nativeCodeActionRejection(NativeLSPPluginEntry{Name: "literal"}, row.action, func(command string) bool { calls++; if command != row.action.Command.Command { t.Errorf("command = %q", command) }; return row.owned })
         if got != row.want || calls != row.calls { t.Errorf("admission = %q, calls %d; want %q, %d", got, calls, row.want, row.calls) }
       })
     }
@@ -94,9 +94,9 @@ func TestNativeReplyPolicies(t *testing.T) {
     ids := []string{}
     first := NativeLSPPluginEntry{Name: "first", Binary: "first-sidecar"}
     second := NativeLSPPluginEntry{Name: "second", Binary: "second-sidecar"}
-    if accepted, duplicate := registerNativeCommandID("", first, seen, &ids, owners); accepted || duplicate { t.Error("empty command was registered") }
-    if accepted, duplicate := registerNativeCommandID("ttsc.fake.fix", first, seen, &ids, owners); !accepted || duplicate { t.Error("first command rejected") }
-    if accepted, duplicate := registerNativeCommandID("ttsc.fake.fix", second, seen, &ids, owners); accepted || !duplicate { t.Error("duplicate command not distinguished") }
+    if accepted, warning := registerNativeCommandID("", first, seen, &ids, owners); accepted || warning != "" { t.Error("empty command was registered") }
+    if accepted, warning := registerNativeCommandID("ttsc.fake.fix", first, seen, &ids, owners); !accepted || warning != "" { t.Error("first command rejected") }
+    if accepted, warning := registerNativeCommandID("ttsc.fake.fix", second, seen, &ids, owners); accepted || warning != `ttscserver: duplicate LSP command id "ttsc.fake.fix" from second ignored` { t.Errorf("duplicate command warning = %q", warning) }
     if !slices.Equal(ids, []string{"ttsc.fake.fix"}) || len(owners) != 1 || owners["ttsc.fake.fix"].Name != "first" || owners["ttsc.fake.fix"].Binary != "first-sidecar" { t.Fatal("first command owner/order changed") }
   })
   t.Run("command_input_and_context_tokens", func(t *testing.T) {

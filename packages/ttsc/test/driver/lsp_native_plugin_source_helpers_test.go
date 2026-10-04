@@ -80,15 +80,7 @@ func buildNativeSidecarBatch() {
 
 func writeNativeSidecarBatch(directory string) error {
   fixtures := []string{
-    nativePluginSourceNullEditSidecar,
     nativePluginSourceStdoutAtLimitSidecar,
-    nativePluginSourceCommandlessActionSidecar,
-    nativePluginSourceDirectEditSidecar,
-    nativePluginSourceUnownedCommandSidecar,
-    nativePluginSourceDuplicateCommandFirstSidecar,
-    nativePluginSourceDuplicateCommandSecondSidecar,
-    nativePluginSourceContentStdinSidecar,
-    nativePluginSourceDocumentChangesSidecar,
     nativePluginSourceOversizedStdoutSidecar,
     nativePluginSourceOversizedStderrSidecar,
     fakeLSPSidecarSource,

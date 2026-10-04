@@ -10,14 +10,14 @@ import (
 
 // nativeCodeActionRejection reports the first admission failure. Ownership is
 // queried only after direct edits and absent commands have been rejected.
-// Common: The ordered guards retain the source's command-backed action policy;
-// the caller owns unchanged log messages and aggregation. The supplied lookup
+// Common: The ordered guards and failure messages retain the source's
+// command-backed action policy; the caller owns logging and aggregation. The lookup
 // is the source's actual command owner, not a transport or producer substitute.
 // Cost includes edit bytes and the delegated ownership lookup; no state is retained.
-func nativeCodeActionRejection(action LSPCodeAction, owns func(string) bool) string {
-  if hasDirectCodeActionEdit(action.Edit) { return "direct-edit" }
-  if action.Command == nil { return "commandless" }
-  if !owns(action.Command.Command) { return "unowned" }
+func nativeCodeActionRejection(plugin NativeLSPPluginEntry, action LSPCodeAction, owns func(string) bool) string {
+  if hasDirectCodeActionEdit(action.Edit) { return fmt.Sprintf("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title) }
+  if action.Command == nil { return fmt.Sprintf("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title) }
+  if !owns(action.Command.Command) { return fmt.Sprintf("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command) }
   return ""
 }
 
@@ -27,13 +27,13 @@ func nativeCodeActionRejection(action LSPCodeAction, owns func(string) bool) str
 // Common: The first-seen map establishes precedence; explicit owner values
 // retain the real discovery input. Maps belong to the source and are modified
 // in place, with one lookup and at most two insertions per identifier.
-func registerNativeCommandID(id string, plugin NativeLSPPluginEntry, seen map[string]struct{}, commandIDs *[]string, owners map[string]NativeLSPPluginEntry) (accepted, duplicate bool) {
-  if id == "" { return false, false }
-  if _, ok := seen[id]; ok { return false, true }
+func registerNativeCommandID(id string, plugin NativeLSPPluginEntry, seen map[string]struct{}, commandIDs *[]string, owners map[string]NativeLSPPluginEntry) (accepted bool, warning string) {
+  if id == "" { return false, "" }
+  if _, ok := seen[id]; ok { return false, fmt.Sprintf("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin)) }
   seen[id] = struct{}{}
   *commandIDs = append(*commandIDs, id)
   owners[id] = plugin
-  return true, false
+  return true, ""
 }
 
 // nativeExecuteCommandInput encodes command arguments and the live-buffer gate.
