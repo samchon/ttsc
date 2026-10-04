@@ -133,6 +133,15 @@ export namespace BatchWorkspace {
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
     if (!installationOnly) {
       fs.symlinkSync(path.join(root, "tools/ownership"), path.join(modules, "raw-ownership"), "junction");
+      const workspaceRequire = createRequire(import.meta.url);
+      fs.symlinkSync(path.dirname(workspaceRequire.resolve("tslib/package.json")), path.join(modules, "tslib"), "junction");
+      for (const [name, directory] of [
+        ["batch-inert-exports", "inert"],
+        ["batch-dynamic-exports", "dynamic"],
+        ["batch-collision-exports", "collision"],
+        ["batch-commonjs-lowering", "lowering"],
+      ])
+        fs.symlinkSync(path.join(root, "src/runtime-corpus/export-population", directory!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });

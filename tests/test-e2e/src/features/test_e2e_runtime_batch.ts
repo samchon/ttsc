@@ -25,7 +25,7 @@ import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One unchanged consumer and one runtime process carry all independent value cases, using the same producer/tool inputs as the other boundary sessions.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The source/config stay immutable and synchronous process error/signal/null status fails; unknown closure retains the common input owner.
- * @evidence contracts/e2e.md#preserved-coverage Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. This does not separately certify a CTS CLI argv lane or other lifecycle/configuration transitions.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population.
  */
 export async function test_e2e_runtime_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -61,6 +61,12 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   BatchWorkspace.assertResult(payload, workspace.expected);
   assertRuntimeCliCorpus((payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime);
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
+  assert.deepEqual((payload as { exportPopulation: unknown }).exportPopulation, {
+    inert: { actual: [17, 17], before: [42, 42], after: 43, inlineText: '\n__exportStar(require("./ghost"), exports);\n', memberText: '\ntslib_1.__exportStar(require("./ghost"), exports);\n', hidden: false, ghost: false, arithmetic: true, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
+    dynamic: { actual: [17, 17], computed: 42, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
+    collision: "project:package",
+    lowering: "42:OK:7",
+  });
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
   assert.ok(Array.isArray(nativeFrames));
   assert.equal(nativeFrames.length, 2);
