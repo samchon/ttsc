@@ -36,6 +36,39 @@ func registerNativeCommandID(id string, plugin NativeLSPPluginEntry, seen map[st
   return true, ""
 }
 
+// discoverNativeCommandRegistry retains transport order, first command ownership
+// and first nonempty action kinds. A failed or malformed command observation
+// skips that transport's kind query; a failed kind observation retains commands
+// already registered. Common: The source supplies its actual query and log
+// operations. Supplied bytes own parsing policy only, not native acquisition.
+// JSON work follows reply bytes and registration follows identifiers; delegated
+// queries and logging retain their costs. Maps and ordered slices remain owned
+// by the source, and this call adds no process or memoized discovery result.
+func discoverNativeCommandRegistry(plugins []NativeLSPPluginEntry, query func(NativeLSPPluginEntry, string) ([]byte, error), log func(string), commandIDs, codeActionKinds *[]string, owners map[string]NativeLSPPluginEntry) {
+  seen := map[string]struct{}{}
+  kindSeen := map[string]struct{}{}
+  for _, plugin := range plugins {
+    body, err := query(plugin, "lsp-command-ids")
+    if err != nil { log(fmt.Sprintf("%v", err)); continue }
+    var ids []string
+    if err := json.Unmarshal(body, &ids); err != nil { log(fmt.Sprintf("ttscserver: %s lsp-command-ids returned invalid JSON: %v", pluginLabel(plugin), err)); continue }
+    for _, id := range ids {
+      _, warning := registerNativeCommandID(id, plugin, seen, commandIDs, owners)
+      if warning != "" { log(warning) }
+    }
+    body, err = query(plugin, "lsp-code-action-kinds")
+    if err != nil { log(fmt.Sprintf("%v", err)); continue }
+    var kinds []string
+    if err := json.Unmarshal(body, &kinds); err != nil { log(fmt.Sprintf("ttscserver: %s lsp-code-action-kinds returned invalid JSON: %v", pluginLabel(plugin), err)); continue }
+    for _, kind := range kinds {
+      if kind == "" { continue }
+      if _, ok := kindSeen[kind]; ok { continue }
+      kindSeen[kind] = struct{}{}
+      *codeActionKinds = append(*codeActionKinds, kind)
+    }
+  }
+}
+
 // nativeExecuteCommandInput encodes command arguments and the live-buffer gate.
 // An empty present buffer still supplies a reader and --content-stdin; absence
 // supplies neither. Invalid raw JSON keeps the original encoding error.

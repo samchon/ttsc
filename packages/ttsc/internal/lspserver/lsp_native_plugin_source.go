@@ -983,53 +983,13 @@ func (s *NativePluginSource) CodeActionKinds() []string {
 }
 
 func (s *NativePluginSource) discoverCommandIDs() {
-  seen := map[string]struct{}{}
-  kindSeen := map[string]struct{}{}
-  for _, plugin := range selectPluginTransports(
+  discoverNativeCommandRegistry(selectPluginTransports(
     s.plugins,
     nil,
     s.projectContextJSON,
-  ) {
-    body, err := s.run(plugin, "lsp-command-ids")
-    if err != nil {
-      s.log("%v", err)
-      continue
-    }
-    var ids []string
-    if err := json.Unmarshal(body, &ids); err != nil {
-      s.log("ttscserver: %s lsp-command-ids returned invalid JSON: %v", pluginLabel(plugin), err)
-      continue
-    }
-    for _, id := range ids {
-      accepted, warning := registerNativeCommandID(id, plugin, seen, &s.commandIDs, s.owners)
-      if warning != "" {
-        s.log("%s", warning)
-      }
-      if !accepted {
-        continue
-      }
-    }
-    kindBody, kindErr := s.run(plugin, "lsp-code-action-kinds")
-    if kindErr != nil {
-      s.log("%v", kindErr)
-      continue
-    }
-    var kinds []string
-    if err := json.Unmarshal(kindBody, &kinds); err != nil {
-      s.log("ttscserver: %s lsp-code-action-kinds returned invalid JSON: %v", pluginLabel(plugin), err)
-      continue
-    }
-    for _, kind := range kinds {
-      if kind == "" {
-        continue
-      }
-      if _, ok := kindSeen[kind]; ok {
-        continue
-      }
-      kindSeen[kind] = struct{}{}
-      s.codeActionKinds = append(s.codeActionKinds, kind)
-    }
-  }
+  ), func(plugin NativeLSPPluginEntry, command string) ([]byte, error) {
+    return s.run(plugin, command)
+  }, func(message string) { s.log("%s", message) }, &s.commandIDs, &s.codeActionKinds, s.owners)
 }
 
 func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, command string) bool {

@@ -16,7 +16,9 @@ import (
 // a full accepted payload from an additional discarded byte. JSON cases own
 // rich/legacy diagnostics, direct-edit admission and changes-only edits. They
 // also own first-command precedence, action admission, stdin/argv projection
-// and result error formatting. They do not certify actual pipe transport,
+// and result error formatting. Ordered command/kind observations retain
+// discovery sequencing and parse-failure gates with supplied operation inputs.
+// They do not certify actual pipe transport,
 // discovered ownership or child argv/exit status. Resident/direct routing is
 // checked with ordinary operation inputs, without claiming a native peer.
 //
@@ -112,6 +114,32 @@ func TestNativeReplyPolicies(t *testing.T) {
     if accepted, warning := registerNativeCommandID("ttsc.fake.fix", first, seen, &ids, owners); !accepted || warning != "" { t.Error("first command rejected") }
     if accepted, warning := registerNativeCommandID("ttsc.fake.fix", second, seen, &ids, owners); accepted || warning != `ttscserver: duplicate LSP command id "ttsc.fake.fix" from second ignored` { t.Errorf("duplicate command warning = %q", warning) }
     if !slices.Equal(ids, []string{"ttsc.fake.fix"}) || len(owners) != 1 || owners["ttsc.fake.fix"].Name != "first" || owners["ttsc.fake.fix"].Binary != "first-sidecar" { t.Fatal("first command owner/order changed") }
+  })
+  t.Run("ordered_command_and_kind_observations", func(t *testing.T) {
+    ids, kinds, calls, messages := []string{}, []string{}, []string{}, []string{}
+    owners := map[string]NativeLSPPluginEntry{}
+    plugins := []NativeLSPPluginEntry{{Name: "first"}, {Name: "malformed"}, {Name: "failed"}, {Name: "second"}}
+    discoverNativeCommandRegistry(plugins, func(plugin NativeLSPPluginEntry, command string) ([]byte, error) {
+      calls = append(calls, plugin.Name+"/"+command)
+      switch plugin.Name {
+      case "first":
+        if command == "lsp-command-ids" { return []byte(`["","ttsc.fake.fix","ttsc.fake.fix"]`), nil }
+        return []byte(`["","source.fixAll.ttsc","source.fixAll.ttsc"]`), nil
+      case "malformed": return []byte(`{`), nil
+      case "failed": return nil, errors.New("supplied command observation failure")
+      case "second":
+        if command == "lsp-command-ids" { return []byte(`["ttsc.fake.fix","ttsc.fake.other"]`), nil }
+        return []byte(`["source.fixAll.ttsc","refactor.rewrite"]`), nil
+      }
+      t.Fatalf("unexpected input %q", plugin.Name)
+      return nil, nil
+    }, func(message string) { messages = append(messages, message) }, &ids, &kinds, owners)
+    expectedCalls := []string{"first/lsp-command-ids", "first/lsp-code-action-kinds", "malformed/lsp-command-ids", "failed/lsp-command-ids", "second/lsp-command-ids", "second/lsp-code-action-kinds"}
+    if !slices.Equal(calls, expectedCalls) { t.Errorf("discovery order = %v", calls) }
+    if !slices.Equal(ids, []string{"ttsc.fake.fix", "ttsc.fake.other"}) || owners["ttsc.fake.fix"].Name != "first" || owners["ttsc.fake.other"].Name != "second" || len(owners) != 2 { t.Error("ordered command ownership changed") }
+    if !slices.Equal(kinds, []string{"source.fixAll.ttsc", "refactor.rewrite"}) { t.Errorf("ordered kinds = %v", kinds) }
+    if len(messages) != 4 { t.Fatalf("discovery messages = %v", messages) }
+    if messages[0] != `ttscserver: duplicate LSP command id "ttsc.fake.fix" from first ignored` || !strings.HasPrefix(messages[1], "ttscserver: malformed lsp-command-ids returned invalid JSON: ") || messages[2] != "supplied command observation failure" || messages[3] != `ttscserver: duplicate LSP command id "ttsc.fake.fix" from second ignored` { t.Errorf("discovery messages = %v", messages) }
   })
   t.Run("command_input_and_context_tokens", func(t *testing.T) {
     for _, row := range []struct { name, text string; present bool }{{"present", "const buffered = 1;", true}, {"empty_present", "", true}, {"absent", "", false}} {
