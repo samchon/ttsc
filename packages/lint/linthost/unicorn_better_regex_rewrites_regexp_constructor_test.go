@@ -11,7 +11,7 @@ import "testing"
 // argument is a string literal; the fix replaces just that argument and
 // preserves its quote character. A regex-literal first argument is optimized by
 // the literal branch on the inner node instead.
-// The negatives pin every disqualifier upstream honors — plain call, wrong
+// The seven authored negatives distinguish plain calls, wrong
 // callee, member callee, non-string / numeric / missing argument, and an
 // already-optimal pattern.
 //
@@ -20,7 +20,7 @@ import "testing"
 //  3. Assert disqualified and already-optimal forms do not fire.
 //
 // @evidence contracts/testing.md#behavioral-verification exact fix snapshots verify bare new RegExp string arguments and nested regex literals, while zero-finding controls reject unrelated call shapes.
-// @evidence contracts/testing.md#independent-expectations The authored single/double quoted escaped string outputs and inner literal outputs follow upstream constructor policy and preserve flags/quote delimiters.
+// @evidence contracts/testing.md#independent-expectations The authored single/double quoted escaped string outputs and inner literal outputs specify the expected rewrites and preserve flags/quote delimiters independently of the Go implementation.
 // @evidence contracts/testing.md#distinguishing-cases Single/double quotes, explicit flags and inner regex literals rewrite; plain calls, other/member callees, dynamic/numeric/missing patterns and canonical patterns do not.
 // @evidence contracts/testing.md#execution-ownership All authored sources execute inside this named Go unit entry; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexRewritesRegexpConstructor(t *testing.T) {
