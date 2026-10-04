@@ -140,9 +140,10 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         },
       });
       const view = transformFilesystem(deniedCache);
+      const cachedCode = "export const cachedGraphDelivery = true;\n";
       const result: ITtscCompilerTransformation.ISuccess = {
         type: "success",
-        typescript: Object.fromEntries(moduleFiles.map((input) => [relative(input), fs.readFileSync(input, "utf8")])),
+        typescript: Object.fromEntries(moduleFiles.map((input) => [relative(input), cachedCode])),
         graph: {
           edges: Object.fromEntries(moduleNames.map((name) => [name, [relative(unreadable)]])),
           globals: [], configs: [],
@@ -186,7 +187,8 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
             const output = await fixture.api.transformTtsc(
               input, source, fixture.options, undefined, deniedCache,
             );
-            assert.equal(output?.code, source);
+            assert.notEqual(source, cachedCode);
+            assert.equal(output?.code, cachedCode);
             assert.equal(deniedCache.get(fixture.key), ready);
           }
           assert.equal(Object.hasOwn(cached.externalInputSignatures ?? {}, unreadable), false,
