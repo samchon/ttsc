@@ -13,10 +13,12 @@ const standardCommonjs = await import("./runtime-corpus/standard.cjs");
 const memberEsm = await import("./runtime-corpus/member.mjs");
 const memberCommonjs = await import("./runtime-corpus/member.cjs");
 const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
+const mtsImport = await import("./runtime-corpus/mts-import/main.mjs");
 const proposal = await import("./runtime-corpus/proposal.mjs");
 const adapterFactories = await Promise.all(adapterEntries.map(async (entry: string) => typeof (await import(entry)).default));
 const mixedRuntime = {
   contraryCommonjs: contraryCommonjs.observed,
+  mtsImport: mtsImport.observed,
   standardEsm: standardEsm.observed,
   standardCommonjs: standardCommonjs.observed,
   memberEsm: memberEsm.observed,

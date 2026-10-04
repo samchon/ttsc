@@ -65,6 +65,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
   assert.deepEqual(mixed, {
     contraryCommonjs: "cts-runner-ok",
+    mtsImport: "mts-runner-ok",
     standardEsm: "Hello Class Foo\nHello Function getBar\nabc",
     standardCommonjs: "Hello Class Foo\nHello Function getBar\nabc",
     memberEsm: "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
