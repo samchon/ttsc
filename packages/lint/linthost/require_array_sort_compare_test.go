@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusRequireArraySortCompare verifies the lint rule corpus fixture
-// typescript-require-array-sort-compare.ts under a real Program.
+// TestRuleCorpusRequireArraySortCompare verifies an authored typed trigger for
+// typescript/require-array-sort-compare under a real Program.
 //
 // `typescript/require-array-sort-compare` is type-aware: a parser-only engine run
 // skips it because Context.Checker is nil. The rule therefore reuses the
