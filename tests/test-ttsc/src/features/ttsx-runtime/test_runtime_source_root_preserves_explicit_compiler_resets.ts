@@ -4,6 +4,7 @@ import path from "node:path";
 import ts from "ts-legacy";
 
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
+import { privateRuntimeRootDir } from "../../../../../packages/ttsc/src/compiler/internal/build/privateRuntimeRootDir";
 import { readEffectiveCompilerOptions } from "../../../../../packages/ttsc/src/compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -22,8 +23,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    value.
  * 3. Preserve physical directory identity and the project's config metadata.
  *
- * @evidence contracts/testing.md#behavioral-verification Executes the exact private resolveRuntimeSourceRoot declaration from prepareExecution with actual readProjectConfig, readEffectiveCompilerOptions and filesystem identity resolution; a separately bound null-return reader verifies the rejected-reader branch only, without a compiler build.
- * @evidence contracts/testing.md#independent-expectations Literal rootDir null clears the configured root and selects the physical project directory; explicit path values select their physical directories, absent rootDir selects the project directory, and a wholly unreadable reader retains declared config. Expectations use independently named native realpath directories, not the option projection or extracted function.
+ * @evidence contracts/testing.md#behavioral-verification Executes the exact private resolveRuntimeSourceRoot declaration from prepareExecution with actual readProjectConfig, readEffectiveCompilerOptions, privateRuntimeRootDir and filesystem identity resolution; a separately bound null-return reader verifies the rejected-reader branch only, without a compiler build.
+ * @evidence contracts/testing.md#independent-expectations Literal rootDir null clears the configured root and selects the physical native volume root for ordinary projects; explicit path values select their physical directories, absent ordinary rootDir selects the volume root while composite true retains the project directory, and a wholly unreadable reader retains declared config. Expectations use independently named native realpath directories, not the option projection or extracted function.
  * @evidence contracts/testing.md#distinguishing-cases Configured src, CLI null reset, CLI other override, CLI normalized other/../src spelling, absent config root and an explicitly unreadable reader distinguish valid null/missing values from whole-reader failure. A readable reader returning undefined against a declared root verifies that missing effective metadata cannot revive stale config; config bytes and project metadata remain unchanged.
  * @evidence contracts/testing.md#execution-ownership Source unit discovered under ttsx-runtime extracts one authored private declaration with ts-legacy and executes it through a call-local binding; TestProject owns temporary real directories and process-exit cleanup. No prepareExecution build, launcher, native compiler, response-file expansion or emitted-artifact success is claimed.
  */
@@ -58,9 +59,10 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
     new Function(
       "readEffectiveCompilerOptions",
       "createFilesystemPathIdentityContext",
+      "privateRuntimeRootDir",
       "path",
       javascript + "\nreturn resolveRuntimeSourceRoot;",
-    )(reader, createFilesystemPathIdentityContext, path) as RootOperation;
+    )(reader, createFilesystemPathIdentityContext, privateRuntimeRootDir, path) as RootOperation;
   const resolveRoot = bind(readEffectiveCompilerOptions);
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-runtime-root-reset-"),
@@ -76,6 +78,7 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
   fs.writeFileSync(config, bytes);
   const project = readProjectConfig({ cwd: root, tsconfig: config });
   const metadata = JSON.stringify(project.compilerOptions);
+  const volumeRoot = fs.realpathSync.native(path.parse(root).root);
   const failures: Error[] = [];
   const check = (name: string, operation: () => void) => {
     try {
@@ -86,7 +89,7 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
   };
   for (const [flags, expected] of [
     [[], fs.realpathSync.native(path.join(root, "src"))],
-    [["--rootDir", "null"], root],
+    [["--rootDir", "null"], volumeRoot],
     [["--rootDir", "other"], fs.realpathSync.native(path.join(root, "other"))],
     [
       ["--rootDir", "other/../src"],
@@ -105,7 +108,7 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
   check("readable missing effective value does not revive config", () =>
     assert.equal(
       bind(() => () => undefined)(project, { passthrough: [] }),
-      root,
+      volumeRoot,
     ),
   );
   check("absent configured root", () => {
@@ -115,7 +118,14 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
       JSON.stringify({ compilerOptions: {}, files: ["src/main.ts"] }),
     );
     const absent = readProjectConfig({ cwd: root, tsconfig: absentConfig });
-    assert.equal(resolveRoot(absent, { passthrough: [] }), root);
+    assert.equal(resolveRoot(absent, { passthrough: [] }), volumeRoot);
+  });
+  check("composite absent root retains project coordinate", () => {
+    const config = path.join(root, "composite.json");
+    fs.writeFileSync(config, JSON.stringify({ compilerOptions: { composite: true }, files: ["src/main.ts"] }));
+    const composite = readProjectConfig({ cwd: root, tsconfig: config });
+    assert.equal(resolveRoot(composite, { passthrough: [] }), root);
+    assert.equal(resolveRoot(composite, { passthrough: ["--rootDir", "other"] }), fs.realpathSync.native(path.join(root, "other")));
   });
   check("nonmutation", () => {
     assert.equal(fs.readFileSync(config, "utf8"), bytes);
