@@ -125,6 +125,9 @@ export namespace BatchWorkspace {
         fs.copyFileSync(path.join(root, "vendor", name, filename), path.join(target, filename));
     }
     const programRunLog = path.join(root, "program-runs.bin");
+    if (!installationOnly)
+      for (const name of ["cjs-dep", "esm-dep"])
+        fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
     if (!installationOnly) {
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));

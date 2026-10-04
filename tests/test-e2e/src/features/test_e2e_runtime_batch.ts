@@ -61,11 +61,17 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   BatchWorkspace.assertResult(payload, workspace.expected);
   assertRuntimeCliCorpus((payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime);
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
+  const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
+  assert.ok(Array.isArray(nativeFrames));
+  assert.equal(nativeFrames.length, 2);
+  assert.match(nativeFrames[0], /inside\.cts:5:\d+/);
+  assert.match(nativeFrames[1], /outside\.cts:5:\d+/);
   assert.deepEqual((payload as { requireBindings: unknown }).requireBindings, ["@lib/message", "local:@lib/message", "imported:@lib/message", "ok", "ok"]);
   const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
   assert.deepEqual(mixed, {
     contraryCommonjs: "cts-runner-ok",
     mtsImport: "mts-runner-ok",
+    dual: "42:7:esm-ok",
     standardEsm: "Hello Class Foo\nHello Function getBar\nabc",
     standardCommonjs: "Hello Class Foo\nHello Function getBar\nabc",
     memberEsm: "11 method\nstatic:run,class:Foo,field:#value,accessor:count",

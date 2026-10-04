@@ -1,4 +1,4 @@
-﻿import adapterEntries from "../adapter-entries.json" with { type: "json" };
+import adapterEntries from "../adapter-entries.json" with { type: "json" };
 import { sourceLocations } from "./source-locations.js";
 import { createMemFS, parseResult } from "@ttsc/wasm";
 import { packageNameFromSpecifier } from "@ttsc/playground";
@@ -14,11 +14,15 @@ const memberEsm = await import("./runtime-corpus/member.mjs");
 const memberCommonjs = await import("./runtime-corpus/member.cjs");
 const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
 const mtsImport = await import("./runtime-corpus/mts-import/main.mjs");
+const dual = await import("./runtime-corpus/dual/main.mjs");
+const stackInside = await import("./runtime-corpus/stack/inside.cjs");
+const stackOutside = await import("./runtime-corpus/stack/outside.cjs");
 const proposal = await import("./runtime-corpus/proposal.mjs");
 const adapterFactories = await Promise.all(adapterEntries.map(async (entry: string) => typeof (await import(entry)).default));
 const mixedRuntime = {
   contraryCommonjs: contraryCommonjs.observed,
   mtsImport: mtsImport.observed,
+  dual: dual.observed,
   standardEsm: standardEsm.observed,
   standardCommonjs: standardCommonjs.observed,
   memberEsm: memberEsm.observed,
@@ -31,8 +35,9 @@ const mixedRuntime = {
   optionalChainPreserved: proposal.optionalChainPreserved,
 };
 const nodeCompatible = await observeNodeCompatibleCorpus();
+const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),

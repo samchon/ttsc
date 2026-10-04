@@ -6,7 +6,7 @@ import { rspack, type Compiler, type Stats } from "@rspack/core";
 
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
-import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
  * Verifies rspack loader transport and source-map publication in one build.
@@ -21,14 +21,14 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
  * @evidence contracts/testing.md#behavioral-verification Actual rspack stats must contain no errors; its real output must evaluate all661 UTF-16 values, contract42 and JSON42/retained without configured debug, and publish a nonempty source map.
  * @evidence contracts/testing.md#independent-expectations Authored source/JSON and pre-print string units supply value expectations; the native fixture source path supplies independent map-source identity.
  * @evidence contracts/testing.md#distinguishing-cases One real rspack loader graph carries entity/raw/expression strings and transformed versus retained effects; a missing adapter, bad graph or missing map fails independently of bundle text length.
- * @evidence contracts/testing.md#execution-ownership This selected function constructs one compiler and invokes run once. The finally close is lifecycle release, not another build.
+ * @evidence contracts/testing.md#execution-ownership The shared build DAG calls this non-discoverable helper once while its sibling compiler lease stays live; it constructs one actual compiler and invokes run once. The finally close is lifecycle release, not another build.
  * @evidence contracts/e2e.md#necessary-boundary The actual rspack loader must consume native transformed modules and compose maps through real bundle assembly; pure mapper units do not prove this route.
  * @evidence contracts/e2e.md#shared-execution All rows share the same prepared corpus, native artifacts and one rspack compiler. No source-case loop invokes a compiler or creates a fixture.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Outputs have a dedicated directory outside src and do not enter source discovery. Actual close is awaited in finally; failure keeps inputs under their shared owner and cache selection restores.
  * @evidence contracts/e2e.md#preserved-coverage Keeps the real rspack adapter/map route and common value/utility assertions. It does not infer Rspack/Turbopack or historical rebuild/invalidation coverage from one rspack output.
  */
-export async function test_e2e_rspack_batch(): Promise<void> {
-  const workspace = await BatchWorkspace.open();
+export async function runRspackShared(workspace: BatchWorkspace.Workspace): Promise<void> {
+
   const previous = process.env.TTSC_CACHE_DIR;
   process.env.TTSC_CACHE_DIR = workspace.cache;
   let compiler: Compiler | undefined;
