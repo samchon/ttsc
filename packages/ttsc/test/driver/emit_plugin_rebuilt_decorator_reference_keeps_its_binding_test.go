@@ -37,7 +37,7 @@ import (
 //  3. Assert the decorator is aliased AND that the alias names a require
 //     binding the emitted file actually declares.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs an actual original-linked decorator-reference rebuild, requires that rebuild occurred, and checks Route alias plus its matching ./dep require declaration.
+// @evidence contracts/testing.md#behavioral-verification Runs an actual original-linked decorator-reference rebuild, requires that rebuild occurred and a legacy decorator helper application remains, and checks Route alias plus its matching ./dep require declaration.
 // @evidence contracts/testing.md#independent-expectations Authored Route and ./dep independently define the binding/use relationship; extracted generated alias only correlates the same declared binding.
 // @evidence contracts/testing.md#distinguishing-cases Legacy decorator reference moves into a helper application, contrasting a normal imported expression; rebuild occurrence prevents plain emission from passing.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes an actual emit visitor/compiler and captures output with private Program cleanup; it inspects linkage without executing generated JavaScript.
@@ -103,6 +103,9 @@ func TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding(t *te
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
+  if !strings.Contains(js, "__decorate([") {
+    t.Fatalf("legacy decorator helper application missing:\n%s", js)
+  }
 
   // The legacy decorator lowering emits the aliased callee through a comma
   // expression, `(0, dep_1.Route)()`, so match the alias itself rather than a

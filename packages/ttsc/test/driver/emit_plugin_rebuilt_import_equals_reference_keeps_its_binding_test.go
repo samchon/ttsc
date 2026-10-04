@@ -17,13 +17,12 @@ import (
 //
 // Elision reaches this node through shouldEmitImportEqualsDeclaration rather
 // than the clause path the sibling tests take. That predicate is a disjunction,
-// and inside an external module only its first arm can be true, so the outcome
-// still comes down to IsReferencedAliasDeclaration on the ImportEqualsDeclaration
-// itself: the second arm, IsTopLevelValueImportEqualsWithEntityName, returns
-// false outright for an ExternalModuleReference. Of the three predicates elision
-// consults, that first one is in fact the only mark-dependent one, which is why
-// this shape belongs with the rebuilt-reference family even though it reaches it
-// by a different route.
+// and this authored TypeScript external module short-circuits the second arm
+// before its top-level entity-name predicate runs. The first arm is the
+// alias-declaration admission path, whose referenced-alias query operates on
+// the parse-tree declaration. This case observes that admission through the
+// retained dependency binding and rebuilt reference; it does not certify every
+// checker fallback or every import-equals declaration.
 //
 //  1. `index.ts` binds `./dep` with `import dep = require("./dep")` and reads
 //     `dep.foo`.
