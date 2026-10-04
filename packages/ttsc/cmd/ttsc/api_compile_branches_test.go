@@ -86,7 +86,7 @@ func TestAPICompileBranches(t *testing.T) {
   "files": ["index.ts", "mytype.ts"]
 }
 `)
-  writeCommandProjectFile(t, root, "index.ts", `const value: number = "text";
+  writeCommandProjectFile(t, root, "index.ts", `const value: number = "not-a-number";
 export { value };
 import type { MyType } from "./mytype";
 export const typed: MyType = { id: "x" };
@@ -113,7 +113,7 @@ export const typed: MyType = { id: "x" };
   if transformCode != 2 { t.Errorf("failed Program transform response status = %d, want 2", transformCode) }
   var transformed apiTransformResult
   if err := json.Unmarshal([]byte(transformedOutput), &transformed); err != nil { t.Fatal(err) }
-  if !strings.Contains(transformed.TypeScript["index.ts"], `const value: number = "text"`) || !strings.Contains(transformed.TypeScript["mytype.ts"], "interface MyType") { t.Error("failed native response omitted original source") }
+  if !strings.Contains(transformed.TypeScript["index.ts"], `const value: number = "not-a-number"`) || !strings.Contains(transformed.TypeScript["mytype.ts"], "interface MyType") { t.Error("failed native response omitted original source") }
   if transformed.Graph == nil || !slices.Equal(transformed.Graph.Edges["index.ts"], []string{"mytype.ts"}) { t.Errorf("failed native response omitted type-only graph: %#v", transformed.Graph) }
   if len(transformed.Diagnostics) != 1 || transformed.Diagnostics[0].Code != 2322 { t.Errorf("failed native response diagnostics = %#v", transformed.Diagnostics) }
   complete := append([]string{}, transformed.DependenciesComplete...); slices.Sort(complete)

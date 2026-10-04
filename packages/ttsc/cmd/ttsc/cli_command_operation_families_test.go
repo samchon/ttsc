@@ -9,6 +9,7 @@ import (
   "os"
   "path/filepath"
   "reflect"
+  "regexp"
   "slices"
   "strings"
   "testing"
@@ -636,6 +637,7 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
       }
     }
     if !strings.Contains(compiled.Output["bin/src/main.js"], "api-ok") || !strings.Contains(compiled.Output["bin/src/main.d.ts"], "upper: string") { t.Error("baseline compile values/declarations absent") }
+    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(compiled.Output["bin/src/main.js"]) { t.Error("baseline compiled console.log(message) call absent") }
     if !strings.Contains(compiled.Output["bin/src/decorated/main.js"], "design:type") { t.Error("configured decorator metadata positive control absent from compiled JavaScript") }
     if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
       t.Fatalf("api-compile wrote JavaScript to disk: %v", err)
@@ -662,6 +664,7 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
     slices.Sort(actualSources)
     if !slices.Equal(actualSources, expectedSources) { t.Errorf("transform source keys = %v, want %v", actualSources, expectedSources) }
     if !strings.Contains(transformed.TypeScript["src/main.ts"], "api-ok") || !strings.Contains(transformed.TypeScript["src/helpers.ts"], "value.toUpperCase()") || !strings.Contains(transformed.TypeScript["src/nested/model.ts"], "interface Model") || !strings.Contains(transformed.TypeScript["src/isolated.ts"], "isolated: number = 2") { t.Error("baseline transform source literals absent") }
+    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(transformed.TypeScript["src/main.ts"]) { t.Error("baseline source console.log(message) call absent") }
     if !strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "@log()") || !strings.Contains(transformed.TypeScript["src/decorated/types.ts"], "class Payload") || strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "design:type") { t.Error("decorated transform source/metadata separation differs") }
     var wire map[string]json.RawMessage
     if err := json.Unmarshal([]byte(out), &wire); err != nil { t.Fatal(err) }
