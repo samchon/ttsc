@@ -1,1 +1,1 @@
-{"name":"batch-configured-legacy","exports":"./src/index.ts"}
+{"name":"batch-configured-legacy","exports":"./index.ts"}

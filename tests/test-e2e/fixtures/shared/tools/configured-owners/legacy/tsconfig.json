@@ -1,1 +1,1 @@
-{"compilerOptions":{"target":"ES2022","module":"CommonJS","experimentalDecorators":true,"strict":true,"types":[],"lib":["esnext"],"rootDir":"src","outDir":"dist"},"files":[]}
+{"compilerOptions":{"target":"ES2022","module":"CommonJS","experimentalDecorators":true,"strict":true,"types":[],"lib":["esnext"],"rootDir":"src","outDir":"dist","declaration":true,"declarationDir":"types","composite":true,"tsBuildInfoFile":"state/owner.tsbuildinfo"},"files":[]}

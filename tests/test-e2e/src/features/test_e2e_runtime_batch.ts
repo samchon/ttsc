@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { FileSystemIterator, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,6 +35,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const source = fs.readFileSync(path.join(workspace.root, "src/runtime.mts"));
   const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl").sort();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
+  const configuredRoot = path.join(workspace.root, "tools/configured-owners");
+  const configuredInputs = await FileSystemIterator.read(configuredRoot);
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
@@ -74,7 +76,10 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   });
   assert.deepEqual((payload as { configuredOwners: unknown }).configuredOwners, {
     esnext: ["hello-workspace", "configured-esnext", "derived-from-target"], legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
+    wholeProject: { wrapped: 7, unimportedEmitted: true },
+    declaredOutputs: ["inside", "extra"],
   });
+  assert.deepEqual(await FileSystemIterator.read(configuredRoot), configuredInputs, "both existing native owner paths must keep all source bytes and declared output trees untouched");
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
   assert.ok(Array.isArray(nativeFrames));
   assert.equal(nativeFrames.length, 2);
