@@ -10,6 +10,8 @@ import (
   "slices"
   "strings"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // TestProjectInputPathKeyRespectsDirectoryCaseSemantics verifies the Go host
@@ -406,9 +408,12 @@ func enableProjectInputCaseSensitivity(t *testing.T, directory string) {
     directory,
     "enable",
   )
-  if output, err := command.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(command, "CombinedOutput")
+  output, err := command.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     t.Skipf(
-      "per-directory case sensitivity is unavailable: %v\n%s",
+      "per-directory case-sensitivity fixture setup failed: %v\n%s",
       err,
       output,
     )
