@@ -5,7 +5,7 @@ import "testing"
 // TestSolidRenderingStylePreferences verifies solid rendering style preferences:
 // list, conditional, class, style, and empty JSX forms are flagged.
 //
-// Pins the stylistic TSX rules that are still high-signal in a native AST pass.
+// Pins five authored stylistic TSX patterns in a parsed-source AST pass.
 // Each violation is a direct JSX or call expression pattern, so the test does
 // not require scope or type services.
 //
