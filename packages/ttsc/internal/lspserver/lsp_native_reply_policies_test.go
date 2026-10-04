@@ -244,4 +244,31 @@ func TestNativeReplyPolicies(t *testing.T) {
       if err != nil || !slices.Equal(calls, []string{"resident", "direct"}) || string(got) != `{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}` { t.Fatal("optional empty-args fallback changed") }
     }
   })
+  t.Run("resident_nonzero_reply_policy", func(t *testing.T) {
+    plugin := NativeLSPPluginEntry{Name: "@ttsc/fake"}
+    body, code, err := decodeNativeResidentReply([]byte(`{"result":null,"code":2}`))
+    if err != nil || string(body) != "null" || code != 2 { t.Fatalf("resident negative decode = %q, %d, %v", body, code, err) }
+    result, served, err := nativeResidentResult(plugin, "lsp-project-diagnostics", body, code)
+    if result != nil || !served || err == nil || err.Error() != "ttscserver: @ttsc/fake lsp-project-diagnostics (resident) exit 2" { t.Fatalf("resident negative result = %q, %v, %v", result, served, err) }
+    directCalls := 0
+    got, fallbackErr := runNativePluginRead("lsp-project-diagnostics", nil,
+      func(command string, args []string) ([]byte, bool, error) { return nativeResidentResult(plugin, command, body, code) },
+      func(command string, args []string) ([]byte, error) { directCalls++; if command != "lsp-project-diagnostics" || args != nil { t.Error("fallback input changed") }; return []byte(`{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}`), nil })
+    if fallbackErr != nil || directCalls != 1 || string(got) != `{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}` { t.Errorf("resident negative fallback = %q, calls %d, %v", got, directCalls, fallbackErr) }
+    for _, verb := range []string{"lsp-hints", "lsp-diagnostics", "lsp-code-actions"} {
+      calls := 0
+      result, err := runNativePluginRead(verb, nil,
+        func(command string, args []string) ([]byte, bool, error) { return nativeResidentResult(plugin, command, body, code) },
+        func(command string, args []string) ([]byte, error) { calls++; if command != verb || args != nil { t.Error("verb fallback input changed") }; return []byte("direct hint observation"), nil })
+      if verb == "lsp-hints" {
+        if err != nil || calls != 1 || string(result) != "direct hint observation" { t.Errorf("hints negative fallback = %q, %d, %v", result, calls, err) }
+      } else if calls != 0 || result != nil || err == nil || err.Error() != "ttscserver: @ttsc/fake "+verb+" (resident) exit 2" { t.Errorf("document served error = %q, %d, %v", result, calls, err) }
+    }
+    successBody, successCode, successErr := decodeNativeResidentReply([]byte(`{"result":[{"code":"direct"}],"code":0}`))
+    if successErr != nil || successCode != 0 || string(successBody) != `[{"code":"direct"}]` { t.Fatal("resident success JSON changed") }
+    accepted, wasServed, successErr := nativeResidentResult(plugin, "lsp-diagnostics", successBody, successCode)
+    if successErr != nil || !wasServed || len(accepted) != len(successBody) || len(accepted) == 0 || &accepted[0] != &successBody[0] { t.Error("resident success result reference changed") }
+    if _, _, err := decodeNativeResidentReply([]byte(`{"result":`)); err == nil { t.Error("malformed resident JSON admitted") }
+    if _, _, err := decodeNativeResidentReply([]byte(`{"result":"`+strings.Repeat("x", 4*1024*1024)+`","code":0}`)); err == nil || err.Error() != "resident result exceeds 4194304 bytes" { t.Errorf("resident result overflow = %v", err) }
+  })
 }

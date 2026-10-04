@@ -125,10 +125,7 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
     s.residentMu.Unlock()
     return nil, false, nil
   }
-  if code != 0 {
-    return nil, true, fmt.Errorf("ttscserver: %s %s (resident) exit %d", pluginLabel(plugin), verb, code)
-  }
-  return body, true, nil
+  return nativeResidentResult(plugin, verb, body, code)
 }
 
 // call sends one request to the daemon and reads its reply, serializing access
@@ -189,17 +186,13 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
     }
     break
   }
-  var resp serveClientResponse
-  if err := json.Unmarshal(reply, &resp); err != nil {
+  body, code, err := decodeNativeResidentReply(reply)
+  if err != nil {
     sc.kill()
     return nil, 0, err
   }
-  if len(resp.Result) > nativePluginCommandStdoutLimit {
-    sc.kill()
-    return nil, 0, fmt.Errorf("resident result exceeds %d bytes", nativePluginCommandStdoutLimit)
-  }
   sc.everServed.Store(true)
-  return resp.Result, resp.Code, nil
+  return body, code, nil
 }
 
 // spawn starts the resident child with the base project args and the lsp-serve

@@ -142,3 +142,24 @@ func runNativePluginRead(
   }
   return direct(command, args)
 }
+
+// decodeNativeResidentReply decodes one acquired resident response and applies
+// the existing result-byte limit. Common: Result/code come from supplied JSON,
+// not an invented process receipt; the pipe owner kills on returned errors and
+// marks successful parsing separately. JSON costs follow acquired bytes and
+// the copied result, while this operation retains no transport or session.
+func decodeNativeResidentReply(reply []byte) ([]byte, int, error) {
+  var response serveClientResponse
+  if err := json.Unmarshal(reply, &response); err != nil { return nil, 0, err }
+  if len(response.Result) > nativePluginCommandStdoutLimit { return nil, 0, fmt.Errorf("resident result exceeds %d bytes", nativePluginCommandStdoutLimit) }
+  return response.Result, response.Code, nil
+}
+
+// nativeResidentResult preserves a served response's nonzero status as a verb
+// error. Common: Optional fallback is owned by runNativePluginRead; formatting
+// a supplied status authenticates neither a peer nor an OS exit. Allocation
+// follows plugin/verb text, with no retained task or native resource.
+func nativeResidentResult(plugin NativeLSPPluginEntry, verb string, body []byte, code int) ([]byte, bool, error) {
+  if code != 0 { return nil, true, fmt.Errorf("ttscserver: %s %s (resident) exit %d", pluginLabel(plugin), verb, code) }
+  return body, true, nil
+}
