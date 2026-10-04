@@ -15,12 +15,11 @@ import (
 // TestEmitWithPluginTransformerInjectedReferenceDoesNotReviveATypeOnlyImport Verifies an
 // injected reference does not revive an existing import used only as a type.
 //
-// A plugin cannot keep a pre-existing import alive by referencing it from
-// injected code: it must synthesize its own import, which elision preserves
-// unconditionally because a synthetic import has no parse original. This holds
-// no matter which tree the builtin chain is built from, so the case is a stated
-// limit rather than a consequence of that choice — which is exactly why it needs
-// a test. It is adjacent enough to
+// In this pipeline, the unlinked injected value reference does not keep the
+// original type-position-only import alive. A plugin needs its own value import
+// rather than relying on this reference to change original import elision.
+// This test exercises the supported pipeline, not alternative builtin-chain
+// input trees. It is adjacent enough to
 // emit_plugin_ancestor_regeneration_preserves_export_resolution_test.go, where a
 // REBUILT reference does keep its import, that assuming the two behave alike is
 // the natural mistake.

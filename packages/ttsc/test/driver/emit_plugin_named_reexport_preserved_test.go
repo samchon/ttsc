@@ -2,6 +2,7 @@ package driver_test
 
 import (
   "path/filepath"
+  "regexp"
   "strings"
   "testing"
 
@@ -22,7 +23,7 @@ import (
 // 1. Transform the named-reexport fixture sibling initializer from 0 to 1.
 // 2. Require the x getter and dependency require alongside the changed sibling assignment.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs the actual numeric sibling transformer and requires named export defineProperty, ./dep require and changed exports.a assignment.
+// @evidence contracts/testing.md#behavioral-verification Runs the actual numeric sibling transformer and requires the named export getter returning x from the ./dep require binding, plus changed exports.a assignment.
 // @evidence contracts/testing.md#independent-expectations Literal x export, ./dep target and sibling replacement one independently establish generated structures.
 // @evidence contracts/testing.md#distinguishing-cases Named re-export and unrelated real rewrite coexist, rejecting dropped module lowering or a no-op transformer.
 // @evidence contracts/testing.md#execution-ownership The owning Go unit runs direct transformer/compiler APIs on a disposable Program and closes it after captured output; runtime getter behavior is not claimed.
@@ -75,6 +76,14 @@ func TestEmitWithPluginTransformerNamedReexportPreserved(t *testing.T) {
   // And the require for the re-exported module must be present.
   if !strings.Contains(js, `require("./dep")`) {
     t.Fatalf("re-export require(\"./dep\") missing:\n%s", js)
+  }
+  binding := regexp.MustCompile(`(?:const|let|var) (\w+) = require\("\./dep"\);`).FindStringSubmatch(js)
+  if binding == nil {
+    t.Fatalf("named re-export dependency binding missing:\n%s", js)
+  }
+  getter := `Object.defineProperty(exports, "x", { enumerable: true, get: function () { return ` + binding[1] + `.x; } });`
+  if !strings.Contains(js, getter) {
+    t.Fatalf("named re-export getter does not return its dependency's x:\n%s", js)
   }
   // The unrelated rewrite must have still applied (proves the plugin actually
   // rebuilt this file, so the re-export survived a real transform, not a no-op).
