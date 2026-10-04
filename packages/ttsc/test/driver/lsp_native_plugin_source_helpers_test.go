@@ -14,6 +14,7 @@ import (
   "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // Each authored protocol response remains in its fixture package. One dispatcher
@@ -49,10 +50,14 @@ func buildNativeSidecarBatch() {
   // This authored standard-library-only fixture module has no dependency on the
   // repository's Go workspace. Resolve the entire batch as its own one module.
   build.Env = append(os.Environ(), "GOWORK=off")
-  if output, err := build.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(build, "CombinedOutput", "native-lsp-sidecar-build")
+  output, err := build.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     nativeSidecarBuild.err = fmt.Errorf("build native sidecar batch: %w\n%s", err, output)
     return
   }
+  observation.Artifact(binary, "native-lsp-sidecar-built")
   artifact, err := os.ReadFile(binary)
   if err != nil { nativeSidecarBuild.err = err; return }
   for _, target := range nativeSidecarBuild.binaries {
@@ -60,6 +65,10 @@ func buildNativeSidecarBatch() {
       nativeSidecarBuild.err = err
       return
     }
+    // Observe each actual selected copy before sync.Once exposes this batch.
+    // The filename label distinguishes payloads on the same build invocation;
+    // these file bytes are not proof of a later process's loaded image.
+    observation.Artifact(target, "native-lsp-sidecar-"+strings.TrimSuffix(filepath.Base(target), ".exe"))
   }
 }
 
