@@ -51,15 +51,15 @@ import { watchDirectory } from "./watchDirectory";
  * and reload decision. These diagnostics reuse the decision's existing inputs;
  * they perform no extra filesystem observations.
  *
- * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
+ * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation compares baselines to recover observed handoff changes, not an atomic guarantee against every transient mutation. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
  * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Four distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads and compiler membership; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts. Project-input attribution: Native event names do not manufacture a delta; the current and previous physical membership identify already observed names without filename or fixture exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor. Project-input attribution: Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
  *
- * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate current membership, content baselines and handle registries; public reconciliation operations own traversal and hashing, while constructor retains operation references without an additional filesystem observation or build. Project-input attribution: R resolution-directory identities form one Set; C deltas and A distinct member ancestors require O(R+C+A) indexed visits before at most C event-ancestry comparisons. Shared ancestor keys terminate repeated walks and the supplied transaction shares native observations.
+ * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate membership, baselines and handle registries; reconciliation delegates project/config discovery, native compiler listing, filesystem traversal/hashing and backend callbacks, with costs described by its members. Construction retains operation references and empty indexes without a filesystem observation or build. Attribution indexed visits additionally pay path/key text, ancestor and native identity work; shared ancestor keys avoid repeating the same walk within a transaction.
  * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without adding an observation-result cache or assuming changed inputs remain equivalent. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending input maps belong to the topology and reconciliation retires obsolete populations; watcher registries close or rearm their acquired handles under error and shutdown ownership. Constructor acquires no handle and directory-read arrays remain call-owned. Project-input attribution: Delta arrays and keys remain call-local; the helper acquires no subscription, descriptor or retained history.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending maps and live subscriptions remain topology-owned without a population cap; reconciliation attempts obsolete handle retirement. Constructor acquires no handle; directory arrays and attribution deltas are call-local. close invokes supplied close methods but does not await backend closure, and a thrown close can interrupt later map cleanup; retained snapshots remain until the facade is released.
  */
 export class WatchTopology {
   private analysisOnly = false;
@@ -152,7 +152,8 @@ export class WatchTopology {
   ) {}
 
   /**
-   * Re-resolve compiler inputs and notify only when their membership changed.
+   * Re-resolve compiler inputs and notify when the resolved topology changes,
+   * including membership, output/configuration or analysis-mode changes.
    * Errors propagate to the caller; native watcher registration failures are
    * reported through onError while previous coverage remains live.
    *
@@ -161,9 +162,9 @@ export class WatchTopology {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Predicted outputs never subtract from compiler-reported inputs; failed registration cannot claim complete replacement coverage.
    * @evidence contracts/common.md#meaningful-documentation Native prose states notification gating, thrown errors and registration error ownership following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler processes use explicit argv/env; native APIs own path grammar and backend differences. Lexical membership uses measured component case policy, keeping unknown names and symlink aliases distinct instead of folding all Windows paths.
-   * @evidence contracts/performance.md#efficient-algorithms The native compiler-input operation obtains one list per resolved project; supplied readers own their listing cost. F current inputs update indexed snapshots in linear passes. Broad reconciliation stats F files and hashes only metadata/owner movement, while named/gap events request strong reads. Windows root pruning still uses pairwise D directory containment checks.
+   * @evidence contracts/performance.md#efficient-algorithms Project/reference configuration discovery, output inference and supplied/native compiler listing precede file/key snapshot passes. Native path/case/ancestor work and newly admitted file hashing add text/byte costs; broad reconciliation stats tracked files and strongly reads metadata/owner movement, while named/gap events request strong reads. Windows directory pruning is pairwise, and extra/project watcher reconciliation adds its own scans and backend callback costs without a file-count or deadline cap.
    * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Current file snapshots prune removed members and replaced watcher populations retire handles; observed directories persist only while still relevant. Owner close retires all handle maps, and partial registration retains old coverage until reconciliation succeeds or shutdown.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Current snapshots prune removed members and synchronization attempts obsolete handle closure, keeping old coverage after incomplete registration. Current/recovery populations and observations have no size cap; supplied close/error callbacks can throw and close does not await backend completion. State remains owner-held until released.
    */
   public refresh(notify: boolean): void {
     this.refreshCompilerInputs(notify, false);
@@ -320,16 +321,17 @@ export class WatchTopology {
   /**
    * Add Go plugin source trees discovered by the real build lane. Existing
    * input fingerprints retain their baseline; new inputs are captured before
-   * the caller builds them, so subsequent changes cannot disappear.
+   * the caller builds them, so later notifications can compare that observation.
+   * This does not freeze the source tree or prove every transient edit was seen.
    *
    * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest excludes only build-owned pruned trees; named plugins or fixture output do not replace consumed-input evidence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
-   * @evidence contracts/performance.md#efficient-algorithms I input keys are deduplicated once; only newly admitted inputs compute initial source digests. Source-directory enumeration follows the plugin build's actual pruned corpus, with indexed watcher reuse during reconciliation.
+   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests. Those reads scan the selected pruned corpus, then refresh(false) also pays project/compiler listing, directory traversal and watcher reconciliation; fixed publication count does not bound delegated bytes or backend work.
    * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Each publication replaces input/digest populations and case-observation caches; obsolete native source watchers close during synchronization and owner shutdown releases remaining handles and the last transaction's observations.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case-observation caches without a population cap; synchronization attempts obsolete watcher closure. Native/supplied closure has its own lifetime and can throw; owner close does not prove every backend has stopped or every retained snapshot byte was released.
    */
   public setExtraInputs(inputs: readonly string[]): void {
     this.beginLexicalTransaction();
@@ -361,9 +363,9 @@ export class WatchTopology {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing inputs are not dropped from observation, and an unavailable safe root is reported rather than widened over a system ancestor.
    * @evidence contracts/common.md#meaningful-documentation Native prose and helper paragraphs explain absent populations, aliases, handoff reconciliation and root ceilings following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Transaction-owned native case observations and physical identities distinguish resolved aliases; unknown case routes both glob interpretations without merging keys, while canonical registration and separate link-entry observation preserve retargets.
-   * @evidence contracts/performance.md#efficient-algorithms D declarations normalize once per publication; physical glob roots deduplicate and covered descendants join one ancestor traversal, so each admitted tree is enumerated once. Matching F visited files against G applicable patterns remains O(FG) predicate work, while fingerprints read selected byte/member state once per final identity.
+   * @evidence contracts/performance.md#efficient-algorithms Publication normalizes native identities and sorts distinct path lists, then compares snapshots and reconciles alias/watch roots. Changed publications enumerate deduplicated physical glob roots, test applicable patterns with pattern/path/native identity costs and fingerprint selected file bytes or sorted immediate directory entries. Parent/case probes, repeated declaration/root admission and backend work add costs beyond file-pattern visits; payloads and traversal depth are uncapped.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal normalized publications reuse content baselines but still reconcile lexical aliases; registration microtasks coalesce equivalent handoff work, and transaction indexes reuse identity and output-overlap decisions within one scan.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Publication prunes retired declaration-owner choices and replaces match/fingerprint populations; watcher retirement and close release native handles. Transaction output-overlap caches use weak identity-context keys, so old transactions are not retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publication prunes retired declaration-owner choices and replaces uncapped match/fingerprint populations. Watcher retirement invokes close without awaiting backend completion, and supplied errors can interrupt cleanup. Weak output-overlap keys do not retain old identity transactions; the current declaration snapshot can borrow caller arrays until replaced or the facade is released.
    */
   public setProjectInputs(inputs: ITtscProjectInputSnapshot): void {
     const next = normalizeProjectInputSnapshot(inputs);
@@ -395,20 +397,22 @@ export class WatchTopology {
   }
 
   /**
-   * Close every watcher so SIGINT/SIGTERM can drain the event loop. Scheduled
+   * Invoke close on owned watchers so their backends can retire. Scheduled
    * reconciliation callbacks observe the closed state and retire without
    * creating replacement subscriptions.
+   * A thrown close propagates and interrupts remaining cleanup; this void
+   * method does not await native/backend shutdown or guarantee event-loop drain.
    *
    * @evidence contracts/common.md#principled-implementation Marking the owner closed before retiring subscriptions prevents queued reconciliations from reopening native handles.
    * @evidence contracts/common.md#clear-and-simple-design One shutdown operation closes and clears each distinct watcher population through a shared helper.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Shutdown retires actual owned subscriptions rather than only suppressing future output callbacks.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Shutdown invokes actual owned subscription close methods rather than only suppressing output; errors propagate and no backend completion is fabricated.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain event-loop release and queued-work behavior following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Shared close methods retire both Node handles and macOS registry subscriptions without exposing native handle types.
-   * @evidence contracts/performance.md#efficient-algorithms Every owned watcher is closed once per live-map traversal, O(W) for W subscriptions, and cleared maps make repeated closure empty.
+   * @evidence contracts/performance.md#efficient-algorithms Each successfully reached live map traverses its watcher references and invokes backend-owned close work before clearing. Completed maps make later traversals empty; delegated cleanup costs and a thrown callback are not bounded by reference count alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shutdown decides no equivalence of compilation or fingerprint work.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources All five native watcher maps are cleared and the last lexical transaction is replaced with an empty one; queued tasks stop through the closed guard. Snapshot/declaration byte state remains until the caller releases the facade, rather than claiming close frees every retained byte.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources On successful completion all five watcher maps clear and the lexical transaction is replaced; queued tasks observe the closed guard. A thrown close can leave later maps retained, and backend closure is not joined. Snapshot/declaration/pending byte state remains until replaced or the facade is released.
    */
   public close(): void {
     this.closed = true;
