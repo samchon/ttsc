@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnnecessaryTypeAssertion verifies the lint rule corpus
+// TestRuleCorpusNoUnnecessaryTypeAssertion verifies a reduced trigger from the lint rule corpus
 // fixture typescript-no-unnecessary-type-assertion.ts under a real Program.
 //
 // `typescript/no-unnecessary-type-assertion` is type-aware: it consults the Checker

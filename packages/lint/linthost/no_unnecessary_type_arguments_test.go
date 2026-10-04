@@ -5,13 +5,13 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnnecessaryTypeArguments verifies the lint rule
+// TestRuleCorpusNoUnnecessaryTypeArguments verifies a reduced trigger from the lint rule
 // corpus fixture typescript-no-unnecessary-type-arguments.ts under a
 // real Program.
 //
 // `typescript/no-unnecessary-type-arguments` is type-aware: it resolves the
 // generic's symbol via the Checker, walks the declaration's type-parameter list,
-// and compares each explicit argument's type against the parameter's declared
+// and compares trailing explicit argument types against the parameters' declared
 // default. A parser-only engine run skips it because Context.Checker is nil, so
 // this Go scenario seeds a real tsconfig project, runs `ttsc lint check`, and
 // asserts on the rendered diagnostics.
