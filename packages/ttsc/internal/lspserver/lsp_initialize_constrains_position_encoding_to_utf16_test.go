@@ -6,6 +6,7 @@ import (
   "errors"
   "io"
   "testing"
+  "time"
 )
 
 // TestLSPInitializeConstrainsPositionEncodingToUTF16 checks authored offer
@@ -16,6 +17,9 @@ import (
 // The actual editor pump writes a constrained frame to a bytes.Buffer, not to
 // an executing tsgo process. This does not certify every downstream position
 // consumer, an actual negotiated session or all sibling fields/byte spelling.
+// A separate empty-stream group owns pre-initialize EOF, unchanged empty
+// editor output, nil proxy result and actual in-process upstream input closure.
+// Its bounded wait is a test failure guard, not a product close deadline.
 //
 //  1. Forward an initialize request offering UTF-8 first and assert the upstream
 //     frame offers UTF-16 alone while selected decoded sibling values survive.
@@ -23,10 +27,10 @@ import (
 //     envelope are returned unchanged.
 //  3. Drive the actual buffered pump and assert the emitted offer is UTF-16.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual constrainInitializePositionEncoding rewrites three authored offers to the literal UTF16 singleton, preserves selected decoded identity/process/root/markdown/completion fields for the first input, and returns seven quiet-case bodies byte for byte. Actual pumpEditorToUpstream emits a framed UTF16 offer into a buffer and returns ErrFrameClosed at EOF; no upstream process consumes it here.
+// @evidence contracts/testing.md#behavioral-verification Actual constrainInitializePositionEncoding rewrites three authored offers to the literal UTF16 singleton, preserves selected decoded sibling values and returns seven quiet-case bodies byte for byte. The framed pump emits UTF16 and returns ErrFrameClosed. Actual Proxy.Run before initialize returns nil with empty editor bytes and closes the owned upstream io.Pipe writer so its reader observes EOF; no upstream process consumes bytes here.
 // @evidence contracts/testing.md#independent-expectations Expected offer values, selected sibling values and EOF sentinel are independent literals; pass-through cases compare to their original authored bytes. Rewritten-frame byte identity and unlisted sibling fields are not asserted.
 // @evidence contracts/testing.md#distinguishing-cases UTF8+UTF16, UTF8-only and UTF32+UTF8 offers change; UTF16-only, missing/null/empty offer, missing general capabilities, another method and an initialize notification pass through. Shared branches are not claimed as ten distinct algorithms.
-// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes the actual constraint and actual framed editor-to-upstream pump through supported bytes.Buffer/io.Discard streams, then decodes returned frames. It substitutes no pump or operation and creates no directory or sidecar; no compiler, native process, installed consumer, product host or editor runs.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes the actual constraint and actual framed editor-to-upstream pump through supported streams, then decodes returned frames. The empty-stream group runs actual Proxy.Run with owned io.Pipe endpoints and no supplied peer responses to verify EOF closure/returned nil; it authenticates no OS child or initialized server. No compiler, native process, installed consumer, product host or editor runs.
 func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   const offeringUTF8 = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
     `{"processId":4242,"rootUri":"file:///project","capabilities":` +
@@ -124,6 +128,25 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
     t.Fatalf("read forwarded initialize: %v", err)
   }
   assertPositionEncodings(t, forwarded, []string{"utf-16"})
+  t.Run("uninitialized_empty_stream_closes_upstream_input", func(t *testing.T) {
+    upstreamRead, upstreamWrite := io.Pipe()
+    t.Cleanup(func() { upstreamWrite.Close(); upstreamRead.Close() })
+    var editorOut bytes.Buffer
+    emptyProxy := NewProxy(ProxyOptions{
+      EditorIn: bytes.NewReader(nil), EditorOut: &editorOut,
+      UpstreamIn: upstreamWrite, UpstreamOut: bytes.NewReader(nil),
+    })
+    if err := emptyProxy.Run(t.Context()); err != nil { t.Fatalf("empty stream result = %v", err) }
+    if editorOut.Len() != 0 { t.Fatalf("empty stream invented editor bytes: %q", editorOut.Bytes()) }
+    closed := make(chan error, 1)
+    go func() { var one [1]byte; n, err := upstreamRead.Read(one[:]); if n != 0 { closed <- errors.New("empty stream wrote upstream bytes"); return }; closed <- err }()
+    select {
+    case err := <-closed:
+      if !errors.Is(err, io.EOF) { t.Fatalf("upstream input closure = %v", err) }
+    case <-time.After(2*time.Second):
+      t.Fatal("empty editor EOF did not close its upstream input")
+    }
+  })
 }
 
 func mustParseEnvelope(t *testing.T, body string) Envelope {
