@@ -5,9 +5,9 @@ import "testing"
 // TestSolidImportProxyAndDependencyRules verifies solid import and call-shape
 // rules: canonical modules and non-React APIs are enforced.
 //
-// Locks the source-aware rules that only need import declarations and call
-// expressions. They catch wrong Solid module imports, React dependency arrays,
-// and Proxy-backed APIs without using type information.
+// Import routing and Proxy checks read syntax, while React dependency-array
+// detection uses the checker to recognize the imported tracked call. This
+// enabled rule set therefore runs with a real Program/checker.
 //
 //  1. Import Solid APIs from the wrong modules and the store package.
 //  2. Call `createEffect` with a dependency array and construct `Proxy`.

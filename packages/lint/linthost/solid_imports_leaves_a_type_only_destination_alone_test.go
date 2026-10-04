@@ -5,11 +5,11 @@ import "testing"
 // TestSolidImportsLeavesATypeOnlyDestinationAlone is the negative twin for the
 // relocation's type-only rule.
 //
-// A value specifier must not join `import type { … }`, and a type specifier
-// must not join a value declaration. Both are legal edits that produce code the
-// compiler rejects or the emitter mishandles: the first makes every use of the
-// symbol a TS1361 error, and the second survives into the emitted JavaScript
-// under `verbatimModuleSyntax` for a symbol with no runtime existence.
+// These relocations preserve declaration-level type-only semantics. The value
+// render binding gets a value declaration alongside the type-only destination;
+// the type-only render binding gets a type-only declaration alongside the value
+// destination. The complete source oracles do not compile or execute the fixed
+// imports, and do not forbid inline type specifiers in other value imports.
 //
 // The fix is expected to synthesize a matching declaration instead of appending
 // into the mismatched one, which is what these two sources assert.
