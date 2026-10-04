@@ -1,0 +1,48 @@
+{
+    "compilerOptions":  {
+                            "target":  "ESNext",
+                            "module":  "NodeNext",
+                            "strict":  true,
+                            "rootDir":  "src",
+                            "outDir":  "dist",
+                            "declaration":  true,
+                            "sourceMap":  true,
+                            "inlineSources":  true,
+                            "resolveJsonModule":  true,
+                            "esModuleInterop":  true,
+                            "jsx":  "react",
+                            "jsxFactory":  "jsx",
+                            "types":  [
+
+                                      ],
+                            "paths":  {
+                                          "@data":  [
+                                                        "./src/data.json"
+                                                    ],
+                                          "@lib/*":  [
+                                                         "./src/runtime-corpus/require-shadow/lib/*"
+                                                     ]
+                                      },
+                            "plugins":  [
+                                            {
+                                                "transform":  "@ttsc/banner"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/paths"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/strip"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/lint"
+                                            }
+                                        ],
+                            "lib":  [
+                                        "esnext"
+                                    ],
+                            "skipLibCheck":  true
+                        },
+    "include":  [
+                    "src"
+                ]
+}

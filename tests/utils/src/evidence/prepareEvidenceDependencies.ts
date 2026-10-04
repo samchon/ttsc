@@ -11,7 +11,9 @@ import { suiteRoot } from "./suiteRoot";
  * The caller owns the fresh modules directory and retains it until every
  * borrowing project has released its readers. Published entrypoints, declared
  * runtime dependencies and the selected lint producer are unchanged from the
- * original project preparation; only their allocation is shared.
+ * original project preparation; only their allocation is shared. An installed
+ * compiler consumer can retain its already installed ttsc/TypeScript owners
+ * instead of replacing them with workspace dependency links.
  *
  * @evidence contracts/common.md#principled-implementation The actual published manifest and lib/native links plus declared dependency links reproduce the existing preparation without substituting loader results or native replies.
  * @evidence contracts/common.md#clear-and-simple-design One dependency owner is separate from each authored project and ancestor workspace; callers choose live versus immutable snapshot producer explicitly.
@@ -25,6 +27,7 @@ import { suiteRoot } from "./suiteRoot";
 export function prepareEvidenceDependencies(
   modules: string,
   nativeProducer: "snapshot" | "workspace" = "workspace",
+  compilerDependencies: "installed" | "workspace" = "workspace",
 ): void {
   fs.mkdirSync(path.join(modules, "@ttsc"), { recursive: true });
   const source = path.resolve(suiteRoot, "..", "..", "packages", "evidence");
@@ -48,6 +51,10 @@ export function prepareEvidenceDependencies(
     linkDirectory(resolveDependency(name), path.join(modules, ...name.split("/")));
   }
   linkDirectory(nativeProducer === "snapshot" ? getNativeLintProducer().packageRoot : resolveDependency("@ttsc/lint"), path.join(modules, "@ttsc", "lint"));
-  linkDirectory(resolveDependency("typescript"), path.join(modules, "typescript"));
-  linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
+  if (compilerDependencies === "workspace") {
+    linkDirectory(resolveDependency("typescript"), path.join(modules, "typescript"));
+    linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
+  }
 }
+
+

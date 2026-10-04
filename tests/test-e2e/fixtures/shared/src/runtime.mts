@@ -1,0 +1,44 @@
+﻿import adapterEntries from "../adapter-entries.json" with { type: "json" };
+import { sourceLocations } from "./source-locations.js";
+import { createMemFS, parseResult } from "@ttsc/wasm";
+import { packageNameFromSpecifier } from "@ttsc/playground";
+import { result } from "./bundle.js";
+import { cliPolicyRuntime } from "./runtime-corpus/cli-policy.mjs";
+import { observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
+import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
+const host = createMemFS();
+host.writeFile("/main.ts", "export const value = 1;\n");
+const standardEsm = await import("./runtime-corpus/standard.mjs");
+const standardCommonjs = await import("./runtime-corpus/standard.cjs");
+const memberEsm = await import("./runtime-corpus/member.mjs");
+const memberCommonjs = await import("./runtime-corpus/member.cjs");
+const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
+const proposal = await import("./runtime-corpus/proposal.mjs");
+const adapterFactories = await Promise.all(adapterEntries.map(async (entry: string) => typeof (await import(entry)).default));
+const mixedRuntime = {
+  contraryCommonjs: contraryCommonjs.observed,
+  standardEsm: standardEsm.observed,
+  standardCommonjs: standardCommonjs.observed,
+  memberEsm: memberEsm.observed,
+  memberCommonjs: memberCommonjs.observed,
+  adapterFactories,
+  answers: [standardEsm.answer, standardCommonjs.answer],
+  proposalValue: proposal.proposalValue,
+  startupMarkers: proposal.startupMarkers,
+  mainMessage: proposal.mainMessage(),
+  optionalChainPreserved: proposal.optionalChainPreserved,
+};
+const nodeCompatible = await observeNodeCompatibleCorpus();
+const requireBindings = await observeRequireBindings();
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+  memoryFile: host.readFileText("/main.ts"),
+  decoded: parseResult({ result: '{"value":1}' } as never),
+  scoped: packageNameFromSpecifier("@scope/package/subpath"),
+  builtin: packageNameFromSpecifier("node:fs"),
+} }));
+
+
+
+
+
+
