@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferIncludes verifies the lint rule corpus fixture
+// TestRuleCorpusPreferIncludes verifies a reduced trigger from the lint rule corpus
 // typescript-prefer-includes.ts under a real Program.
 //
 // `typescript/prefer-includes` is type-aware: a parser-only engine run skips it

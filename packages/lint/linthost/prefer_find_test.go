@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferFind verifies the lint rule corpus fixture
+// TestRuleCorpusPreferFind verifies a reduced trigger from the lint rule corpus
 // typescript-prefer-find.ts under a real Program.
 //
 // `typescript/prefer-find` is type-aware: a parser-only engine run skips it because
