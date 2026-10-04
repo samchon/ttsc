@@ -1,8 +1,12 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es2020",
-    "outDir": "bin"
+    "target": "es2022",
+    "rootDir": ".",
+    "outDir": "bin",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "files": ["index.ts"]
+  "files": ["index.ts", "src/main.ts", "src/helpers.ts", "src/nested/model.ts", "src/isolated.ts"]
 }
