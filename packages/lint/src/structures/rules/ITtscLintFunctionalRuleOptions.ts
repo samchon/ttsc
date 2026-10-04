@@ -15,13 +15,13 @@
  * @evidence contracts/common.md#principled-implementation Separate pattern inputs select identifier spelling and trimmed source text; each accepts an exact text match before supported regex matching.
  * @evidence contracts/common.md#clear-and-simple-design A shared base keeps identical ignore policy fields in one place while individual rules own their additional switches.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exemptions are caller-supplied patterns rather than fixture names or mutations of the AST walker.
- * @evidence contracts/common.md#meaningful-documentation Each member identifies what its regex matches; comments and properties are separated, and the owning prose names the shared role.
+ * @evidence contracts/common.md#meaningful-documentation Each member identifies which text its pattern matches; comments and properties are separated, and the owning prose names the shared role.
  */
 export interface ITtscLintFunctionalPatternOptions {
-   /** Identifier pattern string(s), matched exactly or as a supported regex. */
+  /** Identifier pattern string(s), matched exactly or as a supported regex. */
   ignoreIdentifierPattern?: string | readonly string[];
 
-   /** Trimmed source-code pattern string(s), matched exactly or as a regex. */
+  /** Trimmed source-code pattern string(s), matched exactly or as a regex. */
   ignoreCodePattern?: string | readonly string[];
 }
 
@@ -56,7 +56,7 @@ export interface ITtscLintFunctionalParametersRuleOptions extends ITtscLintFunct
  * @evidence contracts/common.md#principled-implementation The collection exemption skips add, clear, delete and set method spellings while array-method and property mutation checks remain independent; receiver collection types are not resolved.
  * @evidence contracts/common.md#clear-and-simple-design One collection switch extends the existing pattern base because all remaining mutation selection is shared.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Collection allowance is documented configuration, not mutation of Map or Set methods to conceal writes.
- * @evidence contracts/common.md#meaningful-documentation The member states both the exempt collections and mutations still checked, so its scope is visible without reading the decoder.
+ * @evidence contracts/common.md#meaningful-documentation The member states the exempt method names and mutations still checked, so its scope is visible without reading the decoder.
  */
 export interface ITtscLintFunctionalImmutableDataRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
