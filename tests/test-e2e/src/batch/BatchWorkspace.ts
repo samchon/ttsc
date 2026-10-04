@@ -221,7 +221,7 @@ export namespace BatchWorkspace {
       consumerManifest.devDependencies = { ...consumerManifest.devDependencies, "batch-auto-discovery": "file:./packages/batch-auto-discovery" };
       fs.writeFileSync(consumerManifestFile, JSON.stringify(consumerManifest));
       config.compilerOptions.plugins.push(
-        { name: "native-order-prefix", transform: "./descriptors/create.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
+        { name: "native-order-prefix", transform: "batch-auto-discovery/plugins/ordered.js", fixtureSource, operation: "prefix", prefix: "a:" },
         { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },
         { name: "native-order-identity", transform: "./descriptors/context.cjs", fixtureSource, operation: "identity", contextProbe: factoryContextProbe },
         { name: "native-order-upper", transform: "./descriptors/esm/src/index.ts", fixtureSource, operation: "upper", esmContextProbe: path.join(root, "factory-esm-context.json") },

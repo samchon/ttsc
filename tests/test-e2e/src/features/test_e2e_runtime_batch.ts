@@ -58,6 +58,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /TTSC_TEST_RUNTIME_BARREL_LOADED|TTSC_TEST_PATTERN_RUNTIME_LOADED/, "both bare and wildcard ttsc export conditions must avoid the throwing runtime entries");
   assert.doesNotMatch(result.stderr, /must-be-stripped/, "strip must compose with both native standard-decorator modules");
   const payload = BatchWorkspace.readPayload(result.stdout);
   if (workspace.installationOnly) {

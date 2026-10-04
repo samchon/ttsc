@@ -1,0 +1,1 @@
+throw new Error("TTSC_TEST_RUNTIME_BARREL_LOADED");
