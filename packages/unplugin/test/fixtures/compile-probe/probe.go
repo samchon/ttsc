@@ -16,16 +16,43 @@ type plugin struct{}
 
 // EmitTransform changes only the corpus's independently authored sentinel.
 // Config values must cross the actual descriptor/native manifest connection.
+// Ordered entries retain their marker through prefix/upper and consume it on
+// suffix, so the final literal distinguishes descriptor order and disabled entries.
 func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransform, error) {
+  operation, _ := context.Entry.Config["operation"].(string)
   prefix, ok := context.Entry.Config["prefix"].(string)
-  if !ok { return nil, fmt.Errorf("shared native pipeline requires a prefix") }
+  if !ok && (operation == "" || operation == "prefix") {
+    return nil, fmt.Errorf("shared native pipeline requires a prefix")
+  }
   suffix, ok := context.Entry.Config["suffix"].(string)
-  if !ok { return nil, fmt.Errorf("shared native pipeline requires a suffix") }
+  if !ok && (operation == "" || operation == "suffix") {
+    return nil, fmt.Errorf("shared native pipeline requires a suffix")
+  }
+  switch operation {
+  case "", "prefix", "upper", "suffix", "identity":
+  default:
+    return nil, fmt.Errorf("unknown shared native pipeline operation %q", operation)
+  }
   return func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visitor = ec.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
-      if node != nil && node.Kind == shimast.KindStringLiteral && node.Text() == "__TTSC_NATIVE_PIPELINE__" {
-        return ec.Factory.NewStringLiteral(strings.ToUpper(prefix + "plugin") + suffix, 0)
+      if node != nil && node.Kind == shimast.KindStringLiteral {
+        text := node.Text()
+        if operation == "" && text == "__TTSC_NATIVE_PIPELINE__" {
+          return ec.Factory.NewStringLiteral(strings.ToUpper(prefix + "plugin") + suffix, 0)
+        }
+        const ordered = "__TTSC_ORDERED__:"
+        if operation != "" && strings.HasPrefix(text, ordered) {
+          payload := strings.TrimPrefix(text, ordered)
+          switch operation {
+          case "prefix":
+            return ec.Factory.NewStringLiteral(ordered + prefix + payload, 0)
+          case "upper":
+            return ec.Factory.NewStringLiteral(ordered + strings.ToUpper(payload), 0)
+          case "suffix":
+            return ec.Factory.NewStringLiteral(payload + suffix, 0)
+          }
+        }
       }
       return visitor.VisitEachChild(node)
     })
@@ -36,6 +63,11 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
 func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) error {
   runLog, ok := context.Entry.Config["runLog"].(string)
   if !ok || runLog == "" {
+    // Ordered entries observe the same Program without adding compile ticks.
+    operation, _ := context.Entry.Config["operation"].(string)
+    if operation == "prefix" || operation == "upper" || operation == "suffix" || operation == "identity" {
+      return nil
+    }
     return fmt.Errorf("real-envelope compile probe requires a runLog string")
   }
   if !filepath.IsAbs(runLog) {
