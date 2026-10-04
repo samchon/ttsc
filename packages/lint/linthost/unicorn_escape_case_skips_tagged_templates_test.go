@@ -5,8 +5,8 @@ import "testing"
 // TestUnicornEscapeCaseSkipsTaggedTemplates verifies a tagged template's
 // segments are never reported.
 //
-// Upstream guards its `TemplateElement` handler with
-// `isTaggedTemplateLiteral(node.parent)`: the tag function receives the raw
+// The owning rule guards its template-element handling with
+// `isTaggedTemplateElement(node)`: a tag can observe the raw
 // text (`String.raw`, `dedent`, `gql`), where `\xa9` is a four-character
 // string and `\xA9` a different one, so uppercasing the digits would change
 // what the tag observes. Opting into the template elements without this guard
