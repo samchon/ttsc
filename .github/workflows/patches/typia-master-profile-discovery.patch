@@ -1,0 +1,28 @@
+--- a/tests/template/src/utils/TestServant.ts
++++ b/tests/template/src/utils/TestServant.ts
+@@ -10,4 +10,10 @@
+       prefix: "test_",
+       location: props.location,
++      // Incompatible declaration authorities execute through runNativeProfiles.
++      // Export-name filters cannot prevent a foreign authority's source import.
++      fileFilter: (file) =>
++        (props.excludedFilePrefixes ?? []).every(
++          (prefix) => !file.startsWith(prefix),
++        ),
+       parameters: () => [],
+       onComplete: (exec: DynamicExecutor.IExecution) => {
+@@ -46,4 +51,6 @@
+     include: string[];
+     exclude: string[];
++    /** Source populations executed by a separately configured owner. */
++    excludedFilePrefixes?: string[];
+   }
+ }
+--- a/tests/test-typia-automated/src/index.ts
++++ b/tests/test-typia-automated/src/index.ts
+@@ -47,4 +47,5 @@
+             include,
+             exclude: [...exclude, "test_native_identity_"],
++            excludedFilePrefixes: ["test_native_identity_"],
+           })),
+         );
