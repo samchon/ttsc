@@ -1,3 +1,4 @@
+import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
 import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
 import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
 import assert from "node:assert/strict";
@@ -79,6 +80,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     await assertGraphReverseCorpus(client);
     await assertGraphMcpCorpus(client, initialization);
     await assertGraphNativeShapeCorpus(client, workspace.root);
+    await assertGraphRefreshCorpus(client, workspace.root);
     const response = await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
