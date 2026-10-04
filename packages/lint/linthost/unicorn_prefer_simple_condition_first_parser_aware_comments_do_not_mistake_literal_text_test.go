@@ -6,7 +6,7 @@ import (
 
 // TestUnicornPreferSimpleConditionFirstParserAwareCommentsDoNotMistakeLiteralText verifies comment safety uses parser positions rather than literal text.
 //
-// Literal text cannot act as a source comment; authored expected edits and warning/no-fix cases independently distinguish parser-aware safety.
+// Literal text cannot act as a source comment; the authored full-source edit distinguishes parser-aware comment safety.
 //
 // 1. Execute the retained logical source variants through the owning Go rule.
 // 2. Compare the diagnostic/edit or unchanged result at each stated boundary.

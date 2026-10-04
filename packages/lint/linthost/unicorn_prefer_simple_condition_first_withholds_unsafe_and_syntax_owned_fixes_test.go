@@ -11,9 +11,9 @@ import (
 // 1. Execute the retained logical source variants through the owning Go rule.
 // 2. Compare the diagnostic/edit or unchanged result at each stated boundary.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual rule reports retained unsafe or syntax-owned conditions with the independent warning text and no automatic fix.
-// @evidence contracts/testing.md#independent-expectations JavaScript evaluation order, side effects and syntax ownership prevent a blanket swap; the literal warning acknowledges a review requirement without copying the product constant.
-// @evidence contracts/testing.md#distinguishing-cases Unsafe and syntax-owned cases retain diagnostics but no edits; the exact-safe-fix host owns a permitted reorder.
+// @evidence contracts/testing.md#behavioral-verification Each of eight inputs must produce one ordinary rule error with no edit: calls, member/optional access and a conditional call use the literal review-only message; three real comment positions and a TypeScript-wrapped logical subchain use the literal safe-order message but still withhold the fix.
+// @evidence contracts/testing.md#independent-expectations Short-circuit evaluation makes crossed calls and member reads unsafe, while comments and logical assertion wrappers own source text that an automatic partition must not rewrite. The two authored messages distinguish evaluation safety from source-edit eligibility without copying product constants.
+// @evidence contracts/testing.md#distinguishing-cases Four evaluation-unsafe inputs and four source-owned inputs all forbid edits, but require different messages; ReportsExactSafeFindingAndStableFix owns the editable counterpart.
 // @evidence contracts/testing.md#execution-ownership TestUnicornPreferSimpleConditionFirstWithholdsUnsafeAndSyntaxOwnedFixes owns the literal logical-expression variants as a discoverable Go unit entry; actual parser/engine/fix operations run in the shared process without a consumer installation, native producer or product child host.
 func TestUnicornPreferSimpleConditionFirstWithholdsUnsafeAndSyntaxOwnedFixes(t *testing.T) {
   cases := []struct {

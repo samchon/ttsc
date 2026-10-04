@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "strings"
   "testing"
 )
 
@@ -11,9 +12,9 @@ import (
 // 1. Execute the retained logical source variants through the owning Go rule.
 // 2. Compare the diagnostic/edit or unchanged result at each stated boundary.
 //
-// @evidence contracts/testing.md#behavioral-verification The engine evaluates retained simple-expression and nonsimple-expression matrices and checks the appropriate findings.
-// @evidence contracts/testing.md#independent-expectations The supported canonical simple-condition grammar independently classifies the literal operands; no product predicate generates the expected matrix.
-// @evidence contracts/testing.md#distinguishing-cases Original positive and negative grammar forms remain, including their wrapper and expression-shape boundaries.
+// @evidence contracts/testing.md#behavioral-verification The engine accepts already ordered simple operands, reports each simple operand after check(), and stays silent when only nonsimple operands follow check(); the original unsafe chains also retain their warning and no-fix assertions.
+// @evidence contracts/testing.md#independent-expectations The canonical grammar admits identifiers, their negations and strict identifier/typeof comparisons with supported literals, including transparent TypeScript wrappers. Authored expression lists and zero/one findings distinguish that grammar without calling the product classifier.
+// @evidence contracts/testing.md#distinguishing-cases Moving the same simple operand behind a call changes zero findings to one; loose equality, literal-only equality, template literals, positive bigint operands and member access remain complex even behind a call, where a mistaken simple classification would produce a finding.
 // @evidence contracts/testing.md#execution-ownership TestUnicornPreferSimpleConditionFirstUsesCanonicalSimpleExpressionGrammar owns the literal logical-expression variants as a discoverable Go unit entry; actual parser/engine/fix operations run in the shared process without a consumer installation, native producer or product child host.
 func TestUnicornPreferSimpleConditionFirstUsesCanonicalSimpleExpressionGrammar(t *testing.T) {
   valid := `declare const ready: boolean;
@@ -35,6 +36,30 @@ if ((<boolean>ready) && check()) { void 0; }
 if ((ready satisfies boolean) && check()) { void 0; }
 `
   assertRuleSkipsSource(t, preferSimpleConditionFirstRule, valid)
+
+  declarations := "declare const ready: boolean; declare const value: unknown; declare const count: number; declare const big: bigint; declare const pattern: RegExp; declare function check(): boolean; "
+  simple := []string{
+    "ready",
+    "!ready",
+    "!!ready",
+    `typeof value === "string"`,
+    "count === +1",
+    "count !== -1",
+    "big === -1n",
+    "pattern === /x/",
+    "(ready as boolean)",
+    "(<boolean>ready)",
+    "(ready satisfies boolean)",
+  }
+  for _, expression := range simple {
+    t.Run("misplaced simple "+expression, func(t *testing.T) {
+      _, _, findings := runRuleFindingsSnapshot(t, preferSimpleConditionFirstRule, declarations+"if (check() && "+expression+") { void 0; }", nil)
+      assertUnicornRuleErrorFindingIdentities(t, preferSimpleConditionFirstRule, findings)
+      if len(findings) != 1 || findings[0].Message != "Consider moving this simple condition first after verifying short-circuit behavior." || len(findings[0].Fix) != 0 {
+        t.Fatalf("want one unsafe finding for misplaced simple operand, got %+v", findings)
+      }
+    })
+  }
 
   cases := []struct {
     name   string
@@ -63,6 +88,10 @@ if ((ready satisfies boolean) && check()) { void 0; }
   }
   for _, test := range cases {
     t.Run(test.name, func(t *testing.T) {
+      // Without the later ready operand, only a mistaken classification of
+      // this candidate as simple can produce a finding.
+      candidateOnly := strings.Replace(test.source, " && ready)", ")", 1)
+      assertRuleSkipsSource(t, preferSimpleConditionFirstRule, candidateOnly)
       _, _, findings := runRuleFindingsSnapshot(t, preferSimpleConditionFirstRule, test.source, nil)
       assertUnicornRuleErrorFindingIdentities(t, preferSimpleConditionFirstRule, findings)
       if len(findings) != 1 {
