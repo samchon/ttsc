@@ -1,5 +1,3 @@
-//go:build e2e
-
 package driver_test
 
 import (
@@ -40,7 +38,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Direct LoadProgram and EmitAll produce the actual nine fixtures; Node require/import consumes them and nine named Go subcases require exact export maps or report their own producer/load failure.
 // @evidence contracts/testing.md#independent-expectations Literal rewritten-suffix names, rewritten-namespace, ordered rewritten-first/second, plugin:kept, rewritten-import, decoy:kept and rewritten-esm come from the authored input/replacement contract and are never passed to Node as expected output.
 // @evidence contracts/testing.md#distinguishing-cases Bare root, collision depths 1/2/3/16, bare namespace, source-owned require, helper-shaped decoy and retained ESM import preserve all original runtime distinctions; decoy exports must remain unchanged beside replacements.
-// @evidence contracts/testing.md#execution-ownership This selected Go E2E entry owns actual compiler production and one external Node consumer; anonymous subcases preserve original failure names but are not separately addressable Evidence declarations. TestDriverRewriteRuntimeBatch is their selectable owner.
+// @evidence contracts/testing.md#execution-ownership This untagged Go unit calls the owning compiler library directly and uses Node only as an independent emitted-value oracle, without installing a consumer, building a native host or invoking product protocol. Anonymous subcases preserve original failure names but are not separately addressable Evidence declarations; TestDriverRewriteRuntimeBatch is their selectable owner.
 //
 // Additional implementation review grounds follow. The selected public case
 // answers the testing and E2E chapters above; its private helpers remain

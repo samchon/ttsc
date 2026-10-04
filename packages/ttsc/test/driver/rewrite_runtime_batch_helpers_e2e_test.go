@@ -1,5 +1,3 @@
-//go:build e2e
-
 package driver_test
 
 import (
@@ -12,6 +10,8 @@ import (
   "os/exec"
   "path/filepath"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // rewriteRuntimeFixtures embeds the authored compiler inputs and Node consumer.
@@ -122,7 +122,9 @@ func runRewriteRuntimeBatch(root string, inputs []rewriteRuntimeInput) (map[stri
   defer cancel()
   command := exec.CommandContext(ctx, "node", filepath.Join(root, "runtime.cjs"), string(encoded))
   command.Dir = root
+  observation := e2etrace.BeginCommand(command, "CombinedOutput", "rewrite-runtime-node-oracle")
   output, err := command.CombinedOutput()
+  observation.Result(err)
   if err != nil {
     return nil, fmt.Errorf("Node batch failed: %w\n%s", err, output)
   }
