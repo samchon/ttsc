@@ -29,7 +29,7 @@ import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#behavioral-verification Calls openLinuxDirectoryObserver and routes actual helper replies. Asserts healthy readiness, directory-only subscriptions, nested delivery, initial root/child enumeration refusal, widened subtree error, named and backend topology uncertainty versus confirmed deletion and exact removal on close.
  * @evidence contracts/testing.md#independent-expectations A watch acknowledgment cannot establish which child directories an unreadable listing contains. Literal false readiness and one coverage error follow that missing proof. EIO/EACCES cannot establish absence, while deleting the actual child establishes subtree retirement; healthy literal paths and event names come from the authored tree, not observer state.
  * @evidence contracts/testing.md#distinguishing-cases Separates healthy enumeration, root versus child EIO during opening and EIO when wider admission revisits an existing child, plus named rename and backend gone EIO/EACCES versus native ENOENT after actual deletion. A backend gone line retires only its own subscription before the observer classifies presence. Later failure uses onError rather than pretending a previously resolved readiness promise can change. Each row closes twice to distinguish idempotent release and restores both shared descriptors in finally.
- * @evidence contracts/testing.md#execution-ownership Unit test: directly exercises the observer, shared directory subscription and protocol router with a scripted LinuxWatchHelper and native temporary directories. The exported body forwards readdirSync/lstatSync/existsSync except the selected exact directory and failure phase, restoring all descriptors and the prior helper. No Linux helper process, inotify watch, compiler or host runs.
+ * @evidence contracts/testing.md#execution-ownership Unit test: directly exercises the observer, shared directory subscription and protocol router with a scripted LinuxWatchHelper and native temporary directories. The exported body forwards readdirSync/lstatSync/existsSync except the selected exact directory and failure phase, restoring all descriptors and the prior helper. An additional admitted-directory row checks two observers share subscriptions, exclude unadmitted packages, admit a new source directory, track exact package ancestors, widen only a requested subtree and release watches by owner. No Linux helper process, inotify watch, compiler or host runs.
  */
 export async function test_linux_directory_observer_rejects_incomplete_enumeration(): Promise<void> {
   for (const row of [
@@ -243,5 +243,122 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
       Object.defineProperty(fs, "existsSync", existsDescriptor);
       LINUX_WATCH_HELPER.current = priorHelper;
     }
+  }
+
+  // Authored acknowledgments isolate admission and shared subscription policy.
+  // They do not establish delivery by an actual inotify helper.
+  const root = path.resolve(TestProject.tmpdir("ttsc-linux-admission-"));
+  TestProject.writeFiles(root, {
+    "src/main.ts": "export {};\n",
+    "src/feature/view.ts": "export {};\n",
+  });
+  for (let index = 0; index < 20; index++)
+    TestProject.writeFiles(root, {
+      [`node_modules/pkg-${index}/lib/index.d.ts`]: "export {};\n",
+    });
+  const priorHelper = LINUX_WATCH_HELPER.current;
+  const sent: { id: number; op: string; path?: string }[] = [];
+  const quiet = { ref: () => undefined, unref: () => undefined };
+  const helper: LinuxWatchHelper = {
+    answered: false,
+    child: {
+      ...quiet,
+      stdin: {
+        destroyed: false,
+        writable: true,
+        write: (line: string) => {
+          sent.push(JSON.parse(line) as (typeof sent)[number]);
+          return true;
+        },
+      },
+      stdout: quiet,
+    } as unknown as ChildProcess,
+    nextId: 1,
+    pending: 0,
+    subscriptions: new Map(),
+    syncs: new Map(),
+  };
+  let consumed = 0;
+  const acknowledge = async (): Promise<void> => {
+    for (;;) {
+      const requests = sent.slice(consumed).filter((entry) => entry.op === "add" || entry.op === "sync");
+      consumed = sent.length;
+      for (const entry of requests)
+        routeLinuxWatchHelperLine(helper, JSON.stringify(entry.op === "sync"
+          ? { id: entry.id, synced: true }
+          : { id: entry.id, ready: true }));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (sent.length === consumed) break;
+    }
+  };
+  const names = (): string[] => [...LINUX_DIRECTORY_WATCHES.keys()]
+    .filter((directory) => directory === root || directory.startsWith(`${root}${path.sep}`))
+    .map((directory) => path.relative(root, directory).split(path.sep).join("/"))
+    .sort();
+  const widened = path.join(root, "node_modules", "pkg-7");
+  let expand = false;
+  let errors = 0;
+  const heard: string[] = [];
+  const admit = (directory: string): boolean =>
+    !directory.startsWith(path.join(root, "node_modules")) ||
+    (expand && (directory === widened || directory.startsWith(`${widened}${path.sep}`)));
+  let first: ReturnType<typeof openLinuxDirectoryObserver> | undefined;
+  let second: ReturnType<typeof openLinuxDirectoryObserver> | undefined;
+  LINUX_WATCH_HELPER.current = helper;
+  try {
+    first = openLinuxDirectoryObserver(root, admit,
+      (_type, filename) => { if (filename !== null) heard.push(filename); },
+      () => { errors += 1; });
+    second = openLinuxDirectoryObserver(root, admit, () => undefined,
+      () => { errors += 1; });
+    await acknowledge();
+    assert.deepEqual(await Promise.all([first.ready, second.ready]), [true, true]);
+    assert.deepEqual(names(), ["", "src", "src/feature"]);
+    assert.equal(sent.filter((entry) => entry.op === "add").length, 3,
+      "two observers share one backend subscription for each admitted directory");
+    const rootId = sent.find((entry) => entry.path === root)!.id;
+    fs.mkdirSync(path.join(root, "src", "later"));
+    fs.mkdirSync(path.join(root, "node_modules", "pkg-new"));
+    const srcId = sent.find((entry) => entry.path === path.join(root, "src"))!.id;
+    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: srcId, type: "rename", name: "later" }));
+    const packagesIdBefore = sent.filter((entry) => entry.op === "add").length;
+    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: rootId, type: "rename", name: "node_modules" }));
+    await acknowledge();
+    assert.equal(sent.filter((entry) => entry.op === "add").length, packagesIdBefore);
+    assert.deepEqual(names(), ["", "src", "src/feature", "src/later"]);
+    fs.writeFileSync(path.join(root, "src", "later", "new.ts"), "export {};\n");
+    const laterId = sent.find((entry) => entry.path === path.join(root, "src", "later"))!.id;
+    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: laterId, type: "change", name: "new.ts" }));
+    assert.ok(heard.includes(path.join("src", "later", "new.ts")));
+    first.track(path.join(root, "node_modules", "pkg-3", "lib", "index.d.ts"));
+    await acknowledge();
+    assert.deepEqual(names(), ["", "node_modules", "node_modules/pkg-3",
+      "node_modules/pkg-3/lib", "src", "src/feature", "src/later"]);
+    first.track(path.join(root, "node_modules", "pkg-5"));
+    await acknowledge();
+    assert.ok(names().includes("node_modules/pkg-5"));
+    assert.equal(names().includes("node_modules/pkg-5/lib"), false);
+    first.track(widened);
+    await acknowledge();
+    expand = true;
+    first.track(widened);
+    await acknowledge();
+    assert.equal(names().includes("node_modules/pkg-7/lib"), false,
+      "nonrecursive track does not rescan an already live directory");
+    first.track(widened, true);
+    await acknowledge();
+    assert.deepEqual(names(), ["", "node_modules", "node_modules/pkg-3",
+      "node_modules/pkg-3/lib", "node_modules/pkg-5", "node_modules/pkg-7",
+      "node_modules/pkg-7/lib", "src", "src/feature", "src/later"]);
+    assert.equal(errors, 0);
+    first.close();
+    assert.deepEqual(names(), ["", "src", "src/feature", "src/later"],
+      "closing the wider owner retains the second observer's shared subscriptions");
+    second.close();
+    assert.deepEqual(names(), []);
+  } finally {
+    first?.close();
+    second?.close();
+    LINUX_WATCH_HELPER.current = priorHelper;
   }
 }
