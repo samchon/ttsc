@@ -13,7 +13,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The checker evaluates retained loop header/body dependencies and capture-free functions.
 // @evidence contracts/testing.md#independent-expectations Loop binding lifetimes independently prevent lifting a dependent function beyond that lexical boundary.
-// @evidence contracts/testing.md#distinguishing-cases Header/body captures stay pinned while free functions report within original loop forms.
+// @evidence contracts/testing.md#distinguishing-cases In the authored for-of loop, header/body captures stay pinned while the one capture-free arrow reports; this entry does not enumerate other loop forms.
 // @evidence contracts/testing.md#execution-ownership TestUnicornConsistentFunctionScopingTreatsLoopScopesAsOneBoundary owns its explicit variants as a discoverable Go unit entry; checker and engine operations execute in the shared process with isolated fixtures and no installed consumer, native producer or product child host.
 func TestUnicornConsistentFunctionScopingTreatsLoopScopesAsOneBoundary(t *testing.T) {
   source := `declare const values: readonly number[];

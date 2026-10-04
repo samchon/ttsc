@@ -18,7 +18,7 @@ import (
 func TestUnicornConsistentFunctionScopingReadsClassHeadPositionsAsLexicalEnvironment(t *testing.T) {
   // Computed member keys and heritage expressions of a class evaluate in the
   // enclosing lexical environment, while field initializers and method bodies
-  // rebind `this`. Upstream keeps the first two arrows and reports the third.
+  // rebind `this`. The owning rule keeps the first two arrows and reports the third.
   source := `function outer(): void {
   const capturesComputedKey = () =>
     class WithKey {
