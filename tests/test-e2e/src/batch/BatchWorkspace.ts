@@ -30,7 +30,7 @@ export namespace BatchWorkspace {
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
   export function assertResult(value: unknown, expected: Workspace["expected"], nativePipeline = "A:PLUGIN:z", nativeOrdered = "A:PLUGIN:z"): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown };
+    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
@@ -43,6 +43,7 @@ export namespace BatchWorkspace {
     check("unchanged native neighbor", () => assert.equal(result.nativeNeighbor, "native-neighbor-retained"));
     check("actual ordered manifest entries and disabled exclusion", () => assert.equal(result.nativeOrdered, nativeOrdered));
     check("unchanged ordered neighbor", () => assert.equal(result.nativeOrderedNeighbor, "ordered-neighbor-retained"));
+    check("project strip configuration retains default-only call", () => assert.equal(result.defaultOnlyCallRetained, true));
     assertValues(result.values, expected);
     if (failures.length) throw new AggregateError(failures, "Shared boundary assertions failed");
   }

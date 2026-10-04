@@ -53,6 +53,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.deepEqual(metro.ast.options, { projectRoot: workspace.root, platform: "ios" });
   assert.deepEqual(metro.ast.plugins, ["authored-babel-plugin"]);
   assert.equal(typeof metro.ast.source, "string");
+  assert.match(metro.ast.source, /Shared boundary corpus/);
+  assert.match(metro.ast.source, /Authored source positions remain observable/);
   assert.notEqual(metro.ast.source, fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"));
   assert.equal(/(?:^|[;\n])\s*discard\.call\(\)/.test(metro.ast.source), false);
   assert.equal(metro.ast.source.includes("STRIPPED_DEBUG_RAN"), false);

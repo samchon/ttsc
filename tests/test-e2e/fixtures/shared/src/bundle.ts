@@ -8,6 +8,8 @@ debugger;
 console.debug("STRIPPED_DEBUG_RAN");
 discard.call();
 export const authoredMarker = "authored-marker";
-export const result = { authoredMarker, answer: acceptedValue(), data: data.answer, neighbor: data.neighbor, values, nativePipeline, nativeNeighbor, nativeOrdered, nativeOrderedNeighbor };
+const defaultOnlyCall = () => { console.log("DEFAULT_ONLY_RETAINED"); };
+const defaultOnlyCallRetained = String(defaultOnlyCall).includes("DEFAULT_ONLY_RETAINED");
+export const result = { authoredMarker, defaultOnlyCallRetained, answer: acceptedValue(), data: data.answer, neighbor: data.neighbor, values, nativePipeline, nativeNeighbor, nativeOrdered, nativeOrderedNeighbor };
 globalThis.TTSC_BATCH_RESULT = result;
 
