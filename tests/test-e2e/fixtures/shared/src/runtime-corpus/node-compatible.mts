@@ -43,5 +43,18 @@ export async function observeNodeCompatibleCorpus() {
   await capture("query-and-hash", async () => (await import("./node-compatible/scanner/suffix.js")).observed);
   await capture("extensionless-side-effect", async () => (await import("./node-compatible/scanner/side-effect.js")).observed);
   await capture("extensionless-directory-index", async () => (await import("./node-compatible/scanner/directory.js")).observed);
+  await capture("native-cjs-require-object", async () => {
+    const libName = "./native-require/lib.cjs";
+    const againName = "./native-require/again.cjs";
+    const lib = await import(libName);
+    const again = await import(againName);
+    return { properties: lib.properties, value: again.value, whole: lib.default.value };
+  });
+  await capture("native-extension-detection", () => require("./native-require/detection/detector.cjs"));
+  await capture("native-supported-require-hooks", async () => {
+    const configName = "./native-require/hooks/config.js";
+    const loaded = await import(configName);
+    return { handler: loaded.handler, resolved: loaded.resolved, resolvedFromPaths: loaded.resolvedFromPaths, target: loaded.target, wrapped: loaded.wrapped };
+  });
   return { values, failures };
 }
