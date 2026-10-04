@@ -14,7 +14,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/no-types rule through NewEngine.Run over a parsed virtual TypeScript file. The typed @param yields exactly one finding, with that rule at error severity, on line 3; the untyped @param yields none.
 // @evidence contracts/testing.md#independent-expectations TypeScript annotations own the types of TypeScript sources, so a JSDoc type brace is redundant. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
-// @evidence contracts/testing.md#distinguishing-cases The two sources differ only in the {string} type payload on the @param tag. Other typed tags in the rule's table (@returns, @property, ...) are not exercised by this Test.
+// @evidence contracts/testing.md#distinguishing-cases The authored typed @param block reports and the separately authored untyped @param block stays clean; their descriptions, function names and TypeScript types also differ. Other typed tags in the rule's table (@returns, @property, ...) are not exercised by this Test.
 // @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocNoTypes(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/no-types", `/**

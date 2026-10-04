@@ -15,8 +15,8 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/check-values rule through NewEngine.Run over a parsed virtual TypeScript file. `@access friend` yields exactly one finding, with that rule at error severity, on line 3; `@access public`, `protected`, `private` and `package` each yield none.
 // @evidence contracts/testing.md#independent-expectations The JSDoc @access vocabulary is public, protected, private and package, so `friend` is invalid and `public` is valid. The literal sources and the expected line 3 follow from that vocabulary; the message text is not asserted.
-// @evidence contracts/testing.md#distinguishing-cases The sources differ only in the @access value: `friend` is rejected, while each of the four vocabulary members (public, protected, private, package) is accepted.
-// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
+// @evidence contracts/testing.md#distinguishing-cases The authored friend block is rejected; four separately authored function blocks accept public/protected/private/package. The positive and clean blocks also differ in description and declaration shape.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit invoking the helper for one rejected value and all four accepted values; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocCheckValues(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/check-values", `/**
  * Creates a value.
