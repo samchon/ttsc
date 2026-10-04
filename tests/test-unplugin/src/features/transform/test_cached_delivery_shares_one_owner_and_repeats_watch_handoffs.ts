@@ -16,7 +16,7 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await the same current generation promise, return each literal output and retain that exact promise; repeated deliveries repeat the exact dependency and universal watch handoff without creating another owner.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector.
  * @evidence contracts/testing.md#distinguishing-cases An unresolved common owner contrasts with fulfilled and repeated deliveries. Each module has its own callback ledger, so one delivery cannot stand in for the other five, and repeated handoff must neither disappear nor accumulate extra paths. A separate supported generation returns identical authored source, contrasting changed output with undefined first/repeated delivery while preserving owner and watch handoff.
- * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Finally resets the owning cache.
+ * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. Finally resets the owning cache.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
@@ -48,6 +48,16 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     { addWatchFile: (input) => ledgers[index]!.push(input) },
   );
   try {
+    const wrapperWatches: string[] = [];
+    for (const query of ["?raw", "?worker"]) {
+      const wrapper = "export default \"HOST-WRAPPER\";\n";
+      assert.equal(await fixture.api.transformTtsc(modules[0]! + query,
+        wrapper, fixture.options, undefined, fixture.cache,
+        { addWatchFile: (input) => wrapperWatches.push(input) }), undefined,
+        "host wrappers bypass even an unresolved resident generation");
+      assert.equal(fixture.cache.get(fixture.key), owner);
+    }
+    assert.deepEqual(wrapperWatches, [], "wrapper bypass registers no program watch inputs");
     const deliveries = modules.map(deliver);
     assert.equal(fixture.cache.size, 1);
     assert.equal(fixture.cache.get(fixture.key), owner);
@@ -61,6 +71,27 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     assert.deepEqual(repeats.map((output) => output?.code), [code, code, code, code, code, code]);
     assert.equal(fixture.cache.get(fixture.key), owner);
     for (const ledger of ledgers) assert.deepEqual(ledger.sort(), expected);
+    assert.equal(observed.divergentDeliveryReported, undefined);
+    const divergent = fixture.source + "// earlier host plugin rewrote this delivery\n";
+    for (let repetition = 0; repetition < 2; repetition++) {
+      const output = await fixture.api.transformTtsc(modules[1]!, divergent,
+        fixture.options, undefined, fixture.cache);
+      assert.equal(output?.code, code,
+        "unchanged disk evidence retains the compiler-owned output for divergent delivered text");
+      assert.equal(fixture.cache.get(fixture.key), owner);
+      assert.equal(fs.readFileSync(modules[1]!, "utf8"), fixture.source);
+      assert.deepEqual([...observed.divergentDeliveryReported!], [modules[1]!],
+        "one source spelling registers one warning attempt for this generation");
+    }
+    // Warning registration is observed through actual generation state; this
+    // row does not intercept stderr or certify its write receipt/count.
+    assert.equal((await deliver(modules[2]!, 2))?.code, code);
+    assert.equal((await deliver(modules[1]!, 1))?.code, code);
+    assert.equal((await fixture.api.transformTtsc(modules[0]! + "?t=1",
+      fixture.source, fixture.options, undefined, fixture.cache))?.code, code,
+      "ordinary timestamp queries still deliver the program");
+    assert.equal(fixture.cache.get(fixture.key), owner);
+    assert.deepEqual([...observed.divergentDeliveryReported!], [modules[1]!]);
     const unchanged = observeValidationUnitGeneration(root, {
       ...result,
       typescript: Object.fromEntries(modules.map((file) => ["src/" + path.basename(file), fixture.source])),
