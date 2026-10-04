@@ -10,7 +10,6 @@ import { traceInvocation } from "../../tracing/traceInvocation";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
-import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
@@ -59,6 +58,7 @@ import { releaseCaptureResources } from "./releaseCaptureResources";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 import { selectReportedMembershipPolicy } from "./selectReportedMembershipPolicy";
+import { transferCaptureClockReference } from "./transferCaptureClockReference";
 
 const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
 
@@ -806,11 +806,6 @@ export async function captureTransformGeneration(props: {
   if (captured === undefined) {
     throw new Error("ttsc: transform generation capture produced no result");
   }
-  if (clockReferenceDirectory !== undefined) {
-    TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.set(
-      captured,
-      clockReferenceDirectory,
-    );
-  }
+  transferCaptureClockReference(captured, clockReferenceDirectory);
   return captured;
 }
