@@ -11,8 +11,8 @@ import "testing"
 // fixer as a real line feed. The superseded jsesc port passed every character
 // but the backslash, the delimiter quote, and U+2028 / U+2029 through raw, which
 // closed the string literal early and left the file unparseable (issue #573).
-// The expectations below come from upstream's escapeString oracle — the
-// `quote-js-string` package the rule shares with `unicorn/string-content` — so
+// The independently authored expectations below pin the documented escaping policy
+// of quote-js-string; they do not execute an upstream package as an oracle. Thus
 // the named escapes (`\n \r \t \b \f \v`), the braced `\u{HEX}` form for the
 // remaining unsafe code points, and the raw pass-through of exotic whitespace,
 // astral symbols, and the non-delimiter quotes are all pinned. Exotic code
@@ -20,7 +20,7 @@ import "testing"
 //
 //  1. Fix constructors whose cooked pattern carries line terminators, controls,
 //     quote characters, exotic whitespace, and astral symbols.
-//  2. Compare each rewritten source with the upstream escapeString spelling.
+//  2. Compare each rewritten source with its independent literal expected spelling.
 //  3. Re-parse the fixed source, assert it stays parse-valid, and assert the
 //     canonical output no longer fires.
 //
