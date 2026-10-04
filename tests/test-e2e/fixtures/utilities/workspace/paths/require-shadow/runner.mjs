@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-globalThis.require = createRequire(import.meta.url);
+globalThis.require = createRequire(new URL("./dist/loader.js", import.meta.url));
 const parameter = await import("./dist/parameter.js");
 const local = await import("./dist/local.js");
 const imported = await import("./dist/imported.js");
