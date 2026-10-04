@@ -67,14 +67,14 @@ func assertUnusedPropertiesFindings(t *testing.T, source string) {
   }
 }
 
-// TestUnicornNoUnusedPropertiesObjectLiteralSemantics verifies every
-// object-literal read, escape, and mutation branch of the upstream analysis.
+// TestUnicornNoUnusedPropertiesObjectLiteralSemantics verifies the authored
+// object-literal read, escape and mutation cases of the native analysis.
 //
 // The rule filters a variable's references per property key: static accesses
 // must name the key, destructuring must bind it, and any escape (alias,
 // argument, spread, export, dynamic index, mutation, member call) keeps every
-// property alive. Each positive here has a negative twin one property away so
-// an over- or under-match in any branch flips the expectation set.
+// property alive in the annotated cases. Reported siblings contrast with kept
+// properties and whole-object controls in the expected marker set.
 //
 //  1. Declare one module-scope object per branch: direct/quoted/element/
 //     computed reads, nested recursion, destructuring forms, rest, method
@@ -83,7 +83,7 @@ func assertUnusedPropertiesFindings(t *testing.T, source string) {
 //  3. Assert exactly the `/* unused:NAME */`-marked properties are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings compare exactly with authored NAME@line markers and reject edits or unexpected messages, detecting under/over-analysis of object reads and escapes.
-// @evidence contracts/testing.md#independent-expectations The supported conservative object-reference analysis and official Unicorn property-read/escape policy establish each independently annotated used/unused pair.
+// @evidence contracts/testing.md#independent-expectations Independent source markers specify the intended conservative property-read and escape outcomes. Expected names and lines come from those authored markers rather than production reference matching.
 // @evidence contracts/testing.md#distinguishing-cases Direct/static/computed/nested reads and destructuring preserve unused siblings; aliases, rest/spread, whole arguments, exports, writes, member calls, probes and dynamic access retain all eligible properties.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesObjectLiteralSemantics owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesObjectLiteralSemantics(t *testing.T) {

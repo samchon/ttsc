@@ -3,16 +3,16 @@ package linthost
 import "testing"
 
 // TestUnicornNoUnusedPropertiesKeyMatching verifies the strict key identity
-// upstream applies between property names and access expressions.
+// expected between property names and access expressions in this matrix.
 //
-// Upstream compares JavaScript key VALUES with strict equality: identifier
+// The authored static-key expectations distinguish extracted key values: identifier
 // and string keys share one class, numbers normalize (`0x10` reaches
 // `foo[16]`) but never match strings (`foo["1"]` cannot reach `{1: ...}`),
 // bigints compare by value, boolean/null literal indexes stay distinct from
 // the identifier property names they resolve to at runtime, computed
 // identifier keys match by NAME (not runtime value), and parentheses are
-// transparent on both sides because ESTree has no parenthesized-expression
-// node. Any relaxation or tightening of one class flips a case here.
+// transparent in the authored accesses, without requiring an ESTree-equivalent
+// AST. Changes to these distinctions flip an authored marker outcome.
 //
 //  1. Declare one object per key class with a matching and a mismatching
 //     access, plus `__proto__` skips and unpredictable-key reports.
@@ -20,7 +20,7 @@ import "testing"
 //  3. Assert exactly the `/* unused:NAME */`-marked properties are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual checker-backed engine is compared against authored unused NAME@line markers, distinguishing key identity classes incorrectly merged or separated.
-// @evidence contracts/testing.md#independent-expectations The official Unicorn static-key analysis policy uses strict extracted-key identity rather than JavaScript runtime property coercion; independent source markers express that lint contract.
+// @evidence contracts/testing.md#independent-expectations Independent authored NAME markers specify extracted static-key distinctions rather than JavaScript runtime property coercion; neither the expected names nor lines are obtained from the production matcher.
 // @evidence contracts/testing.md#distinguishing-cases Numeric notation normalizes but number/string/bigint/boolean/null classes differ; computed identifiers compare by name, parentheses are transparent, and proto/unpredictable forms retain their distinct outcomes.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesKeyMatching owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesKeyMatching(t *testing.T) {

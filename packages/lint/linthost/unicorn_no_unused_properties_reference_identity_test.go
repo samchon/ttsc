@@ -8,10 +8,10 @@ import "testing"
 // References resolve through the TypeScript checker, so shadows and
 // redeclarations must not leak between bindings, `export { x as y }` must
 // resolve to the local variable, and a `typeof x` query is a real (escaping)
-// reference. Wrapper handling is asymmetric by upstream's ESTree shape:
-// parentheses are invisible everywhere, but a TS assertion around a member
-// blocks call/assignment detection because upstream inspects the member's
-// direct parent. Each arm pins one of those identity decisions.
+// reference in the authored expectations. Wrapper handling is asymmetric:
+// the parenthesized controls retain properties, but a TS assertion around a member
+// preserves a marked unused sibling under the member's
+// wrapped call or assignment. Each arm pins an authored identity decision.
 //
 //  1. Declare shadowed, redeclared, exported, type-queried, and
 //     wrapper-consumed objects with used/unused twins.
@@ -19,7 +19,7 @@ import "testing"
 //  3. Assert exactly the `/* unused:NAME */`-marked properties are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification The checker-backed engine compares exact authored property-name/line sets, exposing references leaked across bindings or wrapper handling that changes liveness.
-// @evidence contracts/testing.md#independent-expectations TypeScript binding identity plus the official analysis policy for exported/type-query references and direct-parent member operations establish the literal markers.
+// @evidence contracts/testing.md#independent-expectations Independent literal markers specify binding, export/type-query and wrapped-operation liveness outcomes. Expected property names and lines are read from source annotations, not the production reference matcher.
 // @evidence contracts/testing.md#distinguishing-cases Shadowed objects report separate unused twins; redeclarations, renamed exports and typeof references escape, while parentheses and TS assertions differ for call/assignment detection.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesReferenceIdentity owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesReferenceIdentity(t *testing.T) {

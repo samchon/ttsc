@@ -8,11 +8,11 @@ import (
 // TestUnicornNoUnusedPropertiesReportingShape verifies the exact diagnostic
 // surface: the reported range covers the whole property node, the message
 // interpolates the resolved key (or the computed key's source text), and no
-// autofix or suggestion is offered, mirroring upstream's fix-free rule.
+// autofix or suggestion is offered by the native rule.
 //
-// Range checks pin the node choice itself — upstream reports the property,
-// not just its key — including a type-literal member whose trailing
-// semicolon belongs to the member node, exactly as in typescript-eslint.
+// Independent source needles specify each complete property range, including
+// a type-literal member with its trailing semicolon and a shorthand property
+// without its comma. No expected range is taken from a production AST node.
 //
 //  1. Declare one unused property per member kind: assignment, shorthand,
 //     method, computed key, and an inline parameter type member.
@@ -24,8 +24,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Assignments, shorthand, methods, computed keys and inline type members expose different node ends; trailing comma is excluded while type-member semicolon remains included. Other hosts own clean liveness twins.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesReportingShape owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesReportingShape(t *testing.T) {
-  // The raw literal below picks up CRLF on autocrlf checkouts while the
-  // expectation needles spell "\n"; normalize so both use one representation.
+  // Normalize any CRLF input to the LF representation of the authored needles.
   source := `export {};
 declare function consume(...values: unknown[]): void;
 declare const outer: { key: string };

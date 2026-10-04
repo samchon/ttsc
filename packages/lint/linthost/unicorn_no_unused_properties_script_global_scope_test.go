@@ -3,14 +3,12 @@ package linthost
 import "testing"
 
 // TestUnicornNoUnusedPropertiesScriptGlobalScopeExclusion verifies the
-// upstream global-scope exclusion for script files.
+// native script-global exclusion in the authored scope matrix.
 //
-// Upstream walks every scope except `global`. In a script (no import or
-// export), top-level `const`/`let` and every hoisted `var` land in the
-// global scope and must be skipped even with obviously unused properties,
-// while block-scoped and function-scoped variables in the same file are
-// still analyzed. A module file has no global variables, which the module
-// test files cover; this fixture intentionally has no export statement.
+// This fixture intentionally has no import or export. Top-level const/var
+// and block-hoisted var are unmarked controls, while block lexical and
+// function-local bindings have independently marked unused siblings. An
+// initialized for-head contrasts with an initializer-free for-of binding.
 //
 //  1. Declare unused-property objects at the script top level (const and
 //     var), inside a bare block (let and hoisted var), inside a function,
@@ -19,7 +17,7 @@ import "testing"
 //  3. Assert only block-, function-, and for-scoped objects report.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings must equal the authored unused NAME@line markers, detecting accidentally analyzed globals or skipped local scopes.
-// @evidence contracts/testing.md#independent-expectations The official Unicorn global-scope exclusion and JavaScript var versus lexical scope rules establish independent block/function/loop expectations.
+// @evidence contracts/testing.md#independent-expectations Authored markers and JavaScript var versus lexical scope distinctions establish independent script/block/function/loop expectations; names and lines do not come from the native scope matcher.
 // @evidence contracts/testing.md#distinguishing-cases Script top-level const/var and block-hoisted var stay clean; local lexical/function bindings and initialized for-head objects report unused siblings, while for-of bindings lack their own initializer.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesScriptGlobalScopeExclusion owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesScriptGlobalScopeExclusion(t *testing.T) {
