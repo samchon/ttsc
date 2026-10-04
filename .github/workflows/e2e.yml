@@ -202,6 +202,12 @@ jobs:
             commandFiles: [
               { boundary: 'actual-node-command', event: 'selected-file-observation',
                 producerAsset: 'prepared-node', minimumCalls: 1 },
+              ...(family === 'native-consumer' ? [
+                { boundary: 'await-thenable-node-oracle-command', event: 'selected-file-observation',
+                  owner: 'await-thenable-node-oracle', producerAsset: 'prepared-node', minimumCalls: 1 },
+                { boundary: 'sort-imports-node-evaluation-oracle-command', event: 'selected-file-observation',
+                  owner: 'sort-imports-node-evaluation-oracle', producerAsset: 'prepared-node', minimumCalls: 1 },
+              ] : []),
             ],
           };
           fs.writeFileSync(path.join(traceRoot, 'measurement-input.json'),
