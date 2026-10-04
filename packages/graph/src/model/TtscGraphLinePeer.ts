@@ -135,8 +135,9 @@ export namespace TtscGraphLinePeer {
    * Open the actual Node child and attach its reader and diagnostic drain.
    *
    * EOF permits the resident loop to finish. close(true) resolves only after
-   * Node joins the process and all stdio with exit zero; a transport failure,
-   * nonzero exit, signal, forced kill or unjoined deadline rejects instead.
+   * Node joins the process and all stdio after a normal numeric exit, including
+   * a nonzero status already delivered to the request owner. A transport failure,
+   * signal, forced kill or unjoined deadline rejects instead.
    *
    * @evidence contracts/common.md#principled-implementation Node spawn and readline map executable, argv and complete lines to the declared transport operations without interpreting graph facts.
    * @evidence contracts/common.md#clear-and-simple-design One adapter implements actual process I/O; resident state owners choose diagnostic capture while this adapter owns joined EOF shutdown.
@@ -183,8 +184,8 @@ export namespace TtscGraphLinePeer {
       if (flushDeadline !== undefined) clearTimeout(flushDeadline);
       if (deadline !== undefined) clearTimeout(deadline);
       if (joinFailed) return;
-      if (failure !== undefined || forced || code !== 0 || signal !== null)
-        reject(failure ?? new Error(`@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`));
+      const error = retirementError(code, signal, forced, failure);
+      if (error !== undefined) reject(error);
       else resolve();
     });
     const captureStderr = (chunk: string) => { stderr = (stderr + chunk).slice(-64 * 1024); };
@@ -258,6 +259,36 @@ export namespace TtscGraphLinePeer {
         return completion;
       },
     };
+  }
+
+  /**
+   * Qualify an authoritative Node close event for resource retirement.
+   *
+   * A normal numeric exit establishes joined release regardless of the work's
+   * status. The exit callback owns that status; retirement still rejects an
+   * unknown exit, signal, forced termination or actual transport failure.
+   * This internal decision does not establish joining before Node closes stdio.
+   *
+   * @internal
+   * @evidence contracts/common.md#principled-implementation A numeric normal exit after the caller's authoritative close event distinguishes known process release from request success; transport errors, signals, unknown status and forced termination remain failures.
+   * @evidence contracts/common.md#clear-and-simple-design The actual close callback delegates only its completion qualification; process joining and deadlines stay in open.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts This shared production decision neither fabricates an exit nor suppresses the separate request owner's exit error.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the authoritative-close premise and separates task status from release, including unknown and forced failure.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This scalar completion qualification chooses no growing-input algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This decision caches no result and does not admit another peer; the state owner waits for retirement.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This decision acquires no handle; open owns joining and resident state owns retirement completion.
+   * @evidence contracts/portability.md#os-neutral-implementation Nullable Node exit coordinates preserve numeric normal exits and native signal exits without shell or OS-specific status interpretation.
+   */
+  export function retirementError(
+    code: number | null,
+    signal: NodeJS.Signals | null,
+    forced: boolean,
+    failure?: Error,
+  ): Error | undefined {
+    if (failure !== undefined) return failure;
+    if (forced || code === null || signal !== null)
+      return new Error(`@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`);
+    return undefined;
   }
 }
 
