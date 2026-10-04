@@ -379,6 +379,19 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
       expected: false,
     },
     {
+      name: "combined inline map and external false",
+      options: { sourceMap: false, inlineSourceMap: false },
+      args: ["--inlineSourceMap", "--sourceMap", "false"],
+      expected: false,
+      fallbackExpected: true,
+    },
+    {
+      name: "external false before inline map",
+      options: {},
+      args: ["--sourceMap", "false", "--inlineSourceMap"],
+      expected: false,
+    },
+    {
       name: "forwarded inline map",
       options: { sourceMap: false, inlineSourceMap: false },
       args: ["--inlineSourceMap"],
