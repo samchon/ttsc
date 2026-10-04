@@ -26,16 +26,18 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases Composite/rootDir restrictions must not block the excluded report graph; the two-case loop stops before the second run if the first fails.
  * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_root_that_imports_beyond_a_composite_project at this path, selected by tests/test-e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
  * @evidence contracts/e2e.md#necessary-boundary Actual compiler handling of composite ownership and Node import execution crosses both included and outside-project source boundaries.
- * @evidence contracts/e2e.md#shared-execution One workspace graph and compiler serve two hosts; the source fixtures and options can be shared without rebuilding a plugin producer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Inputs remain immutable between synchronous runs; the tracked workspace lasts until process-exit cleanup and owned-output cleanup is not inspected.
+ * @evidence contracts/e2e.md#shared-execution The same two-request body accepts the canonical root and guarded spawn after the Runtime assembler stages the original workspace fixture. Both public entry transports remain necessary; no plugin producer is rebuilt for this graph.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Inputs remain immutable between synchronous runs. Standalone selection owns its tracked workspace; consolidated selection borrows the assembler's staged root and guarded process boundary. Native output cleanup is not independently inspected here.
  * @evidence contracts/e2e.md#preserved-coverage Both exact lib+shared assertions remain here; no cache-release or declaration-output preservation claim is added.
  */
-export function test_ttsx_runs_a_root_that_imports_beyond_a_composite_project() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_a_root_that_imports_beyond_a_composite_project/inputs-1"));
+export function test_ttsx_runs_a_root_that_imports_beyond_a_composite_project(
+  prepared?: { root: string; spawn: typeof TestProject.spawn },
+) {
+    const root = prepared?.root ?? TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_a_root_that_imports_beyond_a_composite_project/inputs-1"));
     const app = `${root}/app`;
 
     for (const entry of ["scripts/report.ts", "src/main.ts"]) {
-      const result = TestProject.spawn(
+      const result = (prepared?.spawn ?? TestProject.spawn)(
         TestProject.TTSX_BIN,
         ["--cwd", app, entry],
         { cwd: app },
