@@ -30,7 +30,7 @@ export namespace BatchWorkspace {
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
   export function assertResult(value: unknown, expected: Workspace["expected"], nativePipeline = "A:PLUGIN:z"): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown };
+    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
@@ -41,6 +41,8 @@ export namespace BatchWorkspace {
     check("unchanged JSON neighbor", () => assert.equal(result.neighbor, "retained"));
     check("actual native config transport and string transform", () => assert.equal(result.nativePipeline, nativePipeline));
     check("unchanged native neighbor", () => assert.equal(result.nativeNeighbor, "native-neighbor-retained"));
+    check("actual ordered manifest entries and disabled exclusion", () => assert.equal(result.nativeOrdered, "A:PLUGIN:z"));
+    check("unchanged ordered neighbor", () => assert.equal(result.nativeOrderedNeighbor, "ordered-neighbor-retained"));
     assertValues(result.values, expected);
     if (failures.length) throw new AggregateError(failures, "Shared boundary assertions failed");
   }
@@ -132,6 +134,14 @@ export namespace BatchWorkspace {
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
+      const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
+      config.compilerOptions.plugins.push(
+        { name: "native-order-prefix", transform: "./compile-probe.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
+        { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },
+        { name: "native-order-identity", transform: "./compile-probe.cjs", fixtureSource, operation: "identity" },
+        { name: "native-order-upper", transform: "./compile-probe.cjs", fixtureSource, operation: "upper" },
+        { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
+      );
       fs.writeFileSync(configPath, JSON.stringify(config));
       const loaderPath = path.join(root, "typed-loader.cjs");
       fs.writeFileSync(loaderPath, fs.readFileSync(loaderPath, "utf8").replace("__ESBUILD_ENTRY__", createRequire(import.meta.url).resolve("esbuild").replace(/\\/g, "/")));
