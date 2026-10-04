@@ -20,7 +20,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification RunCommandWithIO reaches each real build, transform and check owner and retains status 2, empty stdout and invalid --plugins-json stderr for the authored incomplete JSON.
 // @evidence contracts/testing.md#independent-expectations A lone opening brace is incomplete JSON independently of the implementation; literal usage status and diagnostic prefix preserve the original E2E assertions without depending on JSON parser wording.
-// @evidence contracts/testing.md#distinguishing-cases All three host routes run for all three package identities with identical malformed manifest argv; successful linked compilation and emitted output remain in the native E2E population.
+// @evidence contracts/testing.md#distinguishing-cases All three host routes run for all three package identities with identical malformed manifest argv; successful linked compilation, emitted output and E2E survival are outside this direct rejection case.
 // @evidence contracts/testing.md#execution-ownership Go TestUtilityCommandRejectsInvalidPluginManifest under test/utility calls shared actual dispatch and real WithIO hosts using buffers; parsePluginEntries rejects before setLinkedPluginManifest or LoadProgram, with no producer, child or fixture.
 func TestUtilityCommandRejectsInvalidPluginManifest(t *testing.T) {
   for _, name := range []string{"@ttsc/banner", "@ttsc/paths", "@ttsc/strip"} {

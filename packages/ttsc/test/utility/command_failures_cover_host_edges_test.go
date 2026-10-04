@@ -34,9 +34,9 @@ func (*utilityApplyError) Error() string { return "utility apply boom" }
 // 2. Exercise linked-plugin application failure through RunCheck and RunBuild.
 // 3. Exercise disk emit failure through a blocked outDir path.
 //
-// @evidence contracts/testing.md#behavioral-verification RunCheck, RunBuild and RunTransform return command status 2 with the documented message for malformed flags, an invalid plugin manifest, a missing tsconfig and an invalid project configuration, and fail cleanly when a linked plugin fails or the output directory is blocked.
+// @evidence contracts/testing.md#behavioral-verification Malformed flags require status 2; invalid manifest, missing config and invalid module additionally require their authored message fragments. Plugin application fails with status 2 for check/transform and 3 for build, while blocked disk output requires status 2 and its write diagnostic.
 // @evidence contracts/testing.md#independent-expectations Every status code and message fragment ('invalid --plugins-json', 'tsconfig not found') is a literal from the command contract.
-// @evidence contracts/testing.md#distinguishing-cases Each failure category is a separate input, so a host that panicked or returned success for one category would fail only that assertion.
+// @evidence contracts/testing.md#distinguishing-cases Authored parse/config/plugin/write branches have separate assertions in one sequential case; a fatal assertion stops later inputs. Deleted-cwd branches are conditional on non-Windows native capability observations, followed by a relative-cwd positive.
 // @evidence contracts/testing.md#execution-ownership TestUtilityCommandFailuresCoverHostEdges is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
   code, _, _ := captureUtilityOutput(t, func() int {
@@ -92,6 +92,7 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
 }
 `)
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(utilityApplyErrorPlugin{})
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"error","stage":"transform","config":{}}]`)
   code, _, errOut = captureUtilityOutput(t, func() int {
@@ -145,7 +146,11 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
-  defer os.Chdir(previous)
+  defer func() {
+    if err := os.Chdir(previous); err != nil {
+      t.Errorf("restore process cwd: %v", err)
+    }
+  }()
   // Windows locks the cwd against deletion. Other hosts permit removal, but
   // some still return its former path from Getwd, so probe the branch the host
   // can actually take instead of assuming every POSIX Getwd reports ENOENT.

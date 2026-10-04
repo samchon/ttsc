@@ -28,8 +28,8 @@ type utilityTransformResultWithGraph struct {
 //
 // Producing the `graph` section must not be
 // per-plugin work — every plugin that routes its envelope through the driver
-// SDK host emits it automatically, so the stale-bundler-cache bug class is
-// closed by default. The section's keys must match the typescript map's keys
+// SDK host captures it before transformation. This case does not run a
+// persistent bundler cache. The section's source keys must match the typescript map's keys
 // so consumers can join the sections.
 //
 //  1. Run the utility transform subcommand over a project with a type-only
@@ -41,7 +41,7 @@ type utilityTransformResultWithGraph struct {
 //
 // @evidence contracts/testing.md#behavioral-verification The transform envelope's graph carries the type-only edge, the ambient global file and the tsconfig, keyed like the typescript map.
 // @evidence contracts/testing.md#independent-expectations The edges, globals and configs are the authored project's actual relationships written literally.
-// @evidence contracts/testing.md#distinguishing-cases A type-only import and an ambient declaration are inputs that bundlers would erase; their presence distinguishes a complete graph.
+// @evidence contracts/testing.md#distinguishing-cases Type-only and ambient inputs distinguish the authored graph relationships from a runtime-import-only result; completeness for other language constructs is not certified.
 // @evidence contracts/testing.md#execution-ownership TestTransformSubcommandStampsReferenceGraph is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformSubcommandStampsReferenceGraph(t *testing.T) {
   resetLinkedPluginRegistry()
@@ -71,8 +71,10 @@ export const shape: Shape = { id: 1 };
   if result.Graph == nil {
     t.Fatalf("envelope has no graph section: %q", out)
   }
-  if _, ok := result.TypeScript["main.ts"]; !ok {
-    t.Fatalf("typescript map missing main.ts: %v", keysOf(result.TypeScript))
+  for _, key := range []string{"main.ts", "types.ts", "ambient.d.ts"} {
+    if _, ok := result.TypeScript[key]; !ok {
+      t.Fatalf("typescript map missing %s: %v", key, keysOf(result.TypeScript))
+    }
   }
   if !slices.Contains(result.Graph.Edges["main.ts"], "types.ts") {
     t.Fatalf("graph edge main.ts -> types.ts missing: %v", result.Graph.Edges)

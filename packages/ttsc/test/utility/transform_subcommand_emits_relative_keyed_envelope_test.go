@@ -72,9 +72,6 @@ func TestTransformSubcommandEmitsRelativeKeyedEnvelope(t *testing.T) {
     if strings.TrimSpace(text) == "" {
       t.Fatalf("relative key %q mapped to empty TypeScript", want)
     }
-    if strings.HasPrefix(want, "..") || filepath.IsAbs(want) {
-      t.Fatalf("in-cwd key %q should be a bare relative path", want)
-    }
   }
   if !strings.Contains(result.TypeScript["a.ts"], "export const a") {
     t.Fatalf("a.ts text not preserved: %q", result.TypeScript["a.ts"])

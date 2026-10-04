@@ -27,6 +27,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestUtilityBuildAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(utilityPreamblePlugin{})
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

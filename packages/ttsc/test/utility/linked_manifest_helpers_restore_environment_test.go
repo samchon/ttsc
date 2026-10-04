@@ -69,7 +69,7 @@ func TestUtilityLinkedManifestHelpersRestoreEnvironment(t *testing.T) {
     t.Fatal("source preamble should not be duplicated")
   }
   outside := filepath.Join(filepath.Dir(t.TempDir()), "outside.js")
-  if got := utilityAPIOutputKey(t.TempDir(), outside); !strings.HasSuffix(got, "outside.js") {
+  if got := utilityAPIOutputKey(t.TempDir(), outside); got != filepath.ToSlash(outside) {
     t.Fatalf("outside output key mismatch: %q", got)
   }
 }
