@@ -16,7 +16,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Real engine construction accepts legal options with the checker requirement and rejects invalid rules before dispatch.
 // @evidence contracts/testing.md#independent-expectations The public boolean option schema and checker dependency independently establish accepted values and inactive malformed rules.
 // @evidence contracts/testing.md#distinguishing-cases Legal booleans contrast with null, arrays, wrong types and unknown keys; enabled hosts own lint effects.
-// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentFunctionScopingValidatesThePublicOptionShape owns its explicit variants as a discoverable Go unit entry; checker and engine operations execute in the shared process with isolated fixtures and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit constructs independent in-memory engines and inspects option errors, active-rule membership and checker-requirement metadata. It does not construct a Program/checker, dispatch source linting, install a consumer, build a native producer or launch a product host.
 func TestUnicornConsistentFunctionScopingValidatesThePublicOptionShape(t *testing.T) {
   valid := []json.RawMessage{nil, json.RawMessage(`{}`), json.RawMessage(`{"checkArrowFunctions":true}`), json.RawMessage(`{"checkArrowFunctions":false}`)}
   for _, options := range valid {
