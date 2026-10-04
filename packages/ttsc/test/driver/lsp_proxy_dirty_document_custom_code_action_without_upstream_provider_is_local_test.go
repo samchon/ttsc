@@ -38,6 +38,7 @@ func TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal(t *
   h.expectNoUpstreamFrame(150 * time.Millisecond)
   body := h.recvEditor()
   var decoded struct {
+    ID int `json:"id"`
     Result []driver.LSPCodeAction `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
@@ -45,5 +46,8 @@ func TestLSPProxyDirtyDocumentCustomCodeActionWithoutUpstreamProviderIsLocal(t *
   }
   if len(decoded.Result) != 0 {
     t.Fatalf("dirty custom actions were not suppressed: %#v", decoded.Result)
+  }
+  if decoded.ID != 2 || decoded.Result == nil {
+    t.Fatalf("custom action must receive its own explicit empty local result: %s", body)
   }
 }

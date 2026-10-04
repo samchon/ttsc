@@ -8,8 +8,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDoesNotPrefixSuppressedCodeActionCommands Verifies wrapper-owned
-// commands stay addressable by the VS Code extension's contributed commands.
+// TestLSPProxyDoesNotPrefixSuppressedCodeActionCommands verifies the returned
+// action retains the authored wrapper command ID when that ID is suppressed
+// from advertisement. Extension registration and clicking are not exercised.
 //
 // VS Code registers built-in lint and format wrappers itself, so the proxy
 // suppresses those ids from executeCommandProvider. If code actions were still
