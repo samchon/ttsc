@@ -148,6 +148,8 @@ export async function runCanonicalReadonlyCorpus(
         );
   };
   const phase = (name: string, files: Inputs, defaultCache: boolean): void => {
+    const phaseEnv = { ...process.env };
+    if (defaultCache) phaseEnv.TTSC_CACHE_DIR = undefined;
     const record: Phase = { name, state: "BLOCKED", failures: [], hosts: [] };
     phases.push(record);
     if (!safeForCleanup || !hostsJoined) {
@@ -171,6 +173,7 @@ export async function runCanonicalReadonlyCorpus(
       try {
         result = TestProject.spawn(TestProject.TTSX_BIN, args, {
           cwd: ownedRoot,
+          env: phaseEnv,
         });
       } catch (cause) {
         safeForCleanup = false;
@@ -331,12 +334,12 @@ export async function runCanonicalReadonlyCorpus(
           "owned installation boundary must start empty",
         );
         assert.equal(
-          Boolean(process.env.TTSC_CACHE_DIR),
+          Boolean(phaseEnv.TTSC_CACHE_DIR),
           false,
           "BLOCKED: ambient cache override would suppress the production fallback branch",
         );
         assert.equal(
-          resolveSourceBuildCachePaths(ownedRoot, undefined, process.env).root,
+          resolveSourceBuildCachePaths(ownedRoot, undefined, phaseEnv).root,
           path.join(ownedRoot, "node_modules", ".cache", "ttsc"),
           "BLOCKED: an ancestor installation boundary would bypass denied root entry creation",
         );
