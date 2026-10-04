@@ -25,7 +25,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Calls actual synthetic member injection and plugin emission, requiring clean result, real enum constants one/two and intact synthObj.X[3] output.
 // @evidence contracts/testing.md#independent-expectations Explicit enum constants and independently constructed generated access define the expected output relationships.
-// @evidence contracts/testing.md#distinguishing-cases Nested synthetic property/element access contrasts real enum member accesses in the same program, distinguishing generated checker exclusion from disabled inlining.
+// @evidence contracts/testing.md#distinguishing-cases Nested synthetic property/element access contrasts real enum member accesses in the same program, requiring retained generated access alongside active real-member inlining without observing individual checker calls.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes real compiler/visitor APIs with private Program and captured writes and deferred close; successful emitted structure, not runtime binding of synthObj, is claimed.
 func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   root := t.TempDir()
@@ -64,8 +64,9 @@ func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   }
 
   emitted := map[string]string{}
-  // EmitWithPluginTransformer would panic here (and fail the test) if the
-  // const-enum inliner hit GetConstantValue on the synthetic access unguarded.
+  // An unhandled emit panic fails this test; the output checks below also
+  // require genuine enum inlining and intact generated accesses. The unit
+  // does not remove the resolver guard or observe individual checker calls.
   if diagnostics, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     emitted[filepath.Base(fileName)] = text
     return nil
