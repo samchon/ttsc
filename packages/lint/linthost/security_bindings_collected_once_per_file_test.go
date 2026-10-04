@@ -10,15 +10,12 @@ import (
 // TestSecurityBindingsCollectedOncePerFile verifies the whole-file security
 // binding table is built once per file, not once per visited call node.
 //
-// Every `security/*` rule consulted `collectSecurityBindings(ctx.File)` inside
-// its per-node Check, so a file holding C call expressions rebuilt the
-// identical file-invariant table C times — an O(C) stack of full-file walks
-// that made the family O(nodes^2). Memoized on the shared per-file table the
-// walk must run exactly once per file, independent of the call-node count and
-// of how many `security/*` rules are enabled (they all read one table). The
-// embedded `require(command)` gives a second rule a node it would also collect
-// on, so a regression to per-rule caches would double the count instead of
-// keeping it at one-per-file.
+// The two enabled rules read the shared per-file binding table. The authored
+// call populations expose repeated collection by call or by enabled reader:
+// require(command) makes the second rule consult the table alongside the exec
+// calls. The counter records collector entries; the expected three entries
+// establish sharing for these inputs, without measuring elapsed time or every
+// security rule configuration.
 //
 //  1. Build three files with wildly different call-node counts (50/500/2000).
 //  2. Run two security rules over them with the walk counter zeroed.
