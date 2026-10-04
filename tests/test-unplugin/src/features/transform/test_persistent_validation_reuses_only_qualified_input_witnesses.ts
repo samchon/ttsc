@@ -17,6 +17,7 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/sr
 import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshFilesystemClockReference";
 import { disposeFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/disposeFilesystemClockReference";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
 import { releaseCaptureResources } from "../../../../../packages/unplugin/src/core/transform/generation/releaseCaptureResources";
 import { transferCaptureClockReference } from "../../../../../packages/unplugin/src/core/transform/generation/transferCaptureClockReference";
@@ -40,17 +41,18 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * Supplied watch handles never acquire native content-silence authority.
  *
  * 1. Observe one corpus with twelve modules, 24 externals, 24 globals, a native
- *    global alias and 100 present/absent descriptor inputs.
+ *    global alias, 100 descriptors and 250 unadmitted asset directories.
  * 2. Deliver shared and partitioned graphs through actual ready cache owners;
  *    measure content reuse and metadata work, then touch identical bytes.
  * 3. Contrast complete fallback, per-file unreachable inputs and empty explicit
  *    completeness with relevant edits requiring capture and owner eviction.
- * 4. Dispose owners and verify transferred native probe storage is removed.
+ * 4. Close unretained project/host registrations over the same physical root,
+ *    then dispose owners and verify transferred native probe storage is removed.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual transformTtsc uses real project/external/universal captures, supported tracker constructors, notification retention, releaseCaptureResources and transferCaptureClockReference. Shared steady deliveries read no content and reprove a touched single-spelling global at most once. Two spellings of an aliased target may independently reprove it, then both reuse their witnesses. Complete fallback re-proves touched project/external content then reuses that proof. Partitioned deliveries bound content reads and metadata, ignore unreachable externals, and reject reachable edits; empty completeness excludes graph-only external changes. Actual action selection evicts changed owners without starting a compiler.
- * @evidence contracts/testing.md#independent-expectations Authored module partitions, 24 named global/external sets and 100 descriptor categories define the universe. Node SHA-256 and native stat/realpath independently record fixture facts. Native fixture modification times precede the actual minted probe, without altered metadata responses. Per-cache native read/stat/lstat ledgers supply operation counts; literal zero/one/two/12/100 bounds and serve/capture expectations follow from unchanged bytes, distinct lexical witnesses, explicit completeness and reachability. No expected classification is computed by a production selector. The custom backend lacks content-silence authority, so 50 absent descriptor names require native probes; this row does not claim the old native-authoritative stat bound of 12.
- * @evidence contracts/testing.md#distinguishing-cases Eight-module full shared closure and twelve-module partition contrast with failed-registration complete fallback and empty explicit completeness. Same-byte touches preserve the owner but refresh content witnesses; changed reachable bytes evict while unreachable/complete-excluded externals retain it. Native alias spelling has its own reusable metadata witness. Missing descriptor inputs stay unavailable-file facts, not inferred from unchanged directory listings.
- * @evidence contracts/testing.md#execution-ownership One source unit calls owning operations in process over one native corpus, one native directory alias and separately owned per-mode clock/scratch storage. Scripted watch handles expose only supported registration/close callbacks; private authority maps/flags are not planted. Actual cleanup and ownership publication connect ready consumer input to coordinator clock refresh and disposal, not native compiler/capture acquisition, descriptor reload output, watcher-kernel delivery, original250-directory capture cardinality or IPC. No compiler, peer, process or host runs, and full transformTtsc is never called after eviction.
+ * @evidence contracts/testing.md#behavioral-verification Actual transformTtsc uses real project/external/universal captures, supported tracker constructors, notification retention, releaseCaptureResources and transferCaptureClockReference. Shared steady deliveries read no content and reprove a touched single-spelling global at most once. Two spellings of an aliased target may independently reprove it, then both reuse their witnesses. Complete fallback re-proves touched project/external content then reuses that proof. Partitioned deliveries bound content reads and metadata, ignore unreachable externals, and reject reachable edits; empty completeness excludes graph-only external changes. Actual action selection evicts changed owners without starting a compiler. A 250-directory asset population stays outside the actual project walk; project and host constructors register two recursive owners on the same native root, and unretained release closes each once.
+ * @evidence contracts/testing.md#independent-expectations Authored module partitions, 24 named global/external sets and 100 descriptor categories define the universe. Node SHA-256 and native stat/realpath independently record fixture facts. Native fixture modification times precede the actual minted probe, without altered metadata responses. Per-cache native read/stat/lstat ledgers supply operation counts; literal zero/one/two/12/100 bounds and serve/capture expectations follow from unchanged bytes, distinct lexical witnesses, explicit completeness and reachability. No expected classification is computed by a production selector. The literal src-only policy admits exactly root/src and twelve source hashes despite 250 asset directories. Independent native realpath establishes the two registrations share a physical root, not a backend handle. The custom backend lacks content-silence authority, so 50 absent descriptor names require native probes; this row does not claim the old native-authoritative stat bound of 12.
+ * @evidence contracts/testing.md#distinguishing-cases Eight-module full shared closure and twelve-module partition contrast with failed-registration complete fallback and empty explicit completeness. Same-byte touches preserve the owner but refresh content witnesses; changed reachable bytes evict while unreachable/complete-excluded externals retain it. Native alias spelling has its own reusable metadata witness. Missing descriptor inputs stay unavailable-file facts, not inferred from unchanged directory listings. The local population row contrasts admitted source paths with excluded assets and a separately tracked host-input tree, then requires zero retained handles after cleanup.
+ * @evidence contracts/testing.md#execution-ownership One source unit calls owning operations in process over one native corpus, one native directory alias and separately owned per-mode clock/scratch storage. Scripted watch handles expose only supported registration/close callbacks; private authority maps/flags are not planted. Actual cleanup and ownership publication connect ready consumer input to coordinator clock refresh and disposal, not native compiler/capture acquisition, descriptor reload output, watcher-kernel delivery, original250-directory backend cardinality or IPC. The population row observes constructor root registrations through the supported watch capability, which receives no admission predicate. It therefore does not certify recursive descendant subscription count or the original capture acquisition/finally assembly. No compiler, peer, process or host runs, and full transformTtsc is never called after eviction.
  */
 export async function test_persistent_validation_reuses_only_qualified_input_witnesses(): Promise<void> {
   const source = "export const value = 1;\n";
@@ -63,6 +65,8 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
   for (const name of moduleNames) files[name] = source;
   for (const [index, name] of [...externalNames, ...globalNames].entries()) files[name] = "export declare const input" + index + ": number;\n";
   for (const [index, name] of descriptorNames.entries()) if (index % 2 === 0) files[name] = "{}\n";
+  for (let index = 0; index < 250; index++) files["assets/unused-" + index + "/data.json"] = "{}\n";
+  files["plugin-source/input.json"] = "{}\n";
   const root = fs.realpathSync.native(TestProject.createProject(files));
   const alias = path.join(root, "global-alias");
   fs.symlinkSync(path.join(root, "node_modules", "global0"), alias, process.platform === "win32" ? "junction" : "dir");
@@ -71,6 +75,59 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
   const config = path.join(root, "tsconfig.json");
   const options = resolveOptions({ project: config });
   const key = createTransformCacheKey({ tsconfig: config, aliasPaths: {}, compilerOptions: options.compilerOptions, plugins: options.plugins });
+  const registrations: { directory: string; recursive: boolean; closed: number }[] = [];
+  const localCache = createTtscTransformCache({
+    caseSensitive: () => true,
+    watch: (directory, _listener, _onError, recursive) => {
+      const registration = { directory, recursive: recursive === true, closed: 0 };
+      registrations.push(registration);
+      return { close: () => { registration.closed++; } };
+    },
+  });
+  const localFilesystem = transformFilesystem(localCache);
+  const localScratch = TestProject.tmpdir("ttsc-unretained-population-");
+  let localProject: TtscProjectMutationTracker | undefined;
+  let localHost: TtscProjectMutationTracker | undefined;
+  let locallyReleased = false;
+  try {
+    assert.equal(fs.readdirSync(path.join(root, "assets")).length, 250);
+    const policy = { ...readProjectMembershipPolicy(config), useCaseSensitiveFileNames: true };
+    const snapshot = collectProjectInputSnapshot(root, createHostPathIdentityContext(localFilesystem), localFilesystem, undefined, { policy });
+    assert.equal(snapshot.complete, true);
+    assert.equal(snapshot.directoryComplete, true);
+    assert.deepEqual(snapshot.walkFailures, []);
+    assert.deepEqual(snapshot.projectDirectories.map((directory) => directory.path).sort(), [root, path.join(root, "src")].sort());
+    assert.ok(snapshot.projectDirectories.every((directory) => directory.relevant));
+    assert.deepEqual(Object.keys(snapshot.hashes).sort(), moduleNames.slice().sort());
+    const expectedDigest = createHash("sha256").update(source).digest("hex");
+    for (const name of moduleNames) assert.equal(snapshot.hashes[name], expectedDigest);
+    localProject = await createProjectMutationTracker(snapshot.projectDirectories, new Set(moduleNames.map((name) => path.join(root, name))), localFilesystem, policy);
+    const pluginDirectory = path.join(root, "plugin-source");
+    localHost = await createHostInputMutationTracker([config, pluginDirectory], localFilesystem, new Set([config, pluginDirectory]), "all", root, new Map<string, "tree">([[pluginDirectory, "tree"]]));
+    assert.equal(localProject.failed, false);
+    assert.equal(localHost.failed, false);
+    assert.equal(localProject.contentAuthoritative, false);
+    assert.equal(localHost.contentAuthoritative, false);
+    assert.deepEqual(registrations.map(({ directory, recursive }) => ({ directory, recursive })), [
+      { directory: root, recursive: true },
+      { directory: root, recursive: true },
+    ]);
+    for (const registration of registrations) assert.equal(fs.realpathSync.native(registration.directory), root);
+    assert.deepEqual(registrations.map((registration) => registration.closed), [0, 0]);
+    await releaseCaptureResources({ project: localProject, host: localHost, retainProject: false, retainHost: false, retainCandidate: false, scratchDirectory: localScratch, retainClockReference: false, captureFailed: false });
+    locallyReleased = true;
+    assert.deepEqual(registrations.map((registration) => registration.closed), [1, 1]);
+    assert.equal(localProject.failed, true);
+    assert.equal(localHost.failed, true);
+    assert.equal(fs.existsSync(localScratch), false);
+  } finally {
+    if (!locallyReleased) {
+      localProject?.close();
+      localHost?.close();
+    }
+    resetTtscTransformCache(localCache);
+    await removeCaptureScratch(localScratch);
+  }
   for (const mode of ["shared", "partitioned", "complete-fallback", "complete-empty"] as const) {
     for (const name of Object.keys(files)) fs.utimesSync(path.join(root, name), new Date(0), new Date(0));
     const names = mode === "shared" ? moduleNames.slice(0, 8) : moduleNames;
