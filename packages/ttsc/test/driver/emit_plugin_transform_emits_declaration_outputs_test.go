@@ -145,11 +145,11 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
 //
 // Declaration-only output belongs to the delegated native declaration emitter. An
 // observable JavaScript callback must remain idle while nonempty declaration and
-// declaration-map artifacts match raw emission, separating this branch from a mixed
-// JavaScript build.
+// declaration-map artifacts match the raw output set, separating this branch
+// from a mixed JavaScript build. This entry does not compare artifact bytes.
 //
 // 1. Emit the declaration-only fixture through raw and transformed emission.
-// 2. Require matching nonempty declarations, no JavaScript output and no JS transformer invocation.
+// 2. Require matching artifact names, nonempty declarations, no JavaScript output and no JS transformer invocation.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls actual declaration-only emission and requires no JS transform call, no index.js, two nonempty declaration artifacts and complete output-set parity with raw emission.
 // @evidence contracts/testing.md#independent-expectations Authored emitDeclarationOnly/declarationMap options independently require declaration artifacts and exclude JavaScript; raw native emitter independently owns output-set compatibility.
@@ -228,10 +228,10 @@ func TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs(t *testing.T) {
 // TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized Verifies repeated
 // declaration-only emission writes each source once into an unguarded callback map.
 //
-// TypeScript-Go emits one source file per goroutine. The JavaScript side of
-// EmitWithPluginTransformers is hand-assembled and serial, but the delegated dts
-// emit is still parallel. A plugin writer may be a plain output map, so ttsc
-// must serialize that callback just like EmitAllRaw does.
+// The hand-assembled JavaScript lane is serial; delegated declaration emission
+// may invoke writers concurrently under the selected native threading policy.
+// A plugin writer may be a plain output map, so ttsc serializes that callback
+// just like EmitAllRaw does. This test does not measure actual worker overlap.
 //
 // 1. Load twenty-four declaration sources and repeat declaration-only emission one hundred times.
 // 2. Require exactly one callback per source in each fresh unguarded map; no race-detector claim is made.
