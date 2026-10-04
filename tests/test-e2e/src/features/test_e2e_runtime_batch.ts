@@ -23,7 +23,7 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call would throw if the actual strip transform were missing; both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
- * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced.
+ * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
  * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn exactly once. Every remaining operation reads bytes or compares literal values; it invokes no legacy test or profile launcher.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One unchanged consumer and one runtime process carry all independent value cases, using the same producer/tool inputs as the other boundary sessions.
@@ -99,6 +99,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     esnext: ["hello-workspace", "configured-esnext", "derived-from-target"], legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
     wholeProject: { wrapped: 7, unimportedEmitted: true },
     declaredOutputs: ["inside", "extra"],
+    classification: "cjs-dependency|esm-by-project",
   });
   assert.deepEqual(await FileSystemIterator.read(configuredRoot), configuredInputs, "both existing native owner paths must keep all source bytes and declared output trees untouched");
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;

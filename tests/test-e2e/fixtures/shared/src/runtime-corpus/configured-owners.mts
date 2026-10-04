@@ -14,5 +14,6 @@ export async function observeConfiguredOwners(): Promise<unknown> {
     esnext: [esnext.hello(), esnext.sentinel, esnext.derived], legacy: legacy.default.values,
     wholeProject: { wrapped: esnext.wrap(7), unimportedEmitted: emitted.some((file) => file.endsWith("configured-unused.js")) },
     declaredOutputs: [esnext.inside, legacy.default.extra],
+    classification: esnext.classification,
   };
 }
