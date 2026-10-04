@@ -10,15 +10,10 @@ import (
 // `checkGlobalVariables` option surfaces globals as opt-in suggestions, leaves
 // local bindings on the autofix path, and rejects malformed payloads.
 //
-// Upstream defaults the option to false and, when it is enabled, reports a
-// global with a suggestion (not an automatic fix) because rewriting an
-// undeclared global throws. The suggestion label carries `!==` for a negated
-// comparison and `===` otherwise. A local binding under the same option keeps
-// the automatic fix, proving the option only changes how globals are handled.
-// The negative twin — the option omitted, so the global is skipped entirely —
-// is the skips-upstream-valid-forms case; here the ValidateOptions branch is
-// pinned so a typo'd or non-boolean option fails loudly rather than silently
-// defaulting.
+// With the option enabled, the two authored globalThis comparisons require
+// suggestions instead of automatic fixes, with equality-specific labels.
+// The local binding comparison still requires an automatic fix. Boolean
+// option payloads are accepted while the authored malformed payloads fail.
 //
 //  1. With checkGlobalVariables enabled, assert each global reports a
 //     suggestion (with edits, no fix) and the correct operator label.
@@ -27,7 +22,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification global comparisons become suggestions, local comparisons remain automatic fixes, and actual validateRuleOptions accepts/rejects its option vocabulary.
 // @evidence contracts/testing.md#independent-expectations Literal expected messages and operator-specific suggestion titles encode the supported safety policy; authored option payloads specify boolean versus malformed inputs independently.
-// @evidence contracts/testing.md#distinguishing-cases Enabled equality/inequality globals require suggestions and no fix, an enabled local requires a fix and no suggestion; empty/true/false/object options pass while unknown/null/string/nonobject inputs fail. Default-global negatives are TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms.
+// @evidence contracts/testing.md#distinguishing-cases Enabled equality/inequality globals require suggestions and no fix, an enabled local requires a fix and no suggestion; empty/true/false/object options pass while unknown/null/string/nonobject inputs fail.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoTypeofUndefinedCheckGlobalVariablesOption is a discoverable Go unit host; owning checker-backed engine and option validator operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornNoTypeofUndefinedCheckGlobalVariablesOption(t *testing.T) {
   const ruleName = "unicorn/no-typeof-undefined"

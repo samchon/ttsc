@@ -5,9 +5,9 @@ import "testing"
 // TestUnicornNoHexEscapeIgnoresNonHexEscapes verifies only the `\xHH` form
 // reports.
 //
-// The rule exists to move authors from `\xHH` to `\uXXXX`, so the shapes it
-// rewrites *to* — the fixed-width and the braced Unicode escape — are the
-// negative twins that keep the scan from firing on its own canonical output.
+// The rule reports a preference for Unicode escapes without rewriting.
+// Fixed-width and braced Unicode escapes are negative twins that distinguish
+// the active hex-escape scan from other escape forms.
 // A scan that looked for the letter `x` alone would report plain text like
 // `x41`, and one that ignored the digit width would swallow the literal
 // characters behind an escape; `"\x41bcd"` is the positive twin of the

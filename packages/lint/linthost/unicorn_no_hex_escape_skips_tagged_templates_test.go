@@ -5,15 +5,10 @@ import "testing"
 // TestUnicornNoHexEscapeSkipsTaggedTemplates verifies a tagged template's
 // segments are never reported.
 //
-// Upstream guards its `TemplateElement` handler with
-// `isTaggedTemplateLiteral(node.parent)`: the tag function receives the raw
-// text (`String.raw`, `dedent`, `gql`), where `\xA9` and `©` are
-// different strings, so rewriting the escape would change what the tag
-// observes. Opting into the template elements without this guard would have
-// turned every String.raw template carrying a hex escape into a fresh false
-// positive. The guard stops at the element's own template: a literal nested
-// inside a tagged template's substitution is not itself tagged and stays
-// checked.
+// Tags can observe raw template spelling, where hex-escape text differs
+// from a decoded glyph. The native rule exempts tagged template elements.
+// The exemption does not cover an untagged template or string literal
+// nested inside a tagged substitution; those literals remain checked.
 //
 //  1. Lint tagged templates with and without substitutions.
 //  2. Assert they report nothing while the untagged control does report.

@@ -5,17 +5,10 @@ import "testing"
 // TestUnicornNoHexEscapeReportsInterpolatedTemplateSegments verifies the rule
 // inspects the head, middle, and tail elements of a substituted template.
 //
-// The engine dispatches strictly by a node's own Kind, and an interpolated
-// template's literal segments parse as separate `KindTemplateHead`,
-// `KindTemplateMiddle`, and `KindTemplateTail` tokens. The rule used to opt
-// into `KindStringLiteral` and `KindNoSubstitutionTemplateLiteral` only, so
-// every escape in an interpolated segment was silently ignored (issue
-// #578). Each segment is pinned on its own, at its exact token range —
-// opening backtick or `}` through the closing `${` or backtick — because a
-// range that leaks into the substitution would underline live code. The
-// comment arm is the negative twin of the tail arm: a template token's Pos
-// starts at the substitution's trailing trivia, so a hex escape typed inside
-// a comment must not be scanned.
+// Interpolated templates expose separate head, middle and tail tokens.
+// Each authored marker spans its element delimiters, without the live
+// substitution expression. A hex-looking sequence in substitution-comment
+// trivia is an adjacent negative that must not produce a finding.
 //
 //  1. Lint templates that carry the escape in the head, the middle, and the
 //     tail segment, plus a template literal type and a no-substitution
