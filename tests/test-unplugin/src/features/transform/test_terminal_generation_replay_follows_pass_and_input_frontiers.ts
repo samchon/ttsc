@@ -29,10 +29,10 @@ import { createUnstableGenerationError } from "../../../../../packages/unplugin/
  * Failed envelopes and unstable errors are supported consumer inputs, not
  * synthetic compiler attempts. Actual capture retry counts remain E2E.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise.
- * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle.
- * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator.
- * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Both cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
+ * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored distinct bytes produce exact graph/content-changed and shared terminal replay without changing native content metadata.
+ * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle. Null has no readable content to replace with a signature; distinct literal readable bytes must disagree with null or the independently hashed original bytes even while native content metadata is fixed.
+ * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures, restored alternate read bytes disagree with either unchanged producer baseline, and repeated callers retain the identical error and Promise.
+ * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. EACCES and alternate bytes belong to the supported cache read capability, not a reproduced native permission failure. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
  */
 export async function test_terminal_generation_replay_follows_pass_and_input_frontiers(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
@@ -111,6 +111,105 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
     const moduleNames = moduleFiles.map(relative);
     const dependencyNames = dependencies.map(relative);
     const sha = (file: string) => createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    // A readable metadata stamp cannot replace a missing content comparison.
+    const unreadable = dependencies[0]!;
+    const nativeBytes = fs.readFileSync(unreadable);
+    const contentMetadata = () => {
+      const stat = fs.statSync(unreadable, { bigint: true });
+      return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs, stat.birthtimeNs];
+    };
+    const nativeMetadata = contentMetadata();
+    const suppliedBytes = Buffer.from("export interface Input { value: string }\n");
+    assert.notDeepEqual(suppliedBytes, nativeBytes);
+    for (const recordedHash of [null, sha(unreadable)]) {
+      let denied = true;
+      const deniedCache = createTtscTransformCache({
+        readFile: (input) => {
+          if (path.resolve(input) === unreadable) {
+            if (denied) {
+              const error = new Error("authored unreadable graph input") as NodeJS.ErrnoException;
+              error.code = "EACCES";
+              throw error;
+            }
+            return suppliedBytes;
+          }
+          return fs.readFileSync(input);
+        },
+      });
+      const view = transformFilesystem(deniedCache);
+      const result: ITtscCompilerTransformation.ISuccess = {
+        type: "success",
+        typescript: Object.fromEntries(moduleFiles.map((input) => [relative(input), fs.readFileSync(input, "utf8")])),
+        graph: {
+          edges: Object.fromEntries(moduleNames.map((name) => [name, [relative(unreadable)]])),
+          globals: [], configs: [],
+          inputHashes: { ...Object.fromEntries(moduleFiles.map((input) => [relative(input), sha(input)])),
+            [relative(unreadable)]: recordedHash },
+          inputRealpaths: { ...Object.fromEntries(moduleFiles.map((input) => [relative(input), fs.realpathSync.native(input)])),
+            [relative(unreadable)]: fs.realpathSync.native(unreadable) },
+        },
+      };
+      const cached: TtscCachedProjectTransform = {
+        result, projectRoot: root, tsconfig: path.join(root, "tsconfig.json"),
+        membershipPolicy: fixture.good.membershipPolicy, inputHashes: {},
+      };
+      TRANSFORM_RESULT_FILESYSTEM.set(result, view);
+      try {
+        const identities = envelopeDerivation(cached).identityContext;
+        const snapshot = collectProjectInputSnapshot(root, identities, view, undefined, { policy: cached.membershipPolicy });
+        assert.equal(snapshot.complete, true);
+        cached.inputHashes = snapshot.hashes;
+        cached.projectDirectories = snapshot.projectDirectories;
+        cached.projectSnapshotComplete = true;
+        cached.externalInputPaths = [unreadable];
+        const contentChanged = [{ domain: "graph", kind: "content-changed", path: unreadable }];
+        const initial = compilerGraphInputProofFailures(cached);
+        assert.deepEqual(initial.entries, recordedHash === null ? [] : contentChanged);
+        const observed = captureExternalInputSnapshot(cached, [unreadable], undefined);
+        assert.equal(observed.complete, recordedHash === null);
+        assert.equal(Object.hasOwn(observed.signatures, unreadable), false,
+          "no unreadable content receives metadata reuse authority");
+        denied = false;
+        assert.deepEqual(contentMetadata(), nativeMetadata);
+        assert.deepEqual(fs.readFileSync(unreadable), nativeBytes);
+        const attempts = [compilerGraphInputProofFailures(cached), compilerGraphInputProofFailures(cached)];
+        for (const attempt of attempts) {
+          assert.deepEqual(attempt.entries, contentChanged);
+          assert.equal(attempt.omitted, 0);
+        }
+        const terminal = createUnstableGenerationError(root, attempts, {
+          cached, declaredInputs: undefined,
+          inputStates: captureFailedGenerationInputStates(cached, attempts[0]!),
+          projectInputHashes: snapshot.hashes,
+          projectWalkComplete: walkSnapshotComplete(snapshot, undefined),
+          projectWalkFailures: projectWalkFailureFingerprint(snapshot, undefined, root, identities),
+        });
+        const line = '    - graph/content-changed: ' + JSON.stringify(relative(unreadable));
+        assert.equal(terminal.message, [
+          "ttsc: could not capture a reusable transform generation after 2 attempts.",
+          "  project: " + JSON.stringify(root),
+          "  attempt 1:", line, "  attempt 2:", line,
+          "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
+        ].join("\n"));
+        const owner: Promise<TtscCachedProjectTransform> = Promise.reject(terminal);
+        void owner.catch(() => undefined);
+        deniedCache.set(fixture.key, owner);
+        for (let wave = 0; wave < 2; ++wave) {
+          const settled = await Promise.allSettled(moduleFiles.map((input) =>
+            fixture.api.transformTtsc(input, fs.readFileSync(input, "utf8"), fixture.options, undefined, deniedCache)));
+          for (const entry of settled) {
+            assert.equal(entry.status, "rejected");
+            assert.equal((entry as PromiseRejectedResult).reason, terminal);
+          }
+          assert.equal(deniedCache.get(fixture.key), owner);
+        }
+        assert.equal(result.graph?.inputHashes?.[relative(unreadable)], recordedHash,
+          "readability changes cannot rewrite the producer's recorded hash");
+      } finally {
+        resetTtscTransformCache(deniedCache);
+        TRANSFORM_RESULT_FILESYSTEM.delete(result);
+      }
+    }
     for (const mode of ["missing-content", "producer-candidate", "external-output"] as const) {
       const result: ITtscCompilerTransformation.ISuccess = {
         type: "success",
