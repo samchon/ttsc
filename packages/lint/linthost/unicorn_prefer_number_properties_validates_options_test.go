@@ -10,13 +10,13 @@ import (
 // schema: only the boolean checkInfinity / checkNaN keys are accepted, and the
 // checker requirement survives every valid shape.
 //
-// 1. Execute the retained source and option variants through the owning Go operation.
-// 2. Assert the concrete diagnostic or authored full-source result described here.
+// 1. Construct the actual engine for the authored valid and invalid option payloads.
+// 2. Assert configuration errors, checker requirement and invalid-rule dispatch exclusion.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual options validator accepts supported booleans and rejects malformed payloads instead of silently disabling the rule.
 // @evidence contracts/testing.md#independent-expectations The public checkInfinity/checkNaN boolean schema independently establishes the literal valid/invalid option forms.
-// @evidence contracts/testing.md#distinguishing-cases Retained legal boolean forms and malformed shapes remain distinct; enabled and default hosts verify the resulting lint behavior.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreferNumberPropertiesValidatesOptions owns these literal variants as a discoverable Go unit entry; checker and rule/fix operations execute in the shared process without installing a consumer, building a native producer or starting a product host.
+// @evidence contracts/testing.md#distinguishing-cases Authored legal boolean forms and malformed shapes remain distinct; enabled and default hosts verify the resulting lint behavior.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreferNumberPropertiesValidatesOptions owns these literal option payloads as a discoverable Go unit entry; actual engine construction and configuration validation execute in the shared process without running a checker or rule/fix operation, installing a consumer, building a native producer or starting a product host.
 func TestUnicornPreferNumberPropertiesValidatesOptions(t *testing.T) {
   valid := []json.RawMessage{
     nil,

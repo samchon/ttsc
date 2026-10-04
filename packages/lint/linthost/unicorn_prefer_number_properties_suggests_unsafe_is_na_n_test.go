@@ -9,13 +9,13 @@ import (
 // non-number argument reports with a suggestion instead of an unsafe autofix,
 // because Number.isNaN would change the runtime result.
 //
-// 1. Execute the retained source and option variants through the owning Go operation.
+// 1. Execute the authored any-typed isNaN call with default options through the owning Go operation.
 // 2. Assert the concrete diagnostic or authored full-source result described here.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution requires one suggestion, no automatic fix, the authored title and the exact callee-only Number.isNaN edit.
 // @evidence contracts/testing.md#independent-expectations Global isNaN coerces values while Number.isNaN does not; an any-typed input cannot justify an automatic rewrite. Literal replacement text and authored identifier offsets establish the suggestion independently.
-// @evidence contracts/testing.md#distinguishing-cases The any argument retains its source until the suggestion is chosen; numeric input belongs to the automatic-fix host. The edit must preserve input and the call syntax.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreferNumberPropertiesSuggestsUnsafeIsNaN owns these literal variants as a discoverable Go unit entry; checker and rule/fix operations execute in the shared process without installing a consumer, building a native producer or starting a product host.
+// @evidence contracts/testing.md#distinguishing-cases The any argument has no automatic fix; the numeric-input host separately owns its automatic-fix counterpart. The edit must preserve input and the call syntax.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreferNumberPropertiesSuggestsUnsafeIsNaN owns this any-typed call as a discoverable Go unit entry; checker and rule/fix operations execute in the shared process without installing a consumer, building a native producer or starting a product host.
 func TestUnicornPreferNumberPropertiesSuggestsUnsafeIsNaN(t *testing.T) {
   source := "export {};\ndeclare const input: any;\nvoid isNaN(input);\n"
   _, _, findings := runRuleFindingsSnapshot(t, unicornPreferNumberPropertiesRuleName, source, nil)
