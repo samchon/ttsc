@@ -26,14 +26,15 @@ import (
 //
 //  1. Load a project whose preamble carries an unresolvable import and whose own
 //     source carries an ordinary type error, so one diagnostic falls inside the
-//     injected region and its twin falls one byte-range outside it.
+//     injected region and its twin belongs to the authored source outside it.
 //  2. Assert the preamble diagnostic keeps its message, code, and file while
 //     losing line, column, and offset, and that the authored diagnostic beside it
 //     keeps a full authored anchor.
 //  3. Assert the render places the authored error, reports the preamble error
 //     through the anchor-less form, and never quotes the preamble text.
+//
 // @evidence contracts/testing.md#behavioral-verification Loads actual authored and injected errors and requires both survive, only injected coordinates disappear, authored coordinates remain exact, error count is two and rendering excludes injected text.
-// @evidence contracts/testing.md#independent-expectations Literal unresolved import, authored bad marker, exact error count two and independent marker coordinates establish the expected attribution.
+// @evidence contracts/testing.md#independent-expectations Literal unresolved import, pinned compiler diagnostic 2307/message, authored file path, bad marker, exact error count two and independent marker coordinates establish attribution and the anchor-less rendering expectation without using Diagnostic.String as the only oracle.
 // @evidence contracts/testing.md#distinguishing-cases One injected missing import and one ordinary type error in the same Program distinguish coordinate suppression from diagnostic loss or overbroad stripping.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses in-process Program and diagnostics APIs with a private fixture and deferred close; rendered output stays in a local buffer.
 func TestDiagnosticsInsideASourcePreambleLoseOnlyTheirPosition(t *testing.T) {
@@ -89,6 +90,9 @@ func TestDiagnosticsInsideASourcePreambleLoseOnlyTheirPosition(t *testing.T) {
   if unanchored.Code == 0 {
     t.Fatalf("preamble diagnostic lost its code: %#v", *unanchored)
   }
+  if unanchored.Code != 2307 || unanchored.Message != "Cannot find module './nowhere' or its corresponding type declarations." {
+    t.Fatalf("preamble diagnostic changed the authored unresolved-import finding: %#v", *unanchored)
+  }
   if unanchored.Column != 0 || unanchored.Start != nil || unanchored.Length != nil {
     t.Fatalf("preamble diagnostic kept a position it has no authored counterpart for: %#v", *unanchored)
   }
@@ -115,6 +119,11 @@ func TestDiagnosticsInsideASourcePreambleLoseOnlyTheirPosition(t *testing.T) {
   }
   if !strings.Contains(rendered, "  - ") || !strings.Contains(rendered, unanchored.String()) {
     t.Fatalf("pretty render dropped the preamble diagnostic instead of reporting it without an anchor:\n%s", rendered)
+  }
+  expectedUnanchored := "  - error TS2307: " + filepath.ToSlash(filepath.Join(root, "index.ts")) +
+    ": Cannot find module './nowhere' or its corresponding type declarations."
+  if !strings.Contains(rendered, expectedUnanchored) {
+    t.Fatalf("pretty render changed the independently expected anchor-less report %q:\n%s", expectedUnanchored, rendered)
   }
   if strings.Contains(rendered, "import { missing }") {
     t.Fatalf("pretty render quotes the injected preamble, which the user never wrote:\n%s", rendered)
