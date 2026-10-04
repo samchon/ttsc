@@ -18,11 +18,12 @@ import (
 // 1. Load a real project containing a semantic type error.
 // 2. Convert diagnostics through the public Program facade.
 // 3. Assert location, counting, and pretty rendering remain observable.
-// @evidence contracts/testing.md#behavioral-verification Calls actual program Diagnostics, CountErrors and WritePrettyDiagnostics on an authored semantic error, asserting file/nonnull location, positive error count and useful rendered text.
-// @evidence contracts/testing.md#independent-expectations A string assigned to number independently owes an error concerning number and index.ts; empty rendering must remain silent. This case asserts location presence, not exact coordinates or wording.
+// @evidence contracts/testing.md#behavioral-verification Calls actual program Diagnostics, CountErrors and WritePrettyDiagnostics on an authored semantic error, asserting index.ts, exact TS2322 identifier/location/extent, positive error count and useful rendered text.
+// @evidence contracts/testing.md#independent-expectations A string assigned to number independently owes TS2322; the authored first-line declaration places the five-byte value identifier at start6/line1/column7. Empty rendering must remain silent. Full diagnostic wording is not constrained.
 // @evidence contracts/testing.md#distinguishing-cases Semantic anchored diagnostics contrast the explicit empty render; DTO-only fallback rendering has a separate unit.
 // @evidence contracts/testing.md#execution-ownership The owning driver Go unit loads and closes an in-process Program on its private fixture; output is captured in bytes.Buffer without a host executable.
 func TestDriverDiagnosticSemanticRendering(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
@@ -36,7 +37,7 @@ func TestDriverDiagnosticSemanticRendering(t *testing.T) {
   writeProjectFile(t, root, "index.ts", `const value: number = "text";
 export { value };
 `)
-  prog, configDiags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceNoEmit: true})
+  prog, configDiags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceNoEmit: true, TsgoArgs: []string{}})
   if err != nil {
     t.Fatal(err)
   }
@@ -58,6 +59,9 @@ export { value };
   first := diags[0]
   if !strings.HasSuffix(filepath.ToSlash(first.File), "index.ts") || first.Line == 0 || first.Column == 0 || first.Start == nil || first.Length == nil {
     t.Fatalf("semantic diagnostic location mismatch: %#v", first)
+  }
+  if len(diags) != 1 || first.Code != 2322 || first.Line != 1 || first.Column != 7 || *first.Start != 6 || *first.Length != 5 {
+    t.Errorf("authored TS2322 anchor mismatch: %#v", diags)
   }
   if got := driver.CountErrors(diags); got == 0 {
     t.Fatalf("semantic diagnostics should count as errors: %#v", diags)

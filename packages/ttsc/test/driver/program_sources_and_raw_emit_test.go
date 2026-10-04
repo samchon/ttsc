@@ -28,11 +28,20 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification One LoadProgram provides SourceFile/SourceFiles text, EmitAllRaw output and NewTransformGraph facts. The writer stores actual JS/declaration/map strings only in memory, and bin/dist remain absent. The original exports.value output and baseline api-ok/upper declarations remain observable alongside exact source and graph membership.
 // @evidence contracts/testing.md#independent-expectations Authored complete source strings, literal source/output paths, authored imports and independent SHA-256 fix expected text, population, edges, hashes and map presence. Native case-policy equality authenticates forwarding and JSON boolean presence, not an independently proved filesystem case rule.
-// @evidence contracts/testing.md#distinguishing-cases Declaration-only versus emitted source, runtime versus type-only/triple-slash reference, module versus ambient global, connected versus empty leaf and memory versus absent disk outputs differ within the same population. This does not certify public API envelopes/completeness DTOs, incompatible decorator modes, error recovery, plugin host, worker/cache behavior or installed consumers.
+// @evidence contracts/testing.md#distinguishing-cases Declaration-only versus emitted source, runtime versus type-only/triple-slash reference, module versus ambient global, connected versus empty leaf and memory versus absent disk outputs differ within the same population. Direct output-key inputs distinguish in-root ..src/..dist names from an actual parent escape without claiming those paths were emitted. This does not certify public API envelopes/completeness DTOs, incompatible decorator modes, error recovery, plugin host, worker/cache behavior or installed consumers.
 // @evidence contracts/testing.md#execution-ownership The discoverable existing Go unit constructs one library Program in-process over an owned temporary project. It restores an empty linked-plugin manifest, supplies explicit empty forwarded flags, uses one recording raw writer and closes the Program. There is no child, CLI, native binary build, consumer installation or per-original Program loop.
 func TestDriverProgramSourcesAndRawEmit(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
+  for _, name := range []string{"..src/main.ts", "..dist/main.js"} {
+    if key := driver.TransformOutputKey(root, filepath.Join(root, filepath.FromSlash(name))); key != name {
+      t.Errorf("dotted in-root output key = %q, want %q", key, name)
+    }
+  }
+  outside := filepath.Join(filepath.Dir(root), "outside", "main.ts")
+  if key := driver.TransformOutputKey(root, outside); key != filepath.ToSlash(outside) {
+    t.Errorf("outside output key = %q, want absolute %q", key, filepath.ToSlash(outside))
+  }
   sources := map[string]string{
     "index.ts": "export const value = 1;\n",
     "src/main.ts": "import type { Model } from \"./nested/model\";\nimport { helper } from \"./helpers\";\n\nconst message: string = \"api-ok\";\nconsole.log(message);\nexport const upper: string = helper(message);\nexport const model = { value: message } satisfies Model;\n",
