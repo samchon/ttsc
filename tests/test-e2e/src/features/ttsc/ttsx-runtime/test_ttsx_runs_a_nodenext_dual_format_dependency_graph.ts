@@ -27,12 +27,14 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases The same graph must support CommonJS and ESM formats together, including their export interoperation.
  * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_nodenext_dual_format_dependency_graph at this path, selected by tests/test-e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
  * @evidence contracts/e2e.md#necessary-boundary One actual native dependency graph and Node module loader exercise both format connections in one runtime.
- * @evidence contracts/e2e.md#shared-execution Both formats already share one project, compiler preparation and runtime host rather than separate per-format experiments.
+ * @evidence contracts/e2e.md#shared-execution Both formats share one project, compiler preparation and runtime host. Consolidated selection writes this same original file map on the borrowed canonical root and uses its supplied guarded actual spawn; standalone selection retains its own allocation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Package types and dependency sources remain immutable throughout the synchronous child; tracked project cleanup occurs at process exit.
  * @evidence contracts/e2e.md#preserved-coverage The exact combined output remains here and is not replaced by format-classification assertions alone.
  */
-export function test_ttsx_runs_a_nodenext_dual_format_dependency_graph() {
-  const root = TestProject.createProject({
+export function test_ttsx_runs_a_nodenext_dual_format_dependency_graph(
+  prepared?: { root: string; spawn: typeof TestProject.spawn },
+) {
+  const files = {
     "package.json": JSON.stringify({ type: "module", private: true }),
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -73,9 +75,11 @@ export function test_ttsx_runs_a_nodenext_dual_format_dependency_graph() {
       `import cjs from "cjs-dep";\n` +
       `import { greet } from "esm-dep";\n` +
       "console.log(`${cjs.answer}:${cjs.echo(7)}:${greet()}`);\n",
-  });
+  };
+  const root = prepared?.root ?? TestProject.createProject(files);
+  if (prepared) TestProject.writeFiles(root, files);
 
-  const result = TestProject.spawn(
+  const result = (prepared?.spawn ?? TestProject.spawn)(
     TestProject.TTSX_BIN,
     ["--cwd", root, "src/main.ts"],
     { cwd: root },
