@@ -19,7 +19,7 @@ import { runRspackShared } from "../batch/runRspackShared";
  * 2. Close the actual compiler and inspect its output and map.
  * 3. Evaluate all independent values and require transformed effect controls.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual webpack stats must contain no errors; its real output must evaluate all661 UTF-16 values, contract42 and JSON42/retained without configured debug, and publish a nonempty source map.
+ * @evidence contracts/testing.md#behavioral-verification Actual webpack stats must contain no errors; its real output must evaluate all661 UTF-16 values, contract42, JSON42/retained and inline-overridden C:PLUGIN:z instead of the root A:PLUGIN:z without configured debug, and publish a nonempty source map.
  * @evidence contracts/testing.md#independent-expectations Authored source/JSON and pre-print string units supply value expectations; the native fixture source path supplies independent map-source identity.
  * @evidence contracts/testing.md#distinguishing-cases One real webpack loader graph carries entity/raw/expression strings and transformed versus retained effects; a missing adapter, bad graph or missing map fails independently of bundle text length.
  * @evidence contracts/testing.md#execution-ownership This selected function owns two actual host builds: webpack once and the Rspack helper once. Both settle while the webpack lease stays live; this is not one host execution.
@@ -44,7 +44,7 @@ export async function test_e2e_webpack_batch(): Promise<void> {
         { test: /\.tsx?$/, exclude: /[\\/]map\.ts$/, use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }] },
       ] },
       output: { path: directory, filename: "[name].js" },
-      plugins: [adapter()], resolve: { extensions: [".tsx", ".ts", ".js", ".json"] },
+      plugins: [adapter({ compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { extensions: [".tsx", ".ts", ".js", ".json"] },
     });
     const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
     const paired = runRspackShared(workspace);
@@ -56,7 +56,7 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
     const code = fs.readFileSync(path.join(directory, "corpus.js"), "utf8");
     assert.doesNotMatch(code, /STRIPPED_DEBUG_RAN/);
-    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
+    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected, "C:PLUGIN:z");
     const map = JSON.parse(fs.readFileSync(path.join(directory, "map.js.map"), "utf8"));
     assert.equal(map.version, 3);
     assert.ok(map.sources.some((source: string) => source.includes("map.ts")));
