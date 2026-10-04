@@ -600,7 +600,7 @@ func cleanCLIFamilyOutputs(t *testing.T, workspace, root string) {
 //  2. Check the literal bin/index.js export, empty diagnostics and disk absence.
 //  3. Request api-transform and check index.ts source, empty diagnostics and disk absence.
 //
-// Testing behavioral-verification: Actual response writers carry original index42 plus baseline helper/model/isolated source, JavaScript/declarations/both maps, exact completeness and connected/empty graph nodes in JSON with no disk output or diagnostics.
+// Testing behavioral-verification: Actual response writers carry original index42 plus baseline helper/model/isolated and legacy decorated source, JavaScript/declarations/both maps, exact completeness and connected/empty graph nodes in JSON with no disk output or diagnostics. Configured metadata appears in compiled JavaScript but not in the actual transform source records.
 // Testing independent-expectations: Literal project-relative source/output keys, api-ok/upper/index answer syntax, authored imports and exact source population ground the assertions. Required text fragments do not constrain printer whitespace; JSON boolean presence does not independently prove native filesystem case policy.
 // Testing distinguishing-cases: Two command adapters share one fixture; successful compile and transform are distinct from the serialized diagnostic case.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
@@ -625,7 +625,7 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
     if !strings.Contains(compiled.Output["bin/index.js"], "exports.answer") {
       t.Fatalf("api-compile output missing emitted JavaScript: %#v", compiled.Output)
     }
-    sources := []string{"index", "src/helpers", "src/isolated", "src/main", "src/nested/model"}
+    sources := []string{"index", "src/decorated/main", "src/decorated/types", "src/helpers", "src/isolated", "src/main", "src/nested/model"}
     if len(compiled.Output) != len(sources)*4 { t.Errorf("compile output count = %d, want %d", len(compiled.Output), len(sources)*4) }
     for _, source := range sources {
       for _, suffix := range []string{".js", ".d.ts", ".js.map", ".d.ts.map"} {
@@ -636,6 +636,7 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
       }
     }
     if !strings.Contains(compiled.Output["bin/src/main.js"], "api-ok") || !strings.Contains(compiled.Output["bin/src/main.d.ts"], "upper: string") { t.Error("baseline compile values/declarations absent") }
+    if !strings.Contains(compiled.Output["bin/src/decorated/main.js"], "design:type") { t.Error("configured decorator metadata positive control absent from compiled JavaScript") }
     if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
       t.Fatalf("api-compile wrote JavaScript to disk: %v", err)
     }
@@ -655,12 +656,13 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
     if !strings.Contains(transformed.TypeScript["index.ts"], "answer: number") {
       t.Fatalf("api-transform source missing expected declaration: %#v", transformed.TypeScript)
     }
-    expectedSources := []string{"index.ts", "src/helpers.ts", "src/isolated.ts", "src/main.ts", "src/nested/model.ts"}
+    expectedSources := []string{"index.ts", "src/decorated/main.ts", "src/decorated/types.ts", "src/helpers.ts", "src/isolated.ts", "src/main.ts", "src/nested/model.ts"}
     actualSources := make([]string, 0, len(transformed.TypeScript))
     for name := range transformed.TypeScript { actualSources = append(actualSources, name) }
     slices.Sort(actualSources)
     if !slices.Equal(actualSources, expectedSources) { t.Errorf("transform source keys = %v, want %v", actualSources, expectedSources) }
     if !strings.Contains(transformed.TypeScript["src/main.ts"], "api-ok") || !strings.Contains(transformed.TypeScript["src/helpers.ts"], "value.toUpperCase()") || !strings.Contains(transformed.TypeScript["src/nested/model.ts"], "interface Model") || !strings.Contains(transformed.TypeScript["src/isolated.ts"], "isolated: number = 2") { t.Error("baseline transform source literals absent") }
+    if !strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "@log()") || !strings.Contains(transformed.TypeScript["src/decorated/types.ts"], "class Payload") || strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "design:type") { t.Error("decorated transform source/metadata separation differs") }
     var wire map[string]json.RawMessage
     if err := json.Unmarshal([]byte(out), &wire); err != nil { t.Fatal(err) }
     var complete []string
@@ -672,7 +674,8 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
     if err := json.Unmarshal(wire["graph"], &graph); err != nil { t.Fatalf("actual graph JSON: %v", err) }
     edges := append([]string{}, graph.Edges["src/main.ts"]...); slices.Sort(edges)
     if !slices.Equal(edges, []string{"src/helpers.ts", "src/nested/model.ts"}) { t.Errorf("baseline graph edges = %v", edges) }
-    for _, name := range []string{"index.ts", "src/helpers.ts", "src/isolated.ts", "src/nested/model.ts"} {
+    if !slices.Equal(graph.Edges["src/decorated/main.ts"], []string{"src/decorated/types.ts"}) { t.Errorf("decorated type dependency edge = %v", graph.Edges["src/decorated/main.ts"]) }
+    for _, name := range []string{"index.ts", "src/decorated/types.ts", "src/helpers.ts", "src/isolated.ts", "src/nested/model.ts"} {
       leaf, present := graph.Edges[name]
       if !present || len(leaf) != 0 { t.Errorf("explicit graph leaf %s = %v, present %t", name, leaf, present) }
     }
