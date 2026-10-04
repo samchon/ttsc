@@ -39,28 +39,31 @@ import { WatchTopology } from "./watch/WatchTopology";
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate lane (build,
  * check, fix, format, cache, prepare, clean, help or version) and returns
- * an exit code. Errors thrown by any lane are caught here and written to stderr
- * so the process can exit cleanly.
+ * an exit code. Synchronous lane errors are caught here and reported to stderr;
+ * an error thrown by reporting itself can still escape this entry.
  *
  * Watch setup returns before its asynchronous first build finishes. Signal
- * shutdown and supported Node IPC stop requests drain actual sidecar exits
- * before using the latest completed build status; topology failure closes the
- * owned watchers and resident host. Cache cleanup validates its full target set
- * and preserves the caller's Go cache, including overlapping explicit targets.
+ * shutdown and supported Node IPC stop requests await the resident close and
+ * active cycle promises before reporting the latest completed build status.
+ * Their settlement is not a descendant-process or inherited-stdio drain proof.
+ * Topology failure initiates cleanup, whose asynchronous failure is reported
+ * separately. Cache cleanup validates its full target set against the project
+ * and caller's Go cache before removal; this is not an atomic filesystem
+ * transaction against concurrent path replacement.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  *
  * @returns The selected lane's status, or `2` for an error caught by this
  *   entry.
  *
- * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority, while the whole physical cleanup transaction protects project and caller-owned Go cache state.
+ * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority. Cleanup prevalidates the complete target population and protected physical identities before removals, without atomic replacement or rollback guarantees.
  * @evidence contracts/common.md#clear-and-simple-design One public entry owns dispatch and reporting; private argument, cleanup, single-file and watch operations isolate their distinct lifecycles while sharing the package's flag and build owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; failures keep their real statuses, and source changes cannot be hidden by caching an earlier plugin binary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; completed build statuses are reported while entry exceptions map to 2 and process exit normalization remains explicit. Reuse validity belongs to maintained source-build owners rather than an assumed historical binary.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish synchronous dispatch from watch lifetime and explain cleanup authority; parameter and result descriptions are separated from acknowledgments following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution and physical identities anchor reporting, cache containment and deletion; environment lookup preserves native name identity, and process/watch behavior is delegated to supported package boundaries rather than shell commands.
- * @evidence contracts/performance.md#efficient-algorithms Argument cursors visit each token once without repeated head shifts; cleanup shares one identity context and deduplicates deletion paths. Watch work includes compiler discovery and input fingerprinting owned by its topology rather than an extra launcher transform.
+ * @evidence contracts/performance.md#efficient-algorithms Dispatch copies argv tails and delegates parsing, project/plugin discovery, compiler/process work, native identity queries and cache traversal/deletion; these have input-byte/path/dependency and delegated callback costs beyond token cursors. Cleanup deduplicates accepted paths; watch adds topology discovery, fingerprinting and serialized rebuild work, not a fixed total-work bound.
  * @evidence contracts/performance.md#reuse-equivalent-work A watch lifetime retains one resident check coordinator and forwards ordered change deltas; topology changes reset that selection, while ordinary effectful builds remain separate and source-built binaries reuse only their validated input identity.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Watch setup, failure and signal shutdown share idempotent cleanup of timer, signal listeners, topology and resident hosts; pending changes belong to the current cycle. Input-dependent topology state persists until shutdown, while cache cleanup retains no historical target population.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Watch retains uncapped input/topology/pending-change state and callbacks across cycles. Close marks closed, removes owned timers/listeners, attempts topology cleanup and awaits resident/active settlements; cleanup rejection is reported, not successful backend/descendant closure certification. Returned setup status does not end this lifetime; cache target/identity/output collections are call-local and uncapped.
  */
 export function runTtsc(
   argv: readonly string[] = process.argv.slice(2),
