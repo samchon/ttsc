@@ -10,9 +10,8 @@ import (
 //
 //  1. Enable noUncheckedIndexedAccess in a real tsconfig.
 //  2. Report the missing undefined member in an incomplete source.
-//  3. Check a separate explicit case undefined source with no findings even
-//     though its Type pointer differs
-//     from the checker's missing/optional undefined constituent.
+//  3. Check a separate explicit case undefined source with no findings.
+//     The diagnostic contrast observes coverage, not Type pointer identities.
 //
 // @evidence contracts/testing.md#behavioral-verification Compiler indexed-access configuration must preserve the missing undefined switch branch.
 // @evidence contracts/testing.md#independent-expectations The real noUncheckedIndexedAccess project requires one authored undefined message before its case is added and zero findings afterward.
