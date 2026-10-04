@@ -61,9 +61,9 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   }
   defer prog.Close()
 
-  // Transform: prepend 50 synthetic `const _k = k;` statements so the single
-  // authored line balloons into a many-line output, the shape that motivated the
-  // source-map question in the first place.
+  // Transform: prepend 50 synthetic `const _k = k;` statements before the three
+  // authored statements, expanding the output while retaining their source
+  // coordinates.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {

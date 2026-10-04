@@ -24,7 +24,7 @@ import (
 // 2. Require its object, member writes, bootstrap and export binding together with the sibling replacement.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls actual plugin-transform emission and checks sibling rewrite, enum variable/IIFE/bootstrap/export binding plus populated Red/Blue member writes.
-// @evidence contracts/testing.md#independent-expectations Authored exported Color, member names and sibling replacement one independently define required structures; extracted IIFE name only correlates the same generated binding.
+// @evidence contracts/testing.md#independent-expectations Authored exported Color, ordinal member values zero/two and sibling replacement one independently define required structures; extracted IIFE name only correlates the same generated binding.
 // @evidence contracts/testing.md#distinguishing-cases Nonconst enum object creation and exported bootstrap contrast enum loss, empty object output or discarded sibling transformation.
 // @evidence contracts/testing.md#execution-ownership This owning Go driver unit captures direct synthetic-transform/compiler output and closes its Program, without executing emitted JavaScript or a compiler host.
 func TestEmitWithPluginTransformerEnumRuntimeObjectPreserved(t *testing.T) {
@@ -100,5 +100,9 @@ func TestEmitWithPluginTransformerEnumRuntimeObjectPreserved(t *testing.T) {
   // rather than empty (e.g. `Color[Color["Red"] = 0] = "Red";`).
   if !strings.Contains(js, enumName+`["Red"]`) || !strings.Contains(js, enumName+`["Blue"]`) {
     t.Fatalf("enum member writebacks missing (runtime object would be empty):\n%s", js)
+  }
+  if !strings.Contains(js, enumName+`[`+enumName+`["Red"] = 0] = "Red";`) ||
+    !strings.Contains(js, enumName+`[`+enumName+`["Blue"] = 2] = "Blue";`) {
+    t.Fatalf("enum ordinal member writebacks missing:\n%s", js)
   }
 }
