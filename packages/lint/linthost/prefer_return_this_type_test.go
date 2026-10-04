@@ -15,7 +15,7 @@ import (
 // project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // The corpus fixture packages/lint/test/testdata/corpus/typescript-prefer-return-this-type.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
-// trigger (a class method declared to return the class name that logs its input and then
+// trigger (a class method declared to return the class name that serializes its input and then
 // returns `this`) so a future shim regression surfaces here without depending on
 // the full fixture.
 //
