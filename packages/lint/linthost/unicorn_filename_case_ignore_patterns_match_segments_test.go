@@ -8,7 +8,7 @@ import (
 // patterns are tested against every individual path segment, with negative
 // twins for patterns that must not suppress the diagnostic.
 //
-// Upstream evaluates each configured pattern against each segment of the
+// The native rule evaluates each configured pattern against each segment of the
 // project-relative path, so a directory-only pattern like `^meta$` exempts the
 // whole file while a partial match like `^meta$` on `metal` (or a pattern
 // spanning a separator) must not.
@@ -35,7 +35,7 @@ func TestUnicornFilenameCaseIgnorePatternsMatchSegments(t *testing.T) {
     `{"case":"kebabCase","ignore":["src/foo"]}`,
     "Filename is not in kebab case. Rename it to `bad-name.js`.",
   )
-  // The upstream suite's literal `/FOOBAR\.js/` STRING pattern (not a RegExp
+  // The authored literal `/FOOBAR\.js/` STRING pattern (not a RegExp
   // literal) compiles with the slashes as plain characters and matches
   // nothing here.
   assertUnicornFilenameCaseMessage(

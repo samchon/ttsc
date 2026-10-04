@@ -5,16 +5,15 @@ import (
 )
 
 // TestUnicornFilenameCaseExtensionLowercase verifies the extension arm of the
-// rule against the upstream snapshot suite.
+// native rule against independent literal messages.
 //
 // The extension diagnostic only fires when the stem already satisfies a
 // configured case, and its rename sample lowercases the primary extension
 // while leaving the untouched middle parts verbatim — `foo.SPEC.JS` keeps
 // `.SPEC` but fixes `.JS`.
 //
-//  1. Lint each snapshot filename.
-//  2. Assert the exact extension (or filename) message derived from the rule's
-//     upstream source.
+//  1. Lint each authored filename.
+//  2. Assert the independent exact extension or filename message.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual filename evaluation distinguishes extension spelling from the selected basename case and checks each authored error.
 // @evidence contracts/testing.md#independent-expectations The supported lowercase-extension contract independently establishes the literal rejected names and rename alternatives without invoking the product case conversion.

@@ -8,10 +8,9 @@ import (
 // configured `cases` key order drives both the case-name list and the rename
 // sample order in the message.
 //
-// Upstream derives the enabled case list from `Object.keys(options.cases)`,
-// so `{pascalCase, camelCase}` and `{camelCase, pascalCase}` produce
-// differently ordered disjunctions; the port's order-preserving decoder must
-// reproduce that, including all-false maps falling back to kebab case.
+// The native decoder preserves configured case-key order, so reversing the
+// two enabled keys must reverse both diagnostic alternatives and rename
+// samples. An all-false map must instead select the default kebab case.
 //
 // 1. Lint the same filename under both key orders.
 // 2. Lint with every case disabled.

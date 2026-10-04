@@ -12,12 +12,12 @@ import (
 // become ignored separators inside the checked stem — so camel case yields
 // `fooBar.testUtils.js` while the default mode leaves `.test_utils` untouched.
 //
-// 1. Lint each upstream invalid pair with the option disabled.
+// 1. Lint each authored invalid path with the option disabled.
 // 2. Assert the exact whole-stem rename samples.
 //
 // @evidence contracts/testing.md#behavioral-verification The rule evaluates multi-extension names with multipleFileExtensions disabled, detecting a wrong boundary between basename and suffix.
 // @evidence contracts/testing.md#independent-expectations The supported multipleFileExtensions policy and authored names/messages independently determine which segments are case-normalized.
-// @evidence contracts/testing.md#distinguishing-cases Every retained disabled-option case checks the whole dotted stem; UpstreamInvalidFilenames owns default-option counterparts and ExtensionLowercase owns primary extension spelling.
+// @evidence contracts/testing.md#distinguishing-cases The retained camel, snake, kebab and pascal policies distinguish normalized dotted stems, including a leading dot and noncanonical middle parts.
 // @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseMultipleFileExtensionsOption owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseMultipleFileExtensionsOption(t *testing.T) {
   cases := []struct {

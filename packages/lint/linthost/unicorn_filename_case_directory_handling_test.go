@@ -6,17 +6,16 @@ import (
 
 // TestUnicornFilenameCaseDirectoryHandling verifies directory checking order,
 // the `$` directory exemption, `checkDirectories: false`, and the
-// path-boundary rules for files at, inside, and outside the project directory.
+// path-boundary rules for nested files inside and outside the project directory.
 //
-// Upstream reports the first offending directory before ever looking at the
-// basename, skips `$`-prefixed directory segments, and judges files outside
-// the ESLint cwd by basename alone — so `Src` in an outside path must never be
-// reported.
+// The native rule reports the first offending directory before checking the
+// basename, skips `$`-prefixed directory segments, and checks outside-project
+// files by basename alone. The outside `Src` segment must not be reported.
 //
 //  1. Lint layouts with bad directories, `$` directories, and disabled
 //     directory checking.
 //  2. Lint project-rooted and outside-project absolute paths.
-//  3. Assert exactly the upstream-selected diagnostic for each.
+//  3. Assert the independent literal diagnostic or silence for each.
 //
 // @evidence contracts/testing.md#behavioral-verification The rule resolves virtual in-project and outside-project paths and checks configured directory handling against exact messages.
 // @evidence contracts/testing.md#independent-expectations The supported checkDirectories scope and authored path/case alternatives establish report ordering and outside-project exclusions independently.
