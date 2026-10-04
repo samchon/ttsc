@@ -123,43 +123,74 @@ func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) erro
 }
 
 // appendContextReceipt records an actually invoked entry's supplied config.
-// Its optional absolute destination belongs to the E2E coordinator. No receipt
-// proves source rewriting or emit execution, and absent/empty config performs no IO.
+// Both optional absolute destinations belong to the E2E coordinator. The
+// records preserve the existing context schema and keep raw config-path anchors
+// separate. Neither receipt proves source rewriting, emit or project-root identity;
+// absent/empty destination config performs no IO.
 func appendContextReceipt(context driver.PluginContext) error {
-  configured, present := context.Entry.Config["contextReceipt"]
-  if !present {
-    return nil
-  }
-  receipt, ok := configured.(string)
-  if !ok {
-    return fmt.Errorf("contextReceipt must be an absolute path string")
-  }
-  if receipt == "" {
-    return nil
-  }
-  if !filepath.IsAbs(receipt) {
-    return fmt.Errorf("contextReceipt must be an absolute path string")
-  }
-  record := struct {
-    Name string `json:"name"`
-    Operation any `json:"operation"`
-    Prefix any `json:"prefix"`
-    Suffix any `json:"suffix"`
+  records := []struct {
+    option string
+    value any
   }{
-    Name: context.Entry.Name,
-    Operation: context.Entry.Config["operation"],
-    Prefix: context.Entry.Config["prefix"],
-    Suffix: context.Entry.Config["suffix"],
+    {
+      option: "contextReceipt",
+      value: struct {
+        Name string `json:"name"`
+        Operation any `json:"operation"`
+        Prefix any `json:"prefix"`
+        Suffix any `json:"suffix"`
+      }{
+        Name: context.Entry.Name,
+        Operation: context.Entry.Config["operation"],
+        Prefix: context.Entry.Config["prefix"],
+        Suffix: context.Entry.Config["suffix"],
+      },
+    },
+    {
+      option: "configPathReceipt",
+      value: struct {
+        Name string `json:"name"`
+        Config any `json:"config"`
+        ConfigFile any `json:"configFile"`
+        Cwd string `json:"cwd"`
+        Tsconfig string `json:"tsconfig"`
+      }{
+        Name: context.Entry.Name,
+        Config: context.Entry.Config["config"],
+        ConfigFile: context.Entry.Config["configFile"],
+        Cwd: context.Cwd,
+        Tsconfig: context.Tsconfig,
+      },
+    },
   }
-  file, err := os.OpenFile(receipt, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-  if err != nil {
-    return err
+  for _, record := range records {
+    configured, present := context.Entry.Config[record.option]
+    if !present {
+      continue
+    }
+    receipt, ok := configured.(string)
+    if !ok {
+      return fmt.Errorf("%s must be an absolute path string", record.option)
+    }
+    if receipt == "" {
+      continue
+    }
+    if !filepath.IsAbs(receipt) {
+      return fmt.Errorf("%s must be an absolute path string", record.option)
+    }
+    file, err := os.OpenFile(receipt, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+    if err != nil {
+      return err
+    }
+    if err := json.NewEncoder(file).Encode(record.value); err != nil {
+      _ = file.Close()
+      return err
+    }
+    if err := file.Close(); err != nil {
+      return err
+    }
   }
-  if err := json.NewEncoder(file).Encode(record); err != nil {
-    _ = file.Close()
-    return err
-  }
-  return file.Close()
+  return nil
 }
 
 func init() {
