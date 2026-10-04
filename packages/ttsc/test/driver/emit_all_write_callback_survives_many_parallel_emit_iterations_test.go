@@ -25,13 +25,13 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Calls actual EmitAll two hundred times with twenty-four per-source rewrites and a fresh unguarded callback map; every iteration must contain every file and its own replacement.
 // @evidence contracts/testing.md#independent-expectations Authored file names and literal rewritten-name strings independently establish output cardinality and per-source identity.
-// @evidence contracts/testing.md#distinguishing-cases Many parallel outputs and repeated fresh rewrite sets exercise callback serialization; unique replacements detect wrong routing, while a missing output fails the cardinality guard.
+// @evidence contracts/testing.md#distinguishing-cases A wide source set and repeated fresh rewrite sets exercise the parallel-capable emitter's callback boundary under its selected threading policy; unique replacements detect wrong routing and missing output fails the cardinality guard. Actual worker overlap/count and race-detector coverage are not asserted.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit reuses one immutable in-process Program and private project across repeated emits, with fresh maps and rewrite sets and deferred Program close. No executable compiler runs.
 func TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations(t *testing.T) {
   root := t.TempDir()
 
-  // Scenario setup: a wide source set so each emit fans out many emitter
-  // goroutines. Every file re-declares `plugin` locally (legal — the `export`
+  // Scenario setup: a wide source set for the emitter's selected threading
+  // policy. Every file re-declares `plugin` locally (legal — the `export`
   // makes each file its own module) and calls it with a file-unique argument,
   // so a misrouted rewrite under a torn `cursors` map is observable.
   const sources = 24
@@ -66,7 +66,8 @@ func TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations(t *testing
 
   // Rewrite setup: one replacement per source, tagged with the file name so a
   // misrouted splice (the symptom of a torn `cursors` map) is caught. The set
-  // is rebuilt fresh each iteration because applyRewrites advances `cursors`.
+  // is rebuilt fresh each iteration; production emit owns invocation-local
+  // cursors rather than advancing state in the RewriteSet itself.
   makeRewrites := func() *driver.RewriteSet {
     rs := driver.NewRewriteSet()
     for _, name := range names {
@@ -86,9 +87,9 @@ func TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations(t *testing
   }
 
   // Stress loop: re-emit many times. Each pass uses a fresh unguarded caller
-  // map standing in for api_compile's output object; the callback also runs
-  // applyRewrites against the shared `cursors` map. A removed `wfMu` races one
-  // or the other on essentially every pass once the iteration count is high.
+  // map standing in for a caller's output object; callbacks also run the real
+  // rewrite against that invocation's cursor map. This does not guarantee a
+  // race frequency or that concurrent native callbacks occurred in a run.
   const iterations = 200
   for iter := 0; iter < iterations; iter++ {
     emitted := map[string]string{}
