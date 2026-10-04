@@ -3,22 +3,23 @@ package linthost
 import "testing"
 
 // TestRuleCorpusUnicornConsistentDestructuringSkipsValidForms verifies the
-// negative twin of every reporting surface: forms the upstream rule leaves
-// alone must produce zero findings.
+// the authored non-reporting matrix: its writable, unstable, differently
+// scoped and syntax-exempt forms must produce zero findings.
 //
 // Over-matching is the failure mode this rule invites — a write target
 // mistaken for a read, a shadowed root treated as the tracked one, or a
 // type-narrowing `in` guard ignored each turn a valid file noisy. Every
-// scenario is adapted from the upstream valid corpus, plus destructuring-
-// assignment-slot twins for the left-hand-side arm.
+// scenario supplies a direct accepted-form expectation, including
+// destructuring-assignment slots for the left-hand-side arm. The test does not
+// execute an upstream oracle or certify an exhaustive upstream population.
 //
 //  1. Enable unicorn/consistent-destructuring on one type-clean source that
-//     stacks every upstream-valid form.
+//     stacks the authored accepted forms.
 //  2. Run the checker-backed snapshot path.
 //  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed zero-finding assertions detect invalid suggestions on writable, unstable or differently scoped bindings.
-// @evidence contracts/testing.md#independent-expectations Official Unicorn valid-case semantics for const destructuring, binding identity, write safety and guard/receiver boundaries establish acceptance of the authored matrix.
+// @evidence contracts/testing.md#independent-expectations The authored zero expectation follows the selected const binding, write safety, lexical scope and guard/receiver policies; it is not computed from returned findings or an upstream execution.
 // @evidence contracts/testing.md#distinguishing-cases Calls/new/tagged/computed members, writes/destructuring targets, mutable roots/bindings, shadows, guards, early reads, default/nested/rest forms and different this scopes occupy separate declarations inside the one authored clean source.
 // @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentDestructuringSkipsValidForms owns this authored source matrix as one discoverable Go unit entry. Its authored matrix exercises the owning checker-backed engine in the shared Go process; the zero-finding helper retains source identity on failure. No installed consumer, native build or child product host runs.
 func TestRuleCorpusUnicornConsistentDestructuringSkipsValidForms(t *testing.T) {

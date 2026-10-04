@@ -21,7 +21,8 @@ export interface ITtscLintStorybookNoUninstalledAddonsRuleOptions {
   packageJsonLocation?: string;
 
   /**
-   * Addon package names to skip when checking installation status.
+   * Exact configured addon strings to skip before package-name normalization,
+   * including any preset or register suffix present in the configuration.
    *
    * @default [ ]
    */
