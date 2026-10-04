@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { TextDecoder } from "node:util";
+import { sampleE2eNativeDeparture } from "./sampleE2eNativeDeparture";
 
 /**
  * Reads actual per-writer observations after the coordinator has joined them.
@@ -18,7 +19,7 @@ import { TextDecoder } from "node:util";
  * @evidence contracts/portability.md#os-neutral-implementation Uses native file/path operations and recorded numeric PIDs without OS-name-derived process outcomes or path case folding.
  * @evidence contracts/performance.md#efficient-algorithms Visits each writer file and JSONL row once, with indexes for sequence/actual invocation identity. Complete file/text/parsed values occupy memory proportional to observed bytes and events.
  * @evidence contracts/performance.md#reuse-equivalent-work One parsed stream contributes all counters and integrity checks; a previous measurement or process outcome is never reused.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads close before returning. JSONL is bounded per writer at256MiB; no payload bytes are loaded here. Parsed process rows remain caller-owned for explicit boundary pairing; their metadata is not an independently deduplicated launch total. Actual writer/child joins and trace-root retention remain coordinator responsibilities.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads close before returning. JSONL is bounded per writer at256MiB; no payload bytes are loaded here. At most4096 recorded native incarnations receive bounded ancillary proc samples, which do not replace process admission. Parsed process rows remain caller-owned for explicit boundary pairing; their metadata is not an independently deduplicated launch total. Actual writer/child joins and trace-root retention remain coordinator responsibilities.
  */
 export function readE2eTraceMeasurements(
   root: string,
@@ -41,6 +42,7 @@ export function readE2eTraceMeasurements(
     writerRuntimeVersions: {},
     processObservations: [],
     writerObservations: [],
+    nativeDepartureObservations: [],
   };
   const writerPids = new Set<number>();
   const writerInstances = new Set<string>();
@@ -114,6 +116,16 @@ export function readE2eTraceMeasurements(
       result.writerObservations.push({ writerFile: name, observation: event });
       if (event.event.startsWith("process-")) {
         result.processObservations.push({ writerFile: name, observation: event });
+        if (event.event === "process-start" && event.data?.nativeIncarnation !== undefined) {
+          if (result.nativeDepartureObservations.length < 4096) {
+            result.nativeDepartureObservations.push({
+              writerFile: name,
+              invocation: event.invocation,
+              pid: event.pid,
+              observation: sampleE2eNativeDeparture(event.pid, event.data.nativeIncarnation),
+            });
+          } else result.integrityProblems.push("Native departure sample limit exceeded: " + invocation);
+        }
         if (event.event === "process-attempt") attempts.add(invocation);
         if (event.event === "process-result") results.add(invocation);
         const started = event.started ?? event.data?.started;
@@ -198,6 +210,13 @@ export interface TraceMeasurements {
   processObservations: { writerFile: string; observation: TraceEvent }[];
   /** Validated phase rows for explicit domain/process boundary pairing, without copied payload bytes. */
   writerObservations: { writerFile: string; observation: TraceEvent }[];
+  /** Ancillary same-view native samples; they never replace Node result, exit or close admission. */
+  nativeDepartureObservations: {
+    writerFile: string;
+    invocation: string;
+    pid: number | null | undefined;
+    observation: ReturnType<typeof sampleE2eNativeDeparture>;
+  }[];
 }
 
 /** Rejects malformed event cores without manufacturing missing observations. */
