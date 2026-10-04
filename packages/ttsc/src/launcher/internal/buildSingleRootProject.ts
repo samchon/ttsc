@@ -10,6 +10,7 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
+import { singleRootProjectConfig } from "./singleRootProjectConfig";
 
 /**
  * Compile one TypeScript root that its owning project's file set does not
@@ -158,22 +159,12 @@ export function buildSingleRootProject(props: {
       fs.writeFileSync(
         configDescriptor,
         JSON.stringify(
-          {
-            extends: props.tsconfig.replaceAll(path.sep, "/"),
-            compilerOptions: {
-              composite: false,
-              declaration: false,
-              declarationMap: false,
-              ...(props.checked ? {} : { noEmitOnError: false }),
-              rootDir: volumeRoot.replaceAll(path.sep, "/"),
-            },
-            // `files` alone does not displace an inherited `include`, and an
-            // inherited `exclude` could drop the root back out of the program,
-            // so both are overridden explicitly.
-            files: [props.source.replaceAll(path.sep, "/")],
-            include: [],
-            exclude: [],
-          },
+          singleRootProjectConfig({
+            tsconfig: props.tsconfig,
+            source: props.source,
+            volumeRoot,
+            checked: props.checked,
+          }),
           null,
           2,
         ),
