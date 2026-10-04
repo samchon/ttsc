@@ -13,7 +13,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/reject-function-type rule through NewEngine.Run over a parsed virtual TypeScript file. `{Function}` and `{Array<Function>}` each yield one finding on line 3 with that rule at error severity; `{function(): void}`, `{FUNCTION}` and `{() => void}` yield none.
 // @evidence contracts/testing.md#independent-expectations The unrestricted Function type has no call signature, while an explicit callable type is the accepted alternative. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
-// @evidence contracts/testing.md#distinguishing-cases `Function` versus the Closure signature and the arrow signature isolates the bare identifier; `FUNCTION` isolates exact spelling; `Array<Function>` isolates a nested occurrence.
+// @evidence contracts/testing.md#distinguishing-cases Separately authored Function, Closure-signature and arrow-signature blocks contrast their report/clean outcomes; `FUNCTION` isolates exact spelling; `Array<Function>` isolates a nested occurrence.
 // @evidence contracts/testing.md#execution-ownership The Test body makes one direct helper call, one named subtest and a loop of three more t.Run subtests from one literal table, each calling assertJSDocRuleLines once with its own source; the subtests run in the same test process as the parent with no installed consumer, native build or host.
 func TestRuleJSDocRejectFunctionType(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/reject-function-type", `/**
