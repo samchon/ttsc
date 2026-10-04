@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
 import { PluginPackageResolution } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginPackageResolution";
 
 /**
@@ -21,12 +22,15 @@ import { PluginPackageResolution } from "../../../../../packages/ttsc/src/plugin
  * @evidence contracts/testing.md#distinguishing-cases Preserves valid, blocked, missing, escaping, nested blocked, invalid-first fallback and all-blocked array inputs. Encoded-space targets contrast decoded and literal-percent existing files; numeric conditions and mixed top-level maps contrast with valid condition/subpath shapes. Runtime entries exist for every row so an inappropriate fallback cannot pass. All outcomes are collected before comparison.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this matching unit feature and Evidence selects its named exported function. The authored source resolver reads call-owned fixture manifests in process, without native builds, descriptor evaluation, product hosts or reference subprocesses; finally removes the temporary tree.
  */
-export function test_plugin_export_targets_preserve_selection_and_rejection(): void {
+export async function test_plugin_export_targets_preserve_selection_and_rejection(): Promise<void> {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-export-targets-")),
   );
   try {
-    fs.writeFileSync(path.join(root, "package.json"), "{}");
+    await FileSystemIterator.write(root, {
+      "package.json": "{}",
+      "node_modules/outside.cjs": "",
+    });
     const cases: Record<string, unknown> = {
       valid: { ttsc: "./descriptor.cjs", default: "./runtime.cjs" },
       blocked: { ttsc: null, default: "./runtime.cjs" },
@@ -39,24 +43,22 @@ export function test_plugin_export_targets_preserve_selection_and_rejection(): v
       numeric: { "0": "./runtime.cjs", ttsc: "./descriptor.cjs" },
       mixed: { ".": { ttsc: "./descriptor.cjs" }, default: "./runtime.cjs" },
     };
-    fs.mkdirSync(path.join(root, "node_modules"));
-    fs.writeFileSync(path.join(root, "node_modules", "outside.cjs"), "");
     for (const [name, target] of Object.entries(cases)) {
       const directory = path.join(root, "node_modules", `pkg-${name}`);
-      fs.mkdirSync(directory);
-      fs.writeFileSync(
-        path.join(directory, "package.json"),
-        JSON.stringify({
+      await FileSystemIterator.write(directory, {
+        "package.json": JSON.stringify({
           name: `pkg-${name}`,
           exports: name === "mixed" ? target : { ".": target },
         }),
-      );
-      fs.writeFileSync(path.join(directory, "descriptor.cjs"), "");
-      fs.writeFileSync(path.join(directory, "runtime.cjs"), "");
-      if (name === "encoded") {
-        fs.writeFileSync(path.join(directory, "descriptor space.cjs"), "decoded");
-        fs.writeFileSync(path.join(directory, "descriptor%20space.cjs"), "literal percent distractor");
-      }
+        "descriptor.cjs": "",
+        "runtime.cjs": "",
+        ...(name === "encoded"
+          ? {
+              "descriptor space.cjs": "decoded",
+              "descriptor%20space.cjs": "literal percent distractor",
+            }
+          : {}),
+      });
     }
     const outcomes = Object.fromEntries(Object.keys(cases).map((name) => {
       try {
