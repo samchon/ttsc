@@ -15,6 +15,8 @@ import (
   "syscall"
   "testing"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // packageRoot returns the `packages/ttsc` module root from this black-box test
@@ -75,7 +77,9 @@ func runBuiltNativeCommandInDir(t *testing.T, dir string, args ...string) (int, 
   var stdout, stderr bytes.Buffer
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
+  observation := e2etrace.BeginCommand(cmd, "Run", "native-cli-use")
   err := cmd.Run()
+  observation.Result(err)
   if exit, ok := err.(*exec.ExitError); ok {
     return exit.ExitCode(), stdout.String(), stderr.String()
   }
@@ -156,10 +160,14 @@ func buildNativeCommandBinary(t *testing.T) string {
     goArgs = append(goArgs, "./cmd/ttsc")
     build := exec.Command("go", goArgs...)
     build.Dir = packageRoot(t)
-    if output, err := build.CombinedOutput(); err != nil {
+    observation := e2etrace.BeginCommand(build, "CombinedOutput", "native-cli-build")
+    output, err := build.CombinedOutput()
+    observation.Result(err)
+    if err != nil {
       nativeCommandBuild.err = fmt.Errorf("go build ./cmd/ttsc: %w\n%s", err, output)
       return
     }
+    observation.Artifact(binary, "native-cli-built")
     nativeCommandBuild.binary = binary
   })
   if nativeCommandBuild.err != nil {
@@ -178,4 +186,3 @@ func nativeCommandCoverPackages() string {
     "github.com/samchon/ttsc/packages/ttsc/utility",
   }, ",")
 }
-

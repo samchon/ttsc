@@ -34,28 +34,34 @@ type Command struct {
   cmd *exec.Cmd
   invocation string
   method string
+  owner string
   lower time.Time
 }
 
 // BeginCommand observes the selected call before its original method executes.
 // An empty/unset opt-in produces no event or filesystem IO. A failed sink is
 // not reported through the product's stderr, return values or protocol streams.
+// An optional single owner label identifies the coordinator's callsite; it
+// changes observation data only, without changing executable selection.
 //
 // @evidence contracts/common.md#principled-implementation A call-local token and timestamp bound precede the original Cmd method; selected argv/directory are not substituted for executable identity.
-// @evidence contracts/common.md#clear-and-simple-design One nullable observation token is returned to the owning callsite.
+// @evidence contracts/common.md#clear-and-simple-design One nullable observation token is returned to the owning callsite; an optional single owner label ties actual command observations to the coordinator's declared boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The opt-in is the approved observation boundary, not a product behavior branch or fixture-specific result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states disabled IO and failure isolation, with separate acknowledgment tags.
 // @evidence contracts/portability.md#os-neutral-implementation Absolute native scratch paths and os/exec argument representation are preserved; an empty Cmd.Dir records inherited-directory intent.
-// @evidence contracts/performance.md#efficient-algorithms Disabled calls inspect only the opt-in value. Enabled calls add cold entropy/nonce acquisition, mutex admission, argv/path JSON encoding and native append/close; temporary encoding follows metadata text before the writer budget is checked.
+// @evidence contracts/performance.md#efficient-algorithms Disabled calls inspect only the opt-in value. Enabled calls add cold entropy/nonce acquisition, mutex admission, argv/path/owner JSON encoding and native append/close; temporary encoding follows metadata text before the writer budget is checked.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each actual invocation receives a distinct ordinal instead of reusing an event.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The sink serializes append/close operations and caps written bytes at 256MiB including reserved failure space, not encoding memory or child lifetime. One root/nonce and scalar counters persist for the process lifetime; the token transfers to the Cmd owner, without acquiring its child. Unwritable or partially written sinks leave missing/invalid evidence for the coordinator rather than product errors.
-func BeginCommand(cmd *exec.Cmd, method string) (observation *Command) {
+func BeginCommand(cmd *exec.Cmd, method string, owner ...string) (observation *Command) {
   defer func() { _ = recover() }()
   invocation := nextInvocation()
   if invocation == "" {
     return nil
   }
   observation = &Command{cmd: cmd, invocation: invocation, method: method, lower: time.Now()}
+  if len(owner) == 1 {
+    observation.owner = owner[0]
+  }
   observation.emit("process-attempt", nil, time.Time{})
   return observation
 }
@@ -142,10 +148,15 @@ func (observation *Command) emit(event string, err error, upper time.Time) {
   data := map[string]any{
     "method": observation.method,
     "selectedExecutable": cmd.Path,
+    "selectedPath": cmd.Path,
+    "argv": cmd.Args,
     "started": pid > 0,
     "exitObserved": cmd.ProcessState != nil,
     "cwdInherited": cmd.Dir == "",
     "startLowerBound": observation.lower.UTC().Format(time.RFC3339Nano),
+  }
+  if observation.owner != "" {
+    data["owner"] = observation.owner
   }
   if !upper.IsZero() {
     data["startUpperBound"] = upper.UTC().Format(time.RFC3339Nano)
@@ -156,6 +167,7 @@ func (observation *Command) emit(event string, err error, upper time.Time) {
   }
   if cmd.ProcessState != nil {
     data["status"] = cmd.ProcessState.ExitCode()
+    data["exitCode"] = cmd.ProcessState.ExitCode()
     data["success"] = cmd.ProcessState.Success()
     data["nativeState"] = cmd.ProcessState.String()
     data["signal"] = nil
