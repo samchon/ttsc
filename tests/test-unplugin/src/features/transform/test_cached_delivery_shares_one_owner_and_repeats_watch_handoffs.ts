@@ -25,15 +25,16 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
  * literal consumer data, not a replacement compiler or a claimed native run.
  *
  * 1. Deliver six modules through one unresolved then retained owner.
- * 2. Contrast wrapper bypass, divergent text and identical cached output.
+ * 2. Contrast wrapper bypass, divergent text, identical cached output and
+ *    out-of-walk output owners with present, omitted and missing source proofs.
  * 3. Refuse candidate watch registration and deliver four modules through the
  *    actual coordinator's recorded-state fallback without candidate reads.
  * 4. Create a candidate and assert the actual action selector retires its owner;
  *    do not enter the subsequent native capture from this source unit.
  *
- * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await the same current generation promise, return each literal output and retain that exact promise; repeated deliveries repeat the exact dependency and universal watch handoff without creating another owner. Four actual coordinator deliveries after candidate ENOSPC registration retain the ready owner while each makes native candidate probes and no candidate content reads; actual action selection on candidate appearance chooses capture and evicts the old owner.
+ * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
- * @evidence contracts/testing.md#distinguishing-cases An unresolved common owner contrasts with fulfilled and repeated deliveries. Each module has its own callback ledger, so one delivery cannot stand in for the other five, and repeated handoff must neither disappear nor accumulate extra paths. A separate supported generation returns identical authored source, contrasting changed output with undefined first/repeated delivery while preserving owner and watch handoff. Failed candidate registration contrasts unchanged candidate replay with native appearance and owner eviction; native capture itself remains outside this unit.
+ * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with appearance/eviction. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
  * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Finally resets both owning caches and deletes the result filesystem registration.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
@@ -203,6 +204,85 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     assert.equal(await deliver(modules[0]!, 0), undefined, "a repeated unchanged delivery stays a no-op");
     assert.equal(fixture.cache.get(fixture.key), unchangedOwner);
     assert.deepEqual(ledgers[0]!.sort(), expected);
+
+    const externalSources = [0, 1].map((index) => path.join(root, "node_modules", "external-" + index, "index.ts"));
+    for (const file of externalSources) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, fixture.source);
+    }
+    const outputOnly = path.join(root, "node_modules", "emitted.d.ts");
+    fs.writeFileSync(outputOnly, "export declare const emitted: number;\n");
+    const externalNames = externalSources.map((file) => path.relative(root, file).split(path.sep).join("/"));
+    const externalCodes = ['export const external0 = "PROBED";\n', 'export const external1 = "PROBED";\n'];
+    for (const omitExternalNodes of [false, true]) {
+      const graphFiles = [...modules, ...externalSources];
+      const sourceProofs = Object.fromEntries(graphFiles.map((file) => [path.relative(root, file).split(path.sep).join("/"), createHash("sha256").update(fs.readFileSync(file)).digest("hex")]));
+      const outResult = {
+        ...result,
+        dependencies: undefined,
+        typescript: {
+          ...result.typescript,
+          [externalNames[0]!]: externalCodes[0]!,
+          [externalNames[1]!]: externalCodes[1]!,
+          "node_modules/emitted.d.ts": "export declare const emitted: string;\n",
+        },
+        graph: {
+          edges: Object.fromEntries((omitExternalNodes ? modules : graphFiles).map((file) => [path.relative(root, file).split(path.sep).join("/"), [] as string[]])),
+          globals: [], configs: [],
+          inputHashes: sourceProofs,
+          inputRealpaths: Object.fromEntries(graphFiles.map((file) => [path.relative(root, file).split(path.sep).join("/"), fs.realpathSync.native(file)])),
+        },
+      };
+      const outObserved = observeValidationUnitGeneration(root, outResult);
+      assert.equal(Object.keys(outObserved.inputHashes).some((key) => key.startsWith("node_modules/")), false,
+        "output keys cannot expand the actual project walk snapshot");
+      const captured = captureExternalInputSnapshot(outObserved, externalSources, undefined);
+      assert.equal(captured.complete, true, "own source proofs survive absent graph nodes");
+      assert.deepEqual(captured.failures.entries, []);
+      const outOwner = Promise.resolve(outObserved);
+      fixture.cache.set(fixture.key, outOwner);
+      for (let repetition = 0; repetition < 2; repetition++) {
+        const delivered = [];
+        for (const file of graphFiles) delivered.push(await fixture.api.transformTtsc(file,
+          fs.readFileSync(file, "utf8"), fixture.options, undefined, fixture.cache));
+        assert.deepEqual(delivered.map((output) => output?.code), [code, code, code, code, code, code, ...externalCodes]);
+        assert.equal(fixture.cache.get(fixture.key), outOwner);
+      }
+      if (omitExternalNodes) {
+        const unprovenResult = {
+          ...outResult,
+          graph: { ...outResult.graph,
+            inputHashes: Object.fromEntries(Object.entries(sourceProofs).filter(([name]) => name !== externalNames[0])),
+          },
+        };
+        const unproven = observeValidationUnitGeneration(root, unprovenResult);
+        const refused = captureExternalInputSnapshot(unproven, [externalSources[0]!], undefined);
+        assert.equal(refused.complete, false, "a later host read cannot manufacture the missing source proof");
+        assert.deepEqual(refused.failures.entries.map(({ domain, kind, path: file }) => ({ domain, kind, path: file })),
+          [{ domain: "external", kind: "graph-proof-missing", path: externalSources[0]! }]);
+        fs.appendFileSync(externalSources[0]!, "// source changed after recorded proof\n");
+        const raced = captureExternalInputSnapshot(outObserved, [externalSources[0]!], undefined);
+        assert.equal(raced.complete, false);
+        assert.deepEqual(raced.failures.entries.map(({ domain, kind, path: file }) => ({ domain, kind, path: file })),
+          [{ domain: "external", kind: "graph-content-changed", path: externalSources[0]! }]);
+        assert.equal(selectCachedGenerationAction({ cache: fixture.cache, cached: outObserved,
+          epoch: undefined, file: modules[0]!, generation: outOwner, key: fixture.key, source: fixture.source }), "capture");
+        assert.equal(fixture.cache.has(fixture.key), false);
+        const fresh = observeValidationUnitGeneration(root, {
+          ...outResult,
+          typescript: { ...outResult.typescript, [externalNames[0]!]: 'export const external0 = "PROBED-AFTER";\n' },
+          graph: { ...outResult.graph,
+            inputHashes: { ...sourceProofs, [externalNames[0]!]: createHash("sha256").update(fs.readFileSync(externalSources[0]!)).digest("hex") },
+          },
+        });
+        const freshOwner = Promise.resolve(fresh);
+        fixture.cache.set(fixture.key, freshOwner);
+        assert.equal((await fixture.api.transformTtsc(externalSources[0]!, fs.readFileSync(externalSources[0]!, "utf8"),
+          fixture.options, undefined, fixture.cache))?.code, 'export const external0 = "PROBED-AFTER";\n');
+        assert.equal((await deliver(modules[0]!, 0))?.code, code);
+        assert.equal(fixture.cache.get(fixture.key), freshOwner);
+      }
+    }
   } finally {
     settle(observed);
     fixture.dispose();

@@ -25,12 +25,12 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  *
  * @evidence contracts/testing.md#behavioral-verification The production cached-generation action uses actual complete-snapshot validators when trackers are absent, serves unchanged modules and requests capture independently for source edits, new members, deleted members and external graph edits.
  * @evidence contracts/testing.md#independent-expectations Literal serve/capture/serve actions follow the dependency contract; real filesystem mutations establish each distinction and SHA-256 independently records external/config bytes. Fixture observations supply inputs rather than compute expected decisions.
- * @evidence contracts/testing.md#distinguishing-cases Fourteen isolated variants contrast steady state, one changed input and a newly observed checkpoint. Own and sibling source edits, ordinary/build-directory appearance, removal, file-to-directory replacement, imported sources outside discovery, unrelated text/output churn and config/manifest/descriptor edits remain independent. Outside-project graph edges use both absolute and root-relative spellings of one native file. The descriptor variant leaves src/lazy.ts undelivered before the edit and requires its first action to reject the old owner; fresh observations then serve all six modules. This action test does not execute transformTtsc delivery callbacks.
+ * @evidence contracts/testing.md#distinguishing-cases Fifteen isolated variants contrast steady state, one changed input and a newly observed checkpoint. Own and sibling source edits, ordinary/build-directory appearance, removal, file-to-directory replacement, imported sources outside discovery, unrelated text/output churn and config/manifest/descriptor edits remain independent. Outside-project graph edges use both absolute and root-relative spellings of one native file. The descriptor variant leaves src/lazy.ts undelivered before the edit and requires its first action to reject the old owner. The emitted-output variant observes an unconfigured lib directory once, retains one Promise across four JavaScript hash-name replacements, then rejects actual admitted late.ts appearance. This action test does not execute transformTtsc delivery callbacks or watcher admission.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual action and filesystem-proof owners without a compiler, Go build or host. Literal success envelopes are consumer data only; the shared native producer/consumer connection belongs to tests/test-e2e/src/features/test_e2e_metro_batch.ts#test_e2e_metro_batch. This unit does not certify native watcher refusal or execution of the requested capture.
  */
 export function test_snapshot_delivery_actions_preserve_each_change_without_watchers(): void {
   const failures: Error[] = [];
-  for (const variant of ["source", "own-source", "added", "added-build", "external", "external-outside", "removed", "kind", "ignored", "outputs", "outside-include", "config", "manifest", "descriptor"] as const) {
+  for (const variant of ["source", "own-source", "added", "added-build", "external", "external-outside", "removed", "kind", "ignored", "outputs", "emitted", "outside-include", "config", "manifest", "descriptor"] as const) {
     const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-snapshot-actions-unit-"));
     const cache = createTtscTransformCache();
     try {
@@ -44,6 +44,10 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
         files["node_modules/dep" + index + "/index.d.ts"] = "export declare const dep" + index + ": number;\n";
       }
       if (variant === "outside-include") files["tsconfig.json"] = '{"include":["src/mod0.ts"]}';
+      if (variant === "emitted") {
+        files["tsconfig.json"] = '{"include":["**/*.ts"]}';
+        files["lib/bundle-1.js"] = "// emitted output 1\n";
+      }
       if (variant === "ignored") files["src/notes.txt"] = "before\n";
       if (variant === "removed" || variant === "kind") files["src/added.d.ts"] = "declare const added: string;\n";
       TestProject.writeFiles(root, files);
@@ -84,6 +88,18 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
       for (const file of variant === "descriptor" ? modules.slice(0, -1) : modules) assert.equal(act(file), "serve");
       assert.equal(cache.get("fixture"), generation);
       assert.equal(observed.projectMutationTracker, undefined);
+      if (variant === "emitted") {
+        const hashes = { ...observed.inputHashes };
+        assert.equal(Object.keys(hashes).some((key) => key.startsWith("lib/")), false);
+        for (let build = 2; build <= 5; build++) {
+          fs.rmSync(path.join(root, "lib", "bundle-" + (build - 1) + ".js"));
+          fs.writeFileSync(path.join(root, "lib", "bundle-" + build + ".js"), "// emitted output " + build + "\n");
+          assert.equal(act(modules[0]!), "serve");
+          assert.equal(cache.get("fixture"), generation);
+          assert.deepEqual(observed.inputHashes, hashes);
+        }
+        fs.writeFileSync(path.join(root, "src", "late.ts"), "export const late: number = 1;\n");
+      }
       if (variant === "config") fs.writeFileSync(path.join(root, "tsconfig.json"), '{"include":["src"],"compilerOptions":{"target":"ES2021"}}');
       if (variant === "manifest") fs.writeFileSync(path.join(root, "package.json"), '{"private":true,"version":"9.9.9"}');
       if (variant === "descriptor") fs.appendFileSync(path.join(root, "plugin.cjs"), "// touched\n");
@@ -110,6 +126,7 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
       assert.equal(act(modules[variant === "descriptor" ? 5 : 0]!), variant === "ignored" || variant === "outputs" ? "serve" : "capture", variant + " must distinguish actual program input movement");
       assert.equal(cache.get("fixture"), variant === "ignored" || variant === "outputs" ? generation : undefined);
       observed = observeValidationUnitGeneration(root, envelope());
+      if (variant === "emitted") assert.equal(observed.inputHashes["src/late.ts"], createHash("sha256").update("export const late: number = 1;\n").digest("hex"));
       if (outside !== undefined) assert.equal(Object.values(observed.externalInputHashes ?? {}).includes(createHash("sha256").update("export declare const outside: string;\n").digest("hex")), true);
       generation = Promise.resolve(observed);
       cache.set("fixture", generation);
