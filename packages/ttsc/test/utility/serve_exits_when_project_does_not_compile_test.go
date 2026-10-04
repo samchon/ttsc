@@ -49,9 +49,11 @@ func TestUtilityServeExitsWhenProjectDoesNotCompile(t *testing.T) {
   requests := serveRequestLine(t, filepath.Join(root, "index.ts")) + "\n"
 
   var out bytes.Buffer
-  code := utility.RunServe(strings.NewReader(requests), &out, []string{"--cwd", root})
-  if code == 0 {
-    t.Fatalf("expected a non-zero exit for a project that does not compile; output=%q", out.String())
+  code, _, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunServe(strings.NewReader(requests), &out, []string{"--cwd", root})
+  })
+  if code != 2 || !strings.Contains(errOut, "TS2322") {
+    t.Fatalf("expected startup assignment error: code=%d stderr=%q output=%q", code, errOut, out.String())
   }
   if reply := strings.TrimSpace(out.String()); reply != "" {
     t.Fatalf("expected no reply on a failed startup compile, got %q", reply)
@@ -77,8 +79,10 @@ func TestUtilityServeExitsOnInputReadError(t *testing.T) {
 `)
 
   var out bytes.Buffer
-  code := utility.RunServe(failingReader{}, &out, []string{"--cwd", root})
-  if code == 0 {
-    t.Fatalf("expected a non-zero exit on a stdin read error; output=%q", out.String())
+  code, _, errOut := captureUtilityOutput(t, func() int {
+    return utility.RunServe(failingReader{}, &out, []string{"--cwd", root})
+  })
+  if code != 2 || !strings.Contains(errOut, "read error: simulated stdin failure") {
+    t.Fatalf("expected input read failure: code=%d stderr=%q output=%q", code, errOut, out.String())
   }
 }

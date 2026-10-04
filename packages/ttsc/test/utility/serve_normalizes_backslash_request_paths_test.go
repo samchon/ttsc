@@ -60,7 +60,7 @@ func TestUtilityServeNormalizesBackslashRequestPaths(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[0]), &reply); err != nil {
     t.Fatalf("decode reply: %v (%q)", err, lines[0])
   }
-  if !reply.Found || !strings.Contains(reply.TypeScript, "value") {
+  if !reply.Found || strings.TrimSpace(reply.TypeScript) != "export const value: number = 1;" {
     t.Fatalf("resident host did not resolve a backslash-separated request path: %q", lines[0])
   }
 }

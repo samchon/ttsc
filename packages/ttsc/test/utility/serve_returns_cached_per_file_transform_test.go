@@ -27,12 +27,12 @@ func serveRequestLine(t *testing.T, file string) string {
 }
 
 // TestUtilityServeReturnsCachedPerFileTransform verifies the resident serve host
-// transforms the project once and then answers per-file requests from its cache:
+// answers the authored per-file requests through its maintained cache owner:
 // the same file requested twice returns the identical cached transform, and a
 // file outside the program is reported not-found.
 //
 // This is the resident transform host: one warm process
-// answers per-file requests without recompiling the project per call. The host
+// answers per-file requests; this case does not instrument compilation counts. The host
 // keys its cache exactly like the transform envelope (project-relative paths)
 // and accepts absolute request paths.
 //
@@ -41,8 +41,8 @@ func serveRequestLine(t *testing.T, file string) string {
 //  3. Assert the two project-file replies are identical (served from cache) and
 //     the non-project reply is not-found.
 //
-// @evidence contracts/testing.md#behavioral-verification RunServe answers the same project file twice with identical cached transforms and reports a file outside the program as not found.
-// @evidence contracts/testing.md#independent-expectations The replies are compared with each other and with the authored source, and the not-found reply is a literal protocol value.
+// @evidence contracts/testing.md#behavioral-verification RunServe answers the same project file twice with identical complete authored transforms and reports a file outside the program as not found. The case does not measure cache hits or Program construction counts.
+// @evidence contracts/testing.md#independent-expectations The complete literal export declaration grounds content independently, repeated replies require identity, and not-found is a literal protocol value.
 // @evidence contracts/testing.md#distinguishing-cases A project file requested twice contrasts with a non-project file requested once.
 // @evidence contracts/testing.md#execution-ownership TestUtilityServeReturnsCachedPerFileTransform is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
@@ -75,10 +75,10 @@ func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
     t.Fatalf("decode reply 0: %v (%q)", err, lines[0])
   }
-  if !first.Found || !strings.Contains(first.TypeScript, "value") {
+  if !first.Found || strings.TrimSpace(first.TypeScript) != "export const value: number = 1;" {
     t.Fatalf("resident serve did not return the transformed source: %q", lines[0])
   }
-  // The same file requested again must return the identical cached transform.
+  // Identical replies alone do not measure whether a cache hit occurred.
   if lines[1] != lines[0] {
     t.Fatalf("repeated request was not served from cache: %q vs %q", lines[1], lines[0])
   }
@@ -87,8 +87,15 @@ func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[2]), &missing); err != nil {
     t.Fatalf("decode reply 2: %v (%q)", err, lines[2])
   }
-  if missing.Found {
+  if missing.Found || missing.TypeScript != "" {
     t.Fatalf("expected a non-project file to be reported not-found: %q", lines[2])
+  }
+  var missingFields map[string]json.RawMessage
+  if err := json.Unmarshal([]byte(lines[2]), &missingFields); err != nil {
+    t.Fatal(err)
+  }
+  if string(missingFields["found"]) != "false" || string(missingFields["typescript"]) != `""` {
+    t.Fatalf("not-found response must explicitly carry false and empty text: %q", lines[2])
   }
 }
 
@@ -132,15 +139,22 @@ func TestUtilityServeMalformedRequestStaysFIFOAligned(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[0]), &bad); err != nil {
     t.Fatalf("malformed-request reply was not valid JSON: %v (%q)", err, lines[0])
   }
-  if bad.Found {
+  if bad.Found || bad.TypeScript != "" {
     t.Fatalf("malformed request should reply not-found: %q", lines[0])
+  }
+  var badFields map[string]json.RawMessage
+  if err := json.Unmarshal([]byte(lines[0]), &badFields); err != nil {
+    t.Fatal(err)
+  }
+  if string(badFields["found"]) != "false" || string(badFields["typescript"]) != `""` {
+    t.Fatalf("malformed reply must explicitly carry false and empty text: %q", lines[0])
   }
 
   var good serveResponse
   if err := json.Unmarshal([]byte(lines[1]), &good); err != nil {
     t.Fatalf("decode reply 1: %v (%q)", err, lines[1])
   }
-  if !good.Found || !strings.Contains(good.TypeScript, "value") {
+  if !good.Found || strings.TrimSpace(good.TypeScript) != "export const value: number = 1;" {
     t.Fatalf("valid request after a malformed line did not resolve: %q", lines[1])
   }
 }
@@ -181,7 +195,7 @@ func TestUtilityServeProcessesFinalLineWithoutNewline(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[0]), &reply); err != nil {
     t.Fatalf("decode reply: %v (%q)", err, lines[0])
   }
-  if !reply.Found || !strings.Contains(reply.TypeScript, "value") {
+  if !reply.Found || strings.TrimSpace(reply.TypeScript) != "export const value: number = 1;" {
     t.Fatalf("newline-less request was not answered correctly: %q", lines[0])
   }
 }

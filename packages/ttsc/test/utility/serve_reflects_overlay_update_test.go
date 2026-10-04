@@ -73,7 +73,7 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[0]), &before); err != nil {
     t.Fatalf("decode reply 0: %v (%q)", err, lines[0])
   }
-  if !before.Found || !strings.Contains(before.TypeScript, "1") {
+  if !before.Found || strings.TrimSpace(before.TypeScript) != "export const value: number = 1;" {
     t.Fatalf("initial transform did not return the original value: %q", lines[0])
   }
 
@@ -89,7 +89,7 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[2]), &after); err != nil {
     t.Fatalf("decode reply 2: %v (%q)", err, lines[2])
   }
-  if !after.Found || !strings.Contains(after.TypeScript, "2") {
+  if !after.Found || strings.TrimSpace(after.TypeScript) != "export const value: number = 2;" {
     t.Fatalf("resident host did not reflect the overlay update: %q", lines[2])
   }
   // The edit must replace, not append: the original value must be gone.
@@ -158,12 +158,19 @@ func TestUtilityServeUpdateFailureRollsBackAndRecovers(t *testing.T) {
   if failed.Updated {
     t.Fatalf("expected the type-erroring update to fail: %q", lines[0])
   }
+  var failedFields map[string]json.RawMessage
+  if err := json.Unmarshal([]byte(lines[0]), &failedFields); err != nil {
+    t.Fatal(err)
+  }
+  if string(failedFields["updated"]) != "false" {
+    t.Fatalf("failed update must explicitly report updated:false: %q", lines[0])
+  }
 
   var stale serveResponse
   if err := json.Unmarshal([]byte(lines[1]), &stale); err != nil {
     t.Fatalf("decode reply 1: %v (%q)", err, lines[1])
   }
-  if !stale.Found || !strings.Contains(stale.TypeScript, "= 1") {
+  if !stale.Found || strings.TrimSpace(stale.TypeScript) != "export const a: number = 1;" {
     t.Fatalf("failed update did not keep the previous transform: %q", lines[1])
   }
 
@@ -179,7 +186,7 @@ func TestUtilityServeUpdateFailureRollsBackAndRecovers(t *testing.T) {
   if err := json.Unmarshal([]byte(lines[3]), &after); err != nil {
     t.Fatalf("decode reply 3: %v (%q)", err, lines[3])
   }
-  if !after.Found || !strings.Contains(after.TypeScript, "20") {
+  if !after.Found || strings.TrimSpace(after.TypeScript) != "export const b: number = 20;" {
     t.Fatalf("resident host did not reflect the recovery update: %q", lines[3])
   }
 }
