@@ -10,9 +10,9 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
  * @evidence contracts/testing.md#distinguishing-cases JSX quoting, control characters, JSON aliases and stripped versus retained statements coexist in one source graph.
  * @evidence contracts/testing.md#execution-ownership Exactly one TestProject.spawn owns the Bun host. The authored entry invokes Bun.build once and assertion iteration invokes no product again.
  * @evidence contracts/e2e.md#necessary-boundary Actual Bun resolves the built adapter, runs its native transform callbacks and delivers loadable bundle bytes; callback units cannot certify that host delivery.
- * @evidence contracts/e2e.md#shared-execution The one prepared workspace serves one Bun host with the same source population used by all other immutable consumers.
+ * @evidence contracts/e2e.md#shared-execution The one prepared workspace serves one Bun host with the same source population used by all other immutable consumers, including supported native per-file dependency reports over relative/absolute/duplicate/self paths and the real imported tree.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The child receives an explicit cache path and leaves the input graph unchanged. Nonzero status, signal or spawn error fails; uncertain consumers keep the shared inputs.
- * @evidence contracts/e2e.md#preserved-coverage Preserves actual Bun build delivery and the complete shared value oracle. This does not claim separate Bun preload, runtime registration or repeated lifecycle scenarios are certified by a single build.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves actual Bun build delivery and the complete shared value oracle. Actual notifyWatchInputs first/repeated deliveries with Bun-shaped absent module/project callbacks are owned by test_watch_inputs_preserve_graph_dependency_and_alias_rules; the actual cache delivery unit owns repeated same-owner notifications and the parser/fallthrough unit owns the ts result convention. This one real build supplies the built Bun/native-producer/typed-content connection, not a separate private-cache lifecycle, preload or runtime registration certificate.
  */
 export async function test_e2e_bun_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();

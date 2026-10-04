@@ -105,7 +105,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
   assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
   const acknowledged = JSON.parse(signal());
-  for (const input of [candidate, addedRoot])
+  for (const input of [declaration, candidate, addedRoot])
     assert.ok(Object.prototype.hasOwnProperty.call(acknowledged.inputs, input), `the same native delivery must acknowledge ${input}`);
   assert.equal(fs.readFileSync(declaration, "utf8"), originalDeclaration.toString("utf8") + "export declare const retainedMetadata: 1;\n");
   assert.equal(fs.readFileSync(candidate, "utf8"), candidateSource);
