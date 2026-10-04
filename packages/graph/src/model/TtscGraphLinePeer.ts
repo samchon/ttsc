@@ -139,8 +139,8 @@ export namespace TtscGraphLinePeer {
    * a nonzero status already delivered to the request owner. A transport failure,
    * signal, forced kill or unjoined deadline rejects instead.
    *
-   * @evidence contracts/common.md#principled-implementation Node spawn and readline map executable, argv and complete lines to the declared transport operations without interpreting graph facts.
-   * @evidence contracts/common.md#clear-and-simple-design One adapter implements actual process I/O; resident state owners choose diagnostic capture while this adapter owns joined EOF shutdown.
+   * @evidence contracts/common.md#principled-implementation Node spawn and readline preserve executable, argv and complete lines; the close callback's private retirementError decision accepts normal numeric exit after process/stdio join while transport failure, unknown status, signal and forced termination remain failures. Exit events separately preserve failed request outcomes.
+   * @evidence contracts/common.md#clear-and-simple-design One adapter owns actual process I/O and joined EOF shutdown; its private retirementError helper qualifies completion without changing the resident state owners' protocol or diagnostic decisions.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Real process APIs retain their defaults and explicit argv; no test-only executable or response path is supplied.
    * @evidence contracts/common.md#meaningful-documentation Prose explains EOF completion and unknown/forced failure and connection comments describe bounded stderr and retirement.
    * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain a tail of at most 65,536 UTF-16 code units and draining avoids pipe backpressure.
@@ -269,14 +269,7 @@ export namespace TtscGraphLinePeer {
    * unknown exit, signal, forced termination or actual transport failure.
    * This internal decision does not establish joining before Node closes stdio.
    *
-   * @evidence contracts/common.md#principled-implementation A numeric normal exit after the caller's authoritative close event distinguishes known process release from request success; transport errors, signals, unknown status and forced termination remain failures.
-   * @evidence contracts/common.md#clear-and-simple-design The actual close callback delegates only its completion qualification; process joining and deadlines stay in open.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts This shared production decision neither fabricates an exit nor suppresses the separate request owner's exit error.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the authoritative-close premise and separates task status from release, including unknown and forced failure.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms This scalar completion qualification chooses no growing-input algorithm.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This decision caches no result and does not admit another peer; the state owner waits for retirement.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This decision acquires no handle; open owns joining and resident state owns retirement completion.
-   * @evidence contracts/portability.md#os-neutral-implementation Nullable Node exit coordinates preserve numeric normal exits and native signal exits without shell or OS-specific status interpretation.
+   * @internal
    */
   export function retirementError(
     code: number | null,
