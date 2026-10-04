@@ -31,6 +31,7 @@ import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
+import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
@@ -165,30 +166,6 @@ function resolveCommonJsRequest(
     for (const observation of observations) observation.commit(selected);
   }
 }
-
-/**
- * One emit policy for orphan execution and CommonJS export discovery. The
- * compiler ignores the consumer's config, lowers proposal syntax, and checks no
- * types because the entry build owns diagnostics. Isolation prevents imported
- * const-enum inlining and secondary emits, and keeps const enums as runtime
- * exports that the name scanner must also observe.
- *
- * With no config there is no `jsx` either, so a `.tsx` orphan is compiled with
- * the automatic runtime, the one mode that needs no factory in scope: its
- * import source is `react` unless a `@jsxImportSource` pragma in the file says
- * otherwise.
- */
-const ISOLATED_EMIT_ARGS = [
-  "--ignoreConfig",
-  "--target",
-  "es2022",
-  "--jsx",
-  "react-jsx",
-  "--noCheck",
-  "--skipLibCheck",
-  "--noResolve",
-  "--isolatedModules",
-] as const;
 
 /** Source/JS extensions probed when an extensionless relative import fails. */
 const RESOLVABLE_EXTENSIONS = [
@@ -1270,16 +1247,7 @@ function emitOrphanSource(
   try {
     spawnNative(
       tsgo,
-      [
-        filename,
-        "--module",
-        format === "commonjs" ? "commonjs" : "esnext",
-        ...ISOLATED_EMIT_ARGS,
-        "--sourceMap",
-        "--inlineSources",
-        "--outDir",
-        outDir,
-      ],
+      RuntimeIsolatedEmit.compilerArgs(filename, outDir, format, "execution"),
       // The emit names its input by absolute path and reads no config, so it
       // runs from its own output directory rather than from a dependency's,
       // which below `node_modules` can pass Windows' MAX_PATH for a working
@@ -1363,14 +1331,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
     if (served !== null) fs.writeFileSync(input, served.source);
     spawnNative(
       tsgo,
-      [
-        input,
-        "--module",
-        "commonjs",
-        ...ISOLATED_EMIT_ARGS,
-        "--outDir",
-        outDir,
-      ],
+      RuntimeIsolatedEmit.compilerArgs(input, outDir, "commonjs", "export-scan"),
       { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(input, outDir);
@@ -1485,7 +1446,7 @@ function orphanCacheFile(
     .update(`\0ttsc@${ownPackageVersion()}`)
     // The emit policy decides the lowering, so it is part of the key: a cache
     // filled under an earlier policy must not answer for the current one.
-    .update(`\0${ISOLATED_EMIT_ARGS.join("\0")}`)
+    .update(`\0${RuntimeIsolatedEmit.policyKey()}`)
     .update("\0isolated-source-map-v1\0")
     .update(filename)
     .update("\0" + format)
