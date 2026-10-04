@@ -25,17 +25,19 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  *
  * @evidence contracts/testing.md#behavioral-verification The production cached-generation action uses actual complete-snapshot validators when trackers are absent, serves unchanged modules and requests capture independently for source edits, new members, deleted members and external graph edits.
  * @evidence contracts/testing.md#independent-expectations Literal serve/capture/serve actions follow the dependency contract; real filesystem mutations establish each distinction and SHA-256 independently records external/config bytes. Fixture observations supply inputs rather than compute expected decisions.
- * @evidence contracts/testing.md#distinguishing-cases Ten isolated variants each contrast steady state, one distinct changed input and a newly observed steady checkpoint. Own and sibling source edits, ordinary/build-directory appearance, removal, file-to-directory replacement, imported sources outside discovery, unrelated text/output churn and external edits remain independent. All six module deliveries remain validated without watchers, preventing one mutation from masking another missing invalidation class.
+ * @evidence contracts/testing.md#distinguishing-cases Thirteen isolated variants each contrast steady state, one distinct changed input and a newly observed steady checkpoint. Own and sibling source edits, ordinary/build-directory appearance, removal, file-to-directory replacement, imported sources outside discovery, unrelated text/output churn external edits and separate config/manifest/descriptor content edits remain independent. All six module deliveries remain validated without watchers, preventing one mutation from masking another missing invalidation class.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual action and filesystem-proof owners without a compiler, Go build or host. Literal success envelopes are consumer data only; real watcher refusal, native transformed module output and capture-request connection remain in test_transformttsc_unavailable_notifications_keep_the_persistent_cache.
  */
 export function test_snapshot_delivery_actions_preserve_each_change_without_watchers(): void {
   const failures: Error[] = [];
-  for (const variant of ["source", "own-source", "added", "added-build", "external", "removed", "kind", "ignored", "outputs", "outside-include"] as const) {
+  for (const variant of ["source", "own-source", "added", "added-build", "external", "removed", "kind", "ignored", "outputs", "outside-include", "config", "manifest", "descriptor"] as const) {
     const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-snapshot-actions-unit-"));
     const cache = createTtscTransformCache();
     try {
       const files: Record<string, string> = {
         "tsconfig.json": '{"include":["src"]}',
+        "package.json": '{"private":true}',
+        "plugin.cjs": "module.exports = () => {};\n",
       };
       for (let index = 0; index < 6; index += 1) {
         files["src/mod" + index + ".ts"] = "export const value" + index + " = 1;\n";
@@ -54,9 +56,9 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
           globals: [],
           configs: ["tsconfig.json"],
         },
-        hostInputs: [path.join(root, "tsconfig.json")],
-        hostInputHashes: { [path.join(root, "tsconfig.json")]: createHash("sha256").update(fs.readFileSync(path.join(root, "tsconfig.json"))).digest("hex") },
-        hostInputRealpaths: { [path.join(root, "tsconfig.json")]: fs.realpathSync.native(path.join(root, "tsconfig.json")) },
+        hostInputs: ["tsconfig.json", "package.json", "plugin.cjs"].map((name) => path.join(root, name)),
+        hostInputHashes: Object.fromEntries(["tsconfig.json", "package.json", "plugin.cjs"].map((name) => { const file = path.join(root, name); return [file, createHash("sha256").update(fs.readFileSync(file)).digest("hex")]; })),
+        hostInputRealpaths: Object.fromEntries(["tsconfig.json", "package.json", "plugin.cjs"].map((name) => { const file = path.join(root, name); return [file, fs.realpathSync.native(file)]; })),
       });
       let observed = observeValidationUnitGeneration(root, envelope());
       const act = (file: string): string => {
@@ -70,6 +72,9 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
       };
       for (const file of modules) assert.equal(act(file), "serve");
       assert.equal(observed.projectMutationTracker, undefined);
+      if (variant === "config") fs.writeFileSync(path.join(root, "tsconfig.json"), '{"include":["src"],"compilerOptions":{"target":"ES2021"}}');
+      if (variant === "manifest") fs.writeFileSync(path.join(root, "package.json"), '{"private":true,"version":"9.9.9"}');
+      if (variant === "descriptor") fs.appendFileSync(path.join(root, "plugin.cjs"), "// touched\n");
       if (variant === "own-source") fs.writeFileSync(path.join(root, modules[0]!), "export const editedOwn = 2;\n");
       if (variant === "added-build") TestProject.writeFiles(root, { "src/build/b.ts": "export const nested = 2;\n" });
       if (variant === "kind") {

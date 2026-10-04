@@ -15,7 +15,7 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await the same current generation promise, return each literal output and retain that exact promise; repeated deliveries repeat the exact dependency and universal watch handoff without creating another owner.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector.
- * @evidence contracts/testing.md#distinguishing-cases An unresolved common owner contrasts with fulfilled and repeated deliveries. Each module has its own callback ledger, so one delivery cannot stand in for the other five, and repeated handoff must neither disappear nor accumulate extra paths.
+ * @evidence contracts/testing.md#distinguishing-cases An unresolved common owner contrasts with fulfilled and repeated deliveries. Each module has its own callback ledger, so one delivery cannot stand in for the other five, and repeated handoff must neither disappear nor accumulate extra paths. A separate supported generation returns identical authored source, contrasting changed output with undefined first/repeated delivery while preserving owner and watch handoff.
  * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Finally resets the owning cache.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
@@ -61,6 +61,20 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     assert.deepEqual(repeats.map((output) => output?.code), [code, code, code, code, code, code]);
     assert.equal(fixture.cache.get(fixture.key), owner);
     for (const ledger of ledgers) assert.deepEqual(ledger.sort(), expected);
+    const unchanged = observeValidationUnitGeneration(root, {
+      ...result,
+      typescript: Object.fromEntries(modules.map((file) => ["src/" + path.basename(file), fixture.source])),
+    });
+    const unchangedOwner = Promise.resolve(unchanged);
+    fixture.cache.set(fixture.key, unchangedOwner);
+    ledgers[0]!.length = 0;
+    assert.equal(await deliver(modules[0]!, 0), undefined, "identical cached output leaves the host's source ownership intact");
+    assert.equal(fixture.cache.get(fixture.key), unchangedOwner);
+    assert.deepEqual(ledgers[0]!.sort(), expected);
+    ledgers[0]!.length = 0;
+    assert.equal(await deliver(modules[0]!, 0), undefined, "a repeated unchanged delivery stays a no-op");
+    assert.equal(fixture.cache.get(fixture.key), unchangedOwner);
+    assert.deepEqual(ledgers[0]!.sort(), expected);
   } finally {
     settle(observed);
     fixture.dispose();
