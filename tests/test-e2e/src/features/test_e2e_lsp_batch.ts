@@ -81,12 +81,12 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * 4. Execute that command and assert the returned WorkspaceEdit fixes the
  *    violation without writing the file, then shut the server down cleanly.
  *
- * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and returns a targeted fix without writing disk.
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted fix without writing disk.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
  * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
- * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing across the native bridge.
- * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
+ * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. One extra command request with empty arguments starts the existing lint sidecar once, proving failed stderr adaptation before the already planned successful fix; it adds no server or profile and is not preparation with zero cost. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. Timeout does not force termination or certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. The no-var-only editor input is added after immutable consumers complete so its expected let rewrite stays unchanged.
  */
@@ -344,6 +344,16 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           "the action must target the open document",
         );
 
+        // The advertised native command receives malformed semantic arguments,
+        // exits through its real stderr path, and must not retire this session.
+        await assert.rejects(
+          client.request("workspace/executeCommand", {
+            arguments: [],
+            command: "ttsc.lint.fixAll",
+          }, REQUEST_TIMEOUT),
+          /ttsc command "ttsc\.lint\.fixAll" failed:[\s\S]*lsp-execute-command failed:[\s\S]*missing URI argument/,
+        );
+        assert.equal(fs.readFileSync(file, "utf8"), SAVED, "a failed native command must not mutate the saved input");
         // 6. executeCommand. The extension applies the returned WorkspaceEdit
         // itself, so the sidecar must not touch the file.
         const edit = await step(
