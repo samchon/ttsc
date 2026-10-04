@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferReduceTypeParameter verifies the lint rule corpus
+// TestRuleCorpusPreferReduceTypeParameter verifies a reduced trigger from the lint rule corpus
 // fixture typescript-prefer-reduce-type-parameter.ts under a real Program.
 //
 // `typescript/prefer-reduce-type-parameter` is type-aware: a parser-only engine run

@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferPromiseRejectErrors verifies the lint rule corpus
+// TestRuleCorpusPreferPromiseRejectErrors verifies a reduced trigger from the lint rule corpus
 // fixture typescript-prefer-promise-reject-errors.ts under a real
 // Program.
 //
