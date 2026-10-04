@@ -3,6 +3,7 @@ package ttsc_test
 import (
   "bytes"
   "encoding/json"
+  "path/filepath"
   "slices"
   "strings"
   "testing"
@@ -61,6 +62,9 @@ func TestTransformFailureRetainsMissingResolutionGraph(t *testing.T) {
   }
   if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != 2307 || result.Diagnostics[0].Category != "error" || result.Diagnostics[0].File == nil {
     t.Fatalf("missing structured compiler diagnostic: %+v", result.Diagnostics)
+  }
+  if filepath.Clean(*result.Diagnostics[0].File) != filepath.Join(root, "main.ts") {
+    t.Fatalf("missing dependency diagnostic belongs to %q, want main.ts", *result.Diagnostics[0].File)
   }
   if result.Graph == nil || !slices.Contains(result.Graph.Candidates["main.ts"], "node_modules/typed-dep/missing.d.ts") || !slices.Contains(result.Graph.Configs, "tsconfig.json") {
     t.Fatalf("failure dropped resolution or config ownership: %+v", result.Graph)

@@ -62,10 +62,11 @@ func rewriteSpecifierLiterals(node *shimast.Node, from, to string) {
 //
 // @evidence contracts/testing.md#behavioral-verification RunTransform prints the plugin's rewritten specifier while the graph still has the main.ts to types.ts edge computed from the original source.
 // @evidence contracts/testing.md#independent-expectations The rewritten specifier and the edge are literal values authored in the test.
-// @evidence contracts/testing.md#distinguishing-cases A graph computed after the rewrite would lose the edge; the printed text proves the rewrite did run.
+// @evidence contracts/testing.md#distinguishing-cases Original resolved graph edge and rewritten output are both asserted; no separately reordered pipeline is executed as a negative control.
 // @evidence contracts/testing.md#execution-ownership TestTransformGraphReflectsSourceBeforePluginMutation is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformGraphReflectsSourceBeforePluginMutation(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(specifierRewritePlugin{from: "./types", to: "./rewritten"})
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
