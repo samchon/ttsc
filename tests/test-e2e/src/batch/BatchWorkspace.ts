@@ -1,4 +1,4 @@
-﻿import { FileSystemIterator, TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { FileSystemIterator, TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -30,7 +30,7 @@ export namespace BatchWorkspace {
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
   export function assertResult(value: unknown, expected: Workspace["expected"]): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown };
+    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
@@ -39,6 +39,8 @@ export namespace BatchWorkspace {
     check("retained contract value", () => assert.equal(result.answer, 42));
     check("resolved JSON alias", () => assert.equal(result.data, 42));
     check("unchanged JSON neighbor", () => assert.equal(result.neighbor, "retained"));
+    check("actual native config transport and string transform", () => assert.equal(result.nativePipeline, "A:PLUGIN:z"));
+    check("unchanged native neighbor", () => assert.equal(result.nativeNeighbor, "native-neighbor-retained"));
     assertValues(result.values, expected);
     if (failures.length) throw new AggregateError(failures, "Shared boundary assertions failed");
   }
@@ -126,7 +128,7 @@ export namespace BatchWorkspace {
     if (!installationOnly) {
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(root, "probe/compile-probe"), runLog: programRunLog });
+      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
       fs.writeFileSync(configPath, JSON.stringify(config));
       const loaderPath = path.join(root, "typed-loader.cjs");
       fs.writeFileSync(loaderPath, fs.readFileSync(loaderPath, "utf8").replace("__ESBUILD_ENTRY__", createRequire(import.meta.url).resolve("esbuild").replace(/\\/g, "/")));

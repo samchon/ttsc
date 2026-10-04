@@ -88,14 +88,20 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing across the native bridge.
  * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. Timeout does not force termination or certify arbitrary descendant closure.
- * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion; the no-var-only editor input is added after immutable consumers complete so its expected let rewrite stays unchanged.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. The no-var-only editor input is added after immutable consumers complete so its expected let rewrite stays unchanged.
  */
 export async function test_e2e_lsp_batch() {
     const workspace = await BatchWorkspace.open();
     const project = { tmpdir: workspace.root };
     const configPath = path.join(workspace.root, "tsconfig.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    config.compilerOptions.rootDir = ".";
     config.include = [...config.include, "native-errors/**/*.ts", "native-errors/**/*.tsx"];
+    config.compilerOptions.paths = {
+      ...config.compilerOptions.paths,
+      "#lib/*": ["./native-errors/models/*"],
+      "#preset/*": ["./native-errors/models/*"],
+    };
     fs.writeFileSync(configPath, JSON.stringify(config));
     fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
     const file = path.join(project.tmpdir, "src", "editor.ts");
@@ -159,16 +165,23 @@ export async function test_e2e_lsp_batch() {
           `ttsc must not drop tsgo's diagnosticProvider: ${JSON.stringify(capabilities)}`,
         );
         client.notify("initialized", {});
-        for (const [name, code] of [["type-error.ts", 2322], ["syntax-error.tsx", 1002]] as const) {
+        const negativeFailures: unknown[] = [];
+        for (const [name, code] of [["type-error.ts", 2322], ["syntax-error.tsx", 1002], ["alias-lib-error.ts", 2322], ["alias-preset-error.ts", 2322], ["alias-preset-valid.ts", null]] as const) {
           const invalidFile = path.join(workspace.root, "native-errors", name);
           const invalidUri = pathToFileURL(invalidFile).href;
           client.notify("textDocument/didOpen", {
             textDocument: { uri: invalidUri, languageId: name.endsWith("tsx") ? "typescriptreact" : "typescript", version: 1, text: fs.readFileSync(invalidFile, "utf8") },
           });
           const report = await client.request<{ items?: Diagnostic[] }>("textDocument/diagnostic", { textDocument: { uri: invalidUri } }, REQUEST_TIMEOUT);
-          assert.ok(report.items?.some((diagnostic) => diagnostic.code === code), `native source ${name} must carry diagnostic ${code}: ${JSON.stringify(report)}`);
+          try {
+            if (code === null)
+              assert.equal(report.items?.some((diagnostic) => typeof diagnostic.code === "number"), false, `well-typed preset consumer: ${JSON.stringify(report)}`);
+            else
+              assert.ok(report.items?.some((diagnostic) => diagnostic.code === code), `native source ${name} must carry diagnostic ${code}: ${JSON.stringify(report)}`);
+          } catch (error) { negativeFailures.push(error); }
           client.notify("textDocument/didClose", { textDocument: { uri: invalidUri } });
         }
+        if (negativeFailures.length) throw new AggregateError(negativeFailures, "Shared native diagnostic islands failed");
 
         // 2. didOpen. Register the waiter first: publishDiagnostics is
         // server-initiated and races the notification that triggers it.
