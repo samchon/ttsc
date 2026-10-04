@@ -7,9 +7,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeRejectsMalformedJSON Verifies JSON error wrapping. The
-// proxy forwards malformed frames verbatim. That path only fires when
-// ParseEnvelope returns an error, so the error surface must be stable.
+// TestLSPEnvelopeRejectsMalformedJSON checks syntax rejection and the
+// decoder operation name in the error text. It does not establish wrapped
+// error identity or execute malformed-frame forwarding.
 //
 // 1. Pass non-JSON bytes to ParseEnvelope.
 // 2. Assert an error mentioning "envelope" is returned.

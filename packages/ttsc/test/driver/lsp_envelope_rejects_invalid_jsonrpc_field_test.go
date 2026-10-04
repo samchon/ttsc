@@ -7,10 +7,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeRejectsInvalidJSONRPCField Verifies the protocol guard. A body that declares a `jsonrpc` field other than
-// "2.0" is rejected so the proxy never dispatches malformed traffic
-//. the pump forwards the original bytes verbatim to upstream so the
-// peer can produce its own JSON-RPC error response.
+// TestLSPEnvelopeRejectsInvalidJSONRPCField checks the decoder's nonempty
+// version guard for "1.0" and its absent-version compatibility policy.
+// It does not execute proxy dispatch, forwarding or an upstream response.
 //
 // The 2.0 protocol and deliberate absent-version compatibility policy ground opposite results.
 //
@@ -22,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification ParseEnvelope rejects version 1.0 but permits the absent field.
 // @evidence contracts/testing.md#independent-expectations The 2.0 protocol and deliberate absent-version compatibility policy ground opposite results.
 // @evidence contracts/testing.md#distinguishing-cases Wrong version contrasts with absent version; malformed JSON is separate.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPEnvelopeRejectsInvalidJSONRPCField is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes ParseEnvelope directly on authored bytes without filesystem inputs, shim operations or a transport process.
 func TestLSPEnvelopeRejectsInvalidJSONRPCField(t *testing.T) {
   if _, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"1.0","method":"x"}`)); !errors.Is(err, driver.ErrInvalidJSONRPC) {
     t.Fatalf("expected ErrInvalidJSONRPC, got %v", err)
