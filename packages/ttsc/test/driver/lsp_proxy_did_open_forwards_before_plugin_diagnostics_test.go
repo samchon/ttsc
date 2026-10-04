@@ -22,8 +22,13 @@ import (
 // @evidence contracts/testing.md#execution-ownership A channel-controlled Go source and io.Pipe proxy execute the ordering case; deferred release unblocks cleanup. Go discovers TestLSPProxyDidOpenForwardsBeforePluginDiagnostics under ./test/driver.
 func TestLSPProxyDidOpenForwardsBeforePluginDiagnostics(t *testing.T) {
   release := make(chan struct{})
+  started := make(chan struct{}, 1)
   source := &stubSource{
     diagnosticsFor: func(driver.LSPDocumentVersion) []driver.LSPDiagnostic {
+      select {
+      case started <- struct{}{}:
+      default:
+      }
       <-release
       return []driver.LSPDiagnostic{{Message: "plugin"}}
     },
@@ -54,5 +59,10 @@ func TestLSPProxyDidOpenForwardsBeforePluginDiagnostics(t *testing.T) {
     }
   case <-time.After(200 * time.Millisecond):
     t.Fatal("didOpen was blocked by plugin diagnostics")
+  }
+  select {
+  case <-started:
+  case <-time.After(2 * time.Second):
+    t.Fatal("diagnostics callback did not enter the unreleased boundary")
   }
 }

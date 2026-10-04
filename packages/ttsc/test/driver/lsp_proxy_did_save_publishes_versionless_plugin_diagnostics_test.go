@@ -34,8 +34,11 @@ func TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics(t *testing.T) {
   }
   h := newProxyHarness(t, source)
 
-  h.sendUpstream([]byte(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///a.ts","version":7,"diagnostics":[]}}`))
-  _ = h.recvEditor()
+  upstream := []byte(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///a.ts","version":7,"diagnostics":[]}}`)
+  h.sendUpstream(upstream)
+  if got := h.recvEditor(); string(got) != string(upstream) {
+    t.Fatalf("versioned upstream publication was not forwarded unchanged:\n%s", got)
+  }
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":"file:///a.ts"}}}`))
   _ = h.recvUpstream()
 
@@ -56,5 +59,15 @@ func TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics(t *testing.T) {
   }
   if len(decoded.Params.Diagnostics) != 1 || decoded.Params.Diagnostics[0].Message != "saved" {
     t.Fatalf("unexpected diagnostics publish: %s", body)
+  }
+  var publication struct {
+    Method string `json:"method"`
+    Params map[string]json.RawMessage `json:"params"`
+  }
+  if err := json.Unmarshal(body, &publication); err != nil {
+    t.Fatalf("publication member keys are not JSON: %v", err)
+  }
+  if _, exists := publication.Params["version"]; exists || publication.Method != "textDocument/publishDiagnostics" {
+    t.Fatalf("versionless save must omit the publication version member: %s", body)
   }
 }
