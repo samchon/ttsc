@@ -31,6 +31,7 @@ import { transformTtsc } from "../../../../../packages/unplugin/src/core/transfo
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
  * Verifies persistent validation reuses only currently qualified input witnesses.
@@ -42,16 +43,16 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *
  * 1. Observe one corpus with twelve modules, 24 externals, 24 globals, a native
  *    global alias, 100 descriptors and 250 unadmitted asset directories.
- * 2. Deliver shared and partitioned graphs through actual ready cache owners;
+ * 2. Contrast output-directory recreation, explicit file appearance and a directory config candidate before delivering shared and partitioned graphs through actual ready cache owners;
  *    measure content reuse and metadata work, then touch identical bytes.
  * 3. Contrast complete fallback, per-file unreachable inputs and empty explicit
  *    completeness with relevant edits requiring capture and owner eviction.
  * 4. Close unretained project/host registrations over the same physical root,
  *    then dispose owners and verify transferred native probe storage is removed.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual transformTtsc uses real project/external/universal captures, supported tracker constructors, notification retention, releaseCaptureResources and transferCaptureClockReference. Shared steady deliveries read no content and reprove a touched single-spelling global at most once. Two spellings of an aliased target may independently reprove it, then both reuse their witnesses. Complete fallback re-proves touched project/external content then reuses that proof. Partitioned deliveries bound content reads and metadata, ignore unreachable externals, and reject reachable edits; empty completeness excludes graph-only external changes. Actual action selection evicts changed owners without starting a compiler. A 250-directory asset population stays outside the actual project walk; project and host constructors register two recursive owners on the same native root, and unretained release closes each once.
- * @evidence contracts/testing.md#independent-expectations Authored module partitions, 24 named global/external sets and 100 descriptor categories define the universe. Node SHA-256 and native stat/realpath independently record fixture facts. Native fixture modification times precede the actual minted probe, without altered metadata responses. Per-cache native read/stat/lstat ledgers supply operation counts; literal zero/one/two/12/100 bounds and serve/capture expectations follow from unchanged bytes, distinct lexical witnesses, explicit completeness and reachability. No expected classification is computed by a production selector. The literal src-only policy admits exactly root/src and twelve source hashes despite 250 asset directories. Independent native realpath establishes the two registrations share a physical root, not a backend handle. The custom backend lacks content-silence authority, so 50 absent descriptor names require native probes; this row does not claim the old native-authoritative stat bound of 12.
- * @evidence contracts/testing.md#distinguishing-cases Eight-module full shared closure and twelve-module partition contrast with failed-registration complete fallback and empty explicit completeness. Same-byte touches preserve the owner but refresh content witnesses; changed reachable bytes evict while unreachable/complete-excluded externals retain it. Native alias spelling has its own reusable metadata witness. Missing descriptor inputs stay unavailable-file facts, not inferred from unchanged directory listings. The local population row contrasts admitted source paths with excluded assets and a separately tracked host-input tree, then requires zero retained handles after cleanup.
+ * @evidence contracts/testing.md#behavioral-verification Actual transformTtsc uses real project/external/universal captures, supported tracker constructors, notification retention, releaseCaptureResources and transferCaptureClockReference. Shared steady deliveries read no content and reprove a touched single-spelling global at most once. Two spellings of an aliased target may independently reprove it, then both reuse their witnesses. Complete fallback re-proves touched project/external content then reuses that proof. Partitioned deliveries bound content reads and metadata, ignore unreachable externals, and reject reachable edits; empty completeness excludes graph-only external changes. Actual action selection evicts changed owners without starting a compiler. A 250-directory asset population stays outside the actual project walk; project and host constructors register two recursive owners on the same native root, and unretained release closes each once. Three implicit outDir recreations retain a consumer owner; after explicit file-named exclude replaces those defaults, native legacy-file appearance is hashed and evicts its distinct owner. Actual external/universal captures retain the directory marker and target, three transformTtsc deliveries reuse that owner, and replacing the directory by a file selects capture.
+ * @evidence contracts/testing.md#independent-expectations Authored module partitions, 24 named global/external sets and 100 descriptor categories define the universe. Node SHA-256 and native stat/realpath independently record fixture facts. Native fixture modification times precede the actual minted probe, without altered metadata responses. Per-cache native read/stat/lstat ledgers supply operation counts; literal zero/one/two/12/100 bounds and serve/capture expectations follow from unchanged bytes, distinct lexical witnesses, explicit completeness and reachability. No expected classification is computed by a production selector. The literal src-only policy admits exactly root/src and twelve source hashes despite 250 asset directories. Independent native realpath establishes the two registrations share a physical root, not a backend handle. Literal output .ts paths prevent an extension-only negative, the legacy source supplies an independent SHA, and the directory fingerprint is Node SHA-256 of the contract marker ttsc:host-input:directory plus NUL. Authored host hashes model consumer inputs and do not certify Go callback acquisition or host-input assembly. The custom backend lacks content-silence authority, so 50 absent descriptor names require native probes; this row does not claim the old native-authoritative stat bound of 12.
+ * @evidence contracts/testing.md#distinguishing-cases Eight-module full shared closure and twelve-module partition contrast with failed-registration complete fallback and empty explicit completeness. Same-byte touches preserve the owner but refresh content witnesses; changed reachable bytes evict while unreachable/complete-excluded externals retain it. Native alias spelling has its own reusable metadata witness. Missing descriptor inputs stay unavailable-file facts, not inferred from unchanged directory listings. The local population row contrasts admitted source paths with excluded assets and a separately tracked host-input tree, then requires zero retained handles after cleanup. Output-directory delete/recreate contrasts with configuration withdrawal and a file-named exclusion that conservatively remains in the walk. Unchanged directory-kind host input contrasts with directory-to-regular-file replacement. Each changed owner is tested through action selection; no compiler starts after eviction.
  * @evidence contracts/testing.md#execution-ownership One source unit calls owning operations in process over one native corpus, one native directory alias and separately owned per-mode clock/scratch storage. Scripted watch handles expose only supported registration/close callbacks; private authority maps/flags are not planted. Actual cleanup and ownership publication connect ready consumer input to coordinator clock refresh and disposal, not native compiler/capture acquisition, descriptor reload output, watcher-kernel delivery, original250-directory backend cardinality or IPC. The population row observes constructor root registrations through the supported watch capability, which receives no admission predicate. It therefore does not certify recursive descendant subscription count or the original capture acquisition/finally assembly. No compiler, peer, process or host runs, and full transformTtsc is never called after eviction.
  */
 export async function test_persistent_validation_reuses_only_qualified_input_witnesses(): Promise<void> {
@@ -127,6 +128,116 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
     }
     resetTtscTransformCache(localCache);
     await removeCaptureScratch(localScratch);
+  }
+  const membershipCache = createTtscTransformCache();
+  const membershipFile = path.join(root, moduleNames[0]!);
+  const artifacts = path.join(root, "src", "artifacts");
+  const legacy = path.join(root, "src", "legacy.ts");
+  const configBytes = fs.readFileSync(config);
+  try {
+    fs.writeFileSync(config, JSON.stringify({ include: ["src"], compilerOptions: { outDir: "src/artifacts" } }));
+    fs.mkdirSync(artifacts, { recursive: true });
+    fs.writeFileSync(path.join(artifacts, "bundle.0.ts"), "export const generated = 0;\n");
+    const result: ITtscCompilerTransformation.ISuccess = {
+      type: "success", typescript: Object.fromEntries(moduleNames.map((name) => [name, output])),
+      hostInputs: [config], hostInputHashes: { [config]: createHash("sha256").update(fs.readFileSync(config)).digest("hex") },
+      hostInputRealpaths: { [config]: fs.realpathSync.native(config) },
+    };
+    const cached = observeValidationUnitGeneration(root, result);
+    const owner = Promise.resolve(cached);
+    membershipCache.set("output-membership", owner);
+    const action = () => selectCachedGenerationAction({ cache: membershipCache, cached, epoch: undefined,
+      file: membershipFile, generation: owner, key: "output-membership", source });
+    assert.deepEqual(Object.keys(cached.inputHashes).sort(), moduleNames.slice().sort());
+    assert.equal(action(), "serve");
+    for (let wave = 1; wave <= 3; wave++) {
+      fs.rmSync(artifacts, { recursive: true, force: true });
+      fs.mkdirSync(artifacts);
+      fs.writeFileSync(path.join(artifacts, "bundle." + wave + ".ts"), "export const generated = " + wave + ";\n");
+      const observed = collectProjectInputSnapshot(root, createHostPathIdentityContext(transformFilesystem(membershipCache)), transformFilesystem(membershipCache), undefined, { policy: cached.membershipPolicy });
+      assert.equal(observed.complete, true);
+      assert.deepEqual(Object.keys(observed.hashes).sort(), moduleNames.slice().sort());
+      assert.equal(action(), "serve", "implicit output exclusion survives each native recreation");
+      assert.equal(membershipCache.get("output-membership"), owner);
+    }
+    fs.writeFileSync(config, JSON.stringify({ include: ["src"], compilerOptions: { outDir: "src/artifacts" }, exclude: ["src/legacy.ts"] }));
+    assert.equal(action(), "capture", "the configuration change first withdraws the old owner");
+    assert.equal(membershipCache.has("output-membership"), false);
+    const explicit = observeValidationUnitGeneration(root, { ...result,
+      hostInputHashes: { [config]: createHash("sha256").update(fs.readFileSync(config)).digest("hex") } });
+    const explicitOwner = Promise.resolve(explicit);
+    membershipCache.set("explicit-file-membership", explicitOwner);
+    assert.equal(explicit.membershipPolicy.directoryExclusionOrigins?.useImplicitOutputExclusions, false);
+    assert.deepEqual(Object.keys(explicit.inputHashes).sort(), [...moduleNames, "src/artifacts/bundle.3.ts"].sort());
+    const explicitAction = () => selectCachedGenerationAction({ cache: membershipCache, cached: explicit, epoch: undefined,
+      file: membershipFile, generation: explicitOwner, key: "explicit-file-membership", source });
+    assert.equal(explicitAction(), "serve");
+    const legacySource = "export const legacy: number = 1;\n";
+    fs.writeFileSync(legacy, legacySource);
+    const observed = collectProjectInputSnapshot(root, createHostPathIdentityContext(transformFilesystem(membershipCache)), transformFilesystem(membershipCache), undefined, { policy: explicit.membershipPolicy });
+    assert.equal(observed.complete, true);
+    assert.deepEqual(Object.keys(observed.hashes).sort(), [...moduleNames, "src/artifacts/bundle.3.ts", "src/legacy.ts"].sort());
+    assert.equal(observed.hashes["src/legacy.ts"], createHash("sha256").update(legacySource).digest("hex"));
+    assert.equal(explicitAction(), "capture", "a file-named exclude does not hide actual walk membership");
+    assert.equal(membershipCache.has("explicit-file-membership"), false);
+  } finally {
+    resetTtscTransformCache(membershipCache);
+    fs.writeFileSync(config, configBytes);
+    fs.rmSync(artifacts, { recursive: true, force: true });
+    fs.rmSync(legacy, { force: true });
+  }
+  const directoryCandidate = path.join(root, "node_modules", "nearer-config.json");
+  fs.mkdirSync(directoryCandidate);
+  const directoryDigest = createHash("sha256").update("ttsc:host-input:directory\0").digest("hex");
+  const directoryResult: ITtscCompilerTransformation.ISuccess = {
+    type: "success", typescript: Object.fromEntries(moduleNames.map((name) => [name, output])),
+    hostInputs: [directoryCandidate], hostInputHashes: { [directoryCandidate]: directoryDigest },
+    hostInputRealpaths: { [directoryCandidate]: fs.realpathSync.native(directoryCandidate) },
+  };
+  const directoryCache = createTtscTransformCache({ caseSensitive: () => true });
+  const directoryFilesystem = transformFilesystem(directoryCache);
+  TRANSFORM_RESULT_FILESYSTEM.set(directoryResult, directoryFilesystem);
+  const directoryCached: TtscCachedProjectTransform = { result: directoryResult, projectRoot: root, tsconfig: config,
+    membershipPolicy: { ...readProjectMembershipPolicy(config), useCaseSensitiveFileNames: true }, inputHashes: {} };
+  try {
+    assert.equal(fs.statSync(directoryCandidate).isDirectory(), true);
+    const project = collectProjectInputSnapshot(root, envelopeDerivation(directoryCached).identityContext, directoryFilesystem, undefined, { policy: directoryCached.membershipPolicy });
+    assert.equal(project.complete, true);
+    directoryCached.inputHashes = project.hashes;
+    directoryCached.projectDirectories = project.projectDirectories;
+    directoryCached.projectSnapshotComplete = true;
+    const selected = selectExternalInputPaths({ projectRoot: root, result: directoryResult, membershipPolicy: directoryCached.membershipPolicy, filesystem: directoryFilesystem });
+    assert.deepEqual(selected, [directoryCandidate]);
+    const external = captureExternalInputSnapshot(directoryCached, selected, undefined);
+    assert.equal(external.complete, true);
+    assert.deepEqual(Object.values(external.hashes), [directoryDigest]);
+    directoryCached.externalInputPaths = selected;
+    directoryCached.externalInputHashes = external.hashes;
+    directoryCached.externalInputRealpaths = external.realpaths;
+    directoryCached.externalInputObservations = external.observations;
+    directoryCached.externalInputSignatures = external.signatures;
+    const universal = captureUniversalHostInputValidation(directoryCached, membershipFile);
+    assert.ok(universal.validation);
+    assert.equal(universal.validation.entries.get(directoryCandidate)?.readable, true);
+    assert.equal(universal.validation.entries.get(directoryCandidate)?.realpath, fs.realpathSync.native(directoryCandidate));
+    directoryCached.hostInputValidation = universal.validation;
+    const owner = Promise.resolve(directoryCached);
+    directoryCache.set(key, owner);
+    for (let wave = 0; wave < 3; wave++) {
+      assert.equal((await transformTtsc(membershipFile, source, options, undefined, directoryCache))?.code, output);
+      assert.equal(directoryCache.get(key), owner, "unchanged directory observation keeps the exact consumer owner");
+    }
+    fs.rmdirSync(directoryCandidate);
+    fs.writeFileSync(directoryCandidate, '{"nearer":true}\n');
+    assert.equal(fs.statSync(directoryCandidate).isFile(), true);
+    assert.equal(selectCachedGenerationAction({ cache: directoryCache, cached: directoryCached, epoch: undefined,
+      file: membershipFile, generation: owner, key, source }), "capture");
+    assert.equal(directoryCache.has(key), false, "directory-to-file replacement withdraws the ready owner");
+  } finally {
+    disposeCachedTransform(directoryCached);
+    resetTtscTransformCache(directoryCache);
+    TRANSFORM_RESULT_FILESYSTEM.delete(directoryResult);
+    fs.rmSync(directoryCandidate, { recursive: true, force: true });
   }
   for (const mode of ["shared", "partitioned", "complete-fallback", "complete-empty"] as const) {
     for (const name of Object.keys(files)) fs.utimesSync(path.join(root, name), new Date(0), new Date(0));
