@@ -10,12 +10,13 @@ import (
 )
 
 // TestReloadFileFingerprintPreservesRawSymlinkTarget verifies the Go startup
-// validator hashes exact-file symlinks with the launcher's byte protocol.
+// validator hashes one dangling exact-file symlink using raw target bytes.
 //
 // Decoding a POSIX link target as UTF-8 replaces invalid bytes, making an
-// unchanged launcher snapshot disagree with the native validator forever. The
-// capability check keeps the vector portable to filesystems that cannot retain
-// the raw name while requiring byte fidelity wherever they can.
+// unchanged launcher snapshot disagree with the native validator. The unit
+// compares Go output with independently authored protocol records; it does not
+// execute the launcher. A creation error skips without identifying its cause,
+// and successful creation must retain the raw bytes to exercise this vector.
 //
 //  1. Create a dangling symlink with a non-UTF-8 raw target where supported.
 //  2. Read it back and continue only when the filesystem preserved the bytes.
@@ -24,13 +25,13 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The production fingerprint of a dangling symlink with a non-UTF-8 raw target equals the digest of the protocol's symlink, raw target and missing-content records.
 // @evidence contracts/testing.md#independent-expectations The expected digest is computed independently from the protocol bytes in the test.
-// @evidence contracts/testing.md#distinguishing-cases The test continues only when the filesystem preserved the raw bytes, so unsupported filesystems skip and supported ones require fidelity.
-// @evidence contracts/testing.md#execution-ownership TestReloadFileFingerprintPreservesRawSymlinkTarget is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases The target starts with invalid UTF-8 byte 0xff followed by x, and the dangling link contributes the missing-content marker. Successful native read-back must equal those bytes; creation failure or changed read-back skips this vector, without proving a particular capability failure. Valid UTF-8 links, readable linked files and read-error recovery are not covered.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit creates and reads one actual symlink in an owned temporary root, calls actual projectInputReloadFileDigest, and constructs expected SHA-256 input independently with literal framing and target bytes. No substituted operation, native child, sidecar, installed consumer, product host or launcher executes.
 func TestReloadFileFingerprintPreservesRawSymlinkTarget(t *testing.T) {
   target := string([]byte{0xff, 'x'})
   link := filepath.Join(t.TempDir(), "reload-link")
   if err := os.Symlink(target, link); err != nil {
-    t.Skipf("filesystem cannot create the raw-byte symlink: %v", err)
+    t.Skipf("raw-byte symlink fixture creation failed: %v", err)
   }
   retained, err := os.Readlink(link)
   if err != nil {
