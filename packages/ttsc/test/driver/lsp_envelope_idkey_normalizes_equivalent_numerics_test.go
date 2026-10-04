@@ -7,8 +7,9 @@ import (
 )
 
 // TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics Verifies four
-// behavior groups in IDKey's numeric path so the proxy correlates ids
-// regardless of how the peer formatted them on the wire:
+// behavior groups in IDKey's numeric path for the authored decimal and
+// exponent forms. It does not establish exact equivalence for arbitrary
+// decimals, protocol validity of fractional IDs or proxy transport behavior.
 //
 // Literal numeric equality grounds keys 1, 1.5 and 100.
 //
@@ -20,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IDKey normalize integer-valued forms and retain 1.5.
 // @evidence contracts/testing.md#independent-expectations Literal numeric equality grounds keys 1, 1.5 and 100.
 // @evidence contracts/testing.md#distinguishing-cases Decimal, fractional, lowercase/uppercase exponent and exponent/integer equality differ.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly invokes ParseEnvelope and IDKey on authored bytes, without filesystem inputs, shim operations or a transport process.
 func TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics(t *testing.T) {
   intEnv, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
   if err != nil {
@@ -43,9 +44,7 @@ func TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics(t *testing.T) {
   }
 
   // Exponent-form integer literals (`1e0`, `1E0`, `1.0E0`) must also
-  // collapse to "1". JSON.stringify in JavaScript peers commonly emits
-  // exponent form for big magnitudes, and LSP places no encoding
-  // restriction on numeric ids; a refactor that flipped the `.eE`
+  // collapse to "1" under the key policy. A refactor that flipped the `.eE`
   // discriminator to `.e` would silently regress uppercase-E without
   // these pins.
   for _, src := range []string{

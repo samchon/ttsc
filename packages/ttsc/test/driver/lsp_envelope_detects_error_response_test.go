@@ -6,18 +6,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeDetectsErrorResponse Verifies the IsErrorResponse predicate
-// the proxy uses to skip merging plugin contributions into upstream
-// failures. JSON-RPC §5.1 forbids both `result` and `error` on the
-// same frame; an unmerged forward keeps the editor's view consistent
-// with what tsgo actually said.
+// TestLSPEnvelopeDetectsErrorResponse checks the decoder and failure-routing
+// predicate directly, without executing proxy forwarding. The null-error
+// fixture includes both result and error, so it exercises the decoder's
+// permissive routing view rather than a valid JSON-RPC success response.
 //
 // 1. Decode an error response. Assert IsErrorResponse is true.
-// 2. Decode a success response with null error. Assert it is false.
+// 2. Decode a response-shaped frame with null error. Assert it is false.
 // 3. Decode a notification. Assert IsErrorResponse is false.
 //
 // @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IsErrorResponse distinguish an error response from a response with null error and a notification.
-// @evidence contracts/testing.md#independent-expectations JSON-RPC response shape and the literal null value establish which of the three envelopes denotes a failure.
+// @evidence contracts/testing.md#independent-expectations Authored ID/method fields and error-object versus null payloads supply literal expectations for the failure-routing predicate; the null-error frame does not establish result/error exclusivity or protocol validity.
 // @evidence contracts/testing.md#distinguishing-cases A real error object returns true; null error and no-response-id notification return false.
 // @evidence contracts/testing.md#execution-ownership Go test/driver directly calls the envelope decoder and predicate without a transport or native process.
 func TestLSPEnvelopeDetectsErrorResponse(t *testing.T) {
