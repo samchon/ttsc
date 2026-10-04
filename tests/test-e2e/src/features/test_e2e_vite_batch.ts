@@ -46,7 +46,9 @@ export async function test_e2e_vite_batch(): Promise<void> {
     assert.equal(chunks.length, 1);
     const code = chunks[0]!.code;
     BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
-    BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset), "a:", "d:");
+    const nativeReceipts = BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset);
+    BatchWorkspace.assertContextReceipts(nativeReceipts, "a:", "d:");
+    assert.equal(nativeReceipts.some((receipt) => receipt.name === "native-auto-discovery"), false, "explicit plugin override must suppress automatic dependency discovery");
     const nativePaths = BatchWorkspace.readPathsReceipts(workspace).slice(pathsReceiptOffset);
     assert.equal(nativePaths.length, 1, "one shared native Program observes the entire alias population");
     assert.equal(nativePaths[0]!.name, "shared-real-program-probe");

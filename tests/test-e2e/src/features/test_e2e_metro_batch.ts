@@ -61,6 +61,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.ok(metro.ast.source.includes("TTSC_BATCH_RESULT"));
   assert.equal(turbopack.completions, 1);
   assert.deepEqual(turbopack.errors, []);
+  assert.deepEqual(turbopack.cacheability, [], "an ordinary native result must not invoke the actual cacheable(false) volatility callback");
   assert.equal(turbopack.value, "authored-marker");
   assert.equal(turbopack.dependencies.length, 1, "the real loader must hand over only the project's record");
   assert.deepEqual(turbopack.contextDependencies, []);
@@ -128,6 +129,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.deepEqual(externalReplay[1]!.value.dependencies, [projectRecordFile], "a cache delivery must repeat the real project-record handoff");
   assert.deepEqual(external[1]!.value.contextDependencies, []);
   assert.deepEqual(externalReplay[1]!.value.contextDependencies, []);
+  assert.deepEqual(external[1]!.value.cacheability, []);
+  assert.deepEqual(externalReplay[1]!.value.cacheability, [], "unchanged ordinary cache delivery must not invent volatility");
   assert.deepEqual(publications(), changedExternal, "unrelated candidate-directory and excluded output churn keep the publication");
   assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn, "ignored churn does not invoke native ApplyProgram again");
   // All three transitions affect only this experiment's subtree of the actual
@@ -144,6 +147,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(repeatedDivergence[1]!.value.content, external[1]!.value.content);
   assert.deepEqual(repeatedDivergence[1]!.value.dependencies, [projectRecordFile]);
   assert.deepEqual(repeatedDivergence[1]!.value.contextDependencies, []);
+  assert.deepEqual(repeatedDivergence[1]!.value.cacheability, []);
   assert.deepEqual(publications(), changedExternal, "recreated excluded output directories and repeated divergent host text preserve the native generation");
   assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn);
   } catch (error) { bodyFailure = error; } finally {

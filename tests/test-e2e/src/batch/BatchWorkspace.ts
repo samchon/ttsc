@@ -210,6 +210,16 @@ export namespace BatchWorkspace {
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt });
       const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
       fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
+      const automaticPackage = path.join(root, "packages/batch-auto-discovery");
+      const automaticManifestFile = path.join(automaticPackage, "package.json");
+      const automaticManifest = JSON.parse(fs.readFileSync(automaticManifestFile, "utf8"));
+      automaticManifest.ttsc.plugin.contextReceipt = contextReceipt;
+      fs.writeFileSync(automaticManifestFile, JSON.stringify(automaticManifest));
+      fs.symlinkSync(automaticPackage, path.join(modules, "batch-auto-discovery"), "junction");
+      const consumerManifestFile = path.join(root, "package.json");
+      const consumerManifest = JSON.parse(fs.readFileSync(consumerManifestFile, "utf8"));
+      consumerManifest.devDependencies = { ...consumerManifest.devDependencies, "batch-auto-discovery": "file:./packages/batch-auto-discovery" };
+      fs.writeFileSync(consumerManifestFile, JSON.stringify(consumerManifest));
       config.compilerOptions.plugins.push(
         { name: "native-order-prefix", transform: "./descriptors/create.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
         { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },

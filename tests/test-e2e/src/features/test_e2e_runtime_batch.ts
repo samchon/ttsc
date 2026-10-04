@@ -65,7 +65,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     BatchWorkspace.assertValues((payload as { values: unknown }).values, workspace.expected);
   } else {
   BatchWorkspace.assertResult(payload, workspace.expected, true);
-  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
+  const nativeReceipts = BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset);
+  BatchWorkspace.assertContextReceipts(nativeReceipts);
+  assert.deepEqual(nativeReceipts.filter((receipt) => receipt.name === "native-auto-discovery"), [
+    { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+  ], "the direct-dependency marker must admit its native entry without an explicit configured transform");
   const descriptorFilename = fs.realpathSync.native(path.join(workspace.root, "descriptors/context.cjs"));
   assert.deepEqual(JSON.parse(fs.readFileSync(workspace.factoryContextProbe, "utf8")), {
     filename: descriptorFilename, dirname: path.dirname(descriptorFilename),
