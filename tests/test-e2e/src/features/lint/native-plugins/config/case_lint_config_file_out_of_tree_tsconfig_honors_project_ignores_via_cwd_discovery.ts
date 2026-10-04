@@ -57,9 +57,15 @@ export function test_lint_config_file_out_of_tree_tsconfig_honors_project_ignore
     const failures: unknown[] = [];
     try {
       const tsconfig = path.join(wrapper, "tsconfig.json");
+      // A configured program defaults rootDir to its selected config directory.
+      // The wrapper owns no sources; pin the actual project root so this case
+      // exercises lint discovery and ignores without an unrelated TS6059.
       fs.writeFileSync(
         tsconfig,
-        JSON.stringify({ extends: path.join(project.tmpdir, "tsconfig.json") }),
+        JSON.stringify({
+          extends: path.join(project.tmpdir, "tsconfig.json"),
+          compilerOptions: { rootDir: project.tmpdir },
+        }),
         "utf8",
       );
       const compiler = new TtscCompiler({
