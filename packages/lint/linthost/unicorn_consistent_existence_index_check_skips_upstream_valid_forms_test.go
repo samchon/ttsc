@@ -3,16 +3,16 @@ package linthost
 import "testing"
 
 // TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms verifies the
-// negative twin of every reporting surface: forms upstream leaves alone must
+// authored negative matrix for the owning rule: these excluded forms must
 // produce zero findings.
 //
-// Upstream reaches a comparison only through the references of a `const` bound
+// The owning rule reaches a comparison through the references of a `const` bound
 // to a plain `indexOf` / `lastIndexOf` / `findIndex` / `findLastIndex` call, and
-// only when the reference sits on the left of `< 0`, `>= 0`, or `> -1`. Every
+// when the reference sits on the left of `< 0`, `>= 0`, or `> -1`. The following
 // other shape is a potential over-match: a `let` or `var` index (it can be
 // reassigned to anything), a parameter or destructured binding, an index from a
-// different call, an optional chain or computed member (a ChainExpression /
-// computed MemberExpression upstream), a private-name method, the reversed
+// different call, an optional chain or computed member,
+// a private-name method, the reversed
 // operand order, the already-canonical `=== -1` forms, a neighbouring literal
 // (`< 1`, `> 0`, `>= -1`, `<= -1`), a non-comparison use, and a bare
 // `array.indexOf(x) < 0` that binds no index at all. Binding identity — not the
@@ -20,12 +20,12 @@ import "testing"
 // tracked one.
 //
 //  1. Enable unicorn/consistent-existence-index-check on one type-clean source
-//     that stacks every upstream-valid form.
+//     that stacks the authored excluded forms; source comments are not provenance evidence.
 //  2. Run the checker-backed snapshot path.
 //  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed zero-finding assertions detect overmatching comparisons with unrelated initializers, unstable bindings or noncanonical decision shapes.
-// @evidence contracts/testing.md#independent-expectations Official Unicorn const-reference/index-method policy and its operator/literal table establish the authored accepted forms independently of findings.
+// @evidence contracts/testing.md#independent-expectations The authored const-reference/index-method exclusions and operator/literal table establish expected zero findings without reading the rule output or certifying upstream provenance.
 // @evidence contracts/testing.md#distinguishing-cases let/var, different calls, computed/private/optional methods, reversed/direct-call operands, sentinel comparisons, neighboring literals including -0/BigInt, shadows and noncomparison uses remain clean.
 // @evidence contracts/testing.md#execution-ownership TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms owns this authored source matrix as one discoverable Go unit entry. The owning checker-backed engine executes in the shared Go process; the zero-finding helper retains the authored source on failure. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms(t *testing.T) {
