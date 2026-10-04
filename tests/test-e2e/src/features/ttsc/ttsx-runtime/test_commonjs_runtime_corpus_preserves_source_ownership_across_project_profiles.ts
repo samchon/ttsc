@@ -45,6 +45,8 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * completed default cache only after all runtime readers have exited.
  * A composite dependency and its excluded root retain both runtime values
  * and recursive sorted path population without claiming existing-byte identity.
+ * The nested-config root installation and nearer empty installation use
+ * separate original fixtures with the same cache-query/runtime/query sequence.
  * Native permission-denied stages retain excluded/included entry results
  * and read-only execution without explicit cache plus top-level name equality
  * and restores the original POSIX mode or saved Windows DACL before reuse;
