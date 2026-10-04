@@ -1,0 +1,98 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { TestProject } from "../../../../utils/src/TestProject";
+import { resolveOptions } from "../../../../../packages/unplugin/src/core/options/resolveOptions";
+import { createAliasPaths } from "../../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
+import { createTransformTsconfig } from "../../../../../packages/unplugin/src/core/transform/tsconfig/createTransformTsconfig";
+import { readTransformTsconfigState } from "../../../../../packages/unplugin/src/core/transform/tsconfig/readTransformTsconfigState";
+
+/**
+ * Verifies generated configuration preserves path anchors and plugin payloads.
+ *
+ * The real materializer writes a native scratch wrapper, read independently as
+ * JSON. This tests configuration preparation, not native plugin execution or
+ * compiler diagnostics. Literal protocol paths use native path.join anchors
+ * and forward-slash encoding independently of the production alias readers.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls readTransformTsconfigState/createAliasPaths/createTransformTsconfig/resolveOptions over real JSONC and package-manifest presets. Actual wrapper JSON must extend the selected config, preserve inherited and inline mappings, add absolute bundler exact/subtree mappings, avoid invented baseUrl and anchor plugin config/configFile/transform paths at the project rather than scratch.
+ * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test.
+ * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together.
+ * @evidence contracts/testing.md#execution-ownership One discoverable source unit owns these actual filesystem/configuration operations in process. It installs nothing and starts no compiler, Go peer, plugin binary or host. Native type errors, banner output, plugin execution order and forwarded configFile evidence remain E2E producer/consumer connections; JSON preparation is not their certificate.
+ */
+export function test_generated_tsconfig_preserves_alias_and_plugin_option_boundaries(): void {
+  for (const preset of [false, true]) {
+    const root = TestProject.tmpdir("ttsc-config-policy-unit-");
+    const scratch = TestProject.tmpdir("ttsc-config-policy-scratch-");
+    const inheritedKey = preset ? "#preset/*" : "#lib/*";
+    const baseDirectory = preset ? path.join(root, "node_modules", "example-preset") : root;
+    const base = path.join(baseDirectory, "base.json");
+    TestProject.writeFiles(root, {
+      "src/main.ts": "export const kept = 1;\n",
+      "plugin.cjs": "module.exports = () => {};\n",
+      "config/banner.config.json": '{"ok":true}',
+      "fixture.config.json": '{"ok":true}',
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { plugins: [] },
+        extends: preset ? "example-preset" : "./base.json",
+        include: ["src"],
+      }),
+    });
+    fs.mkdirSync(baseDirectory, { recursive: true });
+    fs.writeFileSync(base, '{\n// inherited JSONC mapping\n"compilerOptions":{"paths":{"' + inheritedKey + '":["./types/*"]}},\n}\n');
+    if (preset) fs.writeFileSync(path.join(baseDirectory, "package.json"), JSON.stringify({ name: "example-preset", version: "1.0.0", tsconfig: ".\\base.json" }));
+    const tsconfig = path.join(root, "tsconfig.json");
+    const slash = (file: string): string => file.replace(/\\/g, "/");
+    const state = readTransformTsconfigState(tsconfig, true, root);
+    assert.deepEqual(state.effectivePaths, {
+      [inheritedKey]: [slash(path.join(baseDirectory, "types", "*"))],
+    });
+    const target = path.join(root, "src", "modules");
+    const aliases = createAliasPaths({ "@lib": target });
+    assert.deepEqual(aliases, {
+      "@lib": [slash(target)], "@lib/*": [slash(path.join(target, "*"))],
+    });
+    const inlinePlugins = [{
+      transform: "./plugin.cjs", name: "fixture", config: "./fixture.config.json",
+      configFile: "./config/banner.config.json", operation: "kept-operation",
+      path: "./opaque-payload", prefix: "a:",
+    }, { transform: "package-plugin", name: "package" }];
+    const materialized = createTransformTsconfig({
+      aliasPaths: aliases,
+      compilerOptions: { plugins: inlinePlugins, paths: { "#inline/*": ["./inline/*"] } },
+      tsconfig,
+    }, scratch, state, { configDir: root, tsconfig });
+    assert.equal(materialized.path, path.join(scratch, "tsconfig.json"));
+    const wrapper = JSON.parse(fs.readFileSync(materialized.path, "utf8"));
+    assert.equal(wrapper.extends, slash(tsconfig));
+    assert.equal(Object.prototype.hasOwnProperty.call(wrapper.compilerOptions, "baseUrl"), false);
+    assert.deepEqual(wrapper.compilerOptions.paths, {
+      [inheritedKey]: [slash(path.join(baseDirectory, "types", "*"))],
+      "#inline/*": [slash(path.join(root, "inline", "*"))],
+      "@lib": [slash(target)], "@lib/*": [slash(path.join(target, "*"))],
+    });
+    assert.deepEqual(wrapper.compilerOptions.plugins, [{
+      transform: path.join(root, "plugin.cjs"), name: "fixture",
+      config: path.join(root, "fixture.config.json"),
+      configFile: path.join(root, "config", "banner.config.json"),
+      operation: "kept-operation", path: "./opaque-payload", prefix: "a:",
+    }, { transform: "package-plugin", name: "package" }]);
+    assert.equal(inlinePlugins[0]!.config, "./fixture.config.json", "normalization does not mutate caller entries");
+    assert.equal(inlinePlugins[0]!.configFile, "./config/banner.config.json");
+    assert.equal(createTransformTsconfig({ aliasPaths: {}, compilerOptions: {}, tsconfig }, scratch, state, { configDir: root, tsconfig }).path, tsconfig);
+    const ordered = [{ transform: "./plugin.cjs", name: "prefix", prefix: "a:" }, { transform: "./plugin.cjs", name: "upper" }, { transform: "./plugin.cjs", name: "suffix", suffix: ":z" }];
+    const resolved = resolveOptions({ plugins: ordered });
+    assert.equal(resolved.plugins, ordered);
+    assert.deepEqual((resolved.plugins as typeof ordered).map((entry) => entry.name), ["prefix", "upper", "suffix"]);
+    const inline = resolveOptions({ compilerOptions: { plugins: inlinePlugins } });
+    assert.equal(inline.plugins, undefined);
+    assert.equal(inline.compilerOptions.plugins, inlinePlugins);
+    assert.deepEqual(createAliasPaths([{ find: "@trail/", replacement: target }]), {
+      "@trail//*": [slash(target) + "/*"],
+    });
+    assert.deepEqual(createAliasPaths([{ find: "@trail/", replacement: slash(target) + "/" }]), {
+      "@trail": [slash(target)], "@trail/*": [slash(target) + "/*"],
+    });
+  }
+}
