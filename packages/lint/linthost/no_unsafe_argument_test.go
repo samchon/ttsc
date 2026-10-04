@@ -5,13 +5,13 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeArgument verifies the lint rule corpus fixture
+// TestRuleCorpusNoUnsafeArgument verifies a reduced trigger from the lint rule corpus
 // typescript-no-unsafe-argument.ts under a real Program.
 //
-// `typescript/no-unsafe-argument` is type-aware: it asks the Checker for each
-// argument's static type, walks the resolved callee signature, and flags an
-// `any`-typed value flowing into a concretely typed parameter. A parser-only engine
-// run skips the rule because Context.Checker is nil, so this Go scenario reuses the
+// The rule uses the Checker to require a non-any callee and inspect each
+// argument's type. This entry owns an any argument to an authored number
+// parameter; it does not assert resolved-signature or parameter-type filtering.
+// With no checker the rule returns, so this Go scenario uses the shared
 // `seedLintProject` shape established by `no-floating-promises` and
 // `no-for-in-array`: materialize a tsconfig project, run `ttsc lint check`, and
 // assert on the rendered diagnostics.
