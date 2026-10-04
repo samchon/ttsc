@@ -5,19 +5,18 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnnecessaryTemplateExpression verifies the lint rule
+// TestRuleCorpusNoUnnecessaryTemplateExpression verifies a reduced trigger from the lint rule
 // corpus fixture typescript-no-unnecessary-template-expression.ts under
 // a real Program.
 //
-// `typescript/no-unnecessary-template-expression` is type-aware: it queries
-// `GetTypeAtLocation` on the single template-span expression to decide whether “
-// `${x}` “ collapses to a regular string literal, so a parser-only engine run skips
-// the rule because Context.Checker is nil. This Go scenario reuses the
+// This string-typed identifier interpolation requires GetTypeAtLocation to
+// establish redundant wrapping. The rule also handles literal forms without
+// a checker; this entry owns the identifier route through the shared
 // `seedLintProject` shape established by `restrict-template-expressions` and
 // `no-base-to-string`: materialize a tsconfig project, run `ttsc lint check`, and
 // assert on the rendered diagnostics.
 //
-//  1. Seed a project whose “ `${name}` “ template wraps a single
+//  1. Seed a project whose “ `${label}` “ template wraps a single
 //     string-typed value with empty surrounding chars.
 //  2. Run `check` with typescript/no-unnecessary-template-expression
 //     enabled as error.
