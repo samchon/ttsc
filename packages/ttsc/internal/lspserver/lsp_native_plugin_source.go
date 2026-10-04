@@ -542,15 +542,14 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
       continue
     }
     for _, action := range actions {
-      if hasDirectCodeActionEdit(action.Edit) {
+      switch nativeCodeActionRejection(action, func(command string) bool { return s.pluginOwnsCommand(plugin, command) }) {
+      case "direct-edit":
         s.log("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
         continue
-      }
-      if action.Command == nil {
+      case "commandless":
         s.log("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
         continue
-      }
-      if !s.pluginOwnsCommand(plugin, action.Command.Command) {
+      case "unowned":
         s.log("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command)
         continue
       }
@@ -601,18 +600,9 @@ func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []js
   if !ok {
     return nil, ErrCommandNotHandled
   }
-  argsJSON, encodeErr := json.Marshal(args)
+  cmdArgs, stdin, encodeErr := nativeExecuteCommandInput(command, args, content, hasContent)
   if encodeErr != nil {
-    return nil, fmt.Errorf("ttscserver: encode command arguments: %w", encodeErr)
-  }
-  cmdArgs := []string{
-    "--command=" + command,
-    "--arguments-json=" + string(argsJSON),
-  }
-  var stdin io.Reader
-  if hasContent {
-    cmdArgs = append(cmdArgs, "--content-stdin")
-    stdin = strings.NewReader(content)
+    return nil, encodeErr
   }
   body, err := s.runWithStdin(plugin, "lsp-execute-command", stdin, cmdArgs...)
   if err != nil {
@@ -1018,16 +1008,13 @@ func (s *NativePluginSource) discoverCommandIDs() {
       continue
     }
     for _, id := range ids {
-      if id == "" {
-        continue
-      }
-      if _, ok := seen[id]; ok {
+      accepted, duplicate := registerNativeCommandID(id, plugin, seen, &s.commandIDs, s.owners)
+      if duplicate {
         s.log("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin))
+      }
+      if !accepted {
         continue
       }
-      seen[id] = struct{}{}
-      s.commandIDs = append(s.commandIDs, id)
-      s.owners[id] = plugin
     }
     kindBody, kindErr := s.run(plugin, "lsp-code-action-kinds")
     if kindErr != nil {
@@ -1104,16 +1091,7 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   // processes. WaitDelay bounds pipe draining after exit or cancellation when
   // a descendant inherited the child's output handles.
   ctx := s.commandContext()
-  allArgs := []string{
-    command,
-    "--cwd=" + s.cwd,
-    "--tsconfig=" + s.tsconfig,
-    "--plugins-json=" + s.pluginsJSON,
-  }
-  if plugin.ProjectContextArgs && strings.TrimSpace(s.projectContextJSON) != "" {
-    allArgs = append(allArgs, "--project-context-json="+s.projectContextJSON)
-  }
-  allArgs = append(allArgs, args...)
+  allArgs := nativePluginCommandArgs(plugin, command, s.cwd, s.tsconfig, s.pluginsJSON, s.projectContextJSON, args)
   cmd := exec.CommandContext(ctx, plugin.Binary, allArgs...)
   cmd.WaitDelay = time.Second
   cmd.Dir = s.cwd
@@ -1128,19 +1106,7 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   observation := e2etrace.BeginCommand(cmd, "Run")
   err := cmd.Run()
   observation.Result(err)
-  if err != nil {
-    msg := strings.TrimSpace(stderr.String())
-    if msg == "" {
-      msg = err.Error()
-    } else if stderr.truncated || stderr.Len() >= nativePluginCommandStderrLimit {
-      msg += " (stderr truncated)"
-    }
-    return nil, fmt.Errorf("ttscserver: %s %s failed: %s", pluginLabel(plugin), command, msg)
-  }
-  if stdout.truncated {
-    return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit)
-  }
-  return bytes.TrimSpace(stdout.Bytes()), nil
+  return nativePluginCommandResult(plugin, command, err, &stdout, &stderr)
 }
 
 func hasDirectCodeActionEdit(edit json.RawMessage) bool {

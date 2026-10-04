@@ -1,0 +1,83 @@
+package lspserver
+
+import (
+  "bytes"
+  "encoding/json"
+  "fmt"
+  "io"
+  "strings"
+)
+
+// nativeCodeActionRejection reports the first admission failure. Ownership is
+// queried only after direct edits and absent commands have been rejected.
+// Common: The ordered guards retain the source's command-backed action policy;
+// the caller owns unchanged log messages and aggregation. The supplied lookup
+// is the source's actual command owner, not a transport or producer substitute.
+// Cost includes edit bytes and the delegated ownership lookup; no state is retained.
+func nativeCodeActionRejection(action LSPCodeAction, owns func(string) bool) string {
+  if hasDirectCodeActionEdit(action.Edit) { return "direct-edit" }
+  if action.Command == nil { return "commandless" }
+  if !owns(action.Command.Command) { return "unowned" }
+  return ""
+}
+
+// registerNativeCommandID records the first producer of a nonempty command.
+// It distinguishes empty input from a duplicate so the caller preserves its
+// original command order and duplicate log without another discovery pass.
+// Common: The first-seen map establishes precedence; explicit owner values
+// retain the real discovery input. Maps belong to the source and are modified
+// in place, with one lookup and at most two insertions per identifier.
+func registerNativeCommandID(id string, plugin NativeLSPPluginEntry, seen map[string]struct{}, commandIDs *[]string, owners map[string]NativeLSPPluginEntry) (accepted, duplicate bool) {
+  if id == "" { return false, false }
+  if _, ok := seen[id]; ok { return false, true }
+  seen[id] = struct{}{}
+  *commandIDs = append(*commandIDs, id)
+  owners[id] = plugin
+  return true, false
+}
+
+// nativeExecuteCommandInput encodes command arguments and the live-buffer gate.
+// An empty present buffer still supplies a reader and --content-stdin; absence
+// supplies neither. Invalid raw JSON keeps the original encoding error.
+// Common: One projection retains command/argument tokens and buffer presence
+// separately. It manufactures no reply and invokes no process. Encoding cost
+// follows argument bytes; the returned slice and reader transfer to the caller.
+func nativeExecuteCommandInput(command string, args []json.RawMessage, content string, hasContent bool) ([]string, io.Reader, error) {
+  argsJSON, encodeErr := json.Marshal(args)
+  if encodeErr != nil { return nil, nil, fmt.Errorf("ttscserver: encode command arguments: %w", encodeErr) }
+  cmdArgs := []string{"--command="+command, "--arguments-json="+string(argsJSON)}
+  var stdin io.Reader
+  if hasContent {
+    cmdArgs = append(cmdArgs, "--content-stdin")
+    stdin = strings.NewReader(content)
+  }
+  return cmdArgs, stdin, nil
+}
+
+// nativePluginCommandArgs projects native path and opaque JSON inputs to argv.
+// Project context is forwarded only for an admitting plugin and nonblank input.
+// Common: Argument tokens retain command/cwd/config/plugin JSON order without
+// shell parsing or path rewriting. The caller supplies actual selection values;
+// this function does not authenticate them. Cost and returned allocation follow
+// token bytes and count, with no cached result or process resource retained.
+func nativePluginCommandArgs(plugin NativeLSPPluginEntry, command, cwd, tsconfig, pluginsJSON, projectContextJSON string, args []string) []string {
+  allArgs := []string{command, "--cwd="+cwd, "--tsconfig="+tsconfig, "--plugins-json="+pluginsJSON}
+  if plugin.ProjectContextArgs && strings.TrimSpace(projectContextJSON) != "" { allArgs = append(allArgs, "--project-context-json="+projectContextJSON) }
+  return append(allArgs, args...)
+}
+
+// nativePluginCommandResult adapts the actual Run outcome and bounded buffers.
+// A failed command uses stderr or the returned error, marking retained stderr
+// at its limit. Successful stdout overflow is rejected before bytes are served.
+// Common: Outcome precedence and byte limits are the source's existing policy;
+// supplied buffers do not certify an OS execution. Trim/copy costs follow the
+// retained bytes, bounded by their buffer owners. No process is started or held.
+func nativePluginCommandResult(plugin NativeLSPPluginEntry, command string, runErr error, stdout, stderr *limitedBuffer) ([]byte, error) {
+  if runErr != nil {
+    msg := strings.TrimSpace(stderr.String())
+    if msg == "" { msg = runErr.Error() } else if stderr.truncated || stderr.Len() >= nativePluginCommandStderrLimit { msg += " (stderr truncated)" }
+    return nil, fmt.Errorf("ttscserver: %s %s failed: %s", pluginLabel(plugin), command, msg)
+  }
+  if stdout.truncated { return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit) }
+  return bytes.TrimSpace(stdout.Bytes()), nil
+}
