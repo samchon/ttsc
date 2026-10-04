@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestSelectTextEditGroupsCollapsesDuplicateEditWithinFinding verifies a finding
-// that emits the same edit twice still applies its distinct edits.
+// TestSelectTextEditGroupsCollapsesDuplicateEditWithinFinding verifies an authored
+// edit group repeating the same edit still selects its distinct edits.
 //
 // This is the negative twin of the self-overlap case: an exact duplicate is not
 // a conflict, so `dedupeTextEdits` collapses it before the group gate counts

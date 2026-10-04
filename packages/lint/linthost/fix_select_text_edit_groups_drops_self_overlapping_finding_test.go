@@ -2,13 +2,13 @@ package linthost
 
 import "testing"
 
-// TestSelectTextEditGroupsDropsSelfOverlappingFinding verifies a finding whose
-// own edits overlap each other applies nothing at all.
+// TestSelectTextEditGroupsDropsSelfOverlappingFinding verifies an authored group whose
+// nonidentical edit ranges overlap selects nothing at all.
 //
 // The public `rule.TextEdit` contract tells a rule author that a finding's own
 // edits must not overlap, and the reason is this: the group gate compares the
-// selected count against the candidate count, so a finding that collides with
-// itself can never be accepted. Without this case the contract's sharpest
+// selected count against the candidate count, so nonidentical edits that collide
+// internally prevent acceptance. Without this case the contract's sharpest
 // consequence for a rule author is unpinned, and a future selector that
 // silently kept the surviving member would look correct.
 //
