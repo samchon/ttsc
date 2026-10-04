@@ -33,8 +33,8 @@ const preambleHashbangLine = "#!/usr/bin/env node"
 // correction rewrote the text, could easily leave it second. The three
 // producers of leading bytes are independent here (the byte order mark from the
 // compiler option, the shebang from the printer, the preamble comment from a
-// linked SourcePreamblePlugin), and only their order proves the mark was
-// applied last and to the whole text.
+// linked SourcePreamblePlugin). Their observed order checks the finished output;
+// it does not independently prove the internal order of assembly operations.
 //
 //  1. Register a SourcePreamblePlugin and compile a hashbang fixture through
 //     EmitWithPluginTransformer with an identity transform, once with `emitBOM`
