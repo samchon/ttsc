@@ -2,21 +2,21 @@ package driver_test
 
 import (
   "os"
-  "os/exec"
   "path/filepath"
   "runtime"
   "slices"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 // TestModuleResolutionReplayRetainsASymlinkedWinner Verifies exact resolver
 // replay retains a selected lexical alias while excluding probes below it.
 //
 // A lexical directory alias must remain in the resolver candidate proof even
-// when the selected file has a different physical spelling. Unsupported link
-// preparation is a capability skip, not a successful assertion.
+// when the selected file has a different physical spelling. Link preparation
+// is required on the selected platform and failure fails this case.
 //
 // 1. Prepare a JavaScript winner behind a directory symlink or junction.
 // 2. Load the importer directly and construct its transform graph.
@@ -24,9 +24,10 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification NewTransformGraph retains lexical link/value.ts and selected link/value.js candidates while excluding link/value.jsx after a direct Program load.
 // @evidence contracts/testing.md#independent-expectations The fixture chooses value.js behind a lexical alias; TypeScript resolution precedence requires the higher-priority ts probe and excludes the lower-priority jsx probe.
-// @evidence contracts/testing.md#distinguishing-cases Directory alias plus a JavaScript winner owns lexical replay; hosts without symlink or junction capability skip this distinction explicitly.
-// @evidence contracts/testing.md#execution-ownership Go test/driver loads and graphs the fixture in process; Windows Node only prepares a junction and does not run emitted product code or a host.
+// @evidence contracts/testing.md#distinguishing-cases Directory alias plus a JavaScript winner owns lexical replay; failed alias preparation is a test failure rather than skipped coverage.
+// @evidence contracts/testing.md#execution-ownership Go test/driver loads and graphs the fixture in process; Windows uses the maintained windowsjunction.Create native cmd boundary only for preparation, while other platforms call os.Symlink. No emitted product code or host is run.
 func TestModuleResolutionReplayRetainsASymlinkedWinner(t *testing.T) {
+  t.Setenv(driver.TsgoArgsEnv, "")
   root := t.TempDir()
   real := filepath.Join(root, "real")
   if err := os.MkdirAll(real, 0o755); err != nil {
@@ -37,12 +38,11 @@ func TestModuleResolutionReplayRetainsASymlinkedWinner(t *testing.T) {
   }
   link := filepath.Join(root, "link")
   if runtime.GOOS == "windows" {
-    command := exec.Command("node", "-e", `require("node:fs").symlinkSync(process.argv[1], process.argv[2], "junction")`, real, link)
-    if output, err := command.CombinedOutput(); err != nil {
-      t.Skipf("directory junction unavailable on this host: %v: %s", err, output)
+    if err := windowsjunction.Create(link, real); err != nil {
+      t.Fatalf("prepare directory junction: %v", err)
     }
   } else if err := os.Symlink(real, link); err != nil {
-    t.Skipf("directory symlink unavailable on this host: %v", err)
+    t.Fatalf("prepare directory symlink: %v", err)
   }
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": { "allowJs": true, "module": "commonjs", "target": "es2022" },
