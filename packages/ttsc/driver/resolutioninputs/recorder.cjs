@@ -339,7 +339,11 @@ function visitModuleCandidates(base, extensions, visit, bases) {
  * The candidates one resolution can read, in search order. `visit` receives
  * each with the package directory of the search root it belongs to, or
  * `undefined` for a relative or absolute specifier. The search stops at the
- * root whose package `resolved` selects, so without one it covers every root.
+ * first root accepted by the selected-file/candidate identity comparison;
+ * unavailable realpaths can leave a lexical selected-file fallback. Without a
+ * selected root it visits all supplied search roots. Local expansion and
+ * manifest expansion catch failures, including visitor failures inside those
+ * guarded operations; this is not a transcript of every native resolver read.
  *
  * @param {string} specifier The specifier as the importer wrote it.
  * @param {string} parent The importer, a path or a file URL.
@@ -349,14 +353,14 @@ function visitModuleCandidates(base, extensions, visit, bases) {
  * @param {Set<string>} bases The bases already visited, shared by the calls
  *   whose candidates one caller has recorded.
  *
- * @evidence contracts/common.md#principled-implementation Candidate observations follow the importer's native search roots and stop only at the physically selected root; failed resolutions retain every consulted root.
+ * @evidence contracts/common.md#principled-implementation Candidate observations use the importer's supplied native search roots and stop at the first accepted selected-file comparison; absent selection retains candidate expansion for all those roots, not proof of every resolver read.
  * @evidence contracts/common.md#clear-and-simple-design Local and package specifiers share candidate expansion while the visitor owns observation storage.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public createRequire search paths supply package roots; no private resolver mutation or fixture-specific selection is used.
  * @evidence contracts/common.md#meaningful-documentation Parameters explain optional roots, failed selection, and shared deduplication ownership with a blank line before acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations and file-URL conversion preserve importer representation without inferring case policy from the OS.
- * @evidence contracts/performance.md#efficient-algorithms Work scales with searched roots, manifest targets and extension candidates; visiting ends once later roots cannot affect selection.
+ * @evidence contracts/performance.md#efficient-algorithms Costs include native search/realpath/stat operations, eager extension candidate arrays, ancestor manifests and their bytes, recursive target expansion, path text and supplied visitor work; accepted selection truncates later roots, with no fixed payload or recursion bound.
  * @evidence contracts/performance.md#reuse-equivalent-work The caller-owned bases set shares candidate expansion across resolutions in one evaluation; a new evaluation receives fresh mutable-file observations.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The visitor receives observations synchronously and the caller owns the evaluation-scoped deduplication set; the function holds no open file handles.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the shared deduplication set and visitor retention; call-local candidate arrays, parsed manifests and recursive expansion are uncapped, while synchronous reads retain no open file handle after return.
  */
 function visitResolutionCandidates(
   specifier,
@@ -775,9 +779,9 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown observations retain missing proofs and incomplete capability remains false; no expected digest or resolver monkeypatch makes reuse appear valid.
  * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
  * @evidence contracts/portability.md#os-neutral-implementation Native stat/realpath and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
- * @evidence contracts/performance.md#efficient-algorithms Sets and maps index distinct observed paths; hashing cost follows bytes read and final validation visits each known input once rather than comparing all pairs.
+ * @evidence contracts/performance.md#efficient-algorithms Sets/maps index paths, but candidate expansion and repeated pre/post/final observations still pay native stat/realpath/ancestor-link work and full file hashing; finish visits its captured input list and sorts output paths, with uncapped byte, path and manifest-expansion costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Distinct candidates share the evaluation ledger and expanded bases; the first witness stays authoritative and contradictory later reads revoke its proof instead of refreshing it.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Maps grow with this isolated evaluation's distinct inputs, and tokens belong to their resolution calls; the subprocess lifetime releases the ledger and hooks.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain uncapped input/proof/unstable/base collections and borrow extensions; caller-owned resolution tokens and result arrays add retention. This constructor neither starts an isolated subprocess nor installs/releases hooks; callers own those lifetimes, and synchronous observations leave no open file handles.
  */
 function createResolutionInputRecorder(options) {
   let complete = true;
@@ -1004,11 +1008,14 @@ function createResolutionInputRecorder(options) {
  * Install supported resolution observation for one isolated evaluation.
  *
  * A resolve hook registered through `module.registerHooks`, the supported
- * customization API, sees every `import` and `require()`. A
+ * customization API, observes resolutions that reach the installed hook. A
  * runtime that does not expose hooks, or whose `require.resolve` bypasses them,
  * leaves the observation incomplete. Evaluation still proceeds; its consumer
  * must withdraw reuse rather than assume an unobserved resolution consulted no
  * inputs. No private resolver entry point is replaced.
+ * The permanent hook handle is not returned or deregistered here; the caller
+ * owns the isolated process lifetime, and repeated installation retains
+ * additional callbacks and their recorders.
  *
  * @param {ReturnType<typeof createResolutionInputRecorder>} recorder
  *
@@ -1017,9 +1024,9 @@ function createResolutionInputRecorder(options) {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Only documented module.registerHooks is used; unsupported require.resolve observation is explicit and no foreign resolver or internal method is replaced.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains isolated ownership, unsupported-runtime effects and incomplete reuse; tags follow a blank comment line.
  * @evidence contracts/portability.md#os-neutral-implementation Runtime capability is probed directly, independent of OS or guessed Node version; resolved file URLs are interpreted by the recorder's native boundary.
- * @evidence contracts/performance.md#efficient-algorithms Each resolution adds one before/after recording pair around Node's own resolver rather than running a second resolver implementation.
+ * @evidence contracts/performance.md#efficient-algorithms A callback delegates once to Node's resolver but recorder begin/end may expand many roots/manifests and repeat native metadata/content observations; the capability probe performs separate native resolution work, and delegated byte/path/callback costs have no fixed bound.
  * @evidence contracts/performance.md#reuse-equivalent-work All callbacks share the supplied evaluation ledger; probe observations are a capability question, not cached module-resolution answers.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Installed hooks retain the recorder for the isolated evaluator process lifetime; the temporary probe hook is deregistered and registration failure leaves no replacement global.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The temporary probe attempts deregistration in finally; successfully installed observation hooks retain the recorder without a returned cleanup handle. Repeated installations are not deduplicated or bounded here, so the caller owns process isolation and eventual hook/ledger lifetime.
  */
 function observeResolutions(recorder) {
   if (!requireResolveConsultsHooks()) recorder.invalidateObservation();
