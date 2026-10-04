@@ -29,6 +29,7 @@ import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
+import { OwnedProjectSource } from "./OwnedProjectSource";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
@@ -1746,32 +1747,13 @@ function serveEntryEmit(real: string): ServedSource | null {
  * package the project build already serves.
  */
 function serveProjectEmit(real: string): ServedSource | null {
-  const tsconfig = owningTsconfig(real);
-  if (tsconfig === null) {
-    return null;
-  }
-  let built: DependencyBuildGeneration.BuiltProject | null;
-  try {
-    built = ensureProjectBuilt(tsconfig);
-  } catch (error) {
-    // The project's build produced nothing at all — a config that lists no
-    // files emits nothing, for one. That says nothing about this file, which is
-    // then a root like any other the build did not compile.
-    if (!(error instanceof EmptyProjectEmitError)) throw error;
-    built = null;
-  }
-  const served = built === null ? null : serveBuiltDependency(built, real);
-  if (served !== null) {
-    return served;
-  }
-  const root = ensureRootBuilt(tsconfig, real);
-  const emitted = serveBuiltDependency(root, real);
-  if (emitted === null) {
-    throw new Error(
-      `ttsx: the build of ${real} through ${tsconfig} emitted no JavaScript for it`,
-    );
-  }
-  return emitted;
+  return OwnedProjectSource.serve(real, {
+    owningTsconfig,
+    ensureProjectBuilt,
+    isEmptyProjectEmitError: (error) => error instanceof EmptyProjectEmitError,
+    serve: serveBuiltDependency,
+    ensureRootBuilt,
+  });
 }
 
 function serveBuiltDependency(
