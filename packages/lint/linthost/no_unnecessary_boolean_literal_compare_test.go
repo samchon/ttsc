@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnnecessaryBooleanLiteralCompare verifies the lint
+// TestRuleCorpusNoUnnecessaryBooleanLiteralCompare verifies a reduced trigger from the lint
 // rule corpus fixture typescript-no-unnecessary-boolean-literal-compare.ts
 // under a real Program.
 //

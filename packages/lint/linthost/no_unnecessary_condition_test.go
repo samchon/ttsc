@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnnecessaryCondition verifies the lint rule corpus
+// TestRuleCorpusNoUnnecessaryCondition verifies a reduced trigger from the lint rule corpus
 // fixture typescript-no-unnecessary-condition.ts under a real Program.
 //
 // `typescript/no-unnecessary-condition` is type-aware: a parser-only engine run
