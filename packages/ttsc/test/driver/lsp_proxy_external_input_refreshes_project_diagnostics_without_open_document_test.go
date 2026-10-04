@@ -71,12 +71,12 @@ func (s *externalProjectDiagnosticsSource) InvalidateResidentProgramsForWatchedC
 }
 
 // TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument
-// Verifies a declared watched-file event immediately replaces project
+// Verifies a declared watched-file event schedules replacement project
 // diagnostics without borrowing a source-document URI.
 //
-// External events are debounced, tagged for resident Program retention, and
-// generation-guarded. An unrelated broad-watcher event must not run project
-// contributors or publish another frame.
+// The authored created/deleted burst is debounced. Recorded invalidation
+// entries carry the external URI, but their count and retained Program effects
+// are not asserted. Unrelated events remain quiet within 150ms.
 //
 //  1. Send one declared external event with no open document and observe it.
 //  2. Send a created/deleted burst and assert one empty replacement publication.
@@ -97,12 +97,24 @@ func TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument(t *
     len(first.Diagnostics) != 1 {
     t.Fatalf("first project publication = %#v", first)
   }
+  var finding struct {
+    Code string `json:"code"`
+    Source string `json:"source"`
+    Message string `json:"message"`
+  }
+  if err := json.Unmarshal(first.Diagnostics[0], &finding); err != nil {
+    t.Fatalf("decode project finding: %v", err)
+  }
+  if finding.Code != "demo/external" || finding.Source != "@ttsc/lint" ||
+    finding.Message != "external input changed" {
+    t.Fatalf("unexpected first project finding: %#v", finding)
+  }
 
   sendWatchedFileChangeOfType(t, h, externalURI, 1)
   sendWatchedFileChangeOfType(t, h, externalURI, 3)
   cleared := decodeProjectPublication(t, h.recvEditor())
   if cleared.URI != "file:///project/tsconfig.json" ||
-    len(cleared.Diagnostics) != 0 {
+    cleared.Diagnostics == nil || len(cleared.Diagnostics) != 0 {
     t.Fatalf("clearing project publication = %#v", cleared)
   }
 
