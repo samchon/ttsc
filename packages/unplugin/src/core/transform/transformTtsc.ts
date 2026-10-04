@@ -24,8 +24,6 @@ import { withdrawGenerationNotifications } from "./cache/withdrawGenerationNotif
 import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
 import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
-import { envelopeDerivation } from "./envelope/envelopeDerivation";
-import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
 import { transformProject } from "./generation/transformProject";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
@@ -41,6 +39,7 @@ import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
+import { notifyVolatileDelivery } from "./watch/notifyVolatileDelivery";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
 
 /**
@@ -368,11 +367,7 @@ export async function transformTtsc(
     }
     notifyWatchInputs(hooks, cached, file, watchSelection);
     markCachedSourceServed(cached, file);
-    if (
-      isVolatileFile(envelopeDerivation(cached), { file, projectRoot, result })
-    ) {
-      hooks?.markVolatile?.();
-    }
+    notifyVolatileDelivery(hooks, cached, file);
     return createTransformResult(file, source, output);
   }
 }
