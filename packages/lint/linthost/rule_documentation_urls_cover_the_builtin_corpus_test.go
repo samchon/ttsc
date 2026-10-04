@@ -8,7 +8,7 @@ import (
 // TestRuleDocumentationURLsCoverTheBuiltinCorpus verifies every registered
 // built-in rule derives a well-formed documentation URL, or none at all.
 //
-// The derivation is a handful of per-family string rules over ~743 names, so a
+// The derivation is a handful of per-family string rules over the live registered names, so a
 // single-rule spot check proves almost nothing: a family whose prefix is not
 // handled silently yields no link, and a bad anchor transform breaks the
 // supported URL shape. Sweeping the whole registry detects those derivation
@@ -23,8 +23,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification ruleDocumentationURL derives the exact authored core, Unicorn, TypeScript and website-family URL forms for every active built-in registration, while format rules deliberately return no URL; both mapped and unmapped populations must be nonempty.
 // @evidence contracts/testing.md#independent-expectations The supported diagnostic documentation-link contract supplies literal base URLs, upstream suffix rules and website anchor grammar. Expectations do not read the product URL constants; anchor normalization mirrors the specified grammar and does not independently prove remote page existence.
-// @evidence contracts/testing.md#distinguishing-cases Owns complete live built-in family routing, the deliberate format absence, uppercase and slash normalization across the corpus, and nondegenerate mapped/unmapped populations. Contributor and retired-name provenance cases are owned separately.
-// @evidence contracts/testing.md#execution-ownership TestRuleDocumentationURLsCoverTheBuiltinCorpus calls the actual URL resolver over runtime registrations in one Go unit process. It checks emitted diagnostic metadata, not committed documentation, manifest or file existence, and starts no product host.
+// @evidence contracts/testing.md#distinguishing-cases Owns live built-in family routing, deliberate format absence, authored lowercase/slash-free anchor expectations for that population, and nondegenerate mapped/unmapped counts. It does not add an uppercase control or contributor/retired-name provenance case.
+// @evidence contracts/testing.md#execution-ownership TestRuleDocumentationURLsCoverTheBuiltinCorpus calls the actual URL resolver over runtime registrations in one Go unit process. It compares resolver return strings directly, without rendering diagnostic metadata or checking documentation, manifest or file existence, and starts no product host.
 func TestRuleDocumentationURLsCoverTheBuiltinCorpus(t *testing.T) {
   upstreamBases := map[string]string{
     "unicorn":    "https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/",
