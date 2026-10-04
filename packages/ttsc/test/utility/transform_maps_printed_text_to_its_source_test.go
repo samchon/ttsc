@@ -33,6 +33,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Plain and hashbang inputs differ in where the preamble starts, and the unchanged file carries no map.
 // @evidence contracts/testing.md#execution-ownership TestUtilityTransformMapsPrintedTextToItsSource is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformMapsPrintedTextToItsSource(t *testing.T) {
+  t.Cleanup(resetLinkedPluginRegistry)
   const source = "export const value = 1;\n"
   for name, authored := range map[string]string{
     "plain":    source,

@@ -42,6 +42,7 @@ func (plugin scopedHostInputPlugin) SourcePreamble(ctx driver.PluginContext) (st
 // @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsCrossPluginHostInputHash is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsCrossPluginHostInputHash(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   root := t.TempDir()
   input := filepath.Join(root, "shared.config.cjs")
   driver.RegisterPlugin(scopedHostInputPlugin{input: input})

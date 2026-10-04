@@ -44,6 +44,7 @@ func (plugin invalidHostInputHashPlugin) SourcePreamble(ctx driver.PluginContext
 // @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsInvalidLinkedHostInputHashes is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsInvalidLinkedHostInputHashes(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   root := t.TempDir()
   input := filepath.Join(root, "banner.config.cjs")
   driver.RegisterPlugin(invalidHostInputHashPlugin{input: input})

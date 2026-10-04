@@ -22,8 +22,9 @@ func (plugin conflictingHostInputPlugin) SourcePreamble(ctx driver.PluginContext
   return "", nil
 }
 
-// TestUtilityTransformOmitsConflictingLinkedHostInputHashes verifies a native
-// plugin cannot authorize cache reuse after observing two states for one input.
+// TestUtilityTransformOmitsConflictingLinkedHostInputHashes verifies contradictory
+// linked-plugin reports are omitted from the transform envelope. The plugin
+// supplies reports; this test does not execute a native config race or cache reuse.
 //
 // Native config evaluation can race an editor write. The path must remain in
 // hostInputs for invalidation, while its contradictory hashes must be omitted
@@ -39,6 +40,7 @@ func (plugin conflictingHostInputPlugin) SourcePreamble(ctx driver.PluginContext
 // @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsConflictingLinkedHostInputHashes is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsConflictingLinkedHostInputHashes(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   root := t.TempDir()
   input := filepath.Join(root, "strip.config.cjs")
   driver.RegisterPlugin(conflictingHostInputPlugin{input: input})

@@ -45,6 +45,7 @@ func (sharedMutationPlugin) SourcePreamble(driver.PluginContext) (string, error)
 // @evidence contracts/testing.md#execution-ownership TestUtilityTransformAndBuildPathsShareSourceMutation is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformAndBuildPathsShareSourceMutation(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(sharedMutationPlugin{})
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -74,7 +75,7 @@ func TestUtilityTransformAndBuildPathsShareSourceMutation(t *testing.T) {
   if !ok {
     t.Fatalf("transform envelope missing cwd-relative key \"index.ts\": %#v", result.TypeScript)
   }
-  if !strings.Contains(ts, "__ttsc_injected_marker") {
+  if !strings.Contains(ts, "export const __ttsc_injected_marker = 7;") {
     t.Fatalf("source-to-source path dropped the injected mutation:\n%s", ts)
   }
   // The transform path is source-to-source: it must still be TypeScript-shaped
