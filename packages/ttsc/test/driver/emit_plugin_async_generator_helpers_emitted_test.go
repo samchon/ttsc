@@ -21,16 +21,14 @@ import (
 // helper must still be injected and the rewrite must land inside the lowered
 // body, neither suppressing the other.
 //
-// Note on generators: tsgo's es5 emit does not currently rewrite `function*`
-// into a `__generator` state machine (it leaves the generator syntax native),
-// so this test does not assert `__generator`; it pins the part of the
-// async/generator downlevel contract that tsgo actually implements today
-// (`__awaiter` injection) and that a plugin pass must not break.
+// The fixture contains no generator declaration, so this test does not certify
+// generator syntax lowering or a __generator state machine. It observes the
+// async helper definition and application alongside the plugin replacement.
 //
 // 1. Transform the fixture numeric literal to 42 and record visitor execution.
 // 2. Require the replacement and __awaiter lowering while rejecting the retained native async function.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformer with a numeric replacement and requires the visitor ran, output contains 42 and __awaiter(this, while native async function load is absent.
+// @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformer with a numeric replacement and requires the visitor ran, output contains 42, the __awaiter definition and __awaiter(this, while native async function load is absent.
 // @evidence contracts/testing.md#independent-expectations Literal replacement 42 and async helper/application spellings independently define the expected transformation; no other emitter supplies the expected result.
 // @evidence contracts/testing.md#distinguishing-cases Low-target async lowering must coexist with the plugin replacement; native async retention and missing helper application are rejected. This test makes no generator-state-machine claim.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit runs direct compiler and synthetic transformer APIs, captures output strings and closes its Program; generated JavaScript is inspected rather than executed.
@@ -98,6 +96,9 @@ func TestEmitWithPluginTransformerAsyncGeneratorHelpersEmitted(t *testing.T) {
   // Downlevel helper for async must be injected at a low target.
   if !strings.Contains(js, "__awaiter") {
     t.Fatalf("async function was not downleveled: __awaiter helper missing:\n%s", js)
+  }
+  if !strings.Contains(js, "var __awaiter") {
+    t.Fatalf("async helper was referenced without its emitted definition:\n%s", js)
   }
   // The async body must actually be threaded through the helper (not left as a
   // top-level native `async function` declaration).

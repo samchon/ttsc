@@ -60,7 +60,8 @@ func TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution(
       // expression `<syntheticFoo> + 41` and re-create the declaration node
       // around it via UpdateVariableDeclaration. The `foo` leaf is fresh-from-ec
       // and SetOriginal-linked back to the parse-tree initializer; the `+ 41`
-      // parent and the regenerated declaration are synthetic with no original.
+      // expression has no original, while the emit context's update hook links
+      // the regenerated declaration to its original declaration.
       if node.Kind == shimast.KindVariableDeclaration {
         decl := node.AsVariableDeclaration()
         if decl.Name() != nil && decl.Name().Kind == shimast.KindIdentifier && decl.Name().Text() == "a" {
