@@ -11,12 +11,10 @@ import (
 // TestDriverLoadProgramClampsCheckerPoolToOne Verifies forceSingleChecker
 // collapses a multi-checker pool request down to a single checker.
 //
-// Without SingleThreaded, TypeScript-Go uses its multi-checker pool. ttsc's transform and rewrite phases query types through
-// the one checker GetTypeChecker hands back, so a pool larger than one lets a
-// type whose declarations span files on different checkers resolve to `any`.
-// forceSingleChecker must therefore clamp `Checkers` back to 1 even when the
-// caller (or `--checkers N`) asked for more, while leaving `--singleThreaded`
-// untouched so that path still wins.
+// The driver selects a single checker for its transform/rewrite phases even
+// when the caller requests a larger pool. A separate SingleThreaded request
+// remains intact. This case inspects those option policies; it does not query
+// cross-file types or certify the behavior of a multi-checker pool.
 //
 // 1. Load a multi-file project with LoadProgramOptions.Checkers set to 4.
 // 2. Assert the resolved CompilerOptions.Checkers is clamped to exactly 1.
