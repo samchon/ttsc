@@ -11,9 +11,9 @@ import (
 // `fix: false` downgrades the rewrite to an opt-in editor suggestion.
 //
 // Upstream attaches the same edit as a suggestion instead of an autofix, so
-// `ttsc fix` must leave the source untouched while the LSP still offers the
-// replacement under the interpolated `Replace ... with ...` title. Losing
-// either half silently changes what `fix` rewrites.
+// this unit checks the finding's interpolated `Replace ... with ...` title
+// and verifies the fix applier leaves the source untouched. CLI and LSP
+// dispatch are not exercised here.
 //
 //  1. Configure `{unicorn: {suggest: "🦄", fix: false}}` and lint a literal.
 //  2. Assert the finding carries no autofix but exactly one suggestion with

@@ -45,6 +45,11 @@ func TestUnicornStringContentReportsEachTemplateQuasiAtExactRanges(t *testing.T)
     if len(finding.Fix) != 1 || finding.Fix[0].Text != "yes" {
       t.Fatalf("finding %d fix: want one quasi edit to \"yes\", got %+v", index, finding.Fix)
     }
+    wantEditStart := wantRanges[index][0] + 1
+    wantEditEnd := wantEditStart + len("no")
+    if finding.Fix[0].Pos != wantEditStart || finding.Fix[0].End != wantEditEnd {
+      t.Fatalf("finding %d edit must select its own quasi [%d,%d), got [%d,%d)", index, wantEditStart, wantEditEnd, finding.Fix[0].Pos, finding.Fix[0].End)
+    }
     if source[finding.Fix[0].Pos:finding.Fix[0].End] != "no" {
       t.Fatalf("finding %d fix must replace exactly the raw payload, got [%d,%d)=%q", index, finding.Fix[0].Pos, finding.Fix[0].End, source[finding.Fix[0].Pos:finding.Fix[0].End])
     }

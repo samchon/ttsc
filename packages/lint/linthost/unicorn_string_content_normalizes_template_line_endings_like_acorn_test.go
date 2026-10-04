@@ -1,6 +1,10 @@
 package linthost
 
-import "testing"
+import (
+  "encoding/json"
+  "os"
+  "testing"
+)
 
 // TestUnicornStringContentNormalizesTemplateLineEndingsLikeAcorn verifies
 // template quasis match and rewrite against LF-normalized raw text.
@@ -63,10 +67,21 @@ func TestUnicornStringContentNormalizesTemplateLineEndingsLikeAcorn(t *testing.T
 
   // A CRLF template that matches nothing must keep its original bytes: the
   // normalization is a matching model, not a whole-file rewrite.
-  assertRuleSkipsSourceWithOptions(
-    t,
-    "unicorn/string-content",
-    "const a = `keep\r\nkeep`;\r\n",
-    `{"patterns":{"zz":"yy"}}`,
-  )
+  source := "const a = `keep\r\nkeep`;\r\n"
+  options := `{"patterns":{"zz":"yy"}}`
+  root, filePath, findings := runRuleFindingsSnapshot(t, "unicorn/string-content", source, json.RawMessage(options))
+  if len(findings) != 0 {
+    t.Fatalf("non-matching template must stay silent, got %+v", findings)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil || fixed != 0 {
+    t.Fatalf("non-matching template must not be fixed: count=%d, err=%v", fixed, err)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("ReadFile: %v", err)
+  }
+  if string(got) != source {
+    t.Fatalf("non-matching CRLF template bytes changed: want %q, got %q", source, string(got))
+  }
 }
