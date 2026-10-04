@@ -5,9 +5,9 @@ import "testing"
 // TestSolidValidateJSXNesting verifies solid validate-jsx-nesting: rejects
 // HTML-illegal JSX nestings.
 //
-// The HTML parser restructures forbidden nestings at runtime, so the rendered
-// DOM no longer matches the JSX tree the component produced. The fixture
-// stacks one violation per container family — `<p>` with a `<div>` child,
+// The fixture checks authored JSX patterns that violate HTML content models;
+// it does not run an HTML parser or observe a rendered DOM. It stacks one
+// violation per container family — `<p>` with a `<div>` child,
 // `<a>` inside `<a>`, and `<button>` wrapping an `<input>` — so each finding
 // lands on its own line for stable assertions.
 //
