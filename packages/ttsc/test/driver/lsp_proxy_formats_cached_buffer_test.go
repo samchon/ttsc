@@ -69,6 +69,10 @@ func TestLSPProxyFormatsCachedBuffer(t *testing.T) {
   if len(resp.Result) != 1 || resp.Result[0].NewText != "const formatted = 1;\n" {
     t.Fatalf("unexpected formatting TextEdits: %#v", resp.Result)
   }
+  if resp.Result[0].Range.Start.Line != 0 || resp.Result[0].Range.Start.Character != 0 ||
+    resp.Result[0].Range.End.Line != 0 || resp.Result[0].Range.End.Character != 5 {
+    t.Fatalf("formatting edit range differs from the authored edit: %#v", resp.Result)
+  }
   if gotContent != "const dirty=2" {
     t.Fatalf("source did not receive cached dirty buffer text, got %q", gotContent)
   }
@@ -198,7 +202,7 @@ func TestLSPProxyFormatsDirtyBufferOverPopulatedDisk(t *testing.T) {
 
 // TestLSPProxyFormattingNoOpReturnsEmptyArray Verifies a nil WorkspaceEdit (the
 // formatter produced no changes) yields an empty, non-nil TextEdit array so the
-// editor save is never broken.
+// response is not null or an error. Actual editor-save effects are not run.
 //
 // 1. Open a buffer with an owned formatter returning no edit.
 // 2. Require the exact id-3 response with an empty result array.
