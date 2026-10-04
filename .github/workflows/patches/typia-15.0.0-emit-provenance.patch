@@ -1,0 +1,70 @@
+--- a/native/cmd/ttsc-typia/build.go
++++ b/native/cmd/ttsc-typia/build.go
+@@ -19,7 +19,7 @@
+   nativetransform "github.com/samchon/typia/packages/typia/native/transform"
+ )
+ 
+-func runBuild(args []string) int {
++func runBuild(args []string) (code int) {
+   fs := flag.NewFlagSet("build", flag.ContinueOnError)
+   fs.SetOutput(stderr)
+   tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
+@@ -30,9 +30,14 @@
+   noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
+   outDir := fs.String("outDir", "", "override compilerOptions.outDir")
+   manifestPath := fs.String("manifest", "", "write emitted file list as JSON")
++  provenancePath := fs.String("emit-provenance-json", "", "write successful JavaScript output ownership as JSON")
+   rewriteMode := fs.String("rewrite-mode", "typia", "native rewrite backend id")
+   pluginsJSON := fs.String("plugins-json", "", "ordered ttsc plugin payload")
+   if err := fs.Parse(args); err != nil {
++    return 2
++  }
++  if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
++    fmt.Fprintln(stderr, "emit provenance destination must be an absolute path")
+     return 2
+   }
+   if *emit && *noEmit {
+@@ -109,6 +114,24 @@
+     }
+   }
+   defer prog.Close()
++  // Wrap the actual committing writer, not the buffered transform output.
++  commitOutput := shimcompiler.WriteFile(func(name, text string, _ *shimcompiler.WriteFileData) error {
++    return driver.DefaultWriteFile(name, text)
++  })
++  if *provenancePath != "" {
++    recorded, snapshot, err := prog.NewEmitProvenanceRecorder(commitOutput)
++    if err != nil {
++      fmt.Fprintf(stderr, "emit provenance recorder: %v\n", err)
++      return 3
++    }
++    commitOutput = recorded
++    defer func() {
++      if err := driver.WriteEmitProvenanceJSON(*provenancePath, snapshot()); err != nil {
++        fmt.Fprintf(stderr, "emit provenance publication: %v\n", err)
++        if code == 0 { code = 3 }
++      }
++    }()
++  }
+   registerTypiaDefaultLibraryClassifier(prog)
+   defer schemametadata.MetadataDefaultLibrary_release(prog.Checker)
+ 
+@@ -156,7 +179,7 @@
+   }
+   if shouldEmit {
+     for _, output := range pending {
+-      if err := driver.DefaultWriteFile(output.FileName, output.Text); err != nil {
++      if err := commitOutput(output.FileName, output.Text, nil); err != nil {
+         fmt.Fprintf(stderr, "ttsc-typia build: emit write failed: %v\n", err)
+         return 3
+       }
+--- a/lib/transform.js
++++ b/lib/transform.js
+@@ -14,6 +14,7 @@
+     const root = node_path_1.default.dirname(requireFrom.resolve("typia/package.json"));
+     return {
+         name: "typia",
++        capabilities: { emitProvenance: true },
+         source: node_path_1.default.resolve(root, "native", "cmd", "ttsc-typia"),
+     };
+ }
