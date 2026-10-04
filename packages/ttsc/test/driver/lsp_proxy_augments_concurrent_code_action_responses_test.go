@@ -72,5 +72,14 @@ func TestLSPProxyAugmentsConcurrentCodeActionResponses(t *testing.T) {
     if !strings.Contains(string(env.Result[0]), expect[env.ID]) {
       t.Fatalf("response id=%d expected tagged %q, got %s", env.ID, expect[env.ID], env.Result[0])
     }
+    var action struct {
+      Title string `json:"title"`
+    }
+    if err := json.Unmarshal(env.Result[0], &action); err != nil {
+      t.Fatalf("response id=%d action is not JSON: %v", env.ID, err)
+    }
+    if action.Title != expect[env.ID] {
+      t.Fatalf("response id=%d expected exact title %q, got %q", env.ID, expect[env.ID], action.Title)
+    }
   }
 }
