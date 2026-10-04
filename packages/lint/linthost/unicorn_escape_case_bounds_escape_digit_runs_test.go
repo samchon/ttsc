@@ -5,7 +5,7 @@ import "testing"
 // TestUnicornEscapeCaseBoundsEscapeDigitRuns verifies an escape's hex digits
 // stop at the escape boundary.
 //
-// Upstream matches `x[\dA-Fa-f]{2}|u[\dA-Fa-f]{4}|u{[\dA-Fa-f]+}`: a `\x`
+// JavaScript numeric escape grammar bounds the digit run: a `\x`
 // escape is exactly two hex digits and a `\u` escape exactly four, so the
 // literal characters behind an escape are not part of it. The Go port used
 // unbounded `*` quantifiers, which let a match run past the escape and absorb

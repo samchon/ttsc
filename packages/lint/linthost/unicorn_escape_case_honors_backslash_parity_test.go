@@ -9,9 +9,9 @@ import (
 // TestUnicornEscapeCaseHonorsBackslashParity verifies only an escape opened
 // by an active backslash reports.
 //
-// Upstream anchors its match on a lookbehind RE2 cannot express,
-// `(?<=(?:^|[^\\])(?:\\\\)*\\)`: the escape counts only when its backslash
-// follows an even-length backslash run. The Go port used to match the bare
+// JavaScript pairs escaped backslashes: only the final backslash of an odd
+// total run remains active. The owning byte scanner counts that total run
+// rather than matching a raw escape-looking substring. The Go port used to match the bare
 // `\xa9` text, so `"\\xa9"` — an escaped backslash followed by the literal
 // characters `xa9` — falsely reported (issue #574). Every odd run is a
 // positive and its even twin one backslash away is a negative, in both a
