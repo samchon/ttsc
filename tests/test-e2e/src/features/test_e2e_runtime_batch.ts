@@ -18,6 +18,8 @@ import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
  * 2. Compare its one actual JSON payload against all original literal rows.
  * 3. Require source/config preservation and absent adjacent JavaScript output.
  *
+ * The two configured dependency families have incompatible compiler modes: one ESNext/Bundler owner supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one aggregate fallback importing both same-basename modules. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
+ *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call would throw if the actual strip transform were missing.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph.
@@ -66,6 +68,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     dynamic: { actual: [17, 17], computed: 42, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
     collision: "project:package",
     lowering: "42:OK:7",
+  });
+  assert.deepEqual((payload as { configuredOwners: unknown }).configuredOwners, {
+    esnext: ["hello-workspace", "configured-esnext"], legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
   });
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
   assert.ok(Array.isArray(nativeFrames));

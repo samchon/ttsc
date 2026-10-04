@@ -1,0 +1,1 @@
+let count = 0; function probe(...args: any[]): void { count = args.length; } class A { @probe method(): void {} } export const observed = "dep-a:" + count; export const argumentsObserved = count; export const instance = new A();

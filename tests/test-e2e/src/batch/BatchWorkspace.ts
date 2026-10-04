@@ -142,6 +142,8 @@ export namespace BatchWorkspace {
         ["batch-commonjs-lowering", "lowering"],
       ])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/export-population", directory!), path.join(modules, name!), "junction");
+      for (const [name, mode] of [["batch-configured-esnext", "esnext"], ["batch-configured-legacy", "legacy"]])
+        fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });

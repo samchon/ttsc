@@ -1,3 +1,4 @@
+import { observeConfiguredOwners } from "./runtime-corpus/configured-owners.mjs";
 import { observeExportPopulation } from "./runtime-corpus/export-population/observe.mjs";
 import adapterEntries from "../adapter-entries.json" with { type: "json" };
 import { sourceLocations } from "./source-locations.js";
@@ -40,10 +41,11 @@ const mixedRuntime = {
   optionalChainPreserved: proposal.optionalChainPreserved,
 };
 const exportPopulation = await observeExportPopulation();
+const configuredOwners = await observeConfiguredOwners();
 const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),
