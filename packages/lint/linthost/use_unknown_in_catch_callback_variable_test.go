@@ -5,12 +5,12 @@ import (
   "testing"
 )
 
-// TestRuleCorpusUseUnknownInCatchCallbackVariable verifies the lint rule
-// corpus fixture use-unknown-in-catch-callback-variable.ts under a real
-// Program.
+// TestRuleCorpusUseUnknownInCatchCallbackVariable verifies an authored Promise
+// catch trigger for typescript/use-unknown-in-catch-callback-variable under a
+// real Program.
 //
-// The rule is type-aware: it confirms the receiver of `.catch` is actually a
-// Promise via `ctx.Checker.GetTypeAtLocation`. A parser-only engine run skips it,
+// The rule is type-aware: it admits this receiver through the supported
+// Promise/thenable type check after `GetTypeAtLocation`. A parser-only run skips it,
 // so this test reuses the `command_*` shape: seed a tsconfig project, run `ttsc
 // lint check`, and assert on the rendered diagnostics.
 //
