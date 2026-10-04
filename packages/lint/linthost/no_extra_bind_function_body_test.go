@@ -18,7 +18,7 @@ import (
 //
 // 1. Exercise direct, zero, partial, spread, dynamic, and non-bind call shapes.
 // 2. Place `this` across function, method, computed-key, and class-owned scopes.
-// 3. Assert only the truly unnecessary regular-function binds are reported.
+// 3. Assert the authored unnecessary function and arrow binds are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares the complete authored diagnostic-line matrix and exact rule/severity for argument shape and lexical this ownership.
 // @evidence contracts/testing.md#independent-expectations Fixed diagnostic comments identify unnecessary receiver binding; expected line numbers come only from authored source markers, not the rule traversal.
