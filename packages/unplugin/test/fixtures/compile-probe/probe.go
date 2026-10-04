@@ -76,13 +76,13 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
   }, nil
 }
 
-func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) error {
+func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext) error {
   runLog, ok := context.Entry.Config["runLog"].(string)
   if !ok || runLog == "" {
     // Ordered entries observe the same Program without adding compile ticks.
     operation, _ := context.Entry.Config["operation"].(string)
     if operation == "prefix" || operation == "upper" || operation == "suffix" || operation == "identity" {
-      return appendContextReceipt(context)
+      return appendContextReceipt(program, context)
     }
     return fmt.Errorf("real-envelope compile probe requires a runLog string")
   }
@@ -119,15 +119,17 @@ func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) erro
       }
     }
   }
-  return appendContextReceipt(context)
+  return appendContextReceipt(program, context)
 }
 
 // appendContextReceipt records an actually invoked entry's supplied config.
-// Both optional absolute destinations belong to the E2E coordinator. The
+// Optional absolute destinations belong to the E2E coordinator. The
 // records preserve the existing context schema and keep raw config-path anchors
-// separate. Neither receipt proves source rewriting, emit or project-root identity;
+// separate. A paths receipt reads the actual loaded Program options only when
+// requested; it does not reparse the config or infer successful alias resolution.
+// No receipt proves source rewriting, emit or project-root identity, and
 // absent/empty destination config performs no IO.
-func appendContextReceipt(context driver.PluginContext) error {
+func appendContextReceipt(program *driver.Program, context driver.PluginContext) error {
   records := []struct {
     option string
     value any
@@ -162,6 +164,7 @@ func appendContextReceipt(context driver.PluginContext) error {
         Tsconfig: context.Tsconfig,
       },
     },
+    { option: "pathsReceipt" },
   }
   for _, record := range records {
     configured, present := context.Entry.Config[record.option]
@@ -178,11 +181,35 @@ func appendContextReceipt(context driver.PluginContext) error {
     if !filepath.IsAbs(receipt) {
       return fmt.Errorf("%s must be an absolute path string", record.option)
     }
+    value := record.value
+    if record.option == "pathsReceipt" {
+      if program == nil || program.TSProgram == nil {
+        return fmt.Errorf("pathsReceipt requires the actual loaded Program")
+      }
+      options := program.TSProgram.Options()
+      if options == nil {
+        return fmt.Errorf("pathsReceipt requires actual compiler options")
+      }
+      var paths map[string][]string
+      if options.Paths != nil {
+        paths = make(map[string][]string)
+        for pattern, targets := range options.Paths.Entries() {
+          paths[pattern] = targets
+        }
+      }
+      value = struct {
+        Name string `json:"name"`
+        Paths map[string][]string `json:"paths"`
+      }{
+        Name: context.Entry.Name,
+        Paths: paths,
+      }
+    }
     file, err := os.OpenFile(receipt, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
     if err != nil {
       return err
     }
-    if err := json.NewEncoder(file).Encode(record.value); err != nil {
+    if err := json.NewEncoder(file).Encode(value); err != nil {
       _ = file.Close()
       return err
     }
