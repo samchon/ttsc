@@ -52,3 +52,33 @@ export function nativeCompilerConnections(): void {
   ...windowsNames
 ]);
 }
+
+/**
+ * Selects only maintained native transport owners in the consolidated family.
+ * Legacy mixed selection remains above until actual unit/boundary survival.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact six original CLI/server names plus resident code2/direct publication and admitted Windows fingerprint parity select the same existing owning Go assertions; GoBoundary checks named run/terminal/status, not inferred coverage.
+ * @evidence contracts/common.md#clear-and-simple-design One exact-name Go invocation selects the necessary boundary subset; direct operation and rewrite contributors stay in their unit population.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No source, status, protocol response, producer image or Test result is synthesized. A skipped terminal remains no coverage.
+ * @evidence contracts/common.md#meaningful-documentation Names the boundary subset, remaining package preparation and retained legacy selection without claiming reduction.
+ * @evidence contracts/portability.md#os-neutral-implementation Existing Windows build-tag parity is admitted only on Windows; non-Windows logs unselected and gains no assertion pass. Native Go path and tool resolution stay with GoBoundary.
+ * @evidence contracts/performance.md#efficient-algorithms A finite exact-name list feeds one four-package invocation; selected body compilation, native builds and command lifetimes remain measured work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Fixed SDK/source/package compilation and package-owned suite producers can be reused under their existing owners; original cwd roots, separate native producer kinds and every terminating transport remain necessary distinct inputs. No once-per-suite build count is inferred.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This registry owns no process or file handle. GoBoundary and the original Go Tests retain their real output, native command join and cleanup ownership; return is not arbitrary descendant completion.
+ */
+export function nativeCompilerTransportConnections(): void {
+  const windowsNames = process.platform === "win32"
+    ? ["TestLauncherReloadDirectoryFingerprintMatchesGo"] : [];
+  if (windowsNames.length === 0)
+    console.log("Go boundary admission: TestLauncherReloadDirectoryFingerprintMatchesGo UNSELECTED (Windows-only source population)");
+  GoBoundary.run("ttsc", ["./test/cli", "./test/platform", "./test/ttscserver", "./internal/lspserver"], [
+    "TestCLIProcessCurrentDirectoryBuildSucceeds",
+    "TestCLIProcessUnknownCommandFails",
+    "TestPlatformProcessExitTransport",
+    "TestTtscserverProcessExitTransport",
+    "TestTtscserverCommandHandlesStdioShutdown",
+    "TestTtscserverCommandUsesProcessCwd",
+    "TestLSPProjectDiagnosticsResidentUnsupportedFallsBack",
+    ...windowsNames,
+  ]);
+}
