@@ -28,19 +28,74 @@ export namespace OwnedProjectSource {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type owns no runtime resources.
    */
   export interface Dependencies<Build, Served> {
-    /** Find the config that owns the requested physical source, or no owner. */
+    /**
+     * Find the config that owns the requested physical source, or no owner.
+     *
+     * @evidence contracts/common.md#principled-implementation The nullable config result distinguishes an owning project from absence for the exact supplied physical source.
+     * @evidence contracts/common.md#clear-and-simple-design One source argument and one nullable config result describe the runtime lookup boundary.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature requires the actual lookup result rather than inventing ownership from a basename.
+     * @evidence contracts/common.md#meaningful-documentation Native prose identifies the physical source and no-owner result.
+     * @evidence contracts/portability.md#os-neutral-implementation The source and config strings carry native path values from the runtime owner without URL conversion or lexical case assumptions.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms This method signature has no implementation; the runtime lookup owns its search cost.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature defines no lookup cache or validity policy.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource and establishes no retained lookup lifetime.
+     */
     owningTsconfig(real: string): string | null;
 
-    /** Build the owning project through its existing policy. */
+    /**
+     * Build the owning project through its existing policy.
+     *
+     * @evidence contracts/common.md#principled-implementation The selected config determines the generic build returned by the runtime owner; exceptions remain available to the coordinator.
+     * @evidence contracts/common.md#clear-and-simple-design One config selects one build operation without another compiler result representation.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The returned build is supplied by the actual runtime dependency rather than synthesized here.
+     * @evidence contracts/common.md#meaningful-documentation Native prose identifies the owning project build policy.
+     * @evidence contracts/portability.md#os-neutral-implementation The config remains a native runtime path; executable selection and filesystem differences belong to the supplied build owner.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms The signature performs no compilation or source traversal.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work Runtime build caching and input validity are not defined by this signature.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Build resources and their transfer or release remain with the runtime implementation.
+     */
     ensureProjectBuilt(tsconfig: string): Build;
 
-    /** Recognize only the runtime's empty-project emit error. */
+    /**
+     * Recognize only the runtime's empty-project emit error.
+     *
+     * @evidence contracts/common.md#principled-implementation A boolean classification of the actual thrown value identifies the one recoverable project-build error.
+     * @evidence contracts/common.md#clear-and-simple-design A separate predicate keeps error classification with the runtime owner.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The unknown value is passed intact; the coordinator does not guess recovery from unrelated error text.
+     * @evidence contracts/common.md#meaningful-documentation Native prose limits recognition to the empty-project emit error.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation This signature describes error classification without a native path or process representation.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms No classifier implementation or scanning algorithm is declared here.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature coordinates no reusable classification work.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature retains no error history or resource.
+     */
     isEmptyProjectEmitError(error: unknown): boolean;
 
-    /** Serve the exact requested source from this build's ownership index. */
+    /**
+     * Serve the exact requested source from this build's ownership index.
+     *
+     * @evidence contracts/common.md#principled-implementation Build identity and the requested physical source determine a served value or null ownership, while read failures can still throw.
+     * @evidence contracts/common.md#clear-and-simple-design The build/source pair and nullable value distinguish ownership from output-read failure.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature does not infer emitted output from a sibling filename or fabricate compiler output.
+     * @evidence contracts/common.md#meaningful-documentation Native prose identifies exact-source serving; the enclosing contract distinguishes null from unreadable owned output.
+     * @evidence contracts/portability.md#os-neutral-implementation The physical source passes unchanged to the runtime ownership index and output reader, which own native identity differences.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms This signature performs no index lookup or output read.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work It defines no served-output cache or reuse validity policy.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature does not acquire or retain build generations or output handles.
+     */
     serve(built: Build, real: string): Served | null;
 
-    /** Build this exact source through the owning project's root policy. */
+    /**
+     * Build this exact source through the owning project's root policy.
+     *
+     * @evidence contracts/common.md#principled-implementation The owning config and exact source select the runtime's source-specific root build without changing their identities.
+     * @evidence contracts/common.md#clear-and-simple-design Two explicit path inputs expose the root-build responsibility separately from whole-project building.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The runtime dependency supplies the actual build; this signature introduces no alternate compiler or test-only result.
+     * @evidence contracts/common.md#meaningful-documentation Native prose identifies the exact source and owning project's root policy.
+     * @evidence contracts/portability.md#os-neutral-implementation Both inputs retain native path spelling; platform-specific compilation and output placement remain with the runtime owner.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms The signature implements no source selection or compilation algorithm.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work It introduces no root-build cache or cross-request validity decision.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The runtime build implementation owns acquisition, transfer and release; no lifetime is implemented here.
+     */
     ensureRootBuilt(tsconfig: string, real: string): Build;
   }
 

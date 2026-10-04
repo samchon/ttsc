@@ -5,10 +5,10 @@ import type { ITtscCompilerTransformation } from "../structures/ITtscCompilerTra
 import type { TtscBuildResult } from "../structures/internal/TtscBuildResult";
 import { serializeCompilerError } from "./serializeCompilerError";
 /** The compile producer's actual output and build outcome, before API adaptation.
- * @evidence contracts/common.md#principled-implementation This input retains output and build outcome as separate producer-owned values.
- * @evidence contracts/common.md#clear-and-simple-design Two named fields carry the existing compile adapter boundary without a second output representation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The type does not supply native output or certify an authored record as a compiler product.
- * @evidence contracts/common.md#meaningful-documentation The native sentence distinguishes the producer boundary from API result adaptation.
+ * Common: Principled implementation: This input retains output and build outcome as separate producer-owned values.
+ * Common: Clear and simple design: Two named fields carry the existing compile adapter boundary without a second output representation.
+ * Common: Prohibited implementation shortcuts: The type does not supply native output or certify an authored record as a compiler product.
+ * Common: Meaningful documentation: The native sentence distinguishes the producer boundary from API result adaptation.
  */
 interface ProjectResult {
   output: Record<string, string>;
@@ -16,10 +16,10 @@ interface ProjectResult {
 }
 
 /** The transform producer's source records and optional advisory observations.
- * @evidence contracts/common.md#principled-implementation Optional fields retain the producer's absent-versus-present observations independently of build status.
- * @evidence contracts/common.md#clear-and-simple-design One input shape carries source, build and advisory values to the same result adapter.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation does not invent host reads, graph membership or compiler completeness.
- * @evidence contracts/common.md#meaningful-documentation The native sentence identifies the actual producer-owned fields and optionality.
+ * Common: Principled implementation: Optional fields retain the producer's absent-versus-present observations independently of build status.
+ * Common: Clear and simple design: One input shape carries source, build and advisory values to the same result adapter.
+ * Common: Prohibited implementation shortcuts: The representation does not invent host reads, graph membership or compiler completeness.
+ * Common: Meaningful documentation: The native sentence identifies the actual producer-owned fields and optionality.
  */
 interface ProjectTransformation {
   dependencies?: Record<string, string[]>;
@@ -160,14 +160,14 @@ export function classifyException(error: unknown): "plugin" | "host" | "unknown"
 }
 
 /** Adapt a compile producer outcome, preserving its output record reference.
- * @evidence contracts/common.md#principled-implementation Status zero without error diagnostics succeeds; every other result fails and an empty diagnostic list receives the original process diagnostic.
- * @evidence contracts/common.md#clear-and-simple-design One status/diagnostic guard constructs success or failure while preserving output identity.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Warning diagnostics are not converted to errors and nonzero process outcomes are not promoted to success.
- * @evidence contracts/common.md#meaningful-documentation The native sentence identifies output-reference preservation rather than copied or certified output.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This is result-data policy; the process diagnostic owner formats already reported outcome values.
- * @evidence contracts/performance.md#efficient-algorithms Diagnostic classification scans until an error; otherwise a fixed envelope retains output/diagnostic references, with delegated process-diagnostic text work on empty failures.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work No producer or previous result is reused by this adapter.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output/diagnostic references transfer through the return value and no independent cache or resource is acquired.
+ * Common: Principled implementation: Status zero without error diagnostics succeeds; every other result fails and an empty diagnostic list receives the original process diagnostic.
+ * Common: Clear and simple design: One status/diagnostic guard constructs success or failure while preserving output identity.
+ * Common: Prohibited implementation shortcuts: Warning diagnostics are not converted to errors and nonzero process outcomes are not promoted to success.
+ * Common: Meaningful documentation: The native sentence identifies output-reference preservation rather than copied or certified output.
+ * Applicability: Native platform boundary: This is result-data policy; the process diagnostic owner formats already reported outcome values.
+ * Performance: Computation cost: Diagnostic classification scans until an error; otherwise a fixed envelope retains output/diagnostic references, with delegated process-diagnostic text work on empty failures.
+ * Applicability: Work reuse: No producer or previous result is reused by this adapter.
+ * Applicability: Resource ownership: Output/diagnostic references transfer through the return value and no independent cache or resource is acquired.
  */
 function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
   const { output, result } = project;
@@ -253,14 +253,14 @@ export function toCompilerTransformation(
 }
 
 /** Report whether the supplied diagnostics contain an error category.
- * @evidence contracts/common.md#principled-implementation Only the literal error category changes this outcome; other diagnostic categories remain advisory.
- * @evidence contracts/common.md#clear-and-simple-design A short-circuiting predicate expresses the existing success guard directly.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Status and message text are not guessed as substitutes for diagnostic category.
- * @evidence contracts/common.md#meaningful-documentation The native sentence identifies the supplied diagnostic population and category decision.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Category comparison accesses no native platform boundary.
- * @evidence contracts/performance.md#efficient-algorithms The scan visits at most the supplied diagnostic count and stops at the first error.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate coordinates no cached or in-flight result.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A boolean is returned without retaining diagnostic history or acquiring a resource.
+ * Common: Principled implementation: Only the literal error category changes this outcome; other diagnostic categories remain advisory.
+ * Common: Clear and simple design: A short-circuiting predicate expresses the existing success guard directly.
+ * Common: Prohibited implementation shortcuts: Status and message text are not guessed as substitutes for diagnostic category.
+ * Common: Meaningful documentation: The native sentence identifies the supplied diagnostic population and category decision.
+ * Applicability: Native platform boundary: Category comparison accesses no native platform boundary.
+ * Performance: Computation cost: The scan visits at most the supplied diagnostic count and stops at the first error.
+ * Applicability: Work reuse: This predicate coordinates no cached or in-flight result.
+ * Applicability: Resource ownership: A boolean is returned without retaining diagnostic history or acquiring a resource.
  */
 function hasErrorDiagnostics(
   diagnostics: readonly ITtscCompilerDiagnostic[],
