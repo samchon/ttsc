@@ -14,9 +14,8 @@ import (
 //
 // FrameReader.Read returns the header block and body separately so the
 // proxy can preserve vendor headers; this test pins both surfaces in one
-// place. The trailing clean-EOF assertion confirms that streams terminate
-// with ErrFrameClosed instead of a generic io.EOF, which is how the
-// proxy goroutines decide they can shut down without raising an alarm.
+// place. The trailing clean-EOF assertion checks ErrFrameClosed for this
+// finite byte stream, without executing proxy goroutine shutdown.
 //
 // 1. Concatenate two well-formed frames with extra Content-Type headers.
 // 2. Drain the stream until ErrFrameClosed.
@@ -24,9 +23,9 @@ import (
 //    contains its Content-Type and Content-Length lines, and the third read
 //    reports ErrFrameClosed.
 //
-// @evidence contracts/testing.md#behavioral-verification FrameReader.Read returns two literal bodies, retains the first vendor and length headers, then reports ErrFrameClosed.
+// @evidence contracts/testing.md#behavioral-verification FrameReader.Read returns two literal bodies, retains the exact first header block including vendor value, then reports ErrFrameClosed.
 // @evidence contracts/testing.md#independent-expectations Authored Content-Length-framed bytes establish both body contents and the clean end-of-stream expectation without using WriteFrame to generate the oracle.
-// @evidence contracts/testing.md#distinguishing-cases Two consecutive frames, a vendor header and terminal clean EOF distinguish consumption, preservation and shutdown.
+// @evidence contracts/testing.md#distinguishing-cases Two consecutive frames, a vendor header and terminal clean EOF distinguish consumption, byte preservation and end-of-stream classification.
 // @evidence contracts/testing.md#execution-ownership The Go test/driver framing unit reads a bytes.Reader directly without starting a product transport.
 func TestLSPFrameReaderReadsWellFormedFrames(t *testing.T) {
   first := []byte("Content-Length: 7\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{\"a\":1}")
@@ -45,6 +44,9 @@ func TestLSPFrameReaderReadsWellFormedFrames(t *testing.T) {
   }
   if !strings.Contains(headers, "Content-Length: 7") {
     t.Fatalf("first headers lost length: %q", headers)
+  }
+  if headers != "Content-Length: 7\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n" {
+    t.Fatalf("first header block mismatch: %q", headers)
   }
 
   _, body, err = fr.Read()

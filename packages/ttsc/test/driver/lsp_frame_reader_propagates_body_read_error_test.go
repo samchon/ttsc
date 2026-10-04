@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification FrameReader.Read wraps io.ErrUnexpectedEOF for a truncated body.
 // @evidence contracts/testing.md#independent-expectations Advertised fifty bytes exceed the authored four-byte payload.
 // @evidence contracts/testing.md#distinguishing-cases Complete header with incomplete body differs from header truncation.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPFrameReaderPropagatesBodyReadError is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver reads authored framing bytes through a bytes.Reader and checks the wrapped read error, without filesystem inputs, shim operations or a product transport.
 func TestLSPFrameReaderPropagatesBodyReadError(t *testing.T) {
   frame := []byte("Content-Length: 50\r\n\r\nabcd")
   fr := driver.NewFrameReader(bytes.NewReader(frame))
