@@ -9,6 +9,11 @@ concurrency:
 jobs:
   nestia:
     runs-on: ubuntu-latest
+    env:
+      TTSC_GO_BINARY: go
+      TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc
+      GOCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-build
+      GOMODCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-mod
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -18,9 +23,10 @@ jobs:
         with:
           node-version: 24.x
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
@@ -37,22 +43,32 @@ jobs:
           --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/nestia
+      - name: Cache Compiler Artifacts
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/ttsc
+          key: ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*') }}
+          restore-keys: |
+            ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
       - run: node .github/workflows/scripts/nestia-source-admission.cjs admit experimental/nestia
       - run: pnpm build
         working-directory: experimental/nestia
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-      - run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
+      - run: pnpm evidence
+        working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+      - run: pnpm test:go
         working-directory: experimental/nestia
         env:
           GOWORK: ${{ github.workspace }}/experimental/nestia/go.work
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-      - run: go test -count=1 ./...
-        working-directory: experimental/nestia/packages/core/native
+      - run: pnpm test:unit
+        working-directory: experimental/nestia
         env:
-          GOWORK: ${{ github.workspace }}/experimental/nestia/go.work
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-      - run: pnpm --filter "./tests/test-*" --workspace-concurrency=1 --no-bail -r start
+      - run: pnpm test:e2e
         working-directory: experimental/nestia
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
