@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusStrictBooleanExpressions verifies the lint rule corpus
-// fixture typescript-strict-boolean-expressions.ts under a real Program.
+// TestRuleCorpusStrictBooleanExpressions verifies an authored typed trigger for the lint rule
+// typescript/strict-boolean-expressions under a real Program.
 //
 // `typescript/strict-boolean-expressions` is type-aware: a parser-only engine run
 // skips it because Context.Checker is nil. This Go scenario therefore reuses the

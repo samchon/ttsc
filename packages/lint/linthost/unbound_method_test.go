@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusUnboundMethod verifies the lint rule corpus fixture
-// unbound-method.ts under a real Program.
+// TestRuleCorpusUnboundMethod verifies an authored typed trigger for
+// typescript/unbound-method under a real Program.
 //
 // `typescript/unbound-method` is type-aware: a parser-only engine run skips it
 // because Context.Checker is nil. The rule reuses the `command_*` shape established
@@ -23,7 +23,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Extracting a receiver-dependent instance method must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/unbound-method rendered error at line 8, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
-// @evidence contracts/testing.md#distinguishing-cases Calling through the receiver retains binding.
+// @evidence contracts/testing.md#distinguishing-cases The independently authored direct receiver call stays clean, contrasting with the reported extraction; the test does not execute either method.
 // @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnboundMethod invokes the in-process check command and shared typed semantic oracles over real Program/Checker instances; fixture configuration feeds that operation without a native build, child compiler or installed consumer.
 func TestRuleCorpusUnboundMethod(t *testing.T) {
   root := seedLintProject(t, `class Greeter {
