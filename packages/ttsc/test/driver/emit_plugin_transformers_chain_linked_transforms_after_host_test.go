@@ -5,7 +5,9 @@ import (
   "strings"
   "testing"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -23,7 +25,7 @@ import (
 // 1. Register a linked EmitTransformPlugin (0 -> 100) with one manifest entry.
 // 2. Emit through EmitWithPluginTransformers with a host transform (100 -> 200).
 // 3. Assert the output stalls at `exports.a = 100;`, proving host-then-linked.
-// @evidence contracts/testing.md#behavioral-verification Runs actual host and linked numeric transforms through EmitWithPluginTransformers and requires stalled 100 while rejecting 200.
+// @evidence contracts/testing.md#behavioral-verification Runs actual host and linked numeric transforms through EmitWithPluginTransformers, requires one host invocation for the sole source, and requires stalled 100 while rejecting 200.
 // @evidence contracts/testing.md#independent-expectations Authored initial zero, host 100-to-200 and linked zero-to-100 imply literal 100 for host-first ordering.
 // @evidence contracts/testing.md#distinguishing-cases Two dependent transforms distinguish host-first from linked-first ordering; 200 is an explicit forbidden result.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit registers the actual in-process linked transform with test-scoped manifest and closes its private Program after captured emission; no plugin binary executes.
@@ -52,8 +54,13 @@ func TestEmitWithPluginTransformersChainLinkedTransformsAfterHost(t *testing.T) 
   if err != nil {
     t.Fatal(err)
   }
+  hostCalls := 0
+  observedHost := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
+    hostCalls++
+    return hostTransform(ec, sf)
+  }
   emitted := map[string]string{}
-  if _, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{hostTransform}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+  if _, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{observedHost}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     emitted[filepath.Base(fileName)] = text
     return nil
   }); err != nil {
@@ -61,6 +68,9 @@ func TestEmitWithPluginTransformersChainLinkedTransformsAfterHost(t *testing.T) 
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
+  if hostCalls != 1 {
+    t.Fatalf("expected one host transform invocation for index.ts, got %d", hostCalls)
+  }
 
   if !strings.Contains(js, "exports.a = 100;") {
     t.Fatalf("expected host-then-linked chaining to stall at 100:\n%s", js)

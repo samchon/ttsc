@@ -47,13 +47,11 @@ func rewriteStringLiterals(node *shimast.Node, from, to string) {
 // host emitting through EmitWithPluginTransformers with only its own
 // transform still runs linked ProgramPlugin hooks.
 //
-// Locks the regression where a third-party transform host (typia's
-// `ttsc-typia build`) passed its own PluginTransform to
-// EmitWithPluginTransformers and a linked plugin (@ttsc/paths) compiled into
-// the same binary registered via init() but its ApplyProgram never ran, so
-// tsconfig paths aliases survived into the emitted JavaScript. The linked
-// hooks must fire at the emit funnel itself, not only on the utility-host
-// code path that calls ApplyLinkedPlugins by hand.
+// Exercises the direct emit funnel used by a transform host: one registered
+// ProgramPlugin mutates source strings and the caller supplies its numeric
+// emit transform without calling ApplyLinkedPlugins by hand. The output must
+// retain both effects. This unit does not launch a third-party host or verify
+// compiled-in init registration and installed-package paths rewriting.
 //
 //  1. Register a linked ProgramPlugin that rewrites "linked-pending" into
 //     "linked-applied" and pair it with one manifest entry.
