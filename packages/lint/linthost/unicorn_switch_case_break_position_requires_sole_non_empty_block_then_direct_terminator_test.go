@@ -8,13 +8,13 @@ import (
 //
 // The supported structural predicate independently defines which literal clause shapes are candidates, without using the product matcher to generate expectations.
 //
-// 1. Execute the retained clause or command fixture through the owning Go operation.
+// 1. Execute each authored nonmatching clause through the actual parser and engine snapshot.
 // 2. Compare the authored report, edit or preserved-file result for each boundary.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution requires silence for all eight nonmatching shapes, detecting an overbroad placement matcher.
 // @evidence contracts/testing.md#independent-expectations The supported structural predicate independently defines which literal clause shapes are candidates, without using the product matcher to generate expectations.
-// @evidence contracts/testing.md#distinguishing-cases All retained empty/nonsole/nondirect and already-correct clause shapes remain clean; ReportsEverySupportedTerminatorAtExactRange owns direct matching counterparts.
-// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionRequiresSoleNonEmptyBlockThenDirectTerminator owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual engine/fix/command functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
+// @evidence contracts/testing.md#distinguishing-cases All authored empty/nonsole/nondirect and already-correct clause shapes remain clean; ReportsEverySupportedTerminatorAtExactRange owns direct matching counterparts.
+// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionRequiresSoleNonEmptyBlockThenDirectTerminator owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual parser and engine functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
 func TestUnicornSwitchCaseBreakPositionRequiresSoleNonEmptyBlockThenDirectTerminator(t *testing.T) {
   cases := []struct {
     name   string

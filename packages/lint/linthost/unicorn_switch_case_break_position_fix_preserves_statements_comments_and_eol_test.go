@@ -8,13 +8,13 @@ import (
 //
 // The literal expected sources preserve labeled statements, comments, indentation and line endings under the supported move policy; they are not produced by Go.
 //
-// 1. Execute the retained clause or command fixture through the owning Go operation.
+// 1. Execute each authored clause through the actual fix snapshot, parser and clean re-lint helpers.
 // 2. Compare the authored report, edit or preserved-file result for each boundary.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual fixer compares each named transformation with full authored output and retains its clean re-lint and parsing checks.
 // @evidence contracts/testing.md#independent-expectations The literal expected sources preserve labeled statements, comments, indentation and line endings under the supported move policy; they are not produced by Go.
 // @evidence contracts/testing.md#distinguishing-cases Named label/default/continue/comment/nested-control-flow/CRLF scenarios and the later-line-comment boundary retain their distinct outputs.
-// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionFixPreservesStatementsCommentsAndEOL owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual engine/fix/command functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionFixPreservesStatementsCommentsAndEOL owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual parser, engine and fix functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
 func TestUnicornSwitchCaseBreakPositionFixPreservesStatementsCommentsAndEOL(t *testing.T) {
   cases := []struct {
     name     string

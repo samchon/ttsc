@@ -9,13 +9,13 @@ import (
 //
 // The supported four-statement policy independently requires a report; return/throw expressions may bind differently after movement and remain diagnostic-only.
 //
-// 1. Execute the retained clause or command fixture through the owning Go operation.
+// 1. Execute the authored terminator clauses through the actual parser and engine snapshot.
 // 2. Compare the authored report, edit or preserved-file result for each boundary.
 //
 // @evidence contracts/testing.md#behavioral-verification The real engine checks break, continue, return and throw findings against authored ranges/messages and expected edit availability.
 // @evidence contracts/testing.md#independent-expectations The supported four-statement policy independently requires a report; return/throw expressions may bind differently after movement and remain diagnostic-only.
 // @evidence contracts/testing.md#distinguishing-cases Each supported terminator and retained label/clause shape keeps its exact range and fix expectation.
-// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionReportsEverySupportedTerminatorAtExactRange owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual engine/fix/command functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionReportsEverySupportedTerminatorAtExactRange owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual parser and engine functions run in the shared process with isolated fixture files. Finding edit availability is inspected without applying fixes, installation, native producer or command/product child host.
 func TestUnicornSwitchCaseBreakPositionReportsEverySupportedTerminatorAtExactRange(t *testing.T) {
   cases := []struct {
     name      string
