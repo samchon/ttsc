@@ -21,7 +21,7 @@ import (
 // of the erased syntax.
 //
 // 1. Transform the runtime sibling initializer to 99 in the type-only syntax fixture.
-// 2. Require the replacement and reject every authored erased type name and token.
+// 2. Require the replacement and reject the independently listed type names and tokens.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs actual sibling numeric transformation and requires exports.runtime = 99 while rejecting the complete authored type-only name/token table.
 // @evidence contracts/testing.md#independent-expectations Literal replacement 99 and independently listed type aliases/interface/constraint tokens specify required value output and erased type syntax.
@@ -74,7 +74,7 @@ func TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased(t *testing.T) {
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
 
-  // The only runtime statement should be the rewritten const; nothing else.
+  // Require the rewritten exported value beside any generated module scaffolding.
   if !strings.Contains(js, "exports.runtime = 99;") {
     t.Fatalf("runtime sibling rewrite (0 -> 99) did not emit:\n%s", js)
   }
