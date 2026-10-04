@@ -2,13 +2,14 @@ package lspserver
 
 import "testing"
 
-// TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness verifies separate
-// successful refreshes can jointly satisfy one affected-producer generation.
+// TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness verifies separately
+// reported owner successes can jointly satisfy one pending generation. It does
+// not execute the producers that supply those success reports.
 //
-// @evidence contracts/testing.md#behavioral-verification Separate successful refreshes can jointly satisfy one affected-producer generation.
-// @evidence contracts/testing.md#independent-expectations The expected generation state is a literal after each refresh.
-// @evidence contracts/testing.md#distinguishing-cases Partial and complete freshness are the two states compared.
-// @evidence contracts/testing.md#execution-ownership TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification A stale supplied success leaves beta pending; current alpha success leaves beta pending, and current beta success reports completion. An older completion request cannot clear a manually installed newer pending generation or its alpha owner.
+// @evidence contracts/testing.md#independent-expectations Authored generation numbers, alpha/beta membership and literal completion booleans are independent of the actual state-transition helpers. Supplied success sets are inputs, not observations of successful native producers.
+// @evidence contracts/testing.md#distinguishing-cases Stale versus current success, partial versus accumulated completion, and older completion against newer pending state are observed sequentially. Actual concurrent watched events, all-owner mode and the caller's publication are not exercised.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls the actual Proxy state-transition methods in-process on owned Proxy fields. It uses no substituted operation, native child, temporary project, installed consumer or product host; the newer state is authored directly rather than delivered by a watcher.
 func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
   proxy := &Proxy{}
   proxy.projectDiagnosticRefreshPending = true
