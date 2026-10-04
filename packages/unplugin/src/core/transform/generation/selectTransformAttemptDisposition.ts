@@ -25,6 +25,8 @@ import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
  * @evidence contracts/common.md#clear-and-simple-design
  *   A pure disposition returns classification and next scalar retry state;
  *   capture, mutable learning, validation lookup and cleanup remain caller-owned.
+ *   Accepted and fresh-only literal variants stay separate so their exclusion
+ *   leaves only dispositions carrying rejection state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No native backend substitution or test injection bypasses capture. Omitted,
  *   mixed and empty failures cannot establish the learned or fresh exemption.
@@ -80,7 +82,11 @@ export function selectTransformAttemptDisposition(props: {
   rejected?: string;
 }):
   | {
-      kind: "accepted" | "fresh-only";
+      kind: "accepted";
+      freshDeliveryOnly: boolean;
+    }
+  | {
+      kind: "fresh-only";
       freshDeliveryOnly: boolean;
     }
   | {
