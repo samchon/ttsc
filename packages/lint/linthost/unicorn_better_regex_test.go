@@ -4,21 +4,17 @@ import "testing"
 
 const unicornBetterRegexRuleName = "unicorn/better-regex"
 
-// TestUnicornBetterRegex verifies the rule rewrites regex literals into the
-// shortest equivalent form the upstream regexp-tree optimizer produces.
+// TestUnicornBetterRegex verifies fifteen authored regex literal rewrites.
 //
-// Each pair is an upstream `better-regex` invalid case: a mangled or
-// unoptimized literal on the left, the canonical literal upstream emits on the
-// right. Asserting the fixed source (input differs from output) pins the
-// transformation direction — character-class-to-meta (`[0-9]` -> `\d`), word
-// shorthands, negations, flag sorting, whitespace collapse, class sorting, and
-// quantifier merges — not merely that a canonical form round-trips.
+// The independent input/output strings pin character-class shorthands,
+// complements, flag order, class ordering and quantifier merging. Actual
+// findings and applied fixes must produce the complete expected declaration;
+// this corpus does not prove global shortest form or upstream version parity.
 //
-//  1. Lint each declaration through the native fix applier.
-//  2. Assert the rewritten source equals the upstream-optimized literal.
-//
-// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies fifteen literal regex rewrites, including digit/word complements, flag order, class sorting, whitespace quantifiers and the single-character class escape.
-// @evidence contracts/testing.md#independent-expectations Each input/output pair is an independently authored upstream better-regex invalid corpus pair, so exact full-source equality catches unsound token changes.
+//  1. Lint each declaration through the actual fix applier.
+//  2. Assert the rewritten source equals the independently authored literal.
+//// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies fifteen literal regex rewrites, including digit/word complements, flag order, class sorting, whitespace quantifiers and the single-character class escape.
+// @evidence contracts/testing.md#independent-expectations Each input/output pair supplies an independently authored full-source oracle for the declared transformation; equality detects token differences without proving all-input semantic equivalence or upstream provenance.
 // @evidence contracts/testing.md#distinguishing-cases Positive pairs retain surrounding declaration text; the negated [^*] class stays a class while [*] becomes an escaped literal. TestUnicornBetterRegexLeavesOptimalLiterals owns the adjacent canonical no-finding corpus.
 // @evidence contracts/testing.md#execution-ownership The table loops in this Go unit entry; failures retain the input/output fixture printed by assertFixSnapshot; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegex(t *testing.T) {
