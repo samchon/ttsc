@@ -43,6 +43,9 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * concurrent dependency children share the configured host. The configured host
  * consumes a real linked run index. Two public clean commands retire the
  * completed default cache only after all runtime readers have exited.
+ * A native permission-denied stage retains excluded/included entry results
+ * and restores the original POSIX mode or saved Windows DACL before reuse;
+ * unresolved host or restoration failure retains its graphs.
  * A distinct driver directory beneath the external input island preserves
  * relative cache resolution against the selected project cwd and both cache
  * location oracles without another consumer allocation.
