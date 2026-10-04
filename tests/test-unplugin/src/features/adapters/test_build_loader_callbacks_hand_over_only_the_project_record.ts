@@ -7,6 +7,7 @@ import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import { sharedBuildTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/sharedBuildTransformCache";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { createBuildWatchFile } from "../../../../../packages/unplugin/src/core/bridge/createBuildWatchFile";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
@@ -22,10 +23,10 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
  * generation from the public shared cache. No producer, compiler or loader host
  * is substituted, and the expected output is authored consumer data.
  *
- * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, an empty listed directory predicate and project membership.
- * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 supplies the declaration hash; deliberately absent candidate and empty native directory fix their literal predicates. Record bytes stay identical across repeated handoff.
- * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Real watching streams, Farm wrapper roots and installed host cache invalidation remain external boundaries.
- * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used.
+ * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, an empty listed directory predicate and project membership. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors.
+ * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 supplies the declaration hash; deliberately absent candidate and empty native directory fix their literal predicates. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals.
+ * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Additional factory rows contrast present loader versus absent native/absent loader fallback, Farm two-argument association versus loader/generic input-only calls, repeated registration, retained loader selection, changed methods and error propagation. Real watching streams, Farm wrapper roots and installed host cache invalidation remain external boundaries.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used. The factory rows use authored native-context callback shapes with unrelated compiler fields opaque; they exercise the actual production-used channel operation, not installed webpack/Rspack/Farm/Rollup hosts. They do not certify TP/Bun loaders, registration assembly, project-record bridge lifetime or native watch receipt.
  */
 export async function test_build_loader_callbacks_hand_over_only_the_project_record(): Promise<void> {
   for (const framework of ["webpack", "rspack"] as const) {
@@ -145,5 +146,78 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       shutdown?.();
       fixture.dispose();
     }
+  }
+  const delivered = path.resolve("/authored/build/source.ts");
+  const input = path.resolve("/authored/build/record.json");
+  for (const framework of ["webpack", "rspack"] as const) {
+    const calls: [string, string][] = [];
+    const loader = {
+      addDependency: function (this: unknown, file: string): void {
+        assert.equal(this, loader);
+        calls.push(["original", file]);
+      },
+      addMissingDependency: () => assert.fail("missing channel is not module registration"),
+      addContextDependency: () => assert.fail("directory channel is not module registration"),
+    };
+    let currentLoader = loader;
+    let loaderLookups = 0;
+    const native = { framework, compiler: {}, compilation: {}, get loaderContext() {
+      loaderLookups++;
+      return currentLoader;
+    } };
+    const context = { addWatchFile: () => assert.fail("present loader must own registration") };
+    const selected = createBuildWatchFile(context, native as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+    assert.equal(selected.loaderContext, loader);
+    assert.equal(loaderLookups, 1);
+    selected.addWatchFile(input);
+    currentLoader = { ...loader, addDependency: () => assert.fail("factory must retain its selected loader") };
+    selected.addWatchFile(input);
+    loader.addDependency = function (this: unknown, file: string): void {
+      assert.equal(this, loader);
+      calls.push(["changed-method", file]);
+    };
+    selected.addWatchFile(input);
+    assert.deepEqual(calls, [["original", input], ["original", input], ["changed-method", input]]);
+    const failure = new Error(framework + " registration failure");
+    loader.addDependency = () => { throw failure; };
+    assert.throws(() => selected.addWatchFile(input), (error) => error === failure);
+    assert.equal(loaderLookups, 1, "registration does not reselect the loader context");
+  }
+  const farmCalls: [string, string][] = [];
+  const farmContext = {
+    addWatchFile: function (this: unknown, file: string, watched: string): void {
+      assert.equal(this, farmContext);
+      farmCalls.push([file, watched]);
+    },
+  };
+  const farmNative = { framework: "farm" as const, context: farmContext };
+  const farm = createBuildWatchFile({ addWatchFile: () => assert.fail("Farm must associate its module") }, farmNative as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+  assert.equal(farm.loaderContext, undefined);
+  farm.addWatchFile(input);
+  assert.deepEqual(farmCalls, [[delivered, input]]);
+  const farmFailure = new Error("Farm registration failure");
+  farmNative.context = { addWatchFile: function (this: unknown): void {
+    assert.equal(this, farmNative.context);
+    throw farmFailure;
+  } };
+  assert.throws(() => farm.addWatchFile(input), (error) => error === farmFailure);
+  for (const framework of ["rollup-fallback", "webpack", "rspack"] as const) {
+    const calls: string[] = [];
+    const context = { addWatchFile: function (this: unknown, file: string): void {
+      assert.equal(this, context);
+      calls.push(file);
+    } };
+    const native = framework === "rollup-fallback" ? undefined : { framework, compiler: {}, compilation: {}, loaderContext: undefined };
+    const fallback = createBuildWatchFile(context, native as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+    assert.equal(fallback.loaderContext, undefined);
+    fallback.addWatchFile(input);
+    fallback.addWatchFile(input);
+    assert.deepEqual(calls, [input, input]);
+    const failure = new Error(framework + " fallback failure");
+    context.addWatchFile = function (this: unknown): void {
+      assert.equal(this, context);
+      throw failure;
+    };
+    assert.throws(() => fallback.addWatchFile(input), (error) => error === failure);
   }
 }
