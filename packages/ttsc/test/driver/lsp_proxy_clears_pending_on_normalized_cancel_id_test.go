@@ -7,21 +7,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsPendingOnNormalizedCancelID Verifies the shared id
-// normalizer between handleCodeActionRequest and
-// forgetCancelledRequest. A cancel arriving with id `1.0` must drop
-// the pending entry stored under id `1`. otherwise
-// peers that disagree on numeric encoding leak pending entries across
-// every cancelled codeAction request.
+// TestLSPProxyClearsPendingOnNormalizedCancelID verifies the shared key policy
+// between handleCodeActionRequest and forgetCancelledRequest for the authored
+// integer request `1` and float cancellation `1.0`. It observes the unaugmented
+// response, not arbitrary numeric spellings or long-session map retention.
 //
-// Numerically equal JSON-RPC ids correlate; authored response bytes are the pass-through oracle.
+// The maintained key policy correlates this authored 1/1.0 pair; literal
+// response bytes are the independent pass-through oracle.
 //
 // 1. Forward a codeAction request with id 1.
 // 2. Forward cancellation with numerically equal id 1.0.
 // 3. Send the upstream response and require unchanged unaugmented bytes.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run cancels id 1 with id 1.0 and forwards the unaugmented response.
-// @evidence contracts/testing.md#independent-expectations Numerically equal JSON-RPC ids correlate; authored response bytes are the pass-through oracle.
+// @evidence contracts/testing.md#independent-expectations The maintained correlation policy requires this authored 1/1.0 pair to share a key; literal response bytes independently specify pass-through, without claiming every numeric encoding.
 // @evidence contracts/testing.md#distinguishing-cases Integer request and differently spelled float cancellation are exercised in this direction.
 // @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyClearsPendingOnNormalizedCancelID in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyClearsPendingOnNormalizedCancelID(t *testing.T) {

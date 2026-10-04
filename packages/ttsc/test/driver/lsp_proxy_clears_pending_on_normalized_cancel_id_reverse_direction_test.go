@@ -9,7 +9,7 @@ import (
 
 // TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection Verifies that cancel ID 1 retires a request encoded as 1.0 so its later action response remains unchanged.
 //
-// Fractional request and integer cancel cover the reverse normalization direction.
+// Float-spelled integer request and integer cancel cover the reverse key-policy direction.
 //
 // 1. Configure a source that would normally add an action.
 // 2. Send request ID 1.0 and drain it upstream.
@@ -17,8 +17,8 @@ import (
 // 4. Assert the editor receives the original response.
 //
 // @evidence contracts/testing.md#behavioral-verification Cancel ID 1 retires a request encoded as 1.0 so its later action response remains unchanged.
-// @evidence contracts/testing.md#independent-expectations These exact safe numeric forms identify the same JSON-RPC request; original response bytes define forwarding.
-// @evidence contracts/testing.md#distinguishing-cases Fractional request and integer cancel cover the reverse normalization direction.
+// @evidence contracts/testing.md#independent-expectations The declared correlation policy pairs these exact 1.0/1 spellings; original response bytes independently define forwarding, without attributing every numeric encoding to the protocol.
+// @evidence contracts/testing.md#distinguishing-cases A float-spelled integer request and integer cancel cover the reverse direction; no noninteger value is exercised.
 // @evidence contracts/testing.md#execution-ownership The Go proxy harness drains request and cancel forwards before the synthetic response. Go discovers TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection under ./test/driver.
 func TestLSPProxyClearsPendingOnNormalizedCancelIDReverseDirection(t *testing.T) {
   source := &stubSource{actions: []driver.LSPCodeAction{{Title: "should-not-appear"}}}
