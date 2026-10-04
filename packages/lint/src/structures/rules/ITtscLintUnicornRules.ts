@@ -25,8 +25,11 @@ import type {
  * counterparts, forbid known anti-patterns, and pin a consistent style for
  * things ESLint core and `typescript/*` leave underspecified.
  *
- * Most rules are pure AST checks. Binding-aware rules use the TypeScript
- * checker when lexical identity is part of the upstream contract.
+ * Most rules are native AST policies over recognized syntax and names.
+ * Binding-aware rules use the TypeScript checker where their native matcher
+ * requires lexical identity. References identify the upstream policy; they do
+ * not promise complete upstream option support or runtime equivalence of every
+ * suggested modernization.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn
  *
@@ -75,8 +78,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/consistent-destructuring"?: TtscLintRuleSetting;
 
   /**
-   * Require both branches of a ternary spread inside an array literal to be
-   * array-typed.
+   * Report ternary spreads inside array literals when exactly one branch is
+   * an array literal. The check does not infer either branch's array type.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-empty-array-spread.md
    */
@@ -108,8 +111,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/consistent-template-literal-escape"?: TtscLintRuleSetting;
 
   /**
-   * Require user-defined `Error` subclasses to set `name`, call
-   * `super(message)`, and assign their stack correctly.
+   * Report explicit constructor bodies in source-named built-in Error
+   * subclasses when no own `super(...)` call exists. Message arguments, name
+   * assignments and stack initialization are not validated.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/custom-error-definition.md
    */
@@ -139,8 +143,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/escape-case"?: TtscLintRuleSetting;
 
   /**
-   * Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or
-   * package version.
+   * Report recognized `TODO`/`FIXME`/`XXX` comment markers unless the following
+   * text contains `[`. Dates and package-version expressions are not parsed.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/expiring-todo-comments.md
    */
@@ -257,8 +261,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-array-sort"?: TtscLintRuleSetting;
 
   /**
-   * Reject member access on an `await` expression without parens; require
-   * `(await x).y`.
+   * Reject property access on an awaited expression, including `(await x).y`;
+   * assign the awaited value to a variable first.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-await-expression-member.md
    */
@@ -318,8 +322,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-immediate-mutation"?: TtscLintRuleSetting;
 
   /**
-   * Reject `instanceof Array`, `instanceof Error`, `instanceof Map`, etc. —
-   * they fail across realms and for subclasses.
+   * Reject `instanceof` against recognized bare built-in names such as
+   * `Array`, `Error` and `Map`. The native name policy does not resolve a
+   * constructor's identity or certify cross-realm behavior.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-instanceof-builtins.md
    */
@@ -365,8 +370,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-magic-array-flat-depth"?: TtscLintRuleSetting;
 
   /**
-   * Reject re-importing or re-exporting a default binding under a name that
-   * differs from the upstream binding.
+   * Reject named import specifiers written `default as Name`; prefer a default
+   * import. Re-export declarations and upstream binding names are not resolved.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-named-default.md
    */
@@ -543,8 +548,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-unused-properties"?: TtscLintRuleSetting;
 
   /**
-   * Reject useless initializer arguments (`new Set()`, `new Map([])`, `new
-   * Set(undefined)`) on collection constructors.
+   * Reject a single null, undefined or empty array initializer argument on
+   * source-named Set/Map/WeakSet/WeakMap constructors. Zero-argument construction
+   * is already accepted.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-collection-argument.md
    */
@@ -588,8 +594,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-length-check"?: TtscLintRuleSetting;
 
   /**
-   * Reject `return Promise.resolve(x)` / `return Promise.reject(e)` inside
-   * `async` functions — `return x` and `throw e` work identically.
+   * Report returned source-named `Promise.resolve` / `Promise.reject` calls
+   * inside async functions. The suggestion does not certify scheduling,
+   * overridden Promise methods or rejection-reason equivalence.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-promise-resolve-reject.md
    */
@@ -614,8 +621,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-switch-case"?: TtscLintRuleSetting;
 
   /**
-   * Reject explicit `undefined` returns, default initializers, and arguments
-   * where the omission has the same meaning.
+   * Report explicit `return undefined` and `return void 0` statements.
+   * Default initializers and call arguments are not checked by this rule.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-undefined.md
    */
@@ -789,8 +796,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-dom-node-text-content"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `EventTarget` over Node's `EventEmitter` when the code is shared
-   * between Node and the browser.
+   * Report `new EventEmitter(...)` by its bare source name and suggest
+   * considering EventTarget. The check does not determine deployment targets
+   * or prove that the two event APIs are interchangeable.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-event-target.md
    */
@@ -985,8 +993,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-response-static-json"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `Set#has` over `Array#includes` for repeated membership lookups
-   * against a constant collection.
+   * Suggest considering Set membership for `.includes(...)` calls on array
+   * literals. Repetition frequency and runtime performance are not measured.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-set-has.md
    */
