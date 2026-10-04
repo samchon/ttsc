@@ -40,6 +40,10 @@ jobs:
             TTSC_BUN_BINARY="$(command -v "${TTSC_BUN_BINARY:-bun}")"
             export TTSC_BUN_BINARY
           fi
+          if [ "$E2E_MEASUREMENT_FAMILY" = native-consumer ]; then
+            TTSC_GO_BINARY="$(command -v "${TTSC_GO_BINARY:-go}")"
+            export TTSC_GO_BINARY
+          fi
           node <<'NODE'
           const assert = require('node:assert/strict');
           const fs = require('node:fs');
@@ -75,6 +79,14 @@ jobs:
             fs.accessSync(bun, fs.constants.X_OK);
             assets.push({ label: 'prepared-bun', role: 'executable', file: bun });
             fs.appendFileSync(process.env.GITHUB_ENV, 'TTSC_BUN_BINARY=' + bun + '\n');
+          }
+          if (family === 'native-consumer') {
+            const go = process.env.TTSC_GO_BINARY;
+            assert.ok(go && path.isAbsolute(go));
+            assert.ok(fs.statSync(go).isFile());
+            fs.accessSync(go, fs.constants.X_OK);
+            assets.push({ label: 'prepared-go', role: 'executable', file: go });
+            fs.appendFileSync(process.env.GITHUB_ENV, 'TTSC_GO_BINARY=' + go + '\n');
           }
           if (family === 'graph') {
             const { resolveGraphBinary } = require('./packages/graph/lib/resolveGraphBinary.js');
