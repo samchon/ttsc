@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Runs actual public driver emission, preserving the source decoy and requiring first/second replacements in emitted exports.
 // @evidence contracts/testing.md#independent-expectations Literal first/second replacements and the authored plugin_99.default.make("kept") control independently identify changed and retained calls.
 // @evidence contracts/testing.md#distinguishing-cases Two ordered imported calls contrast the preceding same-module, generated-looking source declaration.
-// @evidence contracts/testing.md#execution-ownership The owning Go unit exercises LoadProgram and EmitAll without a runtime process; the named E2E batch case retains all three runtime values.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit exercises LoadProgram and EmitAll without a runtime process; the separate direct compiler/Node-oracle unit TestDriverRewriteRuntimeBatch retains all three runtime values. This case does not certify that unit's execution.
 func TestDriverRewriteDerivesAliasFromOwnedRequireDeclaration(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -17,8 +17,9 @@ import (
 //
 // The preserved esModuleInterop:false input is a removed compiler option in the
 // pinned upstream; its checker and helper emission keep interop enabled.
-// Parsing must still preserve the explicit raw false value. The E2E batch
-// shares the equivalent runtime interop behavior without another producer.
+// Parsing must still preserve the explicit raw false value. The separate
+// direct compiler/Node-oracle batch owns the equivalent runtime value check;
+// this case does not certify that batch's execution or producer sharing.
 //
 // 1. Load the original explicit-false fixture and assert its parsed raw option.
 // 2. Emit the imported rewrite, find its separate binding and retain the decoy call.

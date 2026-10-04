@@ -20,12 +20,12 @@ import (
 //
 // 1. Emit the bare-root and default-import fixtures at suffixes 0, 1, 2, 3 and 16.
 // 2. Register each source-level rewrite and inspect the actual nonambient import binding.
-// 3. Require each literal exported replacement; the same five runtime identities live in the E2E batch.
+// 3. Require each literal exported replacement; the separate Node-oracle unit owns the same five runtime identities.
 //
 // @evidence contracts/testing.md#behavioral-verification Each named Go subtest runs actual driver emission, checks its nonambient suffix binding and requires the independently named exported replacement.
 // @evidence contracts/testing.md#independent-expectations Authored collision counts establish plugin_1, plugin_2, plugin_3 and plugin_16; the bare-root case and literal rewritten-case names are independent controls.
 // @evidence contracts/testing.md#distinguishing-cases Ambient bare root, no collision, adjacent collisions and fifteen locals distinguish finite suffix guesses from declaration-derived aliases.
-// @evidence contracts/testing.md#execution-ownership These five driver unit subcases invoke the compiler directly and inspect output; TestDriverRewriteRuntimeBatch separately loads all five artifacts in one Node process.
+// @evidence contracts/testing.md#execution-ownership These five driver unit subcases invoke the compiler directly and inspect output; the separate direct compiler/Node-oracle unit TestDriverRewriteRuntimeBatch loads all five outputs in one Node process. This case does not certify that unit's execution.
 func TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling(t *testing.T) {
   cases := []struct {
     name       string
