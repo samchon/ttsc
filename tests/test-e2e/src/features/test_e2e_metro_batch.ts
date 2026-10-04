@@ -6,17 +6,18 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, mapless preparse text and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers before their changed input epochs. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
- * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters.
+ * @evidence contracts/testing.md#independent-expectations Independently authored preparse text, absent map, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The steady external replay and one repeated-divergence observation receive the same altered host text without changing disk bytes; joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
  * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/absent-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/absent-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
@@ -24,6 +25,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const lib = path.join(TestProject.WORKSPACE_ROOT, "packages/metro/lib");
   const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
+  const caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
   const session = path.join(workspace.root, "loader-pool-session");
   const recreatedOutputDirectory = path.join(workspace.root, "dist/batch-recreated-output");
   assert.equal(fs.existsSync(recreatedOutputDirectory), false, "the pool owns its output recreation subtree exclusively");
@@ -39,6 +41,15 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const addedRoot = path.join(workspace.root, "src/pooled-membership.d.ts");
   for (const owned of [candidate, unrelatedPackageFile, addedRoot]) assert.equal(fs.existsSync(owned), false);
   const originalDeclaration = fs.readFileSync(declaration);
+  const rootCase = compilerUsesCaseSensitiveFileNames({ cacheDir: workspace.cache, projectRoot: workspace.root });
+  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+  let siblingCase: boolean;
+  try {
+    Object.defineProperty(process, "platform", { ...platform, value: process.platform === "linux" ? "darwin" : "linux" });
+    siblingCase = compilerUsesCaseSensitiveFileNames({ cacheDir: path.join(workspace.root, "sibling-case-cache"), projectRoot: workspace.root });
+  } finally {
+    Object.defineProperty(process, "platform", platform);
+  }
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session,
     metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
@@ -80,6 +91,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
   assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
   BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
+  const caseReports = fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).slice(caseOffset).map((line) => JSON.parse(line));
+  const nativeCase = caseReports.find((report) => report.name === "shared-real-program-probe")?.useCaseSensitiveFileNames;
+  assert.equal(typeof nativeCase, "boolean", "the initial actual Program must report its native comparison policy");
+  assert.equal(rootCase, nativeCase);
+  assert.equal(siblingCase, nativeCase, "the physical root proxy must agree with this actual Program despite the apparent platform");
   finalRecord = projectRecordFile;
   for (const input of [declaration, candidate])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `native resolution must record ${input}`);

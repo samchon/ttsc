@@ -21,6 +21,7 @@ export namespace BatchWorkspace {
     factoryContextProbe: string;
     configPathReceipt: string;
     pathsReceipt: string;
+    casePolicyReceipt: string;
     projectAlias: string;
     installationOnly: boolean;
     expected: readonly { title: string; units: number[] }[];
@@ -182,6 +183,7 @@ export namespace BatchWorkspace {
     const factoryContextProbe = path.join(root, "factory-context.json");
     const configPathReceipt = path.join(root, "native-config-paths.jsonl");
     const pathsReceipt = path.join(root, "native-program-paths.jsonl");
+    const casePolicyReceipt = path.join(root, "native-case-policy.jsonl");
     let projectAlias = root;
     if (!installationOnly) {
       const aliasParent = TestProject.tmpdir("ttsc-shared-project-alias-");
@@ -207,7 +209,7 @@ export namespace BatchWorkspace {
         fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt });
+      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt, casePolicyReceipt });
       const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
       fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
       const automaticPackage = path.join(root, "packages/batch-auto-discovery");
@@ -258,7 +260,7 @@ export namespace BatchWorkspace {
     if (installationOnly) {
       fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
-    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
+    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */
@@ -302,7 +304,6 @@ export namespace BatchWorkspace {
     ].join("\n") };
   }
 }
-
 
 
 
