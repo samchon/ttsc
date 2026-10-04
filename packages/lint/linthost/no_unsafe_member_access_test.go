@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeMemberAccess verifies the lint rule corpus
+// TestRuleCorpusNoUnsafeMemberAccess verifies a reduced trigger from the lint rule corpus
 // fixture typescript-no-unsafe-member-access.ts under a real Program.
 //
 // `typescript/no-unsafe-member-access` is type-aware: it asks the Checker for the

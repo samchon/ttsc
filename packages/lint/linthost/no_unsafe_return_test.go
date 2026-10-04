@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeReturn verifies the lint rule corpus fixture
+// TestRuleCorpusNoUnsafeReturn verifies a reduced trigger from the lint rule corpus
 // typescript-no-unsafe-return.ts under a real Program.
 //
 // `typescript/no-unsafe-return` is type-aware: a parser-only engine run skips it
