@@ -10,7 +10,8 @@ import (
 // leaders keep their required order.
 //
 // Source preambles must be inserted after both the Unicode BOM and a hashbang
-// so Node can still recognize executable scripts.
+// under the helper's source-text ordering contract. This string comparison does
+// not certify that Node executes the combined leader form.
 //
 // 1. Build source text with a BOM followed by a hashbang.
 // 2. Apply a generated source preamble.
