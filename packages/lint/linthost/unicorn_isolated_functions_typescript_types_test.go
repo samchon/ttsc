@@ -6,8 +6,8 @@ import "testing"
 // references to outer bindings never count as scope escapes: an isolated
 // function may name outer types and `typeof` outer values in type positions.
 //
-// Upstream skips identifiers whose parent is a TSTypeReference or TSTypeQuery;
-// the port mirrors that so `typeof a`, generic constraints, `as`, `satisfies`,
+// The native rule excludes TypeReference and TypeQuery identifier references;
+// the authored `typeof a`, generic constraints, `as`, `satisfies`,
 // and conditional types stay silent while their runtime values are declared
 // inside the function.
 //
@@ -17,7 +17,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify outer type/value references used only in type positions stay clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
 // @evidence contracts/testing.md#independent-expectations The authored empty oracle encodes the supported TypeScript type-only-reference exemption. No diagnostic message interpolation is used by this zero-finding host.
-// @evidence contracts/testing.md#distinguishing-cases typeof outer value, generic constraint, annotation, assertion, satisfies and conditional types stay clean while runtime bindings are local; TestRuleCorpusUnicornIsolatedFunctions owns runtime capture positives.
+// @evidence contracts/testing.md#distinguishing-cases typeof outer value, generic constraint, annotation, assertion, satisfies and conditional types stay clean while runtime bindings are local; ParameterDefaultCapture owns exact runtime outer-reference positives.
 // @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsTypeScriptTypes is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsTypeScriptTypes(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;

@@ -9,13 +9,10 @@ import (
 // TestUnicornNoHexEscapeHonorsBackslashParity verifies only a `\x` opened by
 // an active backslash reports.
 //
-// Upstream anchors its match on `(?<=(?:^|[^\\])(?:\\\\)*\\)x`, a lookbehind
-// RE2 cannot express: the `x` counts only when its backslash follows an
-// even-length backslash run. The Go port used to match the bare `\xHH` text,
-// so `"\\x64"` — an escaped backslash followed by the literal characters
-// `x64` — falsely reported (issue #574). Every odd run is a positive and its
-// even twin one backslash away is a negative, in both a string literal and a
-// template payload, so a parity miscount fires in one direction or the other.
+// Backslashes pair from the start of each contiguous run. An odd run
+// leaves an active backslash before x41; an even run leaves literal x41 text.
+// Each odd run has an adjacent even twin in both a string literal and a
+// template payload, so a parity miscount changes an authored finding count.
 //
 //  1. Prefix `x41` with one through six backslashes inside a string literal
 //     and inside a template head.

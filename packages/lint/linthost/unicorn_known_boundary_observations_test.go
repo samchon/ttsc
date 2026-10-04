@@ -6,20 +6,20 @@ import (
   "testing"
 )
 
-// TestUnicornKnownBoundaryObservations verifies four recommendations against
-// independently specified stack filtering, URL resolution and string semantics.
+// TestUnicornKnownBoundaryObservations checks four rules against
+// literal stack-filter, URL and string boundary expectations.
 //
 // These observations collect the candidate verification population;
 // they do not change rule policy or synthesize a native compiler response.
 // Literal diagnostic expectations distinguish supported canonical suggestions
-// from rewrites that alter the independently observed JavaScript results.
+// from the adjacent authored cases expected to remain unreported.
 //
 // 1. Parse each authored source and run its owning rule in the Go engine.
 // 2. Compare exact rule/severity/source-line triples or zero findings.
 // 3. Execute every independent row even when another row fails.
 //
 // @evidence contracts/testing.md#behavioral-verification Each subtest calls the real Engine.Run through the shared snapshot finding helper for captureStackTrace, relative URL, string slice and regexp replacement recommendations; no subprocess producer is used.
-// @evidence contracts/testing.md#independent-expectations Literal expectations follow independent Node stack-filter and URL rows, JavaScript UTF16 slice units, and literal versus flagged-regexp replacement results; no expected finding or length is computed from the lint implementation.
+// @evidence contracts/testing.md#independent-expectations Authored report booleans and source-line expectations cover stack-filter and URL inputs, UTF16 slice-unit boundaries, and regexp flags. No expected finding or length is computed from the lint implementation; this body does not execute Node or compare rewritten JavaScript results.
 // @evidence contracts/testing.md#distinguishing-cases Own-constructor versus external frame filtering, directory versus file URL bases, ASCII/BMP/astral/combining/lone-surrogate lengths, and global plain versus insensitive/sticky regexp flags own adjacent positive and negative boundaries.
 // @evidence contracts/testing.md#execution-ownership This single discoverable rules Go entry runs all named rows in one process with the real parser/Engine helpers and the helpers' checker lane when selected; each t.Run preserves independent failure identity without installation, native host or canned frames.
 func TestUnicornKnownBoundaryObservations(t *testing.T) {
