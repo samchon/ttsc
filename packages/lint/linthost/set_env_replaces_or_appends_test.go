@@ -5,8 +5,8 @@ import "testing"
 // TestSetEnvReplacesOrAppends verifies environment overlays are deterministic.
 //
 // JavaScript config loading builds a node subprocess environment. setEnv is the
-// small helper that updates NODE_PATH without duplicating keys, so it must
-// replace existing values and append missing ones predictably.
+// helper used to update NODE_PATH. It replaces the first exact-key entry or
+// appends an absent key; these inputs do not test pre-existing duplicate keys.
 //
 // This scenario covers both branches directly because command-level tests only
 // observe the final subprocess behavior.
