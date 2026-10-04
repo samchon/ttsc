@@ -12,36 +12,36 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  * pipeline.
  *
  * Where {@link TtscCompiler.transform} spawns a fresh process and recompiles the
- * whole project on every call, `TtscService` keeps one long-lived host warm: it
- * compiles the project once and then answers per-file transform requests from
- * that warm program. A single service instance transforms many files (a watch
- * server, an editor session, a codegen tool) while paying the project compile
- * once instead of once per file. One host serves one
+ * whole project on every call, `TtscService` shares one long-lived host across
+ * per-file transform and update requests. The serve producer owns initial
+ * compilation, transformed-text reuse and later generations; custom executable
+ * hosts must honor that protocol rather than the wrapper proving their cache
+ * behavior. One service instance can address many files. One host serves one
  * process; sharing it across separate worker processes (a Metro worker pool)
  * is not provided.
  *
  * The shape mirrors a legacy TypeScript `LanguageService`: construct it against
  * a project context, ask it to transform individual files, and dispose it when
  * done. Construction is synchronous (it launches the host); the host compiles
- * in the background, so the first {@link transformFile} resolves once that
- * compile lands.
+ * in the background; the first {@link transformFile} waits for its host reply
+ * and can reject on startup or protocol failure.
  *
  * Resident mode runs through a selected shared host, so the project must
  * declare at least one transform-stage plugin; the constructor throws
  * otherwise. It does not run check-stage plugins (unlike
- * {@link TtscCompiler.transform}); only the program's own type-checking gates an
- * {@link updateFile}. A selected executable plugin host must implement the
+ * {@link TtscCompiler.transform}); program loading and transform-stage plugin
+ * success gate an {@link updateFile} in the utility producer. A selected executable plugin host must implement the
  * resident serve protocol; the generated linked-plugin utility host supplies
  * that protocol itself.
  *
- * @evidence contracts/common.md#principled-implementation One resident host owns a program generation and validated transform/update replies; fixed context selectors and captured JSON configuration preserve construction authority while later requests address that program's own logical spelling.
+ * @evidence contracts/common.md#principled-implementation One resident host owns committed transform state and validated transform/update replies; fixed context selectors and captured JSON configuration preserve construction authority while later requests address the selected project's logical spelling. The utility producer retains printed text after closing each loaded Program.
  * @evidence contracts/common.md#clear-and-simple-design The class exposes transform, update and disposal around one resident client; private path adaptation handles the physical-versus-program spelling distinction without duplicating client protocol state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The resident protocol is an actual required host capability, not an assumed executable property; failed compile/protocol replies remain failures rather than fabricated absent files or successful updates.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain resident lifetime, transform/check-stage scope, custom serve requirement and captured configuration; method comments distinguish absence, rejected builds and disposal consequences.
  * @evidence contracts/portability.md#os-neutral-implementation Native physical resolution and path-relative containment map aliases back to retained Program spelling, including Windows 8.3 roots; native host spawning and environment authority stay with the resident client owner.
- * @evidence contracts/performance.md#efficient-algorithms Requests reuse the resident program instead of recompiling solely to read one transformed file; path adaptation costs the filename/ancestor resolution and reply handling costs returned text.
- * @evidence contracts/performance.md#reuse-equivalent-work The same service shares one compiled program and its transformed files; update requests establish a new program generation rather than reusing stale source results across changed content.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The service owns one child and its resident program until dispose or terminal failure; its client settles queued requests on termination, while outstanding request count has no class-level cap.
+ * @evidence contracts/performance.md#efficient-algorithms Construction delegates configuration/plugin discovery and native startup; requests delegate host processing, serialization and reply parsing. Best-effort path adaptation traverses native ancestors/text and can perform Windows case-query work; returned text and submitted content add data costs without a wrapper compile.
+ * @evidence contracts/performance.md#reuse-equivalent-work The same service shares one selected serve producer; current transformed output and ordered generation replacement are producer responsibilities, not a custom-host cache guarantee authenticated by this wrapper.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One resident client retains its child and pending requests without a queue or active-duration cap. Disposal or terminal failure rejects pending work, closes pipes and attempts signals; void disposal neither awaits child close nor guarantees OS termination or host memory release.
  */
 export class TtscService {
   private readonly resident: ResidentTransformProcess;
@@ -78,10 +78,10 @@ export class TtscService {
    * @evidence contracts/common.md#clear-and-simple-design One resident request uses private path adaptation and returns the reply's text without a second file lookup or compilation policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The client validates the real protocol shape; this method neither fabricates text nor hides host failure as an excluded source.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-relative filenames, absent-program-file meaning and diagnostic rejection, with prose separated from tags.
-   * @evidence contracts/portability.md#os-neutral-implementation The private path helper resolves native aliases and preserves the Program's logical root spelling; fileName is structured request data rather than shell text.
-   * @evidence contracts/performance.md#efficient-algorithms One path adaptation and one resident lookup retrieve the already transformed file; response allocation scales with text length without a new compile.
+   * @evidence contracts/portability.md#os-neutral-implementation Best-effort native physical resolution maps contained aliases to the retained logical root spelling; fallback paths are not a continuing identity certificate. fileName is structured request data rather than shell text.
+   * @evidence contracts/performance.md#efficient-algorithms One path adaptation and resident request delegate ancestor/case observations, request serialization, host lookup and reply parsing; path and response text contribute cost. The wrapper itself launches no new compile.
    * @evidence contracts/performance.md#reuse-equivalent-work Resident program output is shared until an update changes its generation; file lookup uses that current program rather than an independent stale response cache.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One pending request and returned text belong to this call; the client owns cancellation/terminal settlement and the service owns the resident child until dispose, with no implicit per-call deadline.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One pending request and returned text belong to this call; the client owns cancellation/terminal settlement with no implicit per-call deadline. Queued cancellation can retire sibling calls; disposal attempts signals without a child-close join.
    */
   public async transformFile(
     fileName: string,
@@ -105,19 +105,21 @@ export class TtscService {
    * Apply new in-memory content for one file and re-transform the project, so a
    * subsequent {@link transformFile} reflects the edit without restarting the
    * host. Returns whether the re-transform succeeded; `false` means the edit
-   * did not compile and the previous transform is still in effect. A relative
+   * failed the host's rebuild and the previous transform is still in effect.
+   * In the utility producer this includes load/type-check or transform-plugin
+   * failure; custom hosts must honor the same update protocol. A relative
    * `fileName` is resolved against the project root.
    *
-   * @evidence contracts/common.md#principled-implementation A validated updated boolean reports the resident program's edit result; an unsuccessful compile retains its prior transformed generation rather than claiming a newly valid output.
+   * @evidence contracts/common.md#principled-implementation A validated updated boolean reports the producer's edit result; the utility host rolls failed rebuilds back to its prior overlay and transformed text. Custom host compliance is a protocol requirement, not compilation independently observed by this wrapper.
    * @evidence contracts/common.md#clear-and-simple-design The method sends one content/path update through the resident client and leaves generation replacement and reply validation to their owners.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual compilation determines updated state; protocol failure rejects instead of being converted into false or an invented successful edit.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The host's real updated reply determines the result; protocol failure rejects instead of being converted into false or an invented successful edit.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes rejected builds, false update results and subsequent transform visibility, with separated acknowledgments.
    * @evidence contracts/portability.md#os-neutral-implementation Native path adaptation supplies the resident Program spelling while content travels as structured text, without shell interpretation or platform-specific separators in protocol logic.
-   * @evidence contracts/performance.md#efficient-algorithms One content update triggers the resident owner's re-transform strategy; this wrapper adds path resolution and constant-size result handling rather than another compilation.
+   * @evidence contracts/performance.md#efficient-algorithms One content update delegates the producer's re-transform strategy; this wrapper adds best-effort ancestor/case/path adaptation, content serialization and reply parsing. Returned boolean selection has fixed shape, but native/path/content/host work is not constant.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Updating resident source changes program state and cannot be shared solely because request text matches a previous effectful call.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The request owns its submitted content until the resident client settles it; accepted generations are retained by the resident program, and disposal or terminal failure releases pending client work.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The pending request retains serialized content and callbacks until client settlement; accepted generations belong to the producer. Disposal or terminal failure clears pending work and attempts signals without proving child termination; queued cancellation also retires sibling requests.
    */
   public async updateFile(
     fileName: string,
@@ -131,23 +133,24 @@ export class TtscService {
     );
     // The resident client validated the reply carries a boolean `updated`, so a
     // malformed or wrong-shape reply rejected instead of collapsing to `false`.
-    // `false` here means only that the edit did not compile.
+    // `false` reports a failed host rebuild, not a separately observed cause.
     return reply.updated === true;
   }
 
   /**
-   * Terminate the resident host and reject any in-flight requests.
+   * Reject in-flight requests, close client pipes and attempt host termination.
+   * Returns without waiting for child close; OS signaling can fail.
    *
-   * @evidence contracts/common.md#principled-implementation Delegating to the client closes the child ownership boundary and settles pending work rather than merely marking the service inactive.
+   * @evidence contracts/common.md#principled-implementation Delegating to the client retires request ownership and rejects pending work, then attempts supported pipe destruction and child signals without certifying process closure.
    * @evidence contracts/common.md#clear-and-simple-design Disposal has one resident owner; this wrapper keeps no second shutdown state or listener registry.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported client termination path is used without replacing child methods or pretending outstanding transforms completed.
-   * @evidence contracts/common.md#meaningful-documentation Native wording states both process termination and pending-request rejection, the caller-visible effects of disposal.
+   * @evidence contracts/common.md#meaningful-documentation Native wording distinguishes pending-request rejection and termination attempts from an awaited child-close receipt.
    * @evidence contracts/portability.md#os-neutral-implementation Child termination is delegated to the Node resident client instead of an OS-specific shell kill command.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper delegates shutdown and chooses no separate computation algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms One delegate retires the client; that owner scans outstanding request slots and removes listeners before native pipe/signal attempts. Fixed wrapper steps do not make shutdown independent of pending population.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal is an ownership-ending effect, not a computation whose output authorizes shared execution.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The resident client terminates the owned child and rejects in-flight requests; repeated disposal follows that owner's terminal state instead of retaining another cleanup task.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The client rejects requests and closes pipes, with one unreferenced grace timer attempting forced termination. Repeated disposal respects terminal state; failed signaling may leave the child alive, and this method supplies no process-tree or close join.
    */
   public dispose(): void {
     this.resident.dispose();
