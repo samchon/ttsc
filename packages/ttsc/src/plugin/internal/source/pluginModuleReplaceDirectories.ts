@@ -6,6 +6,7 @@ import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import { resolveGoCompiler } from "./resolveGoCompiler";
+import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplaceDirectories";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -87,56 +88,9 @@ export function pluginModuleReplaceDirectories(
       Old?: { Path?: string; Version?: string };
     }[];
   };
-  const physicalRoot = resolvePhysicalPath(root);
-  const out: IPluginModuleReplaceDirectory[] = [];
-  for (const replacement of parsed.Replace ?? []) {
-    const modulePath = replacement.Old?.Path;
-    const spelled = replacement.New?.Path;
-    if (
-      modulePath === undefined ||
-      spelled === undefined ||
-      replacement.New?.Version !== undefined ||
-      !isFilesystemPath(spelled)
-    )
-      continue;
-    const directory = resolvePhysicalPath(path.resolve(root, spelled));
-    const relative = path.relative(physicalRoot, directory);
-    if (
-      relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative)
-    )
-      continue;
-    out.push({
-      directory,
-      modulePath,
-      spelled,
-      ...(replacement.Old?.Version === undefined
-        ? {}
-        : { version: replacement.Old.Version }),
-    });
-  }
-  return out.sort((left, right) =>
-    left.modulePath === right.modulePath
-      ? (left.version ?? "") < (right.version ?? "")
-        ? -1
-        : 1
-      : left.modulePath < right.modulePath
-        ? -1
-        : 1,
-  );
-}
-
-/**
- * Whether a `replace` target is a filesystem path rather than a module path:
- * absolute, or beginning with `./` or `../` (either separator on Windows).
- */
-function isFilesystemPath(target: string): boolean {
-  return (
-    path.isAbsolute(target) ||
-    target.startsWith("./") ||
-    target.startsWith("../") ||
-    (process.platform === "win32" &&
-      (target.startsWith(".\\") || target.startsWith("..\\")))
+  return selectPluginModuleReplaceDirectories(
+    root,
+    parsed.Replace ?? [],
+    resolvePhysicalPath,
   );
 }
