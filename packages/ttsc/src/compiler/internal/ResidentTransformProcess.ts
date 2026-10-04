@@ -3,7 +3,7 @@ import { type Interface, createInterface } from "node:readline";
 
 import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentReplyKind } from "./ResidentReplyKind";
-import { ResidentTransformReply } from "./ResidentTransformReply";
+import { ResidentTransformRequests } from "./ResidentTransformRequests";
 import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
 
@@ -36,10 +36,8 @@ import type { ResidentTransformRequestOptions } from "./ResidentTransformRequest
 export class ResidentTransformProcess {
   private readonly child: ChildProcess;
   private readonly reader: Interface;
-  private readonly pending: (PendingRequest | undefined)[] = [];
-  private pendingHead = 0;
+  private readonly requests = new ResidentTransformRequests();
   private stderr = "";
-  private failure: Error | undefined;
 
   public constructor(options: ResidentTransformProcessOptions) {
     // Default stdio is "pipe" for stdin/stdout/stderr, which is exactly what the
@@ -111,8 +109,8 @@ export class ResidentTransformProcess {
     kind: ResidentReplyKind,
     options: ResidentTransformRequestOptions = {},
   ): Promise<Record<string, unknown>> {
-    if (this.failure !== undefined) {
-      return Promise.reject(this.failure);
+    if (this.requests.failure !== undefined) {
+      return Promise.reject(this.requests.failure);
     }
     if (options.signal?.aborted) {
       return Promise.reject(cancelledError(options.signal));
@@ -130,19 +128,13 @@ export class ResidentTransformProcess {
       return Promise.reject(asError(error));
     }
     return new Promise<Record<string, unknown>>((resolve, reject) => {
-      let pending!: PendingRequest;
-      pending = {
+      const pending = this.requests.add(
         kind,
-        reject,
         resolve,
-        settled: false,
-        signal: options.signal,
-      };
-      if (options.signal !== undefined) {
-        pending.abort = () => this.cancel(pending, options.signal!);
-        options.signal.addEventListener("abort", pending.abort, { once: true });
-      }
-      this.pending.push(pending);
+        reject,
+        options.signal,
+        (request) => this.cancel(request, options.signal!),
+      );
       if (options.signal?.aborted) {
         pending.abort!();
         return;
@@ -152,7 +144,7 @@ export class ResidentTransformProcess {
           if (error === null || error === undefined || pending.settled) {
             return;
           }
-          this.settlePending(pending, error);
+          this.requests.settle(pending, error);
           this.fail(
             new Error(
               `ttsc: resident transform host could not write a request: ${error.message}`,
@@ -162,7 +154,7 @@ export class ResidentTransformProcess {
       } catch (error) {
         if (pending.settled) return;
         const reason = asError(error);
-        this.settlePending(pending, reason);
+        this.requests.settle(pending, reason);
         this.fail(
           new Error(
             `ttsc: resident transform host could not write a request: ${reason.message}`,
@@ -189,7 +181,7 @@ export class ResidentTransformProcess {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Retirement removes all abort listeners, queue references and pipes; a single unreferenced grace timer attempts forced termination and is cleared on exit. OS failure to signal can still leave a running child.
    */
   public dispose(): void {
-    if (this.failure !== undefined) return;
+    if (this.requests.failure !== undefined) return;
     // If the host already died, reject with its real exit error (stderr + exit
     // code) rather than a bland "disposed" message.
     this.fail(
@@ -200,102 +192,21 @@ export class ResidentTransformProcess {
   }
 
   private onLine(line: string): void {
-    if (this.failure !== undefined) return;
-    const trimmed = line.trim();
-    if (trimmed.length === 0) {
-      return;
-    }
-    const request = this.pending[this.pendingHead];
-    if (request === undefined) {
-      // The host must emit exactly one reply per request, so an unmatched line
-      // is a protocol violation that would desync every later reply into the
-      // wrong request. Fail fast rather than silently returning wrong output.
-      // A line arriving after teardown (failure already set) is benign.
-      if (this.failure === undefined) {
-        this.fail(
-          new Error("ttsc: resident transform host sent an unsolicited reply"),
-        );
-      }
-      return;
-    }
-    const reply = ResidentTransformReply.parse(trimmed);
-    if (reply === undefined) {
-      // Framing violation: the line is not a JSON object, so it cannot
-      // represent any reply. Reject this request and retire the whole process:
-      // a bad line may be corruption that shifted
-      // the stream, and the host's real reply that follows must not be paired
-      // with a later request. `fail` marks the failure so that trailing line is
-      // treated as benign instead of unsolicited.
-      const error = new Error(
-        `ttsc: resident transform host sent a malformed reply: ${echoLine(
-          trimmed,
-        )}`,
-      );
-      this.settlePending(request, error);
-      this.fail(error);
-      return;
-    }
-    if (!ResidentTransformReply.isValid(reply, request.kind)) {
-      // Operation-shape violation: a well-formed JSON object that is not a valid
-      // reply for the operation this request sent. FIFO framing is intact — one
-      // line consumed exactly one slot — so only this request is corrupt; later
-      // replies still pair correctly. Reject just this request instead of
-      // failing the whole process.
-      this.settlePending(
-        request,
-        new Error(
-          `ttsc: resident transform host sent an invalid ${request.kind} reply: ${echoLine(
-            trimmed,
-          )}`,
-        ),
-      );
-      return;
-    }
-    this.settlePending(request, reply);
+    if (this.requests.accept(line)) this.terminate();
   }
 
   private onReaderClose(): void {
-    if (this.failure === undefined) this.fail(this.exitError());
+    if (this.requests.failure === undefined) this.fail(this.exitError());
   }
 
   private fail(error: Error): void {
-    if (this.failure !== undefined) return;
-    this.failure = error;
-    this.rejectAll(error);
+    if (!this.requests.retire(error)) return;
     this.terminate();
-  }
-
-  private rejectAll(error: Error): void {
-    const pending = this.pending.splice(0);
-    this.pendingHead = 0;
-    for (const request of pending) {
-      if (request !== undefined) this.settlePending(request, error);
-    }
-  }
-
-  private settlePending(
-    pending: PendingRequest,
-    result: Error | Record<string, unknown>,
-  ): void {
-    if (pending.settled) return;
-    pending.settled = true;
-    if (this.pending[this.pendingHead] === pending) {
-      this.pending[this.pendingHead++] = undefined;
-      if (this.pendingHead * 2 >= this.pending.length) {
-        this.pending.splice(0, this.pendingHead);
-        this.pendingHead = 0;
-      }
-    }
-    if (pending.signal !== undefined && pending.abort !== undefined) {
-      pending.signal.removeEventListener("abort", pending.abort);
-    }
-    if (result instanceof Error) pending.reject(result);
-    else pending.resolve(result);
   }
 
   private cancel(pending: PendingRequest, signal: AbortSignal): void {
     if (pending.settled) return;
-    this.settlePending(pending, cancelledError(signal));
+    this.requests.settle(pending, cancelledError(signal));
     this.fail(
       new Error(
         `ttsc: resident transform host retired after another request was cancelled${abortDetail(
@@ -350,20 +261,10 @@ export class ResidentTransformProcess {
 /** Cap on retained stderr so a long-lived host cannot grow it without bound. */
 const STDERR_TAIL_LIMIT = 64 * 1024;
 
-/** Cap on how much of an offending line an error message echoes back. */
-const REPLY_ECHO_LIMIT = 200;
-
 /** Allow a cooperative host a short shutdown window before forcing it down. */
 const TERMINATION_GRACE_MS = 1_000;
 
-interface PendingRequest {
-  abort?: () => void;
-  kind: ResidentReplyKind;
-  reject: (reason: Error) => void;
-  resolve: (reply: Record<string, unknown>) => void;
-  settled: boolean;
-  signal?: AbortSignal;
-}
+type PendingRequest = ReturnType<ResidentTransformRequests["add"]>;
 
 function cancelledError(signal: AbortSignal): Error {
   const error = new Error(
@@ -390,11 +291,4 @@ function stderrSuffix(stderr: string): string {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
-}
-
-/** Truncate an offending reply line so error messages stay bounded. */
-function echoLine(line: string): string {
-  return line.length > REPLY_ECHO_LIMIT
-    ? `${line.slice(0, REPLY_ECHO_LIMIT)}…`
-    : line;
 }
