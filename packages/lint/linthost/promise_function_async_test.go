@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPromiseFunctionAsync verifies the lint rule corpus fixture
+// TestRuleCorpusPromiseFunctionAsync verifies a reduced trigger from the lint rule corpus
 // typescript-promise-function-async.ts under a real Program.
 //
 // `typescript/promise-function-async` is type-aware: a parser-only engine run skips

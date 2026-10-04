@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferStringStartsEndsWith verifies the lint rule corpus
+// TestRuleCorpusPreferStringStartsEndsWith verifies a reduced trigger from the lint rule corpus
 // fixture typescript-prefer-string-starts-ends-with.ts under a real
 // Program.
 //
@@ -16,10 +16,10 @@ import (
 // assert on the rendered diagnostics.
 //
 // The corpus fixture packages/lint/test/testdata/corpus/typescript-prefer-string-starts-ends-with.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
-// trigger (`str.indexOf(p) === 0`) so a future shim regression surfaces here
+// trigger (`text.indexOf(needle) === 0`) so a future shim regression surfaces here
 // without depending on the full fixture.
 //
-//  1. Seed a project that compares `str.indexOf(needle) === 0` against
+//  1. Seed a project that compares `text.indexOf(needle) === 0` against
 //     a `string` receiver.
 //  2. Run `check` with typescript/prefer-string-starts-ends-with
 //     enabled as error.
