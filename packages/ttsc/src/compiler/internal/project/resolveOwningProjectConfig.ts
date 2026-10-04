@@ -6,6 +6,7 @@ import { outputText } from "../outputText";
 import { resolveTsgo } from "../resolveTsgo";
 import { spawnNative } from "../spawnNative";
 import { readJsoncFile } from "./readJsoncFile";
+import { selectReferencedProject } from "./selectReferencedProject";
 
 /**
  * The project that owns `file`: the discovered `tsconfig` itself, or the
@@ -117,37 +118,11 @@ export function resolveOwningProjectConfig(props: {
       listed(rootFiles(config, props.binary))
     );
   }
-  if (contains(discovered)) {
-    return discovered;
-  }
-  const seen = new Set<string>([identities.resolve(discovered).key]);
-  /**
-   * Search direct references in declaration order, visiting each physical
-   * config once. The discovered config reuses the reference edges already read
-   * above.
-   *
-   * Observed identity keys remove matching cycles and aliases without an
-   * arbitrary depth cap. DFS checks each reference before descending, so order
-   * selects the first containing project. Apart from compiler expansion, graph
-   * work follows reachable vertices and edges; stack depth follows the explored
-   * chain. The visited set and frames end with this lookup.
-   */
-  function search(config: string): string | null {
-    const references =
-      config === discovered
-        ? discoveredReferences
-        : readReferences(config, props.onConfig);
-    for (const reference of references) {
-      const key = identities.resolve(reference).key;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      if (contains(reference)) return reference;
-      const nested = search(reference);
-      if (nested !== null) return nested;
-    }
-    return null;
-  }
-  return search(discovered) ?? discovered;
+  return selectReferencedProject(discovered, discoveredReferences, {
+    identity: (config) => identities.resolve(config).key,
+    contains,
+    readReferences: (config) => readReferences(config, props.onConfig),
+  });
 }
 
 /**
