@@ -28,16 +28,18 @@ import (
 // generation's ledger and never resolves an alias against post-build disk state.
 // The ledger does not claim an atomic filesystem or file
 // descriptor snapshot; conflicting observed predicates invalidate ownership.
-// A nil writer uses DefaultWriteFile. Callback execution is serialized.
+// A nil writer uses DefaultWriteFile. Writer and snapshot hold the same mutex;
+// the supplied writer must not reenter either returned closure. Writer errors
+// prevent recording that callback even if the writer already had partial effects.
 //
 // @evidence contracts/common.md#principled-implementation Native eligible sources and resolved script destinations intersect only successful unskipped writes; all candidate generation-time physical proofs are required, with unknown and multiple owners represented explicitly.
 // @evidence contracts/common.md#clear-and-simple-design One compiler-owned candidate index, one serialized writer and one snapshot separate eligibility, successful publication and physical provenance without a same-stem fallback.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The recorder delegates supported emit-path helpers and actual writers; later realpath, fixture filenames or extension precedence cannot fabricate a unique source owner.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot timing, native keys, physical proof, ambiguity, unknown values and the non-atomic ledger limitation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler path normalization and its coordinate case policy index candidate collisions; recorded native physical paths prove source identity separately from that policy, preserving lexical output names without an OS-derived identity guess.
-// @evidence contracts/performance.md#efficient-algorithms Eligible S sources build one output index; W successful callbacks use indexed candidate membership. The final snapshot visits actual written rows and their candidates once, deduplicating physical names before per-row sorting.
+// @evidence contracts/performance.md#efficient-algorithms Latched linked hooks and native eligibility/output-path helpers precede the source index. Candidate/path normalization and text keys contribute work; each callback delegates arbitrary writer work, then records a successful script row. Snapshot visits each written row's candidates, compares captured proofs, deduplicates physical paths and sorts each owner list with path-text comparison costs; shared candidate lists can be revisited across written spellings.
 // @evidence contracts/performance.md#reuse-equivalent-work One generation's native eligibility and output paths serve every writer callback; the snapshot reuses captured input observations without re-reading source bytes or recomputing an independent compiler Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned closures retain the captured generation input ledger plus O(S+W) candidate/write references until their owner releases them; no descriptor is acquired beyond the delegated writer and snapshots return independent maps and slices.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain the captured input ledger and uncapped candidate/write path lists until their owner releases them. Snapshots allocate independent maps/slices; delegated writer resource release belongs to that writer. Shared locking serializes writer and snapshot with no deadline or reentrant acquisition; no independent descriptor or lease is acquired here.
 func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (shimcompiler.WriteFile, func() map[string][]string, error) {
   if p == nil || p.TSProgram == nil {
     return nil, nil, errors.New("driver: nil program")
