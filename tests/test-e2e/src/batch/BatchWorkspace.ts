@@ -18,6 +18,7 @@ export namespace BatchWorkspace {
     installedTtsx: string;
     programRunLog: string;
     contextReceipt: string;
+    factoryContextProbe: string;
     installationOnly: boolean;
     expected: readonly { title: string; units: number[] }[];
   }
@@ -154,6 +155,7 @@ export namespace BatchWorkspace {
     }
     const programRunLog = path.join(root, "program-runs.bin");
     const contextReceipt = path.join(root, "native-context.jsonl");
+    const factoryContextProbe = path.join(root, "factory-context.json");
     if (!installationOnly)
       for (const name of ["cjs-dep", "esm-dep"])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
@@ -172,12 +174,12 @@ export namespace BatchWorkspace {
         fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./compile-probe.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
+      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
       const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
       config.compilerOptions.plugins.push(
-        { name: "native-order-prefix", transform: "./compile-probe.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
+        { name: "native-order-prefix", transform: "./descriptors/create.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
         { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },
-        { name: "native-order-identity", transform: "./compile-probe.cjs", fixtureSource, operation: "identity" },
+        { name: "native-order-identity", transform: "./descriptors/context.cjs", fixtureSource, operation: "identity", contextProbe: factoryContextProbe },
         { name: "native-order-upper", transform: "./compile-probe.cjs", fixtureSource, operation: "upper" },
         { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
       );
@@ -196,7 +198,7 @@ export namespace BatchWorkspace {
     if (installationOnly) {
       fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
-    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, cache: TestProject.sharedPluginCache() };
+    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */
