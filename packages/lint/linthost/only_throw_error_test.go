@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusOnlyThrowError verifies the lint rule corpus fixture
+// TestRuleCorpusOnlyThrowError verifies a reduced trigger from the lint rule corpus
 // only-throw-error.ts under a real Program.
 //
 // The rule is type-aware: it inspects the throw expression's type via
