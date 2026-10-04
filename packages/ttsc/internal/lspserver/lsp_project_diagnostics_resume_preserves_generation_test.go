@@ -11,13 +11,14 @@ func (projectDiagnosticsResumeSource) ProjectDiagnostics() *LSPProjectDiagnostic
 }
 
 // TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork verifies
-// a save or close advances and rearms pending work atomically, while a refresh
-// completed before that transition remains completed.
+// direct resume advances pending work, while a refresh marked complete before
+// the next direct resume remains complete. Actual save/close dispatch and
+// concurrent atomicity are not exercised.
 //
-// @evidence contracts/testing.md#behavioral-verification A save or close advances and rearms pending work atomically, and a refresh completed before that transition stays completed.
-// @evidence contracts/testing.md#independent-expectations The expected pending and completed states are literal after each transition.
-// @evidence contracts/testing.md#distinguishing-cases Pre-transition completion and post-transition pending work are distinguished by generation.
-// @evidence contracts/testing.md#execution-ownership TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#behavioral-verification Direct resume advances an observed pending generation by one and keeps pending=true; after explicit completion, another direct resume must leave the generation unchanged. Timer rearming, actual save/close routing and concurrent interleavings are not asserted.
+// @evidence contracts/testing.md#independent-expectations Authored arithmetic before+1 and final=after, plus literal pending=true, distinguish progression from revival without reusing a generation calculation helper. Completion receives the actual retained pending generation.
+// @evidence contracts/testing.md#distinguishing-cases Pending work and already completed work have different generation outcomes in the sequential schedule/resume/complete/resume sequence. Dirty-document refusal and concurrent completion are not exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit calls actual Proxy scheduling and resume/completion methods with an owned source returning nil diagnostics. Scheduling arms the real timer and asynchronous scheduler; deferred stop clears pending state and closes admission without certifying callback join. No native child, sidecar, temporary project, installed consumer or product host runs and no operation is replaced.
 func TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork(
   t *testing.T,
 ) {
