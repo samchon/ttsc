@@ -2,13 +2,12 @@ package linthost
 
 import "testing"
 
-// TestRuleCorpusUnicornIsolatedFunctions verifies the real-command corpus
-// fixture's scope-escape semantics through the checker-backed native engine.
+// TestRuleCorpusUnicornIsolatedFunctions verifies the corpus fixture's
+// authored scope-capture cases through the checker-backed Go engine.
 //
-// The corpus is the end-to-end command oracle; this package-local twin keeps
-// its exact positive and negative cases visible in focused Go coverage,
-// including the recursion-through-hoisted-name report the upstream scope
-// model mandates.
+// This package-local twin retains the corpus's positive and negative source
+// cases, including the reported recursive hoisted name. Its independent
+// literal tuples fix each line, target and isolation reason.
 //
 //  1. Run the annotated fixture source with a real Program and checker.
 //  2. Assert the captured references, the hoisted-name recursion, and the
@@ -17,9 +16,9 @@ import "testing"
 //     stays silent.
 //
 // @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify four exact outer-capture/hoisted-recursion/this findings report while the parameter/local/global callback stays clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
-// @evidence contracts/testing.md#independent-expectations Authored exact line/target/upstream reason tuples independently specify the supported scope-escape behavior. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#independent-expectations Authored exact line/target/reason tuples independently specify the supported scope-escape behavior. Test-owned message interpolation composes the authored sentence and does not call the production reason builder.
 // @evidence contracts/testing.md#distinguishing-cases Bare makeSynchronous capture, comment-marked value and own recursive name, and direct this report; callback parameter/local/console/Array remain usable.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornIsolatedFunctions is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornIsolatedFunctions is a discoverable Go unit host; its literal source cases under default options run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestRuleCorpusUnicornIsolatedFunctions(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 
