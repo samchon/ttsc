@@ -8,7 +8,7 @@ import "testing"
 //
 // A backslash line continuation ends its backslash run at the line
 // terminator, so a `$\{` right after `\<CRLF>` must still canonicalize
-// (the upstream lookbehind sees the newline as a non-backslash). The
+// (the owning byte scanner resets its run on the line terminator). The
 // rewrite must also keep the continuation, the CRLF bytes, and multibyte
 // neighbors byte-identical because the edit replaces the whole payload.
 //
