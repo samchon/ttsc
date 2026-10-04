@@ -4,11 +4,10 @@ import (
   "testing"
 )
 
-// TestUnicornFilenameCaseUnicodeSegments verifies non-ASCII characters pass
-// through the checked name verbatim, exactly like upstream's ignored-character
-// runs.
+// TestUnicornFilenameCaseUnicodeSegments verifies non-ASCII characters remain
+// verbatim while the native rule checks the adjacent ASCII word runs.
 //
-// Upstream's word splitter only treats `[A-Za-z0-9_-]` as checkable word
+// The native word splitter only treats `[A-Za-z0-9_-]` as checkable word
 // characters; any other code point — accented letters included — is an
 // ignored run that survives into rename samples unchanged. A name whose word
 // runs are all valid therefore passes even with accents between them.

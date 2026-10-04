@@ -4,12 +4,10 @@ import (
   "testing"
 )
 
-// TestUnicornFilenameCaseUpstreamValidFilenames verifies every JSON-expressible
-// valid case of the upstream test suite produces zero findings.
+// TestUnicornFilenameCaseUpstreamValidFilenames verifies the retained literal
+// filename/options table produces zero findings through the native rule.
 //
-// The table is transcribed from eslint-plugin-unicorn's tests/filename-case.js
-// `valid` list (RegExp-typed ignore entries and the no-filename placeholders
-// have no JSON counterpart in this host). It locks stem/middle/extension
+// Independent authored paths and options exercise stem/middle/extension
 // splitting, every case family including the acronym-aware ones, leading
 // underscores, `$` prefixes, ignored character runs, and dotted middles.
 //
@@ -17,8 +15,8 @@ import (
 // 2. Assert the engine reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification The real filename rule evaluates the complete retained valid path/options matrix and requires zero findings.
-// @evidence contracts/testing.md#independent-expectations Independently authored upstream valid spellings follow the selected case policies and exemptions; no expected name is produced by the Go normalizer.
-// @evidence contracts/testing.md#distinguishing-cases All retained compliant stems, paths and configured forms remain; the invalid matrix owns their reported counterparts.
+// @evidence contracts/testing.md#independent-expectations Independently authored valid spellings follow the selected case policies and exemptions; no expected name is produced by the Go normalizer.
+// @evidence contracts/testing.md#distinguishing-cases The retained table contrasts case families, acronym boundaries, underscore/dollar prefixes, ignored runs, configured regex exemptions and dotted-stem modes.
 // @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseUpstreamValidFilenames owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseUpstreamValidFilenames(t *testing.T) {
   cases := []struct {
@@ -161,7 +159,7 @@ func TestUnicornFilenameCaseUpstreamValidFilenames(t *testing.T) {
     {"src/FooBar/file.js", `{"checkDirectories":false}`},
     {"src/FooBar/file.js", `{"case":"kebabCase","checkDirectories":false}`},
     {"src/meta/BadName.js", `{"case":"kebabCase","ignore":["^meta$"]}`},
-    // Snapshot-suite valid filenames.
+    // Additional authored valid filenames.
     {"src/foo-js/bar.js", ""},
     {"src/foo-js/bar.spec.js", ""},
     {"src/foo-js/.spec.js", ""},

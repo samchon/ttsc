@@ -6,11 +6,11 @@ import (
 )
 
 // TestUnicornFilenameCaseOptionValidation verifies the ValidateOptions
-// surface: accepted shapes bind, malformed shapes become configuration errors
-// that disable the rule instead of panicking mid-walk.
+// surface: accepted shapes have no configuration error, while malformed shapes
+// produce a configuration error during engine construction.
 //
-// The upstream schema is an anyOf over a `case` shape and a `cases` shape with
-// `additionalProperties: false`, a unique-items `ignore` array, and boolean
+// The native decoder permits either `case` or `cases`, rejects unknown keys,
+// and validates a unique-pattern `ignore` array and boolean
 // flags; both keys together, unknown keys, unknown case names, non-boolean
 // values, duplicate ignore patterns, and uncompilable patterns are all
 // rejected up front.

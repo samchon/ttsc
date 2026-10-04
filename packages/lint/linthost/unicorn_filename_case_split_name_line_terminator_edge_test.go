@@ -6,21 +6,19 @@ import (
 )
 
 // TestUnicornFilenameCaseSplitNameLineTerminatorEdge verifies the
-// leading-underscore extraction's JavaScript regex parity on names containing
-// line terminators.
+// leading-underscore extraction policy for names containing line terminators.
 //
-// Upstream captures `/^(_+)(.*)$/` without the `s` or `m` flags, so a name
-// with `\n`, `\r`, U+2028, or U+2029 after its underscores never matches
-// and the underscores stay part of the checked words. Real filesystems rarely
-// produce such names, but the helper must not silently diverge from the
-// oracle on them.
+// Names containing LF, CR, U+2028 or U+2029 keep their leading underscores in
+// the checked words. An ordinary name instead extracts its underscore prefix.
+// These literal helper inputs require no native filesystem spelling or
+// JavaScript regular-expression execution.
 //
 // 1. Split conventional and line-terminator-bearing underscore names.
 // 2. Assert leading extraction happens only for the conventional ones.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning filename split helper evaluates ordinary and line-terminator-containing names and checks underscore extraction and retained word prefixes.
 // @evidence contracts/testing.md#independent-expectations The supported change-case-compatible name policy and literal expected alternatives establish these unusual separators independently.
-// @evidence contracts/testing.md#distinguishing-cases Line-terminator boundaries contrast with ordinary Unicode/path segments in complementary hosts.
+// @evidence contracts/testing.md#distinguishing-cases The ordinary underscore prefix is extracted while each of four line-terminator forms keeps its underscore in the first checked word.
 // @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseSplitNameLineTerminatorEdge owns its retained literal paths/options as a discoverable Go unit entry; the owning unicornFilenameCaseSplitName helper runs directly in the shared process on literal names, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseSplitNameLineTerminatorEdge(t *testing.T) {
   leading, words := unicornFilenameCaseSplitName("__fooBar")

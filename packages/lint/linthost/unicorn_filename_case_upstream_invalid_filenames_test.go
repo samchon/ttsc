@@ -4,9 +4,9 @@ import (
   "testing"
 )
 
-// TestUnicornFilenameCaseUpstreamInvalidFilenames verifies every
-// JSON-expressible invalid case of the upstream suite reports exactly the
-// upstream message, including the rename samples and their order.
+// TestUnicornFilenameCaseUpstreamInvalidFilenames checks the retained invalid
+// filename/options table against independent literal diagnostic messages,
+// including rename samples and their order.
 //
 // Message text is load-bearing: the disjunction list format, the configured
 // case order, the leading-underscore prefix, the lowercased extension in
@@ -14,11 +14,11 @@ import (
 // drift in any helper breaks an exact string.
 //
 // 1. Lint a virtual file for each filename/options pair.
-// 2. Assert exactly one finding carrying the upstream-rendered message.
+// 2. Assert exactly one finding carrying the authored literal message.
 //
 // @evidence contracts/testing.md#behavioral-verification The real rule evaluates the retained invalid filename/options matrix and requires exact authored diagnostic messages.
 // @evidence contracts/testing.md#independent-expectations Literal supported case conversions and independently authored expected alternatives distinguish wrong normalization, message ordering and missed reports.
-// @evidence contracts/testing.md#distinguishing-cases Every original invalid spelling and option form remains; the valid matrix supplies adjacent accepted names.
+// @evidence contracts/testing.md#distinguishing-cases The retained table distinguishes default and explicit cases, acronyms, underscore prefixes, middle extensions, directories and ordered rename alternatives.
 // @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseUpstreamInvalidFilenames owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseUpstreamInvalidFilenames(t *testing.T) {
   cases := []struct {
