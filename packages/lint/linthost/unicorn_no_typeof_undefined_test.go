@@ -6,19 +6,19 @@ import (
   "testing"
 )
 
-// TestRuleCorpusUnicornNoTypeofUndefined verifies every upstream-invalid
+// TestRuleCorpusUnicornNoTypeofUndefined verifies the authored
 // `typeof <local> <op> "undefined"` comparison reports at the `typeof` keyword,
-// with the upstream message and an attached autofix.
+// with the literal message and a non-empty autofix.
 //
-// Upstream matches only when the `typeof` is the left operand of an equality
+// The owning rule matches only when the `typeof` is the left operand of an equality
 // comparison whose right side is the string literal `"undefined"`, and skips
 // globals by default because rewriting them can throw. Pinning all four
 // equality operators over a `let`, a `const`, a `var`, and a member-access
 // operand locks the checker-backed "has a local binding" branch (a name-only
 // match would collude with the skipped global forms) and the diagnostic range,
-// which upstream anchors to the `typeof` keyword rather than the whole
-// comparison. The negative twin — every upstream-valid shape — lives in the
-// skips-upstream-valid-forms case.
+// which the rule anchors to the `typeof` keyword rather than the whole
+// comparison. This entry checks these four reporting forms, not the exact
+// autofix edits or their application.
 //
 //  1. Enable unicorn/no-typeof-undefined on one source stacking the reporting
 //     shapes, each operand a binding declared in the same file.
@@ -28,8 +28,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification four local comparisons report exactly at each typeof keyword with exact message, severity, an automatic fix and no suggestions.
 // @evidence contracts/testing.md#independent-expectations Authored keyword occurrences and literal diagnostic message derive expected ranges/text independently of the product visitor.
-// @evidence contracts/testing.md#distinguishing-cases Let/const/var/member operands cover all four equality operators; default-global and malformed comparison shapes are the named SkipsUpstreamValidForms complement.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoTypeofUndefined is a discoverable Go unit host; owning checker-backed engine operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
+// @evidence contracts/testing.md#distinguishing-cases Let/const/var/member operands cover all four equality operators in this local reporting matrix.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoTypeofUndefined is a discoverable Go unit host; owning checker-backed engine operations run its literal fixtures in the shared process without installation, native builds or product children. Indexed failures retain each independently authored keyword range and literal diagnostic identity.
 func TestRuleCorpusUnicornNoTypeofUndefined(t *testing.T) {
   const ruleName = "unicorn/no-typeof-undefined"
   source := `declare const object: { property: unknown };
