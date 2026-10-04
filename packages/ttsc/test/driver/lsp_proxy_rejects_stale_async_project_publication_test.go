@@ -21,7 +21,7 @@ import (
 //
 //  1. Block the first document's project evaluation.
 //  2. Publish a newer project result from a second document.
-//  3. Release the old result and assert it never reaches the editor.
+//  3. Release the old result and observe no editor frame for 150 milliseconds.
 //  4. Block another evaluation, dirty its document, and reject that result too.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes newer project work and suppresses old or dirtied work during 150ms windows.

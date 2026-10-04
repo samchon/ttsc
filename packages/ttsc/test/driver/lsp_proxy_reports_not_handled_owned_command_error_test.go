@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyReportsNotHandledOwnedCommandError Verifies that an advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback.
+// TestLSPProxyReportsNotHandledOwnedCommandError Verifies that an advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback during 150 milliseconds.
 //
 // Owned failed routing contrasts with unowned forwarding and owned no-op success.
 //
@@ -18,7 +18,7 @@ import (
 // 3. Assert the editor sees an error response.
 // 4. Assert upstream sees no fallback frame.
 //
-// @evidence contracts/testing.md#behavioral-verification An advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback.
+// @evidence contracts/testing.md#behavioral-verification An advertised command returning ErrCommandNotHandled produces a local error with advertised but not handled and no fallback during the 150ms observation window.
 // @evidence contracts/testing.md#independent-expectations Advertising a command commits local ownership; the authored stub failure must not replay upstream.
 // @evidence contracts/testing.md#distinguishing-cases Owned failed routing contrasts with unowned forwarding and owned no-op success.
 // @evidence contracts/testing.md#execution-ownership The Go callback and pipe proxy execute locally, with upstream silence observed for 150 milliseconds. Go discovers TestLSPProxyReportsNotHandledOwnedCommandError under ./test/driver.

@@ -121,6 +121,7 @@ func TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection(
 
   cleared := decodeProjectPublication(t, h.recvEditor())
   if cleared.URI != "file:///project/tsconfig.json" ||
+    cleared.Diagnostics == nil ||
     len(cleared.Diagnostics) != 0 {
     t.Fatalf("retried project publication = %#v", cleared)
   }
