@@ -2,6 +2,9 @@ import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/co
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { notifyFailedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyFailedGenerationInputs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
@@ -106,6 +109,32 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
         `${path.basename(file)} must still be served after an out-of-program module`,
       );
     }
+    // A failed optional envelope also retains the config selection itself.
+    const selectedConfig = path.join(root, "tsconfig.json");
+    let recoveries = 0;
+    notifyFailedGenerationInputs({
+      addWatchFiles: (inputs, failed) => {
+        ++recoveries;
+        assert.equal(failed, true);
+        assert.deepEqual(inputs.map((input) => input.file), [selectedConfig]);
+        assert.equal(inputs[0]?.evidence?.missing, false);
+        assert.deepEqual(inputs[0]?.evidence?.state, {
+          codec: "host",
+          hash: createHash("sha256").update(fs.readFileSync(selectedConfig)).digest("hex"),
+        });
+      },
+    }, {
+      inputHashes: {},
+      membershipPolicy: observed.membershipPolicy,
+      projectRoot: root,
+      result: { type: "failure", typescript: {}, diagnostics: [] },
+      tsconfig: selectedConfig,
+    }, outside, {
+      consulted: [],
+      filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
+      tsconfig: selectedConfig,
+    });
+    assert.equal(recoveries, 1);
   } finally {
     if (stderrDescriptor) Object.defineProperty(process.stderr, "write", stderrDescriptor);
     else delete (process.stderr as { write?: typeof process.stderr.write }).write;
