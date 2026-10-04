@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble preserves name indices 0 and 2 around a dropped middle segment.
 // @evidence contracts/testing.md#independent-expectations A separate test VLQ codec decodes independently authored name indices and source-line shifts.
 // @evidence contracts/testing.md#distinguishing-cases A dropped name index 1 must not skew later cumulative state; extra survivor count is not asserted.
-// @evidence contracts/testing.md#execution-ownership Go unit TestAdjustSourceMapForPreamblePreservesNameIndices is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver discovers this direct AdjustSourceMapForPreamble unit. Authored JSON and separate test-local VLQ helpers run in process without filesystem inputs, shim calls, compiler preparation or a host artifact.
 func TestAdjustSourceMapForPreamblePreservesNameIndices(t *testing.T) {
   const dropLines = 2
   sources := []string{"src/a.ts"}
