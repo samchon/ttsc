@@ -7,6 +7,7 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { createBuildWatchFile } from "./bridge/createBuildWatchFile";
 import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
@@ -528,10 +529,11 @@ const unpluginFactory: UnpluginFactory<
       // contexts hold the module-level channel (a compilation-level one
       // schedules a pass without invalidating the module), and every other
       // host has one `addWatchFile`.
-      const loaderContext =
-        native?.framework === "webpack" || native?.framework === "rspack"
-          ? native.loaderContext
-          : undefined;
+      const { addWatchFile, loaderContext } = createBuildWatchFile(
+        this,
+        native,
+        file,
+      );
       // Lifecycle admission needs an actual host declaration, rather than the
       // ordinary bridge helper's default when no watch capability is reported.
       const watching =
@@ -544,12 +546,6 @@ const unpluginFactory: UnpluginFactory<
               : native?.framework === "farm"
                 ? farmWatching
                 : (this as { meta?: { watchMode?: boolean } }).meta?.watchMode;
-      const addWatchFile: (input: string) => void =
-        native?.framework === "farm"
-          ? (input) => native.context.addWatchFile(file, input)
-          : loaderContext !== undefined
-            ? (input) => loaderContext.addDependency(input)
-            : (input) => this.addWatchFile(input);
       // What the delivery was handed, for Rollup's cache to be answered by:
       // the record, or that no cache may serve the module.
       const handed: {
