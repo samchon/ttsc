@@ -34,7 +34,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if call.QuestionDotToken != nil {
       return
     }
-    if !isInBooleanContext(node) && !isBooleanCallArgument(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(ctx, node) {
       return
     }
     message := "Redundant Boolean call."
@@ -65,7 +65,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if inner == nil || inner.Operator != shimast.KindExclamationToken {
       return
     }
-    if !isInBooleanContext(node) && !isBooleanCallArgument(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(ctx, node) {
       return
     }
     message := "Redundant double negation."
@@ -226,9 +226,9 @@ func isInBooleanContext(node *shimast.Node) bool {
 }
 
 // isBooleanCallArgument reports whether `node` is the first argument of a
-// `Boolean(...)` call or `new Boolean(...)`, whose result is converted to a
-// boolean anyway, so `Boolean(!!x)` repeats the conversion.
-func isBooleanCallArgument(node *shimast.Node) bool {
+// built-in `Boolean(...)` call or `new Boolean(...)`. A shadowed converter can
+// observe the difference between a boolean argument and its original value.
+func isBooleanCallArgument(ctx *Context, node *shimast.Node) bool {
   outer := skipParents(node)
   if outer == nil || outer.Parent == nil {
     return false
@@ -248,7 +248,7 @@ func isBooleanCallArgument(node *shimast.Node) bool {
   default:
     return false
   }
-  return identifierText(callee) == "Boolean" && arguments != nil &&
+  return isGlobalBooleanConverter(ctx, callee) && arguments != nil &&
     len(arguments.Nodes) > 0 && arguments.Nodes[0] == outer
 }
 

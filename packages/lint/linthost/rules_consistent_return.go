@@ -104,11 +104,13 @@ func blockAlwaysExits(body *shimast.Node) bool {
 // when its `finally` does or when its try and catch blocks both do, and a loop
 // with a constant `true` condition and no `break` never completes.
 //
-// With valueOnly, a `return` ends the statement only when it carries a value,
-// so a bare `return;` still lets a getter produce `undefined`. The analysis is
-// one-sided: any shape it cannot settle counts as able to complete, so a
-// reported function really has a path that falls off its end.
+// With valueOnly, completion kinds preserve bare returns even inside an earlier
+// switch clause, endless loop or finally block. Unknown shapes are conservative
+// possible completion, not proof that a runtime path actually falls through.
 func statementCannotComplete(stmt *shimast.Node, valueOnly bool) bool {
+  if valueOnly {
+    return getterStatementCompletion(stmt)&(getterNormal | getterBareReturn | getterBreak | getterContinue | getterUnresolvedTransfer) == 0
+  }
   if stmt == nil {
     return false
   }
@@ -165,6 +167,180 @@ func statementCannotComplete(stmt *shimast.Node, valueOnly bool) bool {
       !containsBreakOut(loop.Statement)
   }
   return false
+}
+
+// Getter completion keeps an undefined-producing return separate from normal
+// continuation. Abrupt outcomes survive sequential composition; finally can
+// replace them, while switches and loops consume unlabeled local transfers.
+// Labeled transfers remain unresolved rather than being consumed by a nested
+// construct. Unknown statement shapes remain possible normal completion.
+type getterCompletion uint8
+
+const (
+  getterNormal getterCompletion = 1 << iota
+  getterValueReturn
+  getterBareReturn
+  getterThrow
+  getterBreak
+  getterContinue
+  getterUnresolvedTransfer
+)
+
+func getterSequenceCompletion(statements []*shimast.Node) getterCompletion {
+  result := getterNormal
+  for _, statement := range statements {
+    if result&getterNormal == 0 {
+      break
+    }
+    result = result&^getterNormal | getterStatementCompletion(statement)
+  }
+  return result
+}
+
+func getterStatementCompletion(stmt *shimast.Node) getterCompletion {
+  if stmt == nil {
+    return getterNormal
+  }
+  switch stmt.Kind {
+  case shimast.KindReturnStatement:
+    if ret := stmt.AsReturnStatement(); ret != nil && ret.Expression != nil {
+      return getterValueReturn
+    }
+    return getterBareReturn
+  case shimast.KindThrowStatement:
+    return getterThrow
+  case shimast.KindBreakStatement:
+    if branch := stmt.AsBreakStatement(); branch != nil && branch.Label != nil {
+      return getterUnresolvedTransfer
+    }
+    return getterBreak
+  case shimast.KindContinueStatement:
+    if branch := stmt.AsContinueStatement(); branch != nil && branch.Label != nil {
+      return getterUnresolvedTransfer
+    }
+    return getterContinue
+  case shimast.KindBlock:
+    return getterSequenceCompletion(stmt.Statements())
+  case shimast.KindLabeledStatement:
+    if label := stmt.AsLabeledStatement(); label != nil {
+      return getterStatementCompletion(label.Statement)
+    }
+    return getterNormal
+  case shimast.KindIfStatement:
+    branch := stmt.AsIfStatement()
+    if branch == nil {
+      return getterNormal
+    }
+    if condition := stripParens(branch.Expression); condition != nil {
+      if condition.Kind == shimast.KindTrueKeyword {
+        return getterStatementCompletion(branch.ThenStatement)
+      }
+      if condition.Kind == shimast.KindFalseKeyword {
+        return getterStatementCompletion(branch.ElseStatement)
+      }
+    }
+    return getterStatementCompletion(branch.ThenStatement) | getterStatementCompletion(branch.ElseStatement)
+  case shimast.KindSwitchStatement:
+    return getterSwitchCompletion(stmt)
+  case shimast.KindTryStatement:
+    block := stmt.AsTryStatement()
+    if block == nil {
+      return getterNormal
+    }
+    result := getterStatementCompletion(block.TryBlock)
+    if block.CatchClause != nil {
+      clause := block.CatchClause.AsCatchClause()
+      if clause == nil {
+        return getterNormal
+      }
+      // Calls and expressions can throw even without an explicit throw node.
+      result = result&^getterThrow | getterStatementCompletion(clause.Block)
+    }
+    if block.FinallyBlock != nil && result != 0 {
+      final := getterStatementCompletion(block.FinallyBlock)
+      if final&getterNormal == 0 {
+        return final
+      }
+      return result | final&^getterNormal
+    }
+    return result
+  case shimast.KindWhileStatement:
+    loop := stmt.AsWhileStatement()
+    if loop != nil {
+      if condition := stripParens(loop.Expression); condition != nil && condition.Kind == shimast.KindFalseKeyword {
+        return getterNormal
+      }
+      return getterLoopCompletion(loop.Statement, isConstantTrue(loop.Expression), false)
+    }
+  case shimast.KindDoStatement:
+    loop := stmt.AsDoStatement()
+    if loop != nil {
+      return getterLoopCompletion(loop.Statement, isConstantTrue(loop.Expression), true)
+    }
+  case shimast.KindForStatement:
+    loop := stmt.AsForStatement()
+    if loop != nil {
+      if condition := stripParens(loop.Condition); condition != nil && condition.Kind == shimast.KindFalseKeyword {
+        return getterNormal
+      }
+      return getterLoopCompletion(loop.Statement, loop.Condition == nil || isConstantTrue(loop.Condition), false)
+    }
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    if loop := stmt.AsForInOrOfStatement(); loop != nil {
+      return getterLoopCompletion(loop.Statement, false, false)
+    }
+  }
+  return getterNormal
+}
+
+func getterLoopCompletion(body *shimast.Node, endless, executesOnce bool) getterCompletion {
+  result := getterStatementCompletion(body)
+  normal := !endless && (!executesOnce || result&(getterNormal | getterContinue) != 0)
+  if result&getterBreak != 0 {
+    normal = true
+  }
+  result &^= getterNormal | getterBreak | getterContinue
+  if normal {
+    result |= getterNormal
+  }
+  return result
+}
+
+func getterSwitchCompletion(stmt *shimast.Node) getterCompletion {
+  sw := stmt.AsSwitchStatement()
+  if sw == nil || sw.CaseBlock == nil {
+    return getterNormal
+  }
+  block := sw.CaseBlock.AsCaseBlock()
+  if block == nil || block.Clauses == nil {
+    return getterNormal
+  }
+  result, suffix := getterCompletion(0), getterNormal
+  hasDefault := false
+  for index := len(block.Clauses.Nodes)-1; index >= 0; index-- {
+    node := block.Clauses.Nodes[index]
+    if node == nil {
+      return getterNormal
+    }
+    clause := node.AsCaseOrDefaultClause()
+    if clause == nil {
+      return getterNormal
+    }
+    hasDefault = hasDefault || node.Kind == shimast.KindDefaultClause
+    own := getterNormal
+    if clause.Statements != nil {
+      own = getterSequenceCompletion(clause.Statements.Nodes)
+    }
+    if own&getterNormal != 0 {
+      own = own&^getterNormal | suffix
+    }
+    suffix = own
+    result |= own
+  }
+  if !hasDefault || result&getterBreak != 0 {
+    result |= getterNormal
+  }
+  return result&^getterBreak
 }
 
 // switchCannotComplete handles a `switch` whose every path leaves the function.
