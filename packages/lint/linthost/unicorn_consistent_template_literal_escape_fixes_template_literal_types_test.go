@@ -6,10 +6,10 @@ import "testing"
 // verifies template literal types canonicalize the same way value
 // templates do.
 //
-// Under the typescript-eslint parser the upstream rule visits the
-// TemplateElement quasis of TSTemplateLiteralType and TSLiteralType
-// nodes, and `isTaggedTemplateLiteral` is false there, so type-position
-// escapes report and fix. Skipping types would also be incoherent: a
+// The owning Go rule visits TemplateLiteralType heads and spans as well
+// as NoSubstitutionTemplateLiteral nodes. These authored type-position
+// escapes therefore report and fix. This unit does not run an upstream
+// parser or rule; the independently declared source bytes are its oracle. A
 // no-substitution type template shares KindNoSubstitutionTemplateLiteral
 // with value templates and cannot be told apart by kind alone.
 //

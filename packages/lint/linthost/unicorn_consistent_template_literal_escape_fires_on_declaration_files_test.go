@@ -20,7 +20,7 @@ import (
 //  3. Assert exactly one finding is emitted.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine.Run on an actual IsDeclarationFile source emits one rule error rather than silently skipping the template type.
-// @evidence contracts/testing.md#independent-expectations The independently authored bad type escape follows the same upstream template-element contract as value templates; the assertion checks diagnostic rule/severity and excludes host failures.
+// @evidence contracts/testing.md#independent-expectations The independently authored bad type escape requires one ordinary rule error under the manually set declaration-file flag; the assertion checks rule/severity and excludes host failures, without claiming upstream parity.
 // @evidence contracts/testing.md#distinguishing-cases The declaration-file flag is enabled while the literal-type escape is malformed; TestUnicornConsistentTemplateLiteralEscapeFixesTemplateLiteralTypes owns exact type rewrites and canonical negatives.
 // @evidence contracts/testing.md#execution-ownership This Go unit sets the parser-owned declaration flag and runs the owning engine in the shared process with a virtual source. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeFiresOnDeclarationFiles(t *testing.T) {

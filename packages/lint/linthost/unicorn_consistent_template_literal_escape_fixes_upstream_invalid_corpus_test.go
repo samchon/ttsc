@@ -3,21 +3,21 @@ package linthost
 import "testing"
 
 // TestUnicornConsistentTemplateLiteralEscapeFixesUpstreamInvalidCorpus
-// verifies every invalid case of the upstream snapshot rewrites to the
-// upstream fix output through the native fix applier.
+// verifies eight authored invalid inputs rewrite to their independent
+// literal expected outputs through the native fix applier.
 //
-// The expected outputs are transcribed from eslint-plugin-unicorn's
-// test/snapshots/consistent-template-literal-escape.js.md, so the port
-// cannot lock in its own bugs: each case is a mangled-input-to-canonical
-// transformation, the fixed source must reparse cleanly, and a second
+// The named source/expected pairs pin the intended escaped-dollar-brace
+// spellings without generating expectations from the Go rewrite. This finite
+// corpus does not certify every upstream case or freedom from all bugs:
+// each fixed source must reparse cleanly, and a second
 // engine run over the fixed source must stay silent (fix idempotence).
 //
-// 1. Run the fixer over each upstream invalid source.
-// 2. Compare the rewritten file byte-for-byte with the upstream output.
+// 1. Run the fixer over each authored invalid source.
+// 2. Compare the rewritten file byte-for-byte with the independent literal output.
 // 3. Reparse the output and assert the rule no longer fires on it.
 //
-// @evidence contracts/testing.md#behavioral-verification eight named upstream invalid cases produce exact authored fixed strings that reparse and no longer report.
-// @evidence contracts/testing.md#independent-expectations The supported upstream snapshot output was independently transcribed into each literal expected field, so the Go rewrite cannot supply its own oracle.
+// @evidence contracts/testing.md#behavioral-verification Eight named authored invalid cases require exact independently declared fixed strings that reparse and no longer report.
+// @evidence contracts/testing.md#independent-expectations Each literal expected field is independently declared before execution; the Go rewrite does not generate its own oracle, and no unpinned upstream snapshot identity is certified.
 // @evidence contracts/testing.md#distinguishing-cases Brace/both escaped forms, multiple occurrences, leading escaped backslashes and head/tail combinations change; expression substitutions and surrounding declarations remain intact.
 // @evidence contracts/testing.md#execution-ownership Eight named t.Run cases belong to this discoverable Go unit host and preserve each fixture identity in shared-process engine/fix assertions. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeFixesUpstreamInvalidCorpus(t *testing.T) {
