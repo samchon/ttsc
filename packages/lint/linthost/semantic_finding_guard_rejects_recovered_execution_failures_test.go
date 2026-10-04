@@ -18,9 +18,9 @@ func (semanticFindingGuardPanickingRule) Check(*Context, *shimast.Node) { panic(
 // An engine failure retains the configured rule name, severity and source line;
 // normalization of those fields must not establish successful rule execution.
 //
-// @evidence contracts/testing.md#behavioral-verification A real registered panicking rule produces a recovered engine finding that the semantic guard rejects, while an ordinary no-var finding and an empty successful finding set are accepted. Corrupting the ordinary finding's identity or severity and supplying nil are also rejected.
+// @evidence contracts/testing.md#behavioral-verification A real registered panicking rule produces a recovered engine finding that the semantic guard rejects, while an ordinary no-var finding and a directly supplied empty finding set are accepted. Corrupting the ordinary finding's identity or severity and supplying nil are also rejected.
 // @evidence contracts/testing.md#independent-expectations A failed invocation is not a positive semantic diagnostic even when its name and severity match the configured rule. The authored panic and ordinary var source independently distinguish recovery from a successful no-var report; literal rejection classes specify the guard's failure surface.
-// @evidence contracts/testing.md#distinguishing-cases Same-name error-severity recovery contrasts with an ordinary error, unknown identity, warn instead of configured error, disabled severity and nil. The empty successful result remains legal so negative source controls are preserved.
+// @evidence contracts/testing.md#distinguishing-cases Same-name error-severity recovery contrasts with an ordinary error, unknown identity, warn instead of configured error, disabled severity and nil. A directly supplied nil finding slice is accepted; this cell tests empty-set admission without proving that a rule invocation produced it.
 // @evidence contracts/testing.md#execution-ownership Real Register, Engine.Run and the shared semantic guard execute directly in the Go process. Mutations copy the actual ordinary finding before changing one field; no native compilation, installation, source-layout assertion or subprocess is used.
 func TestSemanticFindingGuardRejectsRecoveredExecutionFailures(t *testing.T) {
   panicRule := semanticFindingGuardPanickingRule{}
