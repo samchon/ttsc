@@ -9,6 +9,9 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ runner.temp }}/e2e-shared-go-object-cache
+      TTSC_GO_CACHE_DIR: ${{ runner.temp }}/e2e-shared-go-object-cache
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -51,6 +54,9 @@ jobs:
           const root = process.cwd();
           const traceRoot = process.env.TTSC_E2E_TRACE;
           const cacheRoot = process.env.TTSC_TEST_CACHE_DIR;
+          const goCacheRoot = process.env.TTSC_GO_CACHE_DIR;
+          assert.ok(goCacheRoot && path.isAbsolute(goCacheRoot));
+          assert.equal(goCacheRoot, process.env.GOCACHE);
           const family = process.env.E2E_MEASUREMENT_FAMILY;
           assert.ok(['compiler', 'compiler-stub', 'runtime', 'native-consumer', 'unplugin', 'graph', 'metro', 'installation'].includes(family));
           if (family === 'installation') {
@@ -60,6 +66,7 @@ jobs:
           assert.ok(path.isAbsolute(traceRoot) && path.isAbsolute(cacheRoot));
           fs.mkdirSync(traceRoot);
           fs.mkdirSync(cacheRoot);
+          fs.mkdirSync(goCacheRoot, { recursive: true });
           const { resolveBinary } = require('./packages/ttsc/lib/internal/nativeBinary.js');
           const { resolveTsgo } = require('./packages/ttsc/lib/compiler/internal/resolveTsgo.js');
           const native = resolveBinary();
@@ -169,7 +176,7 @@ jobs:
             assets.push({ label: file, role: file.includes('/fixtures/') ? 'fixture' :
               file.endsWith('.yaml') ? 'configuration' : 'loaded-module', file: path.join(root, file) });
           const input = {
-            assets, cacheRoots: [cacheRoot],
+            assets, cacheRoots: [cacheRoot, goCacheRoot],
             producerLabels: Object.fromEntries(assets.map(asset => [asset.label, asset.label])),
             boundaries: [
               { boundary: 'selected-runner', writerPid: 'runner', event: 'runner-admission',
