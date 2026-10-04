@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoMeaninglessVoidOperator verifies the lint rule corpus
-// fixture typescript-no-meaningless-void-operator.ts under a real Program.
+// TestRuleCorpusNoMeaninglessVoidOperator verifies a reduced trigger from the lint rule corpus
+// fixture typescript-no-meaningless-void-operator.ts plus a clean control under a real Program.
 //
 // `typescript/no-meaningless-void-operator` is type-aware: it queries
 // `GetTypeAtLocation` on the `void X` operand to decide whether the operand is

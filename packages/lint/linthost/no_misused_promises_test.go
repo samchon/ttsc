@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoMisusedPromises verifies the lint rule corpus fixture
+// TestRuleCorpusNoMisusedPromises verifies a reduced condition trigger from the lint rule corpus
 // no-misused-promises.ts under a real Program.
 //
 // `typescript/no-misused-promises` is type-aware: a parser-only engine run skips it
