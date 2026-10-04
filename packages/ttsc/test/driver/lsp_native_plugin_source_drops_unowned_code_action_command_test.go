@@ -1,7 +1,10 @@
+//go:build e2e
+
 package driver_test
 
 import (
   "bytes"
+  _ "embed"
   "encoding/json"
   "strings"
   "testing"
@@ -24,7 +27,11 @@ import (
 // @evidence contracts/testing.md#behavioral-verification CodeActions drops ttsc.fake.other when discovery advertised only ttsc.fake.fix and logs the unowned command.
 // @evidence contracts/testing.md#independent-expectations Command routing authority comes from discovered command IDs, not an arbitrary returned action.
 // @evidence contracts/testing.md#distinguishing-cases A different unowned ID distinguishes this rejection from a missing command and from the valid advertised command in the route case.
-// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceDropsUnownedCodeActionCommand is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
+// @evidence contracts/testing.md#execution-ownership Go test/driver crosses the actual NativePluginSource discovery and code-actions child protocol using a built static fixture; it observes the returned list and log without running an editor or the rejected command.
+// @evidence contracts/e2e.md#necessary-boundary The selected child advertises fix but returns other; native discovery ownership and decoded action filtering must agree across two verbs, which a local membership predicate alone cannot establish.
+// @evidence contracts/e2e.md#shared-execution This unowned-command fixture shares the existing lazy dispatcher build with the other unchanged native sidecar inputs, without a separate build.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private source, cwd and log buffer isolate discovery state; unchanged built fixture bytes are shared. Cleanup establishes its source completion barrier before removal and retains unresolved inputs instead of claiming closure.
+// @evidence contracts/e2e.md#preserved-coverage Original fix discovery, other action, zero-action assertion and exact unowned-command log remain here; missing-command and owned-command neighbors retain separate observations, without inferring command execution.
 func TestLSPNativePluginSourceDropsUnownedCodeActionCommand(t *testing.T) {
   fixture := newNativePluginSourceTestFixture(t)
   dir := fixture.directory
@@ -54,26 +61,5 @@ func TestLSPNativePluginSourceDropsUnownedCodeActionCommand(t *testing.T) {
   }
 }
 
-const nativePluginSourceUnownedCommandSidecar = `package main
-
-import (
-  "fmt"
-  "os"
-)
-
-func main() {
-  if len(os.Args) < 2 {
-    os.Exit(2)
-  }
-  switch os.Args[1] {
-  case "lsp-command-ids":
-    fmt.Println(` + "`" + `["ttsc.fake.fix"]` + "`" + `)
-  case "lsp-code-action-kinds":
-    fmt.Println(` + "`" + `["source.fixAll.ttsc"]` + "`" + `)
-  case "lsp-code-actions":
-    fmt.Println(` + "`" + `[{"title":"Bad","kind":"source.fixAll.ttsc","command":{"title":"Bad","command":"ttsc.fake.other"}}]` + "`" + `)
-  default:
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  }
-}
-`
+//go:embed testdata/native-plugin-source/unowned-command.go.txt
+var nativePluginSourceUnownedCommandSidecar string

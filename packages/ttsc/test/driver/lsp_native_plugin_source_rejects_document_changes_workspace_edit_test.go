@@ -1,6 +1,9 @@
+//go:build e2e
+
 package driver_test
 
 import (
+  _ "embed"
   "encoding/json"
   "strings"
   "testing"
@@ -24,7 +27,11 @@ import (
 // @evidence contracts/testing.md#behavioral-verification ExecuteCommand rejects the fixture documentChanges payload with an error naming WorkspaceEdit.documentChanges.
 // @evidence contracts/testing.md#independent-expectations The supported native bridge accepts changes-only WorkspaceEdit; an unsupported field must not decode to a silent empty success.
 // @evidence contracts/testing.md#distinguishing-cases A standard but unsupported edit shape differs from the valid changes map in the route and content cases.
-// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceRejectsDocumentChangesWorkspaceEdit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
+// @evidence contracts/testing.md#execution-ownership Go test/driver discovers and executes the built static child command through NativePluginSource, observing the decoded-result refusal without an editor or installed CLI.
+// @evidence contracts/e2e.md#necessary-boundary The actual command response carries documentChanges across the child connection into native WorkspaceEdit admission; the named error distinguishes it from a silent empty successful response.
+// @evidence contracts/e2e.md#shared-execution This unchanged documentChanges fixture is another entry in the existing lazy dispatcher build, without a separate compilation for this rejected shape.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private source and cwd isolate discovery and command state; unchanged fixture bytes are shared. The source completion barrier precedes normal removal, while unresolved cleanup retains inputs and fails rather than assuming release.
+// @evidence contracts/e2e.md#preserved-coverage Original command ownership, documentChanges input and error naming WorkspaceEdit.documentChanges remain here; valid changes-only responses are separate cases, and editor application is not observed.
 func TestLSPNativePluginSourceRejectsDocumentChangesWorkspaceEdit(t *testing.T) {
   fixture := newNativePluginSourceTestFixture(t)
   dir := fixture.directory
@@ -53,26 +60,5 @@ func TestLSPNativePluginSourceRejectsDocumentChangesWorkspaceEdit(t *testing.T) 
   }
 }
 
-const nativePluginSourceDocumentChangesSidecar = `package main
-
-import (
-  "fmt"
-  "os"
-)
-
-func main() {
-  if len(os.Args) < 2 {
-    os.Exit(2)
-  }
-  switch os.Args[1] {
-  case "lsp-command-ids":
-    fmt.Println(` + "`" + `["ttsc.fake.fix"]` + "`" + `)
-  case "lsp-code-action-kinds":
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  case "lsp-execute-command":
-    fmt.Println(` + "`" + `{"documentChanges":[{"textDocument":{"uri":"file:///tmp/a.ts","version":1},"edits":[]}]}` + "`" + `)
-  default:
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  }
-}
-`
+//go:embed testdata/native-plugin-source/document-changes.go.txt
+var nativePluginSourceDocumentChangesSidecar string

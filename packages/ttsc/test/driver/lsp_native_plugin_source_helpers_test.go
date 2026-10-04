@@ -1,6 +1,9 @@
+//go:build e2e
+
 package driver_test
 
 import (
+  _ "embed"
   "errors"
   "fmt"
   "os"
@@ -28,6 +31,9 @@ var nativeSidecarBuild struct {
   retentionMu sync.Mutex
   retained bool
 }
+
+//go:embed testdata/native-plugin-source/go.mod.txt
+var nativeSidecarModule string
 
 func buildNativePluginSourceTestSidecar(t *testing.T, sourceText string) string {
   t.Helper()
@@ -87,7 +93,7 @@ func writeNativeSidecarBatch(directory string) error {
     nativePluginSourceOversizedStderrSidecar,
     fakeLSPSidecarSource,
   }
-  if err := os.WriteFile(filepath.Join(directory, "go.mod"), []byte("module ttsc-sidecar-fixtures\n\ngo 1.26\n"), 0o644); err != nil { return err }
+  if err := os.WriteFile(filepath.Join(directory, "go.mod"), []byte(nativeSidecarModule), 0o644); err != nil { return err }
   nativeSidecarBuild.binaries = make(map[string]string, len(fixtures))
   var dispatcher strings.Builder
   dispatcher.WriteString("package main\nimport (\"os\"; \"path/filepath\"; \"strings\"\n")

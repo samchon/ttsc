@@ -1,0 +1,24 @@
+package main
+
+import (
+  "fmt"
+  "os"
+  "strings"
+)
+
+func main() {
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  switch os.Args[1] {
+  case "lsp-command-ids":
+    fmt.Println(`["ttsc.fake.fix"]`)
+  case "lsp-code-action-kinds":
+    fmt.Println(`["source.fixAll.ttsc"]`)
+  case "lsp-code-actions":
+    fmt.Fprint(os.Stderr, strings.Repeat("x", 2*1024*1024))
+    os.Exit(1)
+  default:
+    fmt.Println(`[]`)
+  }
+}

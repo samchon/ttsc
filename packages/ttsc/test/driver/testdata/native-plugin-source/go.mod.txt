@@ -1,0 +1,3 @@
+module ttsc-sidecar-fixtures
+
+go 1.26

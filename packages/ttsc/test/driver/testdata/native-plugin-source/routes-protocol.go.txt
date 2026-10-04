@@ -1,0 +1,34 @@
+package main
+
+import (
+  "fmt"
+  "os"
+  "strings"
+)
+
+func main() {
+  logPath := os.Getenv("TTSC_FAKE_PLUGIN_LOG")
+  if logPath != "" {
+    if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+      _, _ = f.WriteString(strings.Join(os.Args[1:], " ")+"\n")
+      _ = f.Close()
+    }
+  }
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  switch os.Args[1] {
+  case "lsp-command-ids":
+    fmt.Println(`["ttsc.fake.fix"]`)
+  case "lsp-code-action-kinds":
+    fmt.Println(`["source.fixAll.ttsc"]`)
+  case "lsp-diagnostics":
+    fmt.Println(`{"document":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"severity":1,"code":"fake-rule","source":"ttsc/fake","message":"fake diagnostic"}],"project":{"uri":"file:///logical/tsconfig.json","diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"severity":1,"code":"fake-project","source":"ttsc/fake","message":"fake project diagnostic"}]}}`)
+  case "lsp-code-actions":
+    fmt.Println(`[{"title":"Fake fix","kind":"source.fixAll.ttsc","command":{"title":"Fake fix","command":"ttsc.fake.fix","arguments":["file:///tmp/main.ts"]}}]`)
+  case "lsp-execute-command":
+    fmt.Println(`{"changes":{"file:///tmp/main.ts":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"let"}]}}`)
+  default:
+    os.Exit(2)
+  }
+}

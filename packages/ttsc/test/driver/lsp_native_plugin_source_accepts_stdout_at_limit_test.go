@@ -1,8 +1,12 @@
+//go:build e2e
+
 package driver_test
 
 import (
   "bytes"
+  _ "embed"
   "encoding/json"
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -19,10 +23,14 @@ import (
 // 2. Ask NativePluginSource for diagnostics.
 // 3. Assert the payload decodes and no bridge error is logged.
 //
-// @evidence contracts/testing.md#behavioral-verification Diagnostics decodes one diagnostic from an exactly 4 MiB response and logs no error.
+// @evidence contracts/testing.md#behavioral-verification Diagnostics decodes one diagnostic with the entire authored x padding from an exactly 4 MiB response and logs no error.
 // @evidence contracts/testing.md#independent-expectations The documented stdout bound is inclusive; the fixture independently pads its authored JSON to that exact byte size.
-// @evidence contracts/testing.md#distinguishing-cases Exact capacity is accepted; the separate oversized stdout case exceeds the cap. Message nonemptiness does not require exact padded contents.
-// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceAcceptsStdoutAtLimit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
+// @evidence contracts/testing.md#distinguishing-cases Exact capacity preserves the full padded message without a logged error; the separate oversized stdout case exceeds the cap.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes NativePluginSource against a built static sidecar through actual child output and native bounded capture; this is a protocol boundary, not a portable unit call.
+// @evidence contracts/e2e.md#necessary-boundary A real child writes the inclusive stdout limit through NativePluginSource capture and diagnostic decoding, distinguishing a truncated or rejected boundary response from an intact one.
+// @evidence contracts/e2e.md#shared-execution The existing lazy dispatcher build serves the static exact-limit fixture alongside its other unchanged protocol inputs, without another build for this case.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its source, cwd and error buffer; unchanged sidecar build bytes are shared. Fixture cleanup uses the source completion barrier before removal and retains unresolved inputs, without certifying arbitrary descendant or scheduler completion.
+// @evidence contracts/e2e.md#preserved-coverage Original diagnostic-count/nonempty-message/no-log checks remain and an independent full-length/all-x check preserves the actual 4 MiB payload distinction; the over-limit refusal remains separate.
 func TestLSPNativePluginSourceAcceptsStdoutAtLimit(t *testing.T) {
   fixture := newNativePluginSourceTestFixture(t)
   dir := fixture.directory
@@ -48,34 +56,15 @@ func TestLSPNativePluginSourceAcceptsStdoutAtLimit(t *testing.T) {
   if len(diagnostics.Document) != 1 || diagnostics.Document[0].Message == "" {
     t.Fatalf("expected padded diagnostics payload to decode: %#v", diagnostics)
   }
+  prefix := `[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"source":"ttsc/fake","message":"`
+  suffix := `"}]`
+  if message := diagnostics.Document[0].Message; len(message) != 4*1024*1024-len(prefix)-len(suffix) || strings.Trim(message, "x") != "" {
+    t.Fatalf("boundary message padding was not preserved: length=%d", len(message))
+  }
   if errBuf.Len() != 0 {
     t.Fatalf("unexpected bridge stderr: %s", errBuf.String())
   }
 }
 
-const nativePluginSourceStdoutAtLimitSidecar = `package main
-
-import (
-  "fmt"
-  "os"
-  "strings"
-)
-
-const limit = 4 * 1024 * 1024
-
-func main() {
-  if len(os.Args) < 2 {
-    os.Exit(2)
-  }
-  switch os.Args[1] {
-  case "lsp-command-ids", "lsp-code-action-kinds":
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  case "lsp-diagnostics":
-    prefix := ` + "`" + `[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"source":"ttsc/fake","message":"` + "`" + `
-    suffix := ` + "`" + `"}]` + "`" + `
-    fmt.Print(prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)) + suffix)
-  default:
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  }
-}
-`
+//go:embed testdata/native-plugin-source/stdout-at-limit.go.txt
+var nativePluginSourceStdoutAtLimitSidecar string

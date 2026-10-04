@@ -1,0 +1,25 @@
+package main
+
+import (
+  "fmt"
+  "os"
+  "strings"
+)
+
+const limit = 4 * 1024 * 1024
+
+func main() {
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  switch os.Args[1] {
+  case "lsp-command-ids", "lsp-code-action-kinds":
+    fmt.Println(`[]`)
+  case "lsp-diagnostics":
+    prefix := `[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"source":"ttsc/fake","message":"`
+    suffix := `"}]`
+    fmt.Print(prefix + strings.Repeat("x", limit-len(prefix)-len(suffix)) + suffix)
+  default:
+    fmt.Println(`[]`)
+  }
+}

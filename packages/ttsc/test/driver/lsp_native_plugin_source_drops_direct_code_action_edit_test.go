@@ -1,7 +1,10 @@
+//go:build e2e
+
 package driver_test
 
 import (
   "bytes"
+  _ "embed"
   "encoding/json"
   "strings"
   "testing"
@@ -12,19 +15,22 @@ import (
 // TestLSPNativePluginSourceDropsDirectCodeActionEdit verifies sidecar actions
 // must route edits through owned commands.
 //
-// ttscserver currently runs plugin LSP sidecars against saved files, not the
-// editor's in-memory buffer. Direct `edit` actions would bypass command
-// ownership and stale-edit checks, so the bridge drops them until the protocol
-// grows a version-aware direct-edit contract.
+// The native CodeActions boundary requires command-backed results and refuses
+// a nonnull direct edit. This case observes that refusal, not editor buffer
+// synchronization, version checks or command execution.
 //
 // 1. Build a fake sidecar that returns a CodeAction with an inline edit.
 // 2. Ask NativePluginSource for code actions.
 // 3. Assert the action is dropped and the bridge logs the rejection.
 //
 // @evidence contracts/testing.md#behavioral-verification CodeActions drops an inline WorkspaceEdit action and logs returned direct LSP edit.
-// @evidence contracts/testing.md#independent-expectations The saved-file sidecar contract routes changes through owned commands and cannot certify version-aware direct edits.
+// @evidence contracts/testing.md#independent-expectations The native action contract refuses nonnull direct edits and requires an owned command; the authored inline edit supplies the independent rejected neighbor of null.
 // @evidence contracts/testing.md#distinguishing-cases A real nonnull edit is rejected while explicit edit:null with an owned command survives.
-// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceDropsDirectCodeActionEdit is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the real NativePluginSource child protocol using a built authored fixture and observes filtering plus the refusal log, without an installed editor or CLI.
+// @evidence contracts/e2e.md#necessary-boundary The child emits an inline WorkspaceEdit through native code-actions JSON; the specific direct-edit log distinguishes rejection at that decoded boundary from a generic missing-command result.
+// @evidence contracts/e2e.md#shared-execution This unchanged inline-edit fixture is one entry of the shared lazy dispatcher build; the case requests no separate compilation.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private source, cwd and error buffer isolate the case; unchanged sidecar bytes are reused, and cleanup establishes its supported completion barrier before removal or retains unresolved inputs.
+// @evidence contracts/e2e.md#preserved-coverage The original nonnull edit and zero-action/direct-edit-log assertions remain here. The separate null-edit acceptance case supplies the positive neighbor; buffer synchronization and command effects are not inferred.
 func TestLSPNativePluginSourceDropsDirectCodeActionEdit(t *testing.T) {
   fixture := newNativePluginSourceTestFixture(t)
   dir := fixture.directory
@@ -54,26 +60,5 @@ func TestLSPNativePluginSourceDropsDirectCodeActionEdit(t *testing.T) {
   }
 }
 
-const nativePluginSourceDirectEditSidecar = `package main
-
-import (
-  "fmt"
-  "os"
-)
-
-func main() {
-  if len(os.Args) < 2 {
-    os.Exit(2)
-  }
-  switch os.Args[1] {
-  case "lsp-command-ids":
-    fmt.Println(` + "`" + `["ttsc.fake.fix"]` + "`" + `)
-  case "lsp-code-action-kinds":
-    fmt.Println(` + "`" + `["quickfix"]` + "`" + `)
-  case "lsp-code-actions":
-    fmt.Println(` + "`" + `[{"title":"Inline edit","kind":"quickfix","edit":{"changes":{"file:///tmp/a.ts":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}},"newText":"x"}]}}}]` + "`" + `)
-  default:
-    fmt.Println(` + "`" + `[]` + "`" + `)
-  }
-}
-`
+//go:embed testdata/native-plugin-source/direct-edit.go.txt
+var nativePluginSourceDirectEditSidecar string

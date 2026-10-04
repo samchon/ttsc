@@ -1,0 +1,53 @@
+package main
+
+import (
+  "encoding/json"
+  "fmt"
+  "io"
+  "os"
+)
+
+func main() {
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  switch os.Args[1] {
+  case "lsp-command-ids":
+    fmt.Println(`["ttsc.format.document"]`)
+  case "lsp-code-action-kinds":
+    fmt.Println(`[]`)
+  case "lsp-execute-command":
+    hasFlag := false
+    for _, a := range os.Args {
+      if a == "--content-stdin" {
+        hasFlag = true
+      }
+    }
+    stdin := ""
+    if hasFlag {
+      data, _ := io.ReadAll(os.Stdin)
+      stdin = string(data)
+    }
+    prefix := "NOFLAG:"
+    if hasFlag {
+      prefix = "FLAG:"
+    }
+    edit := map[string]any{
+      "changes": map[string]any{
+        "file:///tmp/a.ts": []any{
+          map[string]any{
+            "range": map[string]any{
+              "start": map[string]any{"line": 0, "character": 0},
+              "end":   map[string]any{"line": 0, "character": 0},
+            },
+            "newText": prefix + stdin,
+          },
+        },
+      },
+    }
+    out, _ := json.Marshal(edit)
+    fmt.Println(string(out))
+  default:
+    fmt.Println(`[]`)
+  }
+}

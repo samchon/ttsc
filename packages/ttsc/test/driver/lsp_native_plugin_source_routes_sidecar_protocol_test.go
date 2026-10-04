@@ -1,7 +1,10 @@
+//go:build e2e
+
 package driver_test
 
 import (
   "bytes"
+  _ "embed"
   "encoding/json"
   "os"
   "path/filepath"
@@ -12,7 +15,8 @@ import (
 )
 
 // TestLSPNativePluginSourceRoutesSidecarProtocol verifies native LSP plugin
-// source delegates every PluginSource method to the sidecar protocol.
+// source discovery, diagnostics, code actions and command execution through
+// the sidecar protocol, without claiming every optional source operation.
 //
 // The VSCode path depends on a launcher-produced manifest whose sidecar
 // binaries answer diagnostics, code actions, and executeCommand requests. This
@@ -25,10 +29,14 @@ import (
 // 3. Call CommandIDs, Diagnostics, CodeActions, and ExecuteCommand.
 // 4. Assert returned LSP shapes and forwarded flags match the manifest.
 //
-// @evidence contracts/testing.md#behavioral-verification NativePluginSource discovers command IDs/kinds, publishes document and project diagnostics, returns a command action and decodes its changes edit; the actual call log contains all verbs and physical config/project-context/plugin flags.
+// @evidence contracts/testing.md#behavioral-verification NativePluginSource discovers command IDs/kinds, returns document and project diagnostic records, returns a command action and decodes its changes edit; the actual call log contains the listed verbs and physical config/project-context/plugin fragments.
 // @evidence contracts/testing.md#independent-expectations Authored protocol payloads, manifest inputs and literal edit text define independent transport expectations. Log fragment checks establish presence rather than exact argv equality.
-// @evidence contracts/testing.md#distinguishing-cases One fixture checks discovery plus diagnostics, code actions and executeCommand, including logical versus physical project config and project publication; malformed response and ownership cases are separate.
-// @evidence contracts/testing.md#execution-ownership TestLSPNativePluginSourceRoutesSidecarProtocol is a Go unit test in the test/driver process: the authored sidecar batch is built once, its fixture executables act as the sidecar test doubles, and the source's cleanup barrier joins each child before the fixture directory is removed; no installed consumer or built product CLI runs.
+// @evidence contracts/testing.md#distinguishing-cases One fixture checks discovery plus diagnostics, code actions and executeCommand, including logical versus physical project config and returned project diagnostics; malformed response and ownership cases are separate.
+// @evidence contracts/testing.md#execution-ownership Go test/driver crosses real NativePluginSource child verbs using a built static fixture, then checks decoded records and a native call log; no editor publication, installed CLI or tsgo session runs.
+// @evidence contracts/e2e.md#necessary-boundary Discovery, read and command responses plus actual forwarded config/context/plugin argv cross a selected child connection; direct DTO or predicate calls would not establish those transport relationships.
+// @evidence contracts/e2e.md#shared-execution The static routing fixture is one entry of the existing lazy dispatcher build shared with the other native source cases; no distinct build is requested for these verbs.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its source, cwd and log file and uses t.Setenv for the call-log setting. Its restoration is registered after fixture cleanup and therefore runs first; cleanup's refresh may use the restored environment, so these assertions certify only the log read during the case. The source completion barrier precedes normal cwd/log removal, unresolved completion retains them, and shared dispatcher bytes remain unchanged.
+// @evidence contracts/e2e.md#preserved-coverage Original manifest, logical/physical context, command/kind, diagnostic, action, edit, log-fragment and no-error assertions remain here, with explicit plugins-json flag presence added; exact argv serialization and editor application are not inferred.
 func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
   fixture := newNativePluginSourceTestFixture(t)
   dir := fixture.directory
@@ -123,6 +131,7 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
     "--cwd=" + dir,
     "--tsconfig=" + physicalConfig,
     "--project-context-json=",
+    "--plugins-json=",
     `"logicalConfigPath"`,
     `"mode":"strict"`,
   } {
@@ -140,38 +149,5 @@ func buildFakeLSPSidecar(t *testing.T) string {
   return buildNativePluginSourceTestSidecar(t, fakeLSPSidecarSource)
 }
 
-const fakeLSPSidecarSource = `package main
-
-import (
-  "fmt"
-  "os"
-  "strings"
-)
-
-func main() {
-  logPath := os.Getenv("TTSC_FAKE_PLUGIN_LOG")
-  if logPath != "" {
-    if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-      _, _ = f.WriteString(strings.Join(os.Args[1:], " ")+"\n")
-      _ = f.Close()
-    }
-  }
-  if len(os.Args) < 2 {
-    os.Exit(2)
-  }
-  switch os.Args[1] {
-  case "lsp-command-ids":
-    fmt.Println(` + "`" + `["ttsc.fake.fix"]` + "`" + `)
-  case "lsp-code-action-kinds":
-    fmt.Println(` + "`" + `["source.fixAll.ttsc"]` + "`" + `)
-  case "lsp-diagnostics":
-    fmt.Println(` + "`" + `{"document":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"severity":1,"code":"fake-rule","source":"ttsc/fake","message":"fake diagnostic"}],"project":{"uri":"file:///logical/tsconfig.json","diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"severity":1,"code":"fake-project","source":"ttsc/fake","message":"fake project diagnostic"}]}}` + "`" + `)
-  case "lsp-code-actions":
-    fmt.Println(` + "`" + `[{"title":"Fake fix","kind":"source.fixAll.ttsc","command":{"title":"Fake fix","command":"ttsc.fake.fix","arguments":["file:///tmp/main.ts"]}}]` + "`" + `)
-  case "lsp-execute-command":
-    fmt.Println(` + "`" + `{"changes":{"file:///tmp/main.ts":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"let"}]}}` + "`" + `)
-  default:
-    os.Exit(2)
-  }
-}
-`
+//go:embed testdata/native-plugin-source/routes-protocol.go.txt
+var fakeLSPSidecarSource string

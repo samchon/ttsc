@@ -1,0 +1,22 @@
+package main
+
+import (
+  "fmt"
+  "os"
+)
+
+func main() {
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  switch os.Args[1] {
+  case "lsp-command-ids":
+    fmt.Println(`["ttsc.fake.fix"]`)
+  case "lsp-code-action-kinds":
+    fmt.Println(`[]`)
+  case "lsp-execute-command":
+    fmt.Println(`{"changes":{"file:///tmp/a.ts":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"newText":"first"}]}}`)
+  default:
+    fmt.Println(`[]`)
+  }
+}
