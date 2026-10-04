@@ -17,7 +17,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestUnicornConsistentFunctionScopingChainsBlocksInsideLoopBodies owns its explicit variants as a discoverable Go unit entry; checker and engine operations execute in the shared process with isolated fixtures and no installed consumer, native producer or product child host.
 func TestUnicornConsistentFunctionScopingChainsBlocksInsideLoopBodies(t *testing.T) {
   // Loop bodies live in IterationStatementBase.Statement, so the loop-body
-  // chain must not rely on Node.Body(). Upstream reports definitions at the
+  // chain must not rely on Node.Body(). The owning rule reports definitions at the
   // top of while/do bodies yet keeps ones whose captures live anywhere on
   // the block chain inside the loop body.
   source := `declare const condition: boolean;
