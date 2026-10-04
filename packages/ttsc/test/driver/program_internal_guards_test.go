@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Linked private diagnostic helpers return empty or false for nil inputs.
 // @evidence contracts/testing.md#independent-expectations No diagnostic or overload exists for nil inputs, independently grounding no-op outcomes.
 // @evidence contracts/testing.md#distinguishing-cases Nil slice, singleton nil entry and nil classifier argument hit different guards.
-// @evidence contracts/testing.md#execution-ownership Go unit TestProgramInternalGuards is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls the maintained private helpers through existing local go:linkname declarations with nil inputs; no filesystem fixture, compiler Program, host artifact or child is used.
 func TestProgramInternalGuards(t *testing.T) {
   if got := driverConvertDiagnostics(nil); len(got) != 0 {
     t.Fatalf("nil diagnostic slice mismatch: %#v", got)

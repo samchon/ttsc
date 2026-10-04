@@ -129,7 +129,7 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   // the assembly in this test only. The driver's own lane is guarded by the
   // emit_plugin_rebuilt_* tests, which this one cannot stand in for because it
   // never calls EmitWithPluginTransformers.
-  if !strings.Contains(text, `require("./dep")`) {
+  if !strings.Contains(text, `dep_1 = require("./dep")`) {
     t.Fatalf("alias dep_1.foo has no require binding, so the assembled output would throw at runtime:\n%s", text)
   }
 }

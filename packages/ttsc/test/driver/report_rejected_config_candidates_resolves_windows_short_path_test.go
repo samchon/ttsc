@@ -59,8 +59,11 @@ func windowsShortPath(t *testing.T, value string) string {
     t.Fatal(err)
   }
   needed, err := windows.GetShortPathName(input, nil, 0)
-  if err != nil || needed == 0 {
-    t.Skipf("Windows short paths are unavailable: %v", err)
+  if err != nil {
+    t.Fatalf("query Windows short path: %v", err)
+  }
+  if needed == 0 {
+    t.Fatal("Windows short path query returned no buffer size")
   }
   buffer := make([]uint16, needed)
   written, err := windows.GetShortPathName(input, &buffer[0], uint32(len(buffer)))
