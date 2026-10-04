@@ -1,1 +1,1 @@
-﻿{"extends":"./runtime-base.json"}
+{"extends":"./runtime-base.json","compilerOptions":{"rootDir":null}}

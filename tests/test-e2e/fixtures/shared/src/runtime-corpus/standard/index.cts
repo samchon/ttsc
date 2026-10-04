@@ -25,5 +25,6 @@ class Foo {
 effectConsole.log(new Foo("abc").getBar());
 
 export const observed = effects.map((values) => values.join(" ")).join("\n");
-export const answer = 42;
+export { answer } from "./internal/index.js";
+export const own = 1;
 

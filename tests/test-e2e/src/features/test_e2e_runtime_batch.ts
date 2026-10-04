@@ -40,10 +40,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
   const normalRoot = path.join(workspace.root, "src/runtime-corpus/normal-population");
   const normalInputs = await FileSystemIterator.read(normalRoot);
+  const standardRoot = path.join(workspace.root, "src/runtime-corpus/standard");
+  const standardInputs = await FileSystemIterator.read(standardRoot);
+  const runtimeOwnerConfig = fs.readFileSync(path.join(workspace.root, "runtime-owned.json"));
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
-    "-P", "runtime-owned.json", "--rootDir", ".",
+    "-P", "runtime-owned.json",
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
     "--noEmit", "--emitDeclarationOnly", "--target", "es2019", "@runtime-args.txt",
@@ -89,6 +92,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
   assertRuntimeNormalPopulation((payload as { normalPopulation: unknown }).normalPopulation);
   assert.deepEqual(await FileSystemIterator.read(normalRoot), normalInputs, "all seven normal value/edge contributions must keep their source tree unchanged and contain no adjacent emitted files");
+  assert.deepEqual(await FileSystemIterator.read(standardRoot), standardInputs, "both requested decorated index sources and their same-basename helper must remain unchanged without adjacent emits");
+  assert.deepEqual(fs.readFileSync(path.join(workspace.root, "runtime-owned.json")), runtimeOwnerConfig);
   assert.deepEqual((payload as { exportPopulation: unknown }).exportPopulation, {
     inert: { actual: [17, 17], before: [42, 42], after: 43, inlineText: '\n__exportStar(require("./ghost"), exports);\n', memberText: '\ntslib_1.__exportStar(require("./ghost"), exports);\n', hidden: false, ghost: false, arithmetic: true, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
     dynamic: { actual: [17, 17], computed: 42, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
@@ -126,6 +131,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     memberCommonjs: "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
     adapterFactories: ["function", "function", "function", "function"],
     answers: [42, 42],
+    requestedSource: [1, 1],
     proposalValue: 42,
     startupMarkers: ["ran", "entry-ran", "ENTRY", "explicit-runner-project"],
     mainMessage: "main:value",

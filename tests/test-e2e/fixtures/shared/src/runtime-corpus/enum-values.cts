@@ -1,4 +1,4 @@
-import { observed } from "./standard.cjs";
+import { observed } from "./standard/index.cjs";
 const state = globalThis as typeof globalThis & { batchEnumLoads?: number };
 state.batchEnumLoads = (state.batchEnumLoads ?? 0) + 1;
 export const enum Value { Entry = 42 }

@@ -11,8 +11,8 @@ import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
 const host = createMemFS();
 observeEmittedEffects();
 host.writeFile("/main.ts", "export const value = 1;\n");
-const standardEsm = await import("./runtime-corpus/standard.mjs");
-const standardCommonjs = await import("./runtime-corpus/standard.cjs");
+const standardEsm = await import("./runtime-corpus/standard/index.mjs");
+const standardCommonjs = await import("./runtime-corpus/standard/index.cjs");
 const memberEsm = await import("./runtime-corpus/member.mjs");
 const memberCommonjs = await import("./runtime-corpus/member.cjs");
 const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
@@ -37,6 +37,7 @@ const mixedRuntime = {
   memberCommonjs: memberCommonjs.observed,
   adapterFactories,
   answers: [standardEsm.answer, standardCommonjs.answer],
+  requestedSource: [standardEsm.own, standardCommonjs.own],
   proposalValue: proposal.proposalValue,
   startupMarkers: proposal.startupMarkers,
   mainMessage: proposal.mainMessage(),
