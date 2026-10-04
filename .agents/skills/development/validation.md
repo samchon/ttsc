@@ -27,7 +27,7 @@ Every verification workflow runs on `pull_request` only, checks out, sets up Nod
 
 | Workflow | Commands |
 | --- | --- |
-| `build.yml` | `pnpm run evidence`, then `pnpm run build`. Evidence checks the production declarations and every test package before the build. |
+| `build.yml` | `pnpm run build`, then `pnpm run evidence`. Evidence checks the production declarations and every test package after the build. |
 | `test.yml` | `pnpm run test:go` runs `go test` in each Go module owned by a package. `pnpm run test:units` runs `pnpm start` in every `tests/test-*` package except `tests/test-e2e`. |
 | `e2e.yml` | `pnpm run build`, then `pnpm run test:e2e`, the `pnpm start` of `tests/test-e2e`. |
 | `setup.yml` | The only installation matrix: Linux, macOS and Windows on x64 and arm64. Each row builds `ttsc` and its platform package, then runs the installation experiment of `tests/test-e2e` (`start --installation`), which packs and installs them into a bare consumer. |

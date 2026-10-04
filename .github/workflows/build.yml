@@ -23,7 +23,7 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
       - run: pnpm run evidence
         env:
           EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
-      - run: pnpm run build
