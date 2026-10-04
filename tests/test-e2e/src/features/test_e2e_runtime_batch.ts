@@ -1,4 +1,4 @@
-﻿import { TestProject } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -72,6 +72,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     contraryCommonjs: "cts-runner-ok",
     mtsImport: "mts-runner-ok",
     dual: "42:7:esm-ok",
+    sameNamedOwnership: "a,b,a,b,tools",
+    rawPackageOwnership: "tools",
     standardEsm: "Hello Class Foo\nHello Function getBar\nabc",
     standardCommonjs: "Hello Class Foo\nHello Function getBar\nabc",
     memberEsm: "11 method\nstatic:run,class:Foo,field:#value,accessor:count",

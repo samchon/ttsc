@@ -15,6 +15,7 @@ const memberCommonjs = await import("./runtime-corpus/member.cjs");
 const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
 const mtsImport = await import("./runtime-corpus/mts-import/main.mjs");
 const dual = await import("./runtime-corpus/dual/main.mjs");
+const ownership = await import("./runtime-corpus/ownership/main.cjs");
 const stackInside = await import("./runtime-corpus/stack/inside.cjs");
 const stackOutside = await import("./runtime-corpus/stack/outside.cjs");
 const proposal = await import("./runtime-corpus/proposal.mjs");
@@ -23,6 +24,8 @@ const mixedRuntime = {
   contraryCommonjs: contraryCommonjs.observed,
   mtsImport: mtsImport.observed,
   dual: dual.observed,
+  sameNamedOwnership: ownership.observed,
+  rawPackageOwnership: ownership.packageOwn,
   standardEsm: standardEsm.observed,
   standardCommonjs: standardCommonjs.observed,
   memberEsm: memberEsm.observed,
