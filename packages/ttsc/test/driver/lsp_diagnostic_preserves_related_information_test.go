@@ -56,7 +56,7 @@ func TestLSPDiagnosticPreservesRelatedInformation(t *testing.T) {
 // 1. Decode a diagnostic without relatedInformation.
 // 2. Encode it and assert the optional field is absent.
 //
-// @evidence contracts/testing.md#behavioral-verification LSPDiagnostic encoding omits relatedInformation when input lacks it.
+// @evidence contracts/testing.md#behavioral-verification LSPDiagnostic encoding omits relatedInformation when input lacks it while retaining the literal code, message and end character.
 // @evidence contracts/testing.md#independent-expectations The authored input omits the optional field, independently specifying absence.
 // @evidence contracts/testing.md#distinguishing-cases The absent-field negative complements populated information in its sibling.
 // @evidence contracts/testing.md#execution-ownership encoding/json operates directly on the owning lspserver DTO in Go. Go discovers TestLSPDiagnosticOmitsAbsentRelatedInformation under ./test/driver.
@@ -73,5 +73,12 @@ func TestLSPDiagnosticOmitsAbsentRelatedInformation(t *testing.T) {
   }
   if strings.Contains(string(reencoded), "relatedInformation") {
     t.Fatalf("absent relatedInformation must not appear on the wire:\n%s", reencoded)
+  }
+  var roundTripped lspserver.LSPDiagnostic
+  if err := json.Unmarshal(reencoded, &roundTripped); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  if roundTripped.Code != "no-x" || roundTripped.Message != "m" || roundTripped.Range.End.Character != 4 {
+    t.Fatalf("ordinary diagnostic fields were lost while omitting relatedInformation: %+v", roundTripped)
   }
 }

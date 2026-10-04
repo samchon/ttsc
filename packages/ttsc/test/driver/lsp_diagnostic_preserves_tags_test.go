@@ -54,10 +54,10 @@ func TestLSPDiagnosticPreservesTags(t *testing.T) {
 //  1. Decode a diagnostic with no tags field.
 //  2. Assert the re-encoded form has no tags key.
 //
-// @evidence contracts/testing.md#behavioral-verification Decoding and encoding untagged diagnostics omit tags.
+// @evidence contracts/testing.md#behavioral-verification Decoding and encoding the untagged diagnostic omit tags while retaining the literal code, message and end character.
 // @evidence contracts/testing.md#independent-expectations Optional absent tags must not sprout an empty array.
 // @evidence contracts/testing.md#distinguishing-cases Absence contrasts with the two-tag round trip.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPDiagnosticOmitsAbsentTags is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit decodes and encodes the maintained LSPDiagnostic wire type through encoding/json; it opens no temporary project or editor connection.
 func TestLSPDiagnosticOmitsAbsentTags(t *testing.T) {
   input := []byte(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},"code":"no-var","message":"unexpected var"}`)
 
@@ -75,5 +75,12 @@ func TestLSPDiagnosticOmitsAbsentTags(t *testing.T) {
   }
   if strings.Contains(string(reencoded), "tags") {
     t.Fatalf("absent tags must not appear on the wire:\n%s", reencoded)
+  }
+  var roundTripped lspserver.LSPDiagnostic
+  if err := json.Unmarshal(reencoded, &roundTripped); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  if roundTripped.Code != "no-var" || roundTripped.Message != "unexpected var" || roundTripped.Range.End.Character != 4 {
+    t.Fatalf("ordinary diagnostic fields were lost while omitting tags: %+v", roundTripped)
   }
 }
