@@ -10,22 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPFrameReaderReportsHeaderReadErrors Verifies the failure mode the
-// proxy relies on to surface broken peers: a partial header block must
-// produce a wrapped error rather than silently truncate.
-//
-// The proxy distinguishes between "stream ended cleanly between frames"
-// (ErrFrameClosed) and "stream ended mid-header" (wrapped error) when
-// deciding whether to forward shutdown to the upstream tsgo server.
+// TestLSPFrameReaderReportsHeaderReadErrors checks that a partial header
+// produces a wrapped read error, distinct from ErrFrameClosed between
+// frames. It does not execute proxy fatal handling or upstream shutdown.
 //
 // 1. Feed a header line without the terminating empty line.
 // 2. Assert Read returns a wrapped header-read error.
-// 3. Confirm the error is not ErrFrameClosed so the pump treats it as fatal.
+// 3. Confirm the error is not ErrFrameClosed.
 //
 // @evidence contracts/testing.md#behavioral-verification FrameReader.Read wraps io.EOF as a header error instead of ErrFrameClosed.
 // @evidence contracts/testing.md#independent-expectations Mid-header termination differs from clean closure between frames.
-// @evidence contracts/testing.md#distinguishing-cases A partial CR-terminated header exercises fatal truncation, not body truncation.
-// @evidence contracts/testing.md#execution-ownership Go unit TestLSPFrameReaderReportsHeaderReadErrors is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#distinguishing-cases A partial CR-terminated header exercises header truncation distinct from clean closure and body truncation, without observing a transport's fatal handling.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the actual reader on bytes.Reader input and checks its error identity/text, without filesystem inputs, shim operations or a server process.
 func TestLSPFrameReaderReportsHeaderReadErrors(t *testing.T) {
   partial := []byte("Content-Length: 4\r")
   fr := driver.NewFrameReader(bytes.NewReader(partial))
