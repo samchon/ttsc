@@ -100,8 +100,8 @@ export interface ITtscLintFormat {
   trailingComma?: "all" | "es5" | "none";
 
   /**
-   * Maximum column width before broken-form layout is chosen. Mirrors
-   * Prettier's `printWidth`.
+   * Preferred column budget for supported broken-form layouts. Mirrors
+   * Prettier's `printWidth`; it is not a hard bound on every emitted line.
    *
    * @default 80
    */

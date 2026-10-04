@@ -19,7 +19,11 @@ export interface ITtscLintFileTypeOrValueSpecifier {
   /** Match one or more declared names. */
   name: string | readonly string[];
 
-  /** Restrict the match to this project-relative declaration file. */
+   /**
+    * Restrict the declaration file by path. Relative paths are resolved from
+    * the rule's current directory; absolute paths are also accepted. Omission
+    * selects non-library declarations within that directory when it is known.
+    */
   path?: string;
 }
 
@@ -40,7 +44,7 @@ export interface ITtscLintLibTypeOrValueSpecifier {
 }
 
 /**
- * Identifies a type or value declared by an installed package.
+ * Identifies a type or value by package source-path or ambient-module ownership.
  *
  * @evidence contracts/common.md#principled-implementation A required package name joins declaration-name selection under the package discriminant, distinguishing same-named declarations with different owners.
  * @evidence contracts/common.md#clear-and-simple-design Package ownership lives only in its source variant rather than an ambiguous generic path/name object.
@@ -167,11 +171,12 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
  * - `false` — allow the directive unconditionally.
  * - `"allow-with-description"` — allow the directive when it is followed by a
  *   description of at least `minimumDescriptionLength` characters.
- * - `{ descriptionFormat }` — additionally require the description to match the
- *   given regular expression (evaluated with Go's RE2 `regexp` syntax, which
- *   covers the usual patterns such as `"^: TS\\d+ because .+$"`).
+ * - `{ descriptionFormat }` — a nonempty pattern also requires a minimum-length
+ *   description matching Go's RE2 `regexp` syntax, for example
+ *   `"^: TS\\d+ because .+$"`. An empty pattern allows the directive; an invalid
+ *   nonempty pattern retains the length gate without a regex match gate.
  *
- * @evidence contracts/common.md#principled-implementation Boolean, description-required and regex-object alternatives represent progressively constrained directive policies instead of conflating rejection with a text threshold.
+ * @evidence contracts/common.md#principled-implementation Boolean, description-required and regex-object alternatives separate rejection, allowance and text gates; empty and invalid regex policies are documented rather than treated as enforceable patterns.
  * @evidence contracts/common.md#clear-and-simple-design One union carries each directive's policy while the containing options object owns the shared minimum length.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The regex form states Go RE2 semantics explicitly rather than claiming unsupported JavaScript regex behavior.
  * @evidence contracts/common.md#meaningful-documentation The native list explains every alternative and gives an anchored description-format example; the regex member explains raw leading whitespace.
@@ -204,7 +209,7 @@ export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
   /**
    * Minimum description length (counted in Unicode 16.0 extended grapheme
    * clusters, so one emoji is one character) for directives configured as
-   * `"allow-with-description"` or `{ descriptionFormat }`.
+   * `"allow-with-description"` or a nonempty `{ descriptionFormat }` pattern.
    *
    * @default 3
    */
