@@ -17,9 +17,10 @@ import (
 //
 // The builtin chain is built from the parse tree, so the checker sees the value
 // use of `foo` that the source really contains, even after a transform replaced
-// it. Marking the post-plugin tree instead finds no use left and lets elision
-// drop `require("./dep")`, silently discarding whatever side effects that module
-// performs. This is the quieter half of the same cause: the loud half, a rebuilt
+// it. This case requires the resulting `require("./dep")` instruction even
+// though the transformed initializer no longer refers to that dependency; it
+// does not execute dependency side effects or replace the marking pipeline to
+// certify an alternative implementation. The companion case, a rebuilt
 // reference left with an alias and no binding, is pinned by
 // emit_plugin_ancestor_regeneration_preserves_export_resolution_test.go.
 //
@@ -30,7 +31,7 @@ import (
 //     initializer really was rewritten.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs actual value-use replacement and requires retained ./dep require plus exports.a = 42.
-// @evidence contracts/testing.md#independent-expectations Authored original value import establishes retained side effects under the declared parse-tree elision contract; independent literal replacement 42 proves transformation.
+// @evidence contracts/testing.md#independent-expectations Authored original value import establishes the expected retained dependency-loading instruction under the declared parse-tree elision contract; independent literal replacement 42 proves transformation without executing side effects.
 // @evidence contracts/testing.md#distinguishing-cases Removing the last original value use contrasts original-linked rebuilt references and injected-only type imports; replacement presence prevents plain output from passing.
 // @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes real visitor/compiler APIs on its disposable Program and captures output with deferred close rather than launching a host.
 func TestEmitWithPluginTransformerRemovedValueUseKeepsItsImport(t *testing.T) {

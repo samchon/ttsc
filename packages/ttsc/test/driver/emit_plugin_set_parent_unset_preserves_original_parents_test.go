@@ -16,15 +16,16 @@ import (
 // sibling preserves the untouched namespace's export writeback and members.
 //
 // This plugin rewrites ONLY one sibling statement's initializer and leaves the
-// `export namespace` completely alone. If original parents are clobbered the
-// namespace export lowering breaks; the assertions below catch that.
+// `export namespace` completely alone. The assertions observe retained
+// namespace lowering beside the sibling rewrite, not individual Parent
+// pointers or every possible consequence of overwriting them.
 //
 // 1. Replace the sibling literal without descending into the original namespace.
 // 2. Require namespace writeback, tag and wrap exports and the changed seed.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs actual sibling replacement while intentionally not descending into the namespace, requiring namespace writeback, tag/wrap member exports and rewritten seed.
 // @evidence contracts/testing.md#independent-expectations Literal Domain/tag/wrap and replacement 42 independently specify retained namespace output and plugin control.
-// @evidence contracts/testing.md#distinguishing-cases Untouched original namespace plus changed sibling distinguishes original-parent preservation from rebuilt namespace cases; seed replacement rejects a skipped transform.
+// @evidence contracts/testing.md#distinguishing-cases Untouched original namespace plus changed sibling distinguishes retained output through the nil-parent wiring path from rebuilt namespace cases; seed replacement rejects a skipped transform without certifying every Parent pointer.
 // @evidence contracts/testing.md#execution-ownership The owning Go driver unit directly executes visitor/compiler APIs with private Program and local write map and deferred close; no runtime or built-plugin process runs.
 func TestEmitWithPluginTransformerSetParentUnsetPreservesOriginalParents(t *testing.T) {
   root := t.TempDir()
