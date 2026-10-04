@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoDeprecated verifies the lint rule corpus fixture
-// typescript-no-deprecated.ts under a real Program.
+// TestRuleCorpusNoDeprecated verifies a reduced trigger for the lint rule corpus
+// typescript-no-deprecated.ts under a real Program, plus a clean function control.
 //
 // `typescript/no-deprecated` is type-aware: a parser-only engine run skips it
 // because Context.Checker is nil. This Go scenario reuses the `seedLintProject`

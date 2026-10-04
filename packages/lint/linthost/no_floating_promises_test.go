@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoFloatingPromises verifies the lint rule corpus fixture
+// TestRuleCorpusNoFloatingPromises verifies a reduced trigger from the lint rule corpus
 // no-floating-promises.ts under a real Program.
 //
 // `typescript/no-floating-promises` is type-aware: a parser-only engine run skips
@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification A bare native Promise-returning call must report.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 2, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases A separately authored awaited call in an async function is clean, preserving the same declared Promise result.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoFloatingPromises invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers in one Go unit process, without a native build, installed consumer or compiler child.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoFloatingPromises invokes the in-process check command over a real Program/Checker through shared project fixtures and typed semantic oracles in one Go unit process, without a native build, installed consumer or compiler child.
 func TestRuleCorpusNoFloatingPromises(t *testing.T) {
   root := seedLintProject(t, `declare function getPromise(): Promise<number>;
 getPromise();
