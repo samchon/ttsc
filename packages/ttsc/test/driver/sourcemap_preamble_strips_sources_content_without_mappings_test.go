@@ -11,9 +11,9 @@ import (
 // TestAdjustSourceMapForPreambleStripsSourcesContentWithoutMappings Verifies the
 // embedded source is corrected even when there are no mappings to shift.
 //
-// A comment-only or empty source file produces a map with empty `mappings`, so
-// the mapping shift is a no-op, but under `inlineSources` its `sourcesContent`
-// still carries the injected preamble. The correction must strip sourcesContent
+// An authored empty-mappings map models the comment-only source case. Its
+// embedded content carries the supplied three-line preamble; this unit does
+// not run the compiler to certify which files produce that map. The correction must strip sourcesContent
 // independently of whether mappings changed, or a banner build of such a file
 // would embed the banner-shifted source. An implementation that returned early
 // when no mapping changed would never reach the strip.
@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble strips three preamble lines and reports change despite empty mappings.
 // @evidence contracts/testing.md#independent-expectations The authored comment tail is the exact expected embedded source independently of mapping logic.
 // @evidence contracts/testing.md#distinguishing-cases Empty mappings with nonempty source content contrasts with mapping-segment corrections.
-// @evidence contracts/testing.md#execution-ownership Go unit TestAdjustSourceMapForPreambleStripsSourcesContentWithoutMappings is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
+// @evidence contracts/testing.md#execution-ownership Go test/driver discovers this direct AdjustSourceMapForPreamble unit. Authored JSON and output JSON decoding run in process without filesystem inputs, shim calls, compiler preparation or a host artifact.
 func TestAdjustSourceMapForPreambleStripsSourcesContentWithoutMappings(t *testing.T) {
   const dropLines = 3
   doc := map[string]any{

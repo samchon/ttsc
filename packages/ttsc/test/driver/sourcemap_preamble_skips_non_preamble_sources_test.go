@@ -7,13 +7,15 @@ import (
 )
 
 // TestAdjustSourceMapForPreambleSkipsNonPreambleSources Verifies the per-source
-// guard: only segments whose source file was preamble-injected are shifted.
+// guard: the filename-suffix mask shifts TS mappings and preserves JSON mappings.
 //
 // The preamble is injected into TypeScript/JavaScript sources but NOT into
 // `.json` sources (isSourcePreambleTarget excludes them). A bundled map (outFile)
 // can list both; blindly subtracting the preamble line count from every segment
 // would corrupt the `.json` segments, which were never shifted. This pins that
 // `.ts` segments move and `.json` segments stay put.
+// The authored map models that leading-line premise; this direct unit does not
+// observe a compiler applying the preamble or emitting an outFile bundle.
 //
 //  1. Build a 2-source map (`a.ts` shifted in the source, `b.json` not) with a
 //     dropLines of 3, including an `a.ts` segment inside the preamble region.
@@ -21,7 +23,7 @@ import (
 //  3. Assert `a.ts` segments dropped/-3, `b.json` segments unchanged.
 //
 // @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble shifts the TypeScript source mapping to line two, drops its preamble mapping, and preserves both JSON source lines.
-// @evidence contracts/testing.md#independent-expectations Only the authored TypeScript source receives a preamble; literal absolute segment records establish which lines change and which must stay intact.
+// @evidence contracts/testing.md#independent-expectations Under the supplied leading-line correction premise, the supported TS suffix changes and the non-target JSON suffix does not; literal absolute segment records independently establish the expected coordinates. No actual source insertion is performed by this unit.
 // @evidence contracts/testing.md#distinguishing-cases A shifted real TS segment, dropped TS preamble segment, ordinary JSON segment and low JSON segment distinguish source selection and removal.
 // @evidence contracts/testing.md#execution-ownership Go test/driver uses its independent map construction/parsing helpers and calls correction directly without emitting a bundle.
 func TestAdjustSourceMapForPreambleSkipsNonPreambleSources(t *testing.T) {

@@ -16,10 +16,11 @@ import (
 // This pins the @ttsc/banner source-map correction: the banner is injected
 // at the source level, so without this rewrite every emitted mapping for real
 // code points `dropLines` lines too deep (onto blank lines) and the preamble's
-// own emitted comment carries phantom mappings. The fixture is a real banner
-// `.js.map` (one source line ballooned under a 9-line copyright block).
+// own emitted comment carries phantom mappings. The committed literal models
+// a banner-shifted `.js.map` under a 9-line copyright block; this direct unit
+// does not compile the banner project or establish artifact provenance.
 //
-//  1. Take a real banner-shifted map and adjust it for a 9-line preamble.
+//  1. Take the committed shifted-map literal and adjust it for a 9-line preamble.
 //  2. Decode before/after and pair segments by generated position.
 //  3. Assert every kept segment dropped exactly 9 source lines, every
 //     preamble-region segment (source line < 9) was removed, and no negative
@@ -31,8 +32,8 @@ import (
 // @evidence contracts/testing.md#execution-ownership Go test/driver invokes the source-map correction function directly on literal JSON and uses its test decoder, without banner compilation.
 func TestAdjustSourceMapForPreambleUndoesSourceLineShift(t *testing.T) {
   const dropLines = 9
-  // Real `main.js.map` emitted for a banner project: `export const first`
-  // (source line 0) ends up mapped to source line 9 before the adjustment.
+  // The authored `main.js.map` coordinates place the first real-code line at
+  // source line 9 before the supplied leading-line adjustment.
   const shifted = `{"version":3,"file":"main.js","sourceRoot":"","sources":["../src/main.ts"],"names":[],` +
     `"mappings":";;;;AAAA;;;;;;;;GAQG;AACU,QAAA,KAAK,GAAW,GAAG,CAAC;AACpB,QAAA,MAAM,GAAW,GAAG,CAAC;AAClC,eAAsB,CAAS;IAC7B,OAAO,CAAC,GAAG,QAAA,KAAK,GAAG,QAAA,MAAM,CAAC;AAC5B,CAAC"}`
 
