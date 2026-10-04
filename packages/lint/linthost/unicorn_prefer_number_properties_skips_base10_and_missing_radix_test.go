@@ -8,7 +8,7 @@ import (
 // no-radix and base-10 parseInt calls valid while pinning the radix-2 twin so an
 // over-eager relaxation of the filter is caught.
 //
-// 1. Execute the retained source and option variants through the owning Go operation.
+// 1. Execute the authored missing-radix, base-10 and radix-2 sources with default options through the owning Go operation.
 // 2. Assert the concrete diagnostic or authored full-source result described here.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual checker-backed rule accepts relaxed parseInt calls while its radix-2 counterpart must still report.
