@@ -8,13 +8,14 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyPreservesSlowUpstreamCodeActions Verifies plugin actions do not
-// race out ahead of a slow upstream response.
+// TestLSPProxyPreservesSlowUpstreamCodeActions Verifies the observed response
+// retains upstream and plugin actions under controlled request/reply ordering.
 //
 // LSP responses are single-shot. If ttsc answers before tsgo, the later
 // upstream result must be dropped and TypeScript quick fixes disappear. The
-// proxy therefore waits for upstream whenever upstream advertised code-action
-// support, then appends plugin actions to that response.
+// proxy therefore needs a correlated merge rather than replacing the upstream
+// action set. This case supplies the upstream reply after forwarding the request;
+// it does not initialize capabilities, inject a delay or assert earlier silence.
 //
 // 1. Configure one plugin action.
 // 2. Send a normal codeAction request and drain it upstream; the proxy holds the

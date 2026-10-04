@@ -13,7 +13,7 @@ import (
 //
 // 1. Complete an initialize handshake whose upstream result advertises referencesProvider: true.
 // 2. Send textDocument/references from the editor.
-// 3. Assert the request reaches upstream verbatim and the local provider is never consulted.
+// 3. Assert the request reaches upstream verbatim and the local provider stays uncalled through the 150ms observation.
 //
 // @evidence contracts/testing.md#behavioral-verification Advertised references forward unchanged without consulting the local provider.
 // @evidence contracts/testing.md#independent-expectations The capability assigns upstream ownership; authored request bytes and zero calls define expectations.
