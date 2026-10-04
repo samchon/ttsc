@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createProcessDiagnostic } from "./compiler/internal/build/createProcessDiagnostic";
 import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemory";
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
@@ -9,10 +8,17 @@ import { SidecarEnvironment } from "./compiler/internal/sharedHost/SidecarEnviro
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { transformProjectInWorker } from "./compiler/internal/transformProjectInWorker";
 import { CompilerContextSnapshot } from "./internal/CompilerContextSnapshot";
+import {
+  classifyException,
+  normalizeError,
+  runProject,
+  runTransformation,
+  toCompilerTransformation,
+} from "./internal/CompilerResultAdapter";
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
 import { cacheEntryExists } from "./internal/cacheEntryExists";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
-import { serializeCompilerError } from "./internal/serializeCompilerError";
+
 import { resolveRuntimeCleanTargets } from "./launcher/internal/runtime/resolveRuntimeCleanTargets";
 import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
 import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
@@ -20,10 +26,10 @@ import { SourceBuildCacheLayout } from "./plugin/internal/source/SourceBuildCach
 import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "./plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
-import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
+
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
 import type { ITtscCompilerTransformation } from "./structures/ITtscCompilerTransformation";
-import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
+
 
 /**
  * Programmatic compiler host for the `ttsc` TypeScript-Go pipeline.
@@ -438,200 +444,4 @@ function removeExistingDirectories(
     removed.push(directory.requestedPath);
   }
   return removed;
-}
-
-interface ProjectResult {
-  output: Record<string, string>;
-  result: TtscBuildResult;
-}
-
-interface ProjectTransformation {
-  dependencies?: Record<string, string[]>;
-  dependenciesComplete?: string[];
-  graph?: ITtscCompilerTransformation.IReferenceGraph;
-  hostInputHashes?: Record<string, string | null>;
-  hostInputProofFailures?: Record<string, "observation-unavailable">;
-  hostInputRealpaths?: Record<string, string | null>;
-  hostInputs?: string[];
-  observationsComplete?: false;
-  pluginSources?: Record<string, string>;
-  result: TtscBuildResult;
-  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
-  typescript: Record<string, string>;
-  volatile?: string[];
-}
-
-function runProject(task: () => ProjectResult): ITtscCompilerResult {
-  try {
-    return toCompilerResult(task());
-  } catch (error) {
-    return {
-      error: normalizeError(error),
-      kind: classifyException(error),
-      type: "exception",
-    };
-  }
-}
-
-function runTransformation(
-  task: () => ProjectTransformation,
-): ITtscCompilerTransformation {
-  try {
-    return toCompilerTransformation(task());
-  } catch (error) {
-    return {
-      error: normalizeError(error),
-      kind: classifyException(error),
-      type: "exception",
-    };
-  }
-}
-
-/**
- * Best-effort classifier for the `kind` field of `IException`. Pattern- matches
- * the real prefixes thrown inside this package:
- *
- * - Plugin: messages from `loadProjectPlugins.ts` / `buildSourcePlugin.ts` start
- *   with `ttsc: plugin "..."` or `ttsc: package "..." declares ...`, and
- *   transform-time spawn failures start with `ttsc.transform:` /
- *   `ttsc.transform.check:`. The Go-toolchain missing envelope also surfaces
- *   here.
- * - Host: everything else under the `ttsc:` umbrella — the bare `ttsc:` strings
- *   from `packageRootDir.ts`, `ttsc: TypeScript-Go executable not found`
- *   (`resolveTsgo.ts`), `ttsc: failed to spawn native compiler host`
- *   (`transformProjectInMemory.ts`), and tsconfig / extended-tsconfig shapes
- *   from `readProjectConfig.ts`.
- * - Anything else falls back to `"unknown"` so embedders always see the field set
- *   per the documented contract.
- *
- * Order matters: plugin patterns must run before the generic `ttsc:` test
- * because every plugin message also starts with `ttsc:`.
- */
-function classifyException(error: unknown): "plugin" | "host" | "unknown" {
-  let message: string;
-  try {
-    const description =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : error !== null && typeof error === "object"
-            ? Object.getOwnPropertyDescriptor(error, "message")?.value
-            : undefined;
-    message = typeof description === "string" ? description : "";
-  } catch {
-    return "unknown";
-  }
-  if (
-    // Match every plugin-origin shape with verb-anchored patterns so a
-    // host-path containing the literal token `plugin` (e.g.
-    // `TTSC_BINARY=/opt/cache/plugins/ttsc-bin`) does not misclassify
-    // as kind="plugin". Each alternative anchors at the start of the
-    // message to capture the verb, not anywhere later in the line:
-    //
-    //   - `ttsc: plugin "..."` / `ttsc: package "..."` — from
-    //     loadProjectPlugins.ts
-    //   - `ttsc: building plugin "..."` / `ttsc: reading go.mod for
-    //     plugin "..."` — from buildSourcePlugin.ts
-    //   - `ttsc.transform:` / `ttsc.transform.check:` — from
-    //     transformProjectInMemory.ts
-    //   - `ttsc-plugin:` — legacy prefix kept for compatibility
-    //   - `go toolchain` — the goToolchainNotFoundMessage envelope
-    /^ttsc:\s*plugin\b|^ttsc:\s*package\b|^ttsc:\s*building plugin\b|^ttsc:\s*reading go\.mod for plugin\b|^ttsc\.transform[.:]|^ttsc-plugin:|go toolchain/i.test(
-      message,
-    )
-  ) {
-    return "plugin";
-  }
-  if (
-    /^ttsc:|tsconfig|extended tsconfig|TypeScript-Go|native compiler host/i.test(
-      message,
-    )
-  ) {
-    return "host";
-  }
-  return "unknown";
-}
-
-function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
-  const { output, result } = project;
-  if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
-    return {
-      ...(result.diagnostics.length === 0
-        ? {}
-        : { diagnostics: result.diagnostics }),
-      output,
-      type: "success",
-    };
-  }
-  return {
-    diagnostics:
-      result.diagnostics.length === 0
-        ? [createProcessDiagnostic(result)]
-        : result.diagnostics,
-    output,
-    type: "failure",
-  };
-}
-
-function toCompilerTransformation(
-  project: ProjectTransformation,
-): ITtscCompilerTransformation {
-  const {
-    dependencies,
-    dependenciesComplete,
-    graph,
-    hostInputHashes,
-    hostInputProofFailures,
-    hostInputRealpaths,
-    hostInputs,
-    observationsComplete,
-    pluginSources,
-    result,
-    sourceMaps,
-    typescript,
-    volatile,
-  } = project;
-  const advisoryFields = {
-    ...(dependencies === undefined ? {} : { dependencies }),
-    ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),
-    ...(graph === undefined ? {} : { graph }),
-    ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
-    ...(hostInputProofFailures === undefined ? {} : { hostInputProofFailures }),
-    ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),
-    ...(hostInputs === undefined ? {} : { hostInputs }),
-    ...(observationsComplete === undefined ? {} : { observationsComplete }),
-    ...(pluginSources === undefined ? {} : { pluginSources }),
-    ...(sourceMaps === undefined ? {} : { sourceMaps }),
-    ...(volatile === undefined ? {} : { volatile }),
-  };
-  if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
-    return {
-      ...(result.diagnostics.length === 0
-        ? {}
-        : { diagnostics: result.diagnostics }),
-      ...advisoryFields,
-      type: "success",
-      typescript,
-    };
-  }
-  return {
-    ...advisoryFields,
-    diagnostics:
-      result.diagnostics.length === 0
-        ? [createProcessDiagnostic(result)]
-        : result.diagnostics,
-    type: "failure",
-    typescript,
-  };
-}
-
-function hasErrorDiagnostics(
-  diagnostics: readonly ITtscCompilerDiagnostic[],
-): boolean {
-  return diagnostics.some((diagnostic) => diagnostic.category === "error");
-}
-
-function normalizeError(error: unknown): unknown {
-  return serializeCompilerError(error);
 }
