@@ -40,14 +40,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Bare root, collision depths 1/2/3/16, bare namespace, source-owned require, helper-shaped decoy and retained ESM import preserve all original runtime distinctions; decoy exports must remain unchanged beside replacements.
 // @evidence contracts/testing.md#execution-ownership This untagged Go unit calls the owning compiler library directly and uses Node only as an independent emitted-value oracle, without installing a consumer, building a native host or invoking product protocol. Anonymous subcases preserve original failure names but are not separately addressable Evidence declarations; TestDriverRewriteRuntimeBatch is their selectable owner.
 //
-// Additional implementation review grounds follow. The selected public case
-// answers the testing and E2E chapters above; its private helpers remain
-// review-only because Go Evidence addresses exported declarations.
+// Additional execution notes follow. The selected public case answers the
+// testing chapters above; private helper notes describe its actual operations
+// without separately addressable Evidence coverage or review certification.
 //
 // Portability: OS-neutral implementation: filepath.Join preserves native fixture and output paths under TempDir; the private consumer helper supplies argv separately and converts ESM paths to file URLs without shell quoting or OS branches.
 // Performance: Efficient algorithms: Nine source targets are registered once and each of two option groups is emitted once; result comparison scans each small export map without duplicate module loads.
 // Performance: Reuse equivalent work: Eight CommonJS cases use the same effective interop and immutable runtime compiler options with isolated source modules, so one Program serves them. The raw false parse distinction stays in the unit; the genuinely different ESM module format and resolution require the second Program. One Node process shares startup across all nine independent module paths.
-// Performance: Bound retention and release resources: Each Program closes immediately after its group's emission, including ordinary failure paths, with idempotent deferred cleanup guarding panic; one TempDir owns copied fixtures/output, and the helper bounds and waits for the single Node process.
+// Performance: Bound retention and release resources: Each Program closes immediately after its group's emission, including ordinary failure paths, with idempotent deferred cleanup guarding panic; one TempDir owns copied fixtures/output, and the helper requests timed Node cancellation and waits for the command. This is not an independent inherited-pipe drain deadline or descendant-closure guarantee.
 func TestDriverRewriteRuntimeBatch(t *testing.T) {
   cases := []struct {
     name         string

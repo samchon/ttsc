@@ -17,9 +17,9 @@ import (
 // rewriteRuntimeFixtures embeds the authored compiler inputs and Node consumer.
 // Embedding keeps fixture lookup independent of CWD and compiler trimpath.
 //
-// Review grounds below cover this declaration and its callees.
-// Go Evidence addresses exported declarations only; these native grounds
-// remain part of the owning operation review rather than automated coverage.
+// These helper notes describe the selected test's operations and limitations.
+// Go Evidence does not separately address these private declarations; the notes
+// do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: The immutable embedded tree carries actual authored source and module configuration, with independent expected values kept in Go assertions.
 // Common: Clear and simple design: One tree supplies the two effective option groups and one runtime script without runtime source generation.
@@ -35,9 +35,9 @@ var rewriteRuntimeFixtures embed.FS
 // copyRewriteRuntimeFixtures copies embedded source inputs into a private root.
 // Compiler output and module loading use only this test-owned mutable copy.
 //
-// Review grounds below cover this declaration and its callees.
-// Go Evidence addresses exported declarations only; these native grounds
-// remain part of the owning operation review rather than automated coverage.
+// These helper notes describe the selected test's operations and limitations.
+// Go Evidence does not separately address these private declarations; the notes
+// do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: fs.Sub selects the authored fixture root and os.CopyFS copies its regular embedded files without synthesizing source or expected output.
 // Common: Clear and simple design: Fixture materialization has one explicit destination and returns its first filesystem error to the owning batch.
@@ -58,9 +58,9 @@ func copyRewriteRuntimeFixtures(root string) error {
 // rewriteRuntimeInput identifies one actual emitted module and its loader kind.
 // It deliberately carries no expected value into the Node consumer.
 //
-// Review grounds below cover this declaration and its callees.
-// Go Evidence addresses exported declarations only; these native grounds
-// remain part of the owning operation review rather than automated coverage.
+// These helper notes describe the selected test's operations and limitations.
+// Go Evidence does not separately address these private declarations; the notes
+// do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: Name preserves the Go failure identity, File is a native absolute module path, and ESM selects import rather than require.
 // Common: Clear and simple design: Three protocol fields express the loader input without compiler options or expected answers.
@@ -79,9 +79,9 @@ type rewriteRuntimeInput struct {
 // rewriteRuntimeResult records one independently caught module load.
 // A module error belongs to its named subcase rather than suppressing later loads.
 //
-// Review grounds below cover this declaration and its callees.
-// Go Evidence addresses exported declarations only; these native grounds
-// remain part of the owning operation review rather than automated coverage.
+// These helper notes describe the selected test's operations and limitations.
+// Go Evidence does not separately address these private declarations; the notes
+// do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: Value contains actual serialized module exports while Error identifies that module's load failure; the Go test owns literal expected maps.
 // Common: Clear and simple design: The record preserves name, observed exports and error separately so infrastructure and per-case failures remain distinguishable.
@@ -101,9 +101,9 @@ type rewriteRuntimeResult struct {
 // The static consumer catches each load separately; malformed shared output is
 // an infrastructure error, while a valid named error remains local to its case.
 //
-// Review grounds below cover this declaration and its callees.
-// Go Evidence addresses exported declarations only; these native grounds
-// remain part of the owning operation review rather than automated coverage.
+// These helper notes describe the selected test's operations and limitations.
+// Go Evidence does not separately address these private declarations; the notes
+// do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: Structured JSON sends native module paths and loader kinds to actual require/import operations; returned names are checked against the input identities before independent Go assertions.
 // Common: Clear and simple design: One argv-based process call owns serialization, decoding and exact result identity validation; compiler production remains visible in the test.
