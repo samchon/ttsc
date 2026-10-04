@@ -9,8 +9,8 @@ import (
 // TestUnicornFilenameCaseReportAnchorsAndNoFix verifies where the file-level
 // diagnostic lands and that it never carries automatic edits.
 //
-// The host anchors on the file's first statement (the unicorn/no-empty-file
-// precedent) so `path:line:col` output and the corpus `// expect:` convention
+// The native host anchors on the file's first statement so diagnostic output
+// and the corpus `// expect:` convention
 // point at real source, falling back to offset 0 for statement-less files.
 // Renaming a file is not expressible as a text edit, so findings must carry
 // neither fixes nor suggestions.
@@ -52,5 +52,8 @@ func TestUnicornFilenameCaseReportAnchorsAndNoFix(t *testing.T) {
   }
   if findings[0].Pos != 0 {
     t.Fatalf("comment-only file: want offset 0, got %d", findings[0].Pos)
+  }
+  if len(findings[0].Fix) != 0 || len(findings[0].Suggestions) != 0 {
+    t.Fatalf("comment-only filename findings must not carry edits, got %+v", findings[0])
   }
 }
