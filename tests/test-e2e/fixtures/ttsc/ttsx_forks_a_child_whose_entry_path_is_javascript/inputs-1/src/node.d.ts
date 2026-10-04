@@ -4,7 +4,7 @@ declare const process: {
   exit(code: number): never;
 };
 interface ForkedChild {
-  on(event: "exit", listener: (code: number | null) => void): void;
+  on(event: "close", listener: (code: number | null) => void): void;
 }
 declare function require(name: "node:child_process"): {
   fork(modulePath: string, options: { stdio: string }): ForkedChild;
