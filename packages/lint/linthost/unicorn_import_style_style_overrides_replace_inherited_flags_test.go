@@ -10,10 +10,10 @@ import (
 // style (leaving the module unrestricted, not banned), and explicit
 // `{default: true, named: false}` swaps the allowed style.
 //
-// These are upstream's regression cases for the merge semantics where
+// These authored cases constrain the native merge semantics where
 // `false` must not turn a module into a banned one.
 //
-//  1. Run each override against every style of `node:util`.
+//  1. Run unrestricted overrides against default, namespace and named util imports.
 //  2. Assert the unrestricted overrides yield zero findings.
 //  3. Assert the swapped policy reports named imports with the swapped
 //     message.

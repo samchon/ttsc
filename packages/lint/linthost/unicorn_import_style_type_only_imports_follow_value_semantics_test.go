@@ -5,7 +5,7 @@ import (
 )
 
 // TestUnicornImportStyleTypeOnlyImportsFollowValueSemantics verifies
-// upstream's TypeScript cases: type-only imports classify exactly like
+// the native TypeScript cases: type-only imports use the same style policy as
 // value imports — a default type import of `chalk` passes while named
 // type imports (inline or clause-level) are reported.
 //

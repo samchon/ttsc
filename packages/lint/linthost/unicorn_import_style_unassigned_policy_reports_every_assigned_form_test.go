@@ -5,8 +5,8 @@ import (
 )
 
 // TestUnicornImportStyleUnassignedPolicyReportsEveryAssignedForm
-// verifies the invalid half of the `unassigned` module matrix: any
-// import form that binds something is reported with the exact upstream
+// verifies the retained invalid `unassigned` forms: classified assigned
+// styles report the independently authored literal diagnostic
 // message.
 //
 // The declarator paths (require and awaited dynamic import) must
@@ -14,11 +14,11 @@ import (
 // rest, and array-pattern targets are all pinned here.
 //
 //  1. Configure module `unassigned` to allow only the unassigned style.
-//  2. Write every assigned form upstream's suite rejects.
-//  3. Assert one finding per statement with the exact message.
+//  2. Evaluate the sixteen retained assigned-style references.
+//  3. Assert sixteen findings with exact messages and representative ranges.
 //
 // @evidence contracts/testing.md#behavioral-verification The engine requires sixteen exact-message findings and checks representative declarator/export/await ranges.
-// @evidence contracts/testing.md#independent-expectations An unassigned-only policy independently rejects every reference that binds a value or exports assigned styles.
+// @evidence contracts/testing.md#independent-expectations An unassigned-only policy independently rejects references classified as default, namespace or named styles.
 // @evidence contracts/testing.md#distinguishing-cases Identifier/object/alias/rest/array, static import, export and awaited import forms retain all original reports.
 // @evidence contracts/testing.md#execution-ownership TestUnicornImportStyleUnassignedPolicyReportsEveryAssignedForm owns these literal source/options variants as a discoverable Go unit entry; actual engine/config/fix functions execute in one shared Go process without installation, native producer or product child host, retaining named malformed subcases where present.
 func TestUnicornImportStyleUnassignedPolicyReportsEveryAssignedForm(t *testing.T) {

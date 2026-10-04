@@ -9,7 +9,7 @@ import (
 // imports, empty named clauses, bare dynamic imports, statement-level
 // require calls, empty destructuring, and `export {} from`.
 //
-// These are the valid halves of upstream's `unassigned` module matrix;
+// These authored forms are accepted by the native unassigned-only policy;
 // a port that classified `import {} from` as named would fail here.
 //
 //  1. Configure module `unassigned` to allow only the unassigned style.
