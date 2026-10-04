@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeUnaryMinus verifies the lint rule corpus fixture
+// TestRuleCorpusNoUnsafeUnaryMinus verifies a reduced trigger from the lint rule corpus
 // typescript-no-unsafe-unary-minus.ts under a real Program.
 //
 // `typescript/no-unsafe-unary-minus` is type-aware: a parser-only engine run skips

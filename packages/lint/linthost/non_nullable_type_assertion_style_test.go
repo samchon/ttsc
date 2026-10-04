@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNonNullableTypeAssertionStyle verifies the lint rule corpus
+// TestRuleCorpusNonNullableTypeAssertionStyle verifies a reduced trigger from the lint rule corpus
 // fixture non-nullable-type-assertion-style.ts under a real Program.
 //
 // `typescript/non-nullable-type-assertion-style` is type-aware: it consults the
