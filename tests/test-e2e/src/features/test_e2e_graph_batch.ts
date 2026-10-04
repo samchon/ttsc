@@ -1,4 +1,6 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
+import { FileSystemIterator } from "@ttsc/testing";
+import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,6 +29,7 @@ type NodeDetails = {
  */
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  await FileSystemIterator.write(workspace.root, await FileSystemIterator.read(path.join(workspace.root, "graph-stage")));
   const client = TtsgraphClient.start(workspace.root, path.join(workspace.root, "graph-native-starts.jsonl"));
   try {
     await client.request("initialize", {
@@ -71,6 +74,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     assert.equal(client.nativeSpawnCount(), 1, "the restored lookup starts the same resident producer once");
     await assertGraphReadonlyCorpus(client);
     await assertGraphDispatchCorpus(client);
+    await assertGraphReverseCorpus(client);
     const response = await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
