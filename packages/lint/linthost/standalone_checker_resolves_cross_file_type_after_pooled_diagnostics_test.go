@@ -8,7 +8,7 @@ import (
 )
 
 // TestStandaloneCheckerResolvesCrossFileTypeAfterPooledDiagnostics verifies
-// the new checker shim is a runtime-complete path for lint type queries.
+// the standalone checker resolves this cross-file generic after diagnostics.
 //
 // Linkage alone does not prove that a standalone checker can traverse types
 // after the Program's file-affinity pool has checked the same AST. This probe
