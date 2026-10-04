@@ -155,7 +155,7 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
     ]);
     assert.equal(selectRollupCachedModuleTransform(bridge, proof, module), true);
   } finally {
-    bridge.close();
+    await bridge.close();
   }
 
   // These authored channels measure delegation, not native host observations.
