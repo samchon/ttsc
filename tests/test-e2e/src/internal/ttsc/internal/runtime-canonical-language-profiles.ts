@@ -880,9 +880,9 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       const failures: unknown[] = [];
       try {
         assert.deepEqual(JSON.parse(result.stdout.trim()), [
-          { name: "ttsx preserves module not found for a missing package import", code: "ERR_MODULE_NOT_FOUND" },
-          { name: "ttsx preserves module not found for a missing extensionless relative import", code: "ERR_MODULE_NOT_FOUND" },
-          { name: "ttsx preserves module not found for a missing relative import with extension", code: "ERR_MODULE_NOT_FOUND" },
+          { name: "test_ttsx_preserves_module_not_found_for_a_missing_package_import", code: "ERR_MODULE_NOT_FOUND" },
+          { name: "test_ttsx_preserves_module_not_found_for_a_missing_extensionless_relative_import", code: "ERR_MODULE_NOT_FOUND" },
+          { name: "test_ttsx_preserves_module_not_found_for_a_missing_relative_import_with_extension", code: "ERR_MODULE_NOT_FOUND" },
         ]);
       } catch (error) { failures.push(error); }
       try { assert.notEqual(result.status, 0); } catch (error) { failures.push(error); }

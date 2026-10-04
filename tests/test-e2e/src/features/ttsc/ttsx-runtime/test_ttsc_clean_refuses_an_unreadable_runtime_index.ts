@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { runtimeRunsDirectory } from "../../../internal/ttsc/internal/ttsx-run";
+import { isolatedCacheEnvironment } from "../../../internal/ttsc/internal/isolated-cache-environment";
 
 /**
  * Verifies clean does not take an unreadable run index as an empty one.
@@ -49,7 +50,7 @@ export function test_ttsc_clean_refuses_an_unreadable_runtime_index(): void | fa
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
       ["clean", "--cwd", root],
-      { cwd: root },
+      { cwd: root, env: isolatedCacheEnvironment(root) },
     );
     assert.notEqual(result.status, 0, result.stdout);
     assert.equal(fs.existsSync(runtime), true);
