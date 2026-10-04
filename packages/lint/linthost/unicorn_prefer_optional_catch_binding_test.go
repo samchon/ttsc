@@ -3,8 +3,8 @@ package linthost
 import "testing"
 
 // TestRuleCorpusUnicornPreferOptionalCatchBinding verifies
-// unicorn/prefer-optional-catch-binding reports every identifier catch
-// binding whose declared variable is never referenced, regardless of name.
+// unicorn/prefer-optional-catch-binding reports the six authored identifier catch
+// bindings whose declared variables are never referenced, across their different names.
 //
 // The rule resolves binding usage through the TypeScript checker, so this
 // fixture pins the four cases the old name-allow-list plus raw-text scan
@@ -13,7 +13,7 @@ import "testing"
 // `e` case and a nested shadow that leaves the catch binding unused. Its
 // negative twin (`log(err)`) is a genuine reference that must not report.
 //
-// 1. Load the annotated fixture and enable the rule from its expect comments.
+// 1. Load the annotated fixture and enable the named rule under default options.
 // 2. Run the rule through the real Program/checker snapshot path.
 // 3. Assert exactly the six annotated catch bindings are reported.
 //
