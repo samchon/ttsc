@@ -17,7 +17,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Transform applies the explicit uppercase operation to the authored goUpper input and emits the complete CommonJS binding and console call.
 // @evidence contracts/testing.md#independent-expectations A literal complete emitted module fixes the export, transformed value and console call independently of Transform.
-// @evidence contracts/testing.md#distinguishing-cases The lower-case input and uppercase literal distinguish an unchanged source or omitted operation; full output also rejects dropped exports or console execution.
+// @evidence contracts/testing.md#distinguishing-cases The lower-case input and uppercase literal distinguish an unchanged source or omitted operation; full output also rejects dropped exports or a dropped console-call statement. The generated code is not executed here.
 // @evidence contracts/testing.md#execution-ownership This case calls the reusable fixture Transform directly in the existing Go unit process; it does not build or execute the native sidecar.
 func TestTransformGoUpper(t *testing.T) {
   result, err := Transform(`export const message: string = goUpper("hello"); console.log(message);`, []Plugin{

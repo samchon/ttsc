@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Transform selects uppercase for both nil and explicitly empty plugin manifests and emits a complete CommonJS module.
 // @evidence contracts/testing.md#independent-expectations The literal HELLO module fixes default transformation and exports without consulting an emitted-output helper.
 // @evidence contracts/testing.md#distinguishing-cases Nil and zero-length non-nil manifests cover both empty representations, while lower-case input rejects an omitted default operation.
-// @evidence contracts/testing.md#execution-ownership Both representations reuse direct Transform calls in the same Go unit case; actual sidecar discovery remains owned by surviving E2E coverage.
+// @evidence contracts/testing.md#execution-ownership Both representations reuse direct Transform calls in the same Go unit case; actual sidecar discovery and any E2E survival proof are outside this entry.
 func TestTransformUsesDefaultPluginWhenManifestIsEmpty(t *testing.T) {
   result, err := Transform(`export const message: string = goUpper("hello");`, nil)
   if err != nil {
