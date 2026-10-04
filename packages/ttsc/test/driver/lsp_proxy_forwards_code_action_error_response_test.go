@@ -11,8 +11,7 @@ import (
 // appendCodeActions: when upstream returns an `error` response for a
 // remembered codeAction id, the proxy must NOT splice ttsc actions
 // into the result field. JSON-RPC §5.1 forbids both `result` and
-// `error` on the same frame and well-behaved editors reject such
-// hybrid responses.
+// `error` on the same frame. Actual editor rejection is not exercised here.
 //
 // JSON-RPC forbids result alongside error; the authored envelope supplies exact expected bytes.
 //
