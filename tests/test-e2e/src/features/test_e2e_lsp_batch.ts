@@ -86,8 +86,8 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
  * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge.
- * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. One extra command request with empty arguments starts the existing lint sidecar once, proving failed stderr adaptation before the already planned successful fix; it adds no server or profile and is not preparation with zero cost. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. Timeout does not force termination or certify arbitrary descendant closure.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. This same launcher inherits the owned workspace as process cwd and omits --cwd, exercising native Getwd admission through its actual initialize, project diagnostics and joined shutdown. Direct runLSP tests own explicit --cwd projection; uninitialized EOF remains a separate unresolved boundary. One extra command request with empty arguments starts the existing lint sidecar once, proving failed stderr adaptation before the already planned successful fix; it adds no server or profile and is not preparation with zero cost. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. The no-var-only editor input is added after immutable consumers complete so its expected let rewrite stays unchanged.
  */
 export async function test_e2e_lsp_batch() {
@@ -120,7 +120,11 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
     try {
       const client = TtscserverClient.startLauncher(project.tmpdir, {
         env: { TTSC_CACHE_DIR: workspace.cache },
+        implicitCwd: true,
       });
+      const unmatchedClose = client.waitForNotification<unknown>("textDocument/publishDiagnostics", () => false, PLUGIN_BUILD_TIMEOUT).then(
+        () => ({ error: undefined }), (error: unknown) => ({ error }),
+      );
       await runTtscserverSession(client, async () => {
         const evidenceInitial = client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
@@ -380,6 +384,9 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           "LSP executeCommand should return edits, not write the file",
         );
       }, REQUEST_TIMEOUT);
+      const closedWaiter = await unmatchedClose;
+      assert.ok(closedWaiter.error instanceof Error, "actual child close must reject even an unmatched notification wait");
+      assert.match(closedWaiter.error.message, /ttscserver exited before response/);
     } catch (error) {
       const failures: unknown[] = [error];
       const reason = "editor session startup, body or shutdown failed";

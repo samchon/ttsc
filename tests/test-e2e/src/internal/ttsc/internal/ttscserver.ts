@@ -33,6 +33,8 @@ export class TtscserverClient {
     }
   >();
   private notificationListeners = new Map<string, ((params: any) => void)[]>();
+  private notificationWaiters = new Set<(error: Error) => void>();
+  private closeError: Error | undefined;
   private serverRequests: string[] = [];
   private nextId = 1;
   private exited: Promise<{
@@ -48,6 +50,7 @@ export class TtscserverClient {
       env?: NodeJS.ProcessEnv;
       injectTtscserverBinary?: boolean;
       useNode?: boolean;
+      processCwd?: string;
     } = {},
   ) {
     const tsgoBinary =
@@ -81,6 +84,7 @@ export class TtscserverClient {
       [...(options.useNode ? [binary] : []), ...args],
       {
         stdio: ["pipe", "pipe", "pipe"],
+        cwd: options.processCwd,
         env: childEnv,
         windowsHide: true,
       },
@@ -123,13 +127,14 @@ export class TtscserverClient {
     return new TtscserverClient(binary, cwd);
   }
 
-  /** Start the JavaScript launcher so tests cover project plugin discovery. */
+  /** Start the JavaScript launcher; implicitCwd inherits the owned child cwd without a --cwd flag. */
   static startLauncher(
     cwd: string,
     options: {
       env?: NodeJS.ProcessEnv;
       injectTtscserverBinary?: boolean;
       tsconfig?: string;
+      implicitCwd?: boolean;
     } = {},
   ): TtscserverClient {
     const launcher = path.join(
@@ -140,8 +145,7 @@ export class TtscserverClient {
     );
     const args = [
       "--stdio",
-      "--cwd",
-      cwd,
+      ...(options.implicitCwd ? [] : ["--cwd", cwd]),
       ...(options.tsconfig ? ["--tsconfig", options.tsconfig] : []),
     ];
     return new TtscserverClient(launcher, cwd, {
@@ -149,6 +153,7 @@ export class TtscserverClient {
       env: options.env,
       injectTtscserverBinary: options.injectTtscserverBinary,
       useNode: true,
+      processCwd: options.implicitCwd ? cwd : undefined,
     });
   }
 
@@ -165,6 +170,7 @@ export class TtscserverClient {
     params?: unknown,
     timeoutMs?: number,
   ): Promise<T> {
+    if (this.closeError !== undefined) throw this.closeError;
     const id = this.nextId++;
     const promise = new Promise<T>((resolve, reject) => {
       const timer =
@@ -197,7 +203,8 @@ export class TtscserverClient {
   /**
    * Resolve once a matching notification arrives. Like {@link request}, there is
    * no default timeout — the awaited diagnostics may follow a multi-minute cold
-   * plugin build; a dead server rejects it via the close handler. Pass
+   * plugin build; actual child close rejects every notification waiter and clears
+   * its timer and listener, including waits whose predicates never matched. Pass
    * `timeoutMs` only to deliberately bound the wait.
    */
   waitForNotification<T = unknown>(
@@ -205,25 +212,28 @@ export class TtscserverClient {
     predicate: (params: T) => boolean = () => true,
     timeoutMs?: number,
   ): Promise<T> {
+    if (this.closeError !== undefined) return Promise.reject(this.closeError);
     return new Promise((resolve, reject) => {
       let listener: (params: T) => void = () => undefined;
+      let cancel: (error: Error) => void;
+      const cleanup = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        this.off(method, listener);
+        this.notificationWaiters.delete(cancel);
+      };
       const timer =
         timeoutMs === undefined
           ? undefined
           : setTimeout(() => {
-              this.off(method, listener);
-              reject(
-                new Error(
-                  `timed out waiting for ${method} notification (stderr=${this.stderr})`,
-                ),
-              );
+              cancel(new Error(`timed out waiting for ${method} notification (stderr=${this.stderr})`));
             }, timeoutMs);
+      cancel = (error) => { cleanup(); reject(error); };
       listener = (params: T) => {
         if (!predicate(params)) return;
-        if (timer !== undefined) clearTimeout(timer);
-        this.off(method, listener);
+        cleanup();
         resolve(params);
       };
+      this.notificationWaiters.add(cancel);
       this.on(method, listener);
     });
   }
@@ -392,11 +402,14 @@ export class TtscserverClient {
   }
 
   private rejectPending(error: Error): void {
+    this.closeError ??= error;
     for (const pending of this.pending.values()) {
       if (pending.timer !== undefined) clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
+    for (const cancel of this.notificationWaiters) cancel(error);
+    this.notificationWaiters.clear();
   }
 }
 

@@ -100,7 +100,7 @@ const graphArguments = (props: {
  * @evidence contracts/e2e.md#necessary-boundary Native checker facts, application projection and actual MCP wire replies must agree; portable source policy cannot establish those actual responses.
  * @evidence contracts/e2e.md#shared-execution Distinct McpService input names and its unchanged local DAG join the one upfront population. All branch queries borrow that same snapshot; there is no former two-file profile preparation or selection loop.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This helper issues readonly requests and warm escape only. The caller owns source mutations, transport authority and actual close receipts; terminal/recursive closed-universe variants are not merged or certified here.
- * @evidence contracts/e2e.md#preserved-coverage Every original MCP assertion is retained verbatim against actual queries; the method decorator fixture adopts the shared standard decorator signature while preserving McpRoute('/run') metadata and call topology. These authored expectations may reveal unrelated-population conflicts in final CI; no passing result or global-universe equivalence is asserted.
+ * @evidence contracts/e2e.md#preserved-coverage The overview retains its bounded public-API handle/anchor contract while the existing exact lookup owns McpService identity and source anchor; the original small-profile assumption that McpService must rank in a larger top15 is corrected. Other original MCP assertions remain against actual queries; the method decorator fixture adopts the shared standard decorator signature while preserving McpRoute('/run') metadata and call topology. These authored expectations may reveal unrelated-population conflicts in final CI; no passing result or global-universe equivalence is asserted.
  */
 export async function assertGraphMcpCorpus(client: Client, initialization: unknown): Promise<void> {
     const init = initialization as {
@@ -349,13 +349,11 @@ export async function assertGraphMcpCorpus(client: Client, initialization: unkno
         (byKind.file ?? 0) >= 1,
       `overview returns architecture counts: ${JSON.stringify(overview.counts)}`,
     );
-    assert.ok(
-      overview.publicApi?.some(
-        (api) =>
-          api.name === "McpService" && api.id.length > 0 && api.line !== undefined,
-      ),
-      `overview returns public API handles: ${JSON.stringify(overview.publicApi)}`,
-    );
+    assert.ok(Array.isArray(overview.publicApi) && overview.publicApi.length > 0 && overview.publicApi.length <= 15,
+      "overview returns its bounded public API ranking, not every exported declaration");
+    for (const api of overview.publicApi)
+      assert.ok(api.name.length > 0 && api.id.length > 0 && typeof api.line === "number",
+        `ranked public API entries retain native handles and anchors: ${JSON.stringify(api)}`);
 
     // lookup: finds McpService by name and ranks explicit method queries.
     const lookupRaw = (await client.request("tools/call", {
@@ -369,10 +367,12 @@ export async function assertGraphMcpCorpus(client: Client, initialization: unkno
       }),
     })) as ToolResult;
     const lookup = callGraphJson<{
-      hits: { id: string; name: string; kind: string }[];
+      hits: { id: string; name: string; kind: string; line?: number }[];
     }>(lookupRaw);
     const service = lookup.hits.find((hit) => hit.name === "McpService");
     assert.ok(service, `lookup finds McpService: ${JSON.stringify(lookup.hits)}`);
+    assert.equal(service.kind, "class");
+    assert.ok(service.id.length > 0 && typeof service.line === "number", "the exact API lookup retains McpService handle and source anchor outside the overview ranking window");
     assert.equal(
       callGraphNext(lookupRaw).action,
       "answer",

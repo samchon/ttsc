@@ -103,7 +103,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(record.tsconfig, fs.realpathSync.native(path.join(workspace.root, "tsconfig.json")));
   for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
-  assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
+  assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native ApplyProgram invocation serves the two-worker pool");
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");
   BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
