@@ -60,7 +60,15 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(turbopack.completions, 1);
   assert.deepEqual(turbopack.errors, []);
   assert.equal(turbopack.value, "authored-marker");
-  assert.ok(turbopack.dependencies.length > 0);
+  assert.equal(turbopack.dependencies.length, 1, "the real loader must hand over only the project's record");
+  assert.deepEqual(turbopack.contextDependencies, []);
+  const projectRecordFile = turbopack.dependencies[0]!;
+  assert.equal(path.dirname(projectRecordFile), path.join(workspace.root, ".ttsc", "records"));
+  const record = JSON.parse(fs.readFileSync(projectRecordFile, "utf8"));
+  assert.equal(record.root, fs.realpathSync.native(workspace.root));
+  assert.equal(record.tsconfig, fs.realpathSync.native(path.join(workspace.root, "tsconfig.json")));
+  for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
+    assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
   for (const dependency of turbopack.dependencies) {
     assert.ok(fs.existsSync(dependency));
     const relative = path.relative(workspace.root, dependency);
@@ -108,12 +116,18 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of externalReplay) assert.equal(reply.error, undefined);
   assert.equal(externalReplay[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(externalReplay[1]!.value.content, external[1]!.value.content);
+  assert.deepEqual(external[1]!.value.dependencies, [projectRecordFile]);
+  assert.deepEqual(externalReplay[1]!.value.dependencies, [projectRecordFile], "a cache delivery must repeat the real project-record handoff");
+  assert.deepEqual(external[1]!.value.contextDependencies, []);
+  assert.deepEqual(externalReplay[1]!.value.contextDependencies, []);
   assert.deepEqual(publications(), changedExternal, "unrelated candidate-directory and excluded output churn keep the publication");
   assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn, "ignored churn does not invoke native ApplyProgram again");
   const repeatedDivergence = await Promise.all(workers.map((worker) => worker.request(divergentSuffix)));
   for (const reply of repeatedDivergence) assert.equal(reply.error, undefined);
   assert.equal(repeatedDivergence[0]!.value.ast.source, external[0]!.value.ast.source);
   assert.equal(repeatedDivergence[1]!.value.content, external[1]!.value.content);
+  assert.deepEqual(repeatedDivergence[1]!.value.dependencies, [projectRecordFile]);
+  assert.deepEqual(repeatedDivergence[1]!.value.contextDependencies, []);
   assert.deepEqual(publications(), changedExternal, "repeated divergent host text preserves the native generation");
   assert.equal(fs.statSync(workspace.programRunLog).size, beforeIgnoredChurn);
   } catch (error) { bodyFailure = error; } finally {

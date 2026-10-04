@@ -16,17 +16,18 @@ async function deliver(sourceSuffix = "") {
     return { mode, ast: result.ast };
   }
   const resourcePath = path.join(root, "src/map.ts");
-  const dependencies = [], cacheability = [], errors = [];
+  const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
   let completions = 0;
   const delivery = await new Promise((resolve, reject) => loader.call({
     rootContext: root, resourcePath, getOptions: () => ({ project }),
     async: () => (error, content, map) => { completions += 1; error ? reject(error) : resolve({ content, map }); },
     addDependency(file) { dependencies.push(file); },
+    addContextDependency(directory) { contextDependencies.push(directory); },
     cacheable(value) { cacheability.push(value); },
     emitError(error) { errors.push(String(error)); },
   }, fs.readFileSync(resourcePath, "utf8") + sourceSuffix));
   const observed = await import(`data:text/javascript;base64,${Buffer.from(delivery.content).toString("base64")}`);
-  return { mode, ...delivery, dependencies, cacheability, errors, completions, value: observed.value };
+  return { mode, ...delivery, dependencies, contextDependencies, cacheability, errors, completions, value: observed.value };
 }
 // Bounded requests share these exact adapter/module/cache owners and session.
 // A line is an observation/state transition, never another worker or fixture.
