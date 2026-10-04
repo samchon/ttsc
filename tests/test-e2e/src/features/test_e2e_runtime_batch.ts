@@ -6,6 +6,7 @@ import path from "node:path";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
+import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
 
 /**
  * Verifies one public runtime loads the shared transformed graph.
@@ -37,6 +38,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const configuredRoot = path.join(workspace.root, "tools/configured-owners");
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
+  const normalRoot = path.join(workspace.root, "src/runtime-corpus/normal-population");
+  const normalInputs = await FileSystemIterator.read(normalRoot);
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
@@ -83,6 +86,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   });
   assertRuntimeCliCorpus((payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime);
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
+  assertRuntimeNormalPopulation((payload as { normalPopulation: unknown }).normalPopulation);
+  assert.deepEqual(await FileSystemIterator.read(normalRoot), normalInputs, "all seven normal value/edge contributions must keep their source tree unchanged and contain no adjacent emitted files");
   assert.deepEqual((payload as { exportPopulation: unknown }).exportPopulation, {
     inert: { actual: [17, 17], before: [42, 42], after: 43, inlineText: '\n__exportStar(require("./ghost"), exports);\n', memberText: '\ntslib_1.__exportStar(require("./ghost"), exports);\n', hidden: false, ghost: false, arithmetic: true, decorators: "Hello Class Foo\nHello Function getBar\nabc" },
     dynamic: { actual: [17, 17], computed: 42, decorators: "Hello Class Foo\nHello Function getBar\nabc" },

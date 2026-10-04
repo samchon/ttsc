@@ -19,6 +19,7 @@ const contraryCommonjs = await import("./runtime-corpus/cts-contrary/main.cjs");
 const mtsImport = await import("./runtime-corpus/mts-import/main.mjs");
 const dual = await import("./runtime-corpus/dual/main.mjs");
 const ownership = await import("./runtime-corpus/ownership/main.cjs");
+const normalPopulation = await import("./runtime-corpus/normal-population/index.cjs");
 const stackInside = await import("./runtime-corpus/stack/inside.cjs");
 const stackOutside = await import("./runtime-corpus/stack/outside.cjs");
 const proposal = await import("./runtime-corpus/proposal.mjs");
@@ -46,7 +47,7 @@ const configuredOwners = await observeConfiguredOwners();
 const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),
