@@ -7,7 +7,7 @@ import "testing"
 // `${}` is not a template placeholder.
 //
 // Evaluating a call twice can give different values, so `f() === f()` and
-// `a.b() = ...` shaped comparisons are not self-references. Plain references,
+// `f().b = f().b` can target different results. Plain references,
 // member chains and equal literals still are. A `${}` with nothing inside is not
 // a placeholder a template literal would interpolate.
 //
@@ -19,9 +19,9 @@ import "testing"
 //  3. Run no-template-curly-in-string over `"${}"` and `"${a}"` and assert only the
 //     second reports.
 //
-// @evidence contracts/testing.md#behavioral-verification no-self-compare and no-self-assign must report identical reference chains and literals and must stay silent for calls, and no-template-curly-in-string must require a non-empty body.
-// @evidence contracts/testing.md#independent-expectations ESLint compares operands as references, which never include calls, and its placeholder pattern needs at least one character between the braces; the literal sources are authored from those definitions.
-// @evidence contracts/testing.md#distinguishing-cases Each reported shape has a silent twin that differs in one property, a call in place of a reference or an empty body in place of a name, so neither a purely textual comparison nor a bare brace search passes.
+// @evidence contracts/testing.md#behavioral-verification no-self-compare reports the authored identical identifier, member chain and numeric literal; no-self-assign reports the authored identifier and member assignments. Both stay silent on their call-containing inputs, and the string rule distinguishes ${} from ${a}.
+// @evidence contracts/testing.md#independent-expectations Repeated calls can yield different values or objects, while the authored matching references and literal are stable operand spellings. An empty ${} contains no interpolation expression; the authored ${a} does. These premises supply the independent count, silence and string-range expectations.
+// @evidence contracts/testing.md#distinguishing-cases The separately authored call-containing inputs stay clean alongside the reported references and literal; those sources also differ in declarations and surrounding code. The two string inputs differ only in the placeholder body, so a bare brace search fails the empty-body control.
 // @evidence contracts/testing.md#execution-ownership TestSelfCompareAndSelfAssignIgnoreCallsAndEmptyTemplateCurlyIsNotAPlaceholder parses virtual sources and calls the actual engine in the shared Go unit process; no consumer install or native build runs.
 func TestSelfCompareAndSelfAssignIgnoreCallsAndEmptyTemplateCurlyIsNotAPlaceholder(t *testing.T) {
   assertRuleSkipsSource(t, "no-self-compare", "function f(): number { return Math.random(); }\nJSON.stringify(f() === f());\n")
