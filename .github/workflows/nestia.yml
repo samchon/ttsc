@@ -32,7 +32,6 @@ jobs:
       - run: >-
           node .github/workflows/scripts/consumer.cjs experimental/nestia
           --patch=.github/workflows/patches/nestia-master-emit-provenance.patch
-          --patch=.github/workflows/patches/nestia-master-ttsx-root-dir.patch
           --package-patch=typia@15.0.0=.github/workflows/patches/typia-15.0.0-emit-provenance.patch
           --go=experimental/nestia/packages/core/native --go=experimental/nestia/packages/core/test
           --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
