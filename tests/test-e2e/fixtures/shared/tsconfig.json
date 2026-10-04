@@ -16,6 +16,7 @@
 
                                       ],
                             "paths":  {
+                                          "@typed/*": ["./src/type-population/*"],
                                           "@data":  [
                                                         "./src/data.json"
                                                     ],

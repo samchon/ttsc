@@ -3,10 +3,12 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 const [mode, root, metroUrl, optionsUrl, loaderUrl] = process.argv.slice(2);
 const project = path.join(root, "tsconfig.json");
+const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
+const compilerOptions = { paths: Object.fromEntries(Object.entries(rootPaths).map(([key, targets]) => [key, targets.map((target) => path.resolve(root, target))])) };
 let transformer, loader;
 if (mode === "metro") {
   const options = await import(optionsUrl);
-  process.env[options.ENV_KEY] = options.serializeOptions({ project, upstreamTransformer: path.join(root, "upstream.cjs") });
+  process.env[options.ENV_KEY] = options.serializeOptions({ project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
   transformer = await import(metroUrl);
 } else loader = (await import(loaderUrl)).default;
 async function deliver(sourceSuffix = "") {
@@ -19,7 +21,7 @@ async function deliver(sourceSuffix = "") {
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
   let completions = 0;
   const delivery = await new Promise((resolve, reject) => loader.call({
-    rootContext: root, resourcePath, getOptions: () => ({ project }),
+    rootContext: root, resourcePath, getOptions: () => ({ project, compilerOptions }),
     async: () => (error, content, map) => { completions += 1; error ? reject(error) : resolve({ content, map }); },
     addDependency(file) { dependencies.push(file); },
     addContextDependency(directory) { contextDependencies.push(directory); },

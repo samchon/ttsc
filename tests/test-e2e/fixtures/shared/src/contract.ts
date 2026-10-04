@@ -8,4 +8,6 @@ export class Service implements Runner { run(): number { return acceptedValue();
 /** @evidence docs/contract.md#accepted-value Dispatches to the retained independently valued service. */
 export function entry(service: Runner): number { return service.run(); }
 export type Choices = "a" | "b" | "c";
+import type { Foo } from "@typed/foo";
+export const typedAliasControl: Foo = { id: 1, name: "fine" };
 

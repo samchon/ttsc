@@ -35,7 +35,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
     const result = await build({
       root: workspace.root, configFile: false, logLevel: "silent",
-      resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") } },
+      resolve: { alias: { "@data": path.join(workspace.root, "src/data.json"), "@typed": path.join(workspace.root, "src/type-population") } },
       plugins: [adapter({ plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry) })],
       build: { minify: false, write: false, sourcemap: true,
         rollupOptions: { input: path.join(workspace.root, "src/bundle.ts"), output: { format: "iife", name: "SharedBoundary" } } },

@@ -87,13 +87,19 @@ export async function test_e2e_metro_batch(): Promise<void> {
     return { name, type: value.result.type, scratchDirectory: value.scratchDirectory };
   });
   // These state transitions keep the same two actual adapter/cache owners.
-  fs.appendFileSync(contractPath, "\nexport type PooledBroken = NotARealExternalType;\n");
+  fs.appendFileSync(contractPath, "\nexport type PooledBroken = NotARealExternalType;\nexport const pooledAliasInvalid: import(\"@typed/foo\").Foo = { id: \"wrong\", name: 42 };\n");
   const failed = await Promise.all(workers.map((worker) => worker.request()));
-  for (const reply of failed) assert.match(reply.error ?? "", /NotARealExternalType/);
+  for (const reply of failed) {
+    assert.match(reply.error ?? "", /NotARealExternalType/);
+    assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
+  }
   const failedPublications = publications();
   assert.equal(failedPublications.filter((publication) => publication.type === "failure").length, 1);
   const replay = await Promise.all(workers.map((worker) => worker.request()));
-  for (const reply of replay) assert.match(reply.error ?? "", /NotARealExternalType/);
+  for (const reply of replay) {
+    assert.match(reply.error ?? "", /NotARealExternalType/);
+    assert.match(reply.error ?? "", /not assignable/);
+  }
   assert.deepEqual(publications(), failedPublications, "both residents reuse the failed publication without publishing another compile");
   fs.writeFileSync(contractPath, originalContract);
   const repaired = await Promise.all(workers.map((worker) => worker.request()));
