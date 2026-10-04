@@ -8,8 +8,8 @@ import "testing"
 //
 // A fix that produced non-canonical output would re-report on its own result,
 // looping `ttsc fix`. Feeding the rewritten source back through the rule and
-// requiring zero findings proves the emitted form is already optimal for both
-// a literal and a `new RegExp` constructor argument.
+// requiring zero findings checks that these two emitted forms are stable for
+// this rule: one literal and one `new RegExp` constructor argument.
 //
 //  1. Fix an optimizable literal and a constructor pattern.
 //  2. Re-lint each rewritten source and assert no further diagnostics.
