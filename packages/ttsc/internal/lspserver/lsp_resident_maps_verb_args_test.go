@@ -14,10 +14,10 @@ import "testing"
 //  1. Map a code-actions argv carrying all three fields.
 //  2. Assert each field lands, verbatim, including JSON payloads.
 //
-// @evidence contracts/testing.md#behavioral-verification serveRun maps a code-actions argv carrying --uri, --range-json and --context-json into the resident request with each field verbatim, including JSON payloads.
+// @evidence contracts/testing.md#behavioral-verification Direct serveRequestFromArgs maps authored --uri, --range-json and --context-json strings into a request with a literal code-actions verb and each field unchanged. The test does not invoke serveRun or observe daemon receipt or warm Program behavior.
 // @evidence contracts/testing.md#independent-expectations The expected request fields are the literal argv values.
-// @evidence contracts/testing.md#distinguishing-cases Three fields of different shapes must all land, so a mapping that drops the range fails.
-// @evidence contracts/testing.md#execution-ownership TestResidentMapsVerbArgs is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
+// @evidence contracts/testing.md#distinguishing-cases One call checks URI text and two opaque JSON-shaped payloads alongside the verb; dropping or changing any checked field fails. Missing, unknown or duplicate flags and JSON syntax validity are not exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual serveRequestFromArgs in-process with authored strings. No operation is substituted and no filesystem fixture, native child, sidecar, installed consumer or product host is used.
 func TestResidentMapsVerbArgs(t *testing.T) {
   req := serveRequestFromArgs("lsp-code-actions", []string{
     "--uri=file:///a.ts",
