@@ -245,11 +245,11 @@ func TestNativeReplyPolicies(t *testing.T) {
     }
   })
   t.Run("resident_nonzero_reply_policy", func(t *testing.T) {
-    plugin := NativeLSPPluginEntry{Name: "@ttsc/fake"}
+    plugin := NativeLSPPluginEntry{Name: "@ttsc/staged"}
     body, code, err := decodeNativeResidentReply([]byte(`{"result":null,"code":2}`))
     if err != nil || string(body) != "null" || code != 2 { t.Fatalf("resident negative decode = %q, %d, %v", body, code, err) }
     result, served, err := nativeResidentResult(plugin, "lsp-project-diagnostics", body, code)
-    if result != nil || !served || err == nil || err.Error() != "ttscserver: @ttsc/fake lsp-project-diagnostics (resident) exit 2" { t.Fatalf("resident negative result = %q, %v, %v", result, served, err) }
+    if result != nil || !served || err == nil || err.Error() != "ttscserver: @ttsc/staged lsp-project-diagnostics (resident) exit 2" { t.Fatalf("resident negative result = %q, %v, %v", result, served, err) }
     directCalls := 0
     got, fallbackErr := runNativePluginRead("lsp-project-diagnostics", nil,
       func(command string, args []string) ([]byte, bool, error) { return nativeResidentResult(plugin, command, body, code) },
@@ -262,7 +262,7 @@ func TestNativeReplyPolicies(t *testing.T) {
         func(command string, args []string) ([]byte, error) { calls++; if command != verb || args != nil { t.Error("verb fallback input changed") }; return []byte("direct hint observation"), nil })
       if verb == "lsp-hints" {
         if err != nil || calls != 1 || string(result) != "direct hint observation" { t.Errorf("hints negative fallback = %q, %d, %v", result, calls, err) }
-      } else if calls != 0 || result != nil || err == nil || err.Error() != "ttscserver: @ttsc/fake "+verb+" (resident) exit 2" { t.Errorf("document served error = %q, %d, %v", result, calls, err) }
+      } else if calls != 0 || result != nil || err == nil || err.Error() != "ttscserver: @ttsc/staged "+verb+" (resident) exit 2" { t.Errorf("document served error = %q, %d, %v", result, calls, err) }
     }
     successBody, successCode, successErr := decodeNativeResidentReply([]byte(`{"result":[{"code":"direct"}],"code":0}`))
     if successErr != nil || successCode != 0 || string(successBody) != `[{"code":"direct"}]` { t.Fatal("resident success JSON changed") }
