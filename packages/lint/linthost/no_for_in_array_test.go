@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoForInArray verifies the lint rule corpus fixture
-// no-for-in-array.ts under a real Program.
+// TestRuleCorpusNoForInArray verifies a reduced trigger from the lint rule corpus
+// typescript-no-for-in-array.ts under a real Program.
 //
 // `typescript/no-for-in-array` is type-aware: a parser-only engine run skips it
 // because Context.Checker is nil. This Go scenario therefore reuses the
