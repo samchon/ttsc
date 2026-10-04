@@ -10,28 +10,19 @@ import (
 
 // TestTypeInstantiationMappersReachRuntimeEndpoints verifies type-instantiation mappers reach real checker endpoints at runtime.
 //
-// This is a shim-completeness probe, not a lint test: it runs a real Checker
-// over a ttsc-owned fixture and asserts the newly exposed instantiation surface
-// (Checker_instantiateType, Checker_newSimpleTypeMapper,
-// Checker_combineTypeMappers) substitutes a generic class's constructor
-// parameter types at runtime.
+// This direct endpoint test uses a real Checker on authored generic classes.
+// Simple and composed mapper operations must substitute constructor array and
+// tuple parameter types, rather than merely being callable. The literal type
+// strings below distinguish correct substitution from no-op or partial work;
+// this test does not certify an auditor or a plugin's reflection output.
 //
-// The closure auditor (tools/shim_audit) and the compile-time guards can only
-// see whether a symbol is NAMEABLE or whether a composition COMPILES — never
-// whether a traversal or substitution actually COMPLETES at runtime. A type
-// transform plugin instantiates a generic class's constructor type with the
-// reference's type arguments so a type parameter nested inside a container
-// (`A[]`, `[A, B]`) is substituted for free; if the mapper helpers dead-end or
-// the instantiation silently returns the unsubstituted type, the plugin's
-// reflection output is wrong and no compile-time check catches it.
-//
-//  1. Compile a fixture with a generic class `Box<T>` and a reference
+//  1. Load a fixture with a generic class `Box<T>` and a reference
 //     `Box<string>`.
 //  2. Obtain the declaration's type parameters and the reference's concrete
 //     arguments through the exposed shim surface.
 //  3. Build a simple mapper and assert `T[]` becomes `string[]`.
 //  4. Compose two mappers and assert `[A, B]` becomes `[number, boolean]`.
-//  5. Assert the wrappers' nil-input boundaries preserve upstream behavior.
+//  5. Assert the wrappers' explicit nil-input return and identity contracts.
 //
 // @evidence contracts/testing.md#behavioral-verification Real generic constructor types instantiate T[] as string[] with a simple mapper and [A,B] as [number,boolean] with composed mappers. Nil mapper preserves the original type; nil source, target, checker/type and unsupported mapper composition boundaries retain their explicit return contracts.
 // @evidence contracts/testing.md#independent-expectations Source-authored Holder references Box<string> and Pair<number,boolean> define the two literal expected type strings. Identity expectations for nil mapper and a missing first mapper are separate wrapper contracts, not a second instantiation used as an oracle.
