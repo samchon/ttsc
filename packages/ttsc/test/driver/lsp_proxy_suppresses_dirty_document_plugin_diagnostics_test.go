@@ -10,8 +10,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentPluginDiagnostics Verifies plugin
-// diagnostics do not run against unsaved editor buffers.
+// TestLSPProxySuppressesDirtyDocumentPluginDiagnostics Verifies saved plugin
+// findings are cleared and no plugin follow-up is observed within 150ms for a dirty buffer.
 //
 // Native plugin sidecars currently reload files from disk. After a didChange,
 // publishing plugin diagnostics would stamp saved-file findings onto the live
@@ -21,7 +21,7 @@ import (
 // 1. Publish and observe an initial merged plugin diagnostic.
 // 2. Mark the document dirty with didChange.
 // 3. Publish upstream diagnostics for the dirty version.
-// 4. Assert no plugin follow-up frame is sent.
+// 4. Observe no plugin follow-up frame within 150ms, without counting callbacks.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run clears saved findings at dirty version 2 then forwards upstream-only output without a follow-up in 150ms.
 // @evidence contracts/testing.md#independent-expectations Explicit didChange establishes live-buffer ownership over the authored saved-file diagnostic.
@@ -63,7 +63,7 @@ func TestLSPProxySuppressesDirtyDocumentPluginDiagnostics(t *testing.T) {
   if clearFrame.Params.Version == nil || *clearFrame.Params.Version != 2 {
     t.Fatalf("dirty clear frame version mismatch: %#v in %s", clearFrame.Params.Version, clear)
   }
-  if len(clearFrame.Params.Diagnostics) != 0 {
+  if clearFrame.Params.Diagnostics == nil || len(clearFrame.Params.Diagnostics) != 0 {
     t.Fatalf("dirty clear frame kept diagnostics: %s", clear)
   }
   if got := h.recvUpstream(); !bytes.Equal(got, didChange) {

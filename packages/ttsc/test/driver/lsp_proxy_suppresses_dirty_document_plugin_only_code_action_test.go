@@ -17,7 +17,7 @@ import (
 //
 // 1. Mark a document dirty with didChange.
 // 2. Request a ttsc-only source action for that URI.
-// 3. Assert the request is local, empty, and not forwarded upstream.
+// 3. Observe an empty local action array and no upstream frame within 150ms.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run returns an empty action result and sends no upstream frame within 150ms for a dirty fix-all URI.
 // @evidence contracts/testing.md#independent-expectations A plugin-only saved-file action must not be supplied for unsaved text, and this action kind has no upstream fallback.
@@ -41,7 +41,7 @@ func TestLSPProxySuppressesDirtyDocumentPluginOnlyCodeAction(t *testing.T) {
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("code action response not JSON: %v\n%s", err, body)
   }
-  if len(decoded.Result) != 0 {
+  if decoded.Result == nil || len(decoded.Result) != 0 {
     t.Fatalf("dirty plugin-only actions were not suppressed: %#v", decoded.Result)
   }
 }

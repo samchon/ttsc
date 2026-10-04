@@ -18,14 +18,14 @@ import (
 // actions are computed. A broken editor output pipe during that callback must be
 // reported through `Proxy.Run`, not silently dropped.
 //
-// 1. Start a proxy with plugin code actions blocked.
+// 1. Start a proxy with a release-gated plugin code-action callback.
 // 2. Forward a codeAction request and upstream response.
 // 3. Close the editor output reader before releasing the plugin callback.
 // 4. Assert `Proxy.Run` returns the pipe write error.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run returns io.ErrClosedPipe within three seconds after delayed augmentation writes to a closed output.
 // @evidence contracts/testing.md#independent-expectations The actual closed reader and release channel establish write failure independently.
-// @evidence contracts/testing.md#distinguishing-cases Async augmented-response failure contrasts with synchronous forwarding failures.
+// @evidence contracts/testing.md#distinguishing-cases Async augmented-response failure contrasts with synchronous forwarding failures; the release gate controls callback completion without separately observing when it enters.
 // @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRunReportsAsyncCodeActionWriteError in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRunReportsAsyncCodeActionWriteError(t *testing.T) {
   release := make(chan struct{})

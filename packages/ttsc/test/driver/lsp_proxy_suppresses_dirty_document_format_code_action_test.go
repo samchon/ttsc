@@ -8,16 +8,16 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentFormatCodeAction Verifies that dirty-document source.format requests return empty local actions and do not forward.
+// TestLSPProxySuppressesDirtyDocumentFormatCodeAction Verifies an empty local source.format array and no upstream frame within 150ms for a dirty document.
 //
 // didChange makes the document dirty before its source.format-only request.
 //
 // 1. Configure a plugin source that owns `ttsc.format.document`.
 // 2. Mark a document dirty with didChange.
 // 3. Request only `source.format` for that URI.
-// 4. Assert the request is local, empty, and not forwarded upstream.
+// 4. Observe an empty local array and no upstream frame within 150ms.
 //
-// @evidence contracts/testing.md#behavioral-verification Dirty-document source.format requests return empty local actions and do not forward.
+// @evidence contracts/testing.md#behavioral-verification Dirty-document source.format receives a nonnil empty action array and no upstream frame within 150ms.
 // @evidence contracts/testing.md#independent-expectations A disk-based plugin action cannot safely target an unsaved generation.
 // @evidence contracts/testing.md#distinguishing-cases didChange makes the document dirty before its source.format-only request.
 // @evidence contracts/testing.md#execution-ownership A format-command-owning Go stub and pipe proxy exercise suppression without a formatter process. Go discovers TestLSPProxySuppressesDirtyDocumentFormatCodeAction under ./test/driver.
@@ -39,7 +39,7 @@ func TestLSPProxySuppressesDirtyDocumentFormatCodeAction(t *testing.T) {
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("code action response not JSON: %v\n%s", err, body)
   }
-  if len(decoded.Result) != 0 {
+  if decoded.Result == nil || len(decoded.Result) != 0 {
     t.Fatalf("dirty format actions were not suppressed: %#v", decoded.Result)
   }
 }

@@ -20,7 +20,7 @@ import (
 // 1. Initialize with upstream `codeActionProvider: true`.
 // 2. Configure a plugin source that advertises a custom source action kind.
 // 3. Request only that custom kind.
-// 4. Assert the proxy answers locally without forwarding upstream.
+// 4. Observe a local answer and no upstream frame within 150ms.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run returns the Custom source action for an advertised custom-only request and sends no upstream frame within 150ms.
 // @evidence contracts/testing.md#independent-expectations The plugin advertises source.custom.ttsc despite upstream code-action support, so that exclusive request belongs to local dispatch.
