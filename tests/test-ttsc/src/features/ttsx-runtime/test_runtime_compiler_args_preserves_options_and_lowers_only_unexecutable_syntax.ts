@@ -16,6 +16,8 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  * Visible target frames matching the response examples check only downstream
  * policy, not native expansion, diagnostics, decorator effects, library type
  * checking or output isolation.
+ * CommonJS helper/rewrite booleans remain visible reader and argument inputs;
+ * their actual emitted helper shapes and live getter effects are not observed.
  *
  * 1. Resolve one fixture project through the authored config reader.
  * 2. Apply the target and JSX decision matrix directly to the argument owner.
@@ -23,7 +25,7 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  *
  * @evidence contracts/testing.md#behavioral-verification runtimeCompilerArgs uses the real effective-option reader for visible arguments and returns exact runtime-only overrides while retaining the original tokens.
  * @evidence contracts/testing.md#independent-expectations Node cannot execute preserved JSX or proposal decorators; supported ES2025 and React emit modes, unchanged explicit libraries/modules and false emit suppression establish the independent suffix expectations.
- * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch.
+ * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch; four CommonJS helper/rewrite combinations retain configured and forwarded booleans without adding an implicit module override or changing project options.
  * @evidence contracts/testing.md#execution-ownership This named source unit resolves fixture configuration and calls authored functions in one process; no compiler binary, installation or product host executes.
  */
 export function test_runtime_compiler_args_preserves_options_and_lowers_only_unexecutable_syntax() {
@@ -112,6 +114,37 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
     assert.equal(JSON.stringify(project.compilerOptions), before);
   });
   // Token retention does not establish the native emitter's output locations.
+  // These flags preserve policy inputs; emitted helper/getter shapes belong to
+  // the actual compiler and module consumer, which this unit does not invoke.
+  for (const importHelpers of [false, true]) {
+    for (const rewriteRelativeImportExtensions of [false, true]) {
+      check(`commonjs-emit-options/${importHelpers}/${rewriteRelativeImportExtensions}`, () => {
+        project.compilerOptions = {
+          plugins: [], target: "ESNext", module: "commonjs",
+          importHelpers, rewriteRelativeImportExtensions,
+        };
+        const optionsBefore = JSON.stringify(project.compilerOptions);
+        const configured = readEffectiveCompilerOptions(project, []);
+        assert.ok(configured);
+        assert.equal(configured("importHelpers"), importHelpers);
+        assert.equal(configured("rewriteRelativeImportExtensions"), rewriteRelativeImportExtensions);
+        assert.deepEqual(runtimeCompilerArgs(project, [], undefined, configured), [...responseSuffix, ...tail]);
+        const flags = [
+          "--importHelpers", String(importHelpers),
+          "--rewriteRelativeImportExtensions", String(rewriteRelativeImportExtensions),
+        ];
+        const flagsBefore = [...flags];
+        const visible = readEffectiveCompilerOptions(project, flags);
+        assert.ok(visible);
+        assert.equal(visible("importHelpers"), importHelpers);
+        assert.equal(visible("rewriteRelativeImportExtensions"), rewriteRelativeImportExtensions);
+        assert.equal(visible("module"), "commonjs");
+        assert.deepEqual(runtimeCompilerArgs(project, flags, undefined, visible), [...flags, ...responseSuffix, ...tail]);
+        assert.deepEqual(flags, flagsBefore);
+        assert.equal(JSON.stringify(project.compilerOptions), optionsBefore);
+      });
+    }
+  }
   for (const flags of [
     ["--outDir", "distx"],
     ["--declaration", "--declarationDir", "typesx"],
