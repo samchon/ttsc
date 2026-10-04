@@ -8,9 +8,9 @@ import (
 
 // TestTypeArgsStartAndEndGuardBranches pins the defensive guard branches of
 // the shared typeArgsStart / typeArgsEnd helpers (used by both the call and
-// new expression printers). Their callers only invoke them inside an
-// `if ... TypeArguments != nil` guard, so the internal nil / empty /
-// nil-first / scan-failure arms are otherwise unexercised.
+// new expression printers). These direct calls own nil, empty, nil-first and
+// zero-position/end inputs without claiming what other tests or parser-error
+// paths exercise through the printers.
 //
 //  1. nil list -> both return -1.
 //  2. empty Nodes slice -> typeArgsStart returns -1.
