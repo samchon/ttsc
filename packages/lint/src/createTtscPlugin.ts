@@ -2086,7 +2086,7 @@ function evaluateTtsxConfigPlugins(
     const env = {
       ...nodeConfigLoaderEnv(configPath),
     };
-    const command = ttsxThroughNodeIfNeeded(ttsxBinary);
+    const command = ttsxThroughNodeIfNeeded(ttsxBinary, env, tempDir);
     const observation = beginLintTrace();
     const lower = observation ? new Date().toISOString() : undefined;
     observation?.record("process-attempt", {
@@ -2819,15 +2819,96 @@ function ttsxLauncherFrom(anchor: string): string | undefined {
   return undefined;
 }
 
-function ttsxThroughNodeIfNeeded(binary: string): {
+/**
+ * Select the Node interpreter required by the isolated checked evaluator.
+ *
+ * A descriptor can run under Bun, while a JavaScript ttsx launcher requires
+ * Node's synchronous module hooks. Probe candidates in the evaluator's actual
+ * environment and directory; a host executable or a command name alone does
+ * not prove that capability. Native launcher overrides retain their own entry.
+ * Candidate observations are invocation-local, without stale runtime caching.
+ */
+function ttsxThroughNodeIfNeeded(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): {
   binary: string;
   prefix: string[];
 } {
   const ext = path.extname(binary).toLowerCase();
-  if ([".js", ".cjs", ".mjs", ".ts", ".cts", ".mts"].includes(ext)) {
-    return { binary: process.execPath, prefix: [binary] };
+  if (![".js", ".cjs", ".mjs", ".ts", ".cts", ".mts"].includes(ext)) {
+    return { binary, prefix: [] };
   }
-  return { binary, prefix: [] };
+  const explicit =
+    process.platform === "win32"
+      ? Object.entries(env).find(
+          ([key]) => key.toUpperCase() === "TTSC_NODE_BINARY",
+        )?.[1]
+      : env.TTSC_NODE_BINARY;
+  const seen = new Set<string>();
+  const args = [
+    "-e",
+    'process.stdout.write(JSON.stringify({bun:typeof globalThis.Bun === "object",registerHooks:typeof require("node:module").registerHooks === "function",executable:process.execPath}))',
+  ];
+  for (const candidate of [explicit, process.execPath, "node"]) {
+    if (!candidate?.trim() || seen.has(candidate)) continue;
+    seen.add(candidate);
+    const observation = beginLintTrace();
+    const lower = observation ? new Date().toISOString() : undefined;
+    observation?.record("process-attempt", {
+      pid: 0,
+      argv: [candidate, ...args],
+      cwd,
+      cwdInherited: false,
+      startLowerBound: lower,
+      owner: "lint-config-node-runtime-probe",
+    });
+    const result = spawnSync(candidate, args, {
+      cwd,
+      env,
+      encoding: "utf8",
+      timeout: 30_000,
+      maxBuffer: 64 * 1024,
+      windowsHide: true,
+    });
+    observation?.record("process-result", {
+      pid: result.pid > 0 ? result.pid : 0,
+      started: result.pid > 0,
+      exitObserved: result.status !== null || result.signal !== null,
+      status: result.status,
+      signal: result.signal,
+      error: result.error?.message,
+      argv: [candidate, ...args],
+      cwd,
+      cwdInherited: false,
+      startLowerBound: lower,
+      startUpperBound: new Date().toISOString(),
+      owner: "lint-config-node-runtime-probe",
+      method: "spawnSync",
+    });
+    if (result.status !== 0) continue;
+    try {
+      const actual = JSON.parse(result.stdout) as {
+        bun?: unknown;
+        registerHooks?: unknown;
+        executable?: unknown;
+      };
+      if (
+        actual.bun === false &&
+        actual.registerHooks === true &&
+        typeof actual.executable === "string" &&
+        path.isAbsolute(actual.executable)
+      ) {
+        return { binary: actual.executable, prefix: [binary] };
+      }
+    } catch {
+      // An incompatible candidate did not report the required Node capability.
+    }
+  }
+  throw new Error(
+    "@ttsc/lint: isolated config evaluation requires Node.js with module.registerHooks; no compatible interpreter was found",
+  );
 }
 
 /**
