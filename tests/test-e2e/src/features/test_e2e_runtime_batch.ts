@@ -18,7 +18,7 @@ import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
  * 2. Compare its one actual JSON payload against all original literal rows.
  * 3. Require source/config preservation and absent adjacent JavaScript output.
  *
- * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one aggregate fallback importing both same-basename modules. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
+ * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
  *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call would throw if the actual strip transform were missing; both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
@@ -33,7 +33,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const config = fs.readFileSync(path.join(workspace.root, "tsconfig.json"));
   const source = fs.readFileSync(path.join(workspace.root, "src/runtime.mts"));
-  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin").sort();
+  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl").sort();
+  const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
@@ -51,7 +52,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   } finally {
     if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
   }
-  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin").sort(), baseline);
+  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl").sort(), baseline);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
@@ -61,7 +62,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     assert.equal((payload as { answer: unknown }).answer, 42);
     BatchWorkspace.assertValues((payload as { values: unknown }).values, workspace.expected);
   } else {
-  BatchWorkspace.assertResult(payload, workspace.expected);
+  BatchWorkspace.assertResult(payload, workspace.expected, true);
+  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
   assertRuntimeCliCorpus((payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime);
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
   assert.deepEqual((payload as { exportPopulation: unknown }).exportPopulation, {

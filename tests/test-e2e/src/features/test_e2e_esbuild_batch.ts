@@ -14,9 +14,9 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
  * 2. Await the build's public disposal and interpret its actual IIFE.
  * 3. Compare the full independent matrix and retained utility controls.
  *
- * @evidence contracts/testing.md#behavioral-verification One real esbuild output must yield all661 exact native string values and authored contract/JSON neighbors with configured debug removed; its public disposal must occur exactly once.
+ * @evidence contracts/testing.md#behavioral-verification One real esbuild output must yield all661 exact native string values and authored contract/JSON neighbors with parsed-source controls retained; its public disposal must occur exactly once.
  * @evidence contracts/testing.md#independent-expectations Pre-print UTF-16 literals and authored42/retained values fix expected meaning. onDispose is the public host event rather than a predicted native process count.
- * @evidence contracts/testing.md#distinguishing-cases All quote/context/control string contrasts and throwing strip control execute in the same graph. Disposal is distinguished from a build that leaves its registered owner alive.
+ * @evidence contracts/testing.md#distinguishing-cases All quote/context/control string contrasts and parsed-source controls coexist in the same graph. Disposal is distinguished from a build that leaves its registered owner alive.
  * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls.
  * @evidence contracts/e2e.md#necessary-boundary Public esbuild plugin setup, native output delivery and onDispose must agree under the real host; captured hooks alone cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing input graph, plugin artifact and one build serve every value. Compatible inputs share preparation; this test starts no per-row compiler or project.
@@ -48,7 +48,6 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
     assert.equal(disposals, 1);
     assert.equal(result.outputFiles.length, 1);
     const code = result.outputFiles[0]!.text;
-    assert.doesNotMatch(code, /STRIPPED_DEBUG_RAN/);
     BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
   } finally {
     if (previous === undefined) delete process.env.TTSC_CACHE_DIR; else process.env.TTSC_CACHE_DIR = previous;

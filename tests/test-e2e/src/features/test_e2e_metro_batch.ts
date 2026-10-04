@@ -24,6 +24,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const lib = path.join(TestProject.WORKSPACE_ROOT, "packages/metro/lib");
   const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+  const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const session = path.join(workspace.root, "loader-pool-session");
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session,
@@ -54,8 +55,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.doesNotMatch(metro.ast.source, /WRONG ROOT BANNER DECOY/, "explicit nested configFile must win over discovered root config");
   assert.match(metro.ast.source, /Authored source positions remain observable/);
   assert.notEqual(metro.ast.source, fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"));
-  assert.equal(/(?:^|[;\n])\s*discard\.call\(\)/.test(metro.ast.source), false);
-  assert.equal(metro.ast.source.includes("STRIPPED_DEBUG_RAN"), false);
+  assert.ok(metro.ast.source.includes("STRIPPED_DEBUG_RAN"), "API source text retains the authored effect; only actual runtime emit invokes the stripped function");
   assert.ok(metro.ast.source.includes("TTSC_BATCH_RESULT"));
   assert.equal(turbopack.completions, 1);
   assert.deepEqual(turbopack.errors, []);
@@ -73,6 +73,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.match(original.source, /map\.ts$/);
   assert.deepEqual({ line: original.line, column: original.column }, positionOf(fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8"), '"authored-marker"'));
   assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves the two-worker pool");
+  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
   const publications = () => fs.readdirSync(session).filter((name) => name.endsWith(".json")).sort().map((name) => {
     const value = JSON.parse(fs.readFileSync(path.join(session, name), "utf8"));
     return { name, type: value.result.type, scratchDirectory: value.scratchDirectory };

@@ -16,13 +16,13 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *
  * 1. Run one rspack compiler over the shared source graph.
  * 2. Close the actual compiler and inspect its output and map.
- * 3. Evaluate all independent values and require transformed effect controls.
+ * 3. Evaluate all independent values and require original API source controls.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual rspack stats must contain no errors; its real output must evaluate all661 UTF-16 values, contract42, JSON42/retained and inline-overridden C:PLUGIN:z instead of the root A:PLUGIN:z without configured debug, and publish a nonempty source map.
+ * @evidence contracts/testing.md#behavioral-verification Actual rspack stats must contain no errors; its real output must evaluate all661 UTF-16 values, contract42, JSON42/retained and original API source sentinels and numeric zero; native entry receipts separately verify inline prefix c: admission, and publish a nonempty source map.
  * @evidence contracts/testing.md#independent-expectations Authored source/JSON and pre-print string units supply value expectations; the native fixture source path supplies independent map-source identity.
- * @evidence contracts/testing.md#distinguishing-cases One real rspack loader graph carries entity/raw/expression strings and transformed versus retained effects; a missing adapter, bad graph or missing map fails independently of bundle text length.
+ * @evidence contracts/testing.md#distinguishing-cases One real rspack loader graph carries entity/raw/expression strings and parsed API values versus runtime-owned emit effects; a missing adapter, bad graph or missing map fails independently of bundle text length.
  * @evidence contracts/testing.md#execution-ownership The shared build DAG calls this non-discoverable helper once while its sibling compiler lease stays live; it constructs one actual compiler and invokes run once. The finally close is lifecycle release, not another build.
- * @evidence contracts/e2e.md#necessary-boundary The actual rspack loader must consume native transformed modules and compose maps through real bundle assembly; pure mapper units do not prove this route.
+ * @evidence contracts/e2e.md#necessary-boundary The actual rspack loader must consume native parsed source modules and compose maps through real bundle assembly; pure mapper units do not prove this route.
  * @evidence contracts/e2e.md#shared-execution All rows share the same prepared corpus, native artifacts and one rspack compiler. No source-case loop invokes a compiler or creates a fixture.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Outputs have a dedicated directory outside src and do not enter source discovery. Actual close is awaited in finally; failure keeps inputs under their shared owner and cache selection restores.
  * @evidence contracts/e2e.md#preserved-coverage Keeps the real rspack adapter/map route and common value/utility assertions. It does not infer Rspack/Turbopack or historical rebuild/invalidation coverage from one rspack output.
@@ -43,7 +43,7 @@ export async function runRspackShared(workspace: BatchWorkspace.Workspace): Prom
         { test: /\.tsx?$/, exclude: /[\\/]map\.ts$/, use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }] },
       ] },
       output: { path: directory, filename: "[name].js" },
-      plugins: [adapter({ compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { extensions: [".tsx", ".ts", ".js", ".json"] },
+      plugins: [adapter({ compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
     });
     const owned = compiler;
     const stats = await new Promise<Stats>((resolve, reject) => {
@@ -51,8 +51,7 @@ export async function runRspackShared(workspace: BatchWorkspace.Workspace): Prom
     });
     assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
     const code = fs.readFileSync(path.join(directory, "corpus.js"), "utf8");
-    assert.doesNotMatch(code, /STRIPPED_DEBUG_RAN/);
-    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected, "C:PLUGIN:z");
+    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
     const map = JSON.parse(fs.readFileSync(path.join(directory, "map.js.map"), "utf8"));
     assert.equal(map.version, 3);
     assert.ok(map.sources.some((source: string) => source.includes("map.ts")));

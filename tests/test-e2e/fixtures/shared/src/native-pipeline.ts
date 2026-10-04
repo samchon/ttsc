@@ -3,3 +3,5 @@ export const nativeNeighbor: string = "native-neighbor-retained";
 
 export const nativeOrdered: string = "__TTSC_ORDERED__:plugin";
 export const nativeOrderedNeighbor: string = "ordered-neighbor-retained";
+export const __TTSC_OWN_MARKER__ = 0;
+export const numericNeighbor = 0;

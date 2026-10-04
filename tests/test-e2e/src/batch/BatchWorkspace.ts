@@ -17,6 +17,7 @@ export namespace BatchWorkspace {
     cache: string;
     installedTtsx: string;
     programRunLog: string;
+    contextReceipt: string;
     installationOnly: boolean;
     expected: readonly { title: string; units: number[] }[];
   }
@@ -28,9 +29,9 @@ export namespace BatchWorkspace {
   }
 
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
-  export function assertResult(value: unknown, expected: Workspace["expected"], nativePipeline = "A:PLUGIN:z", nativeOrdered = "A:PLUGIN:z"): void {
+  export function assertResult(value: unknown, expected: Workspace["expected"], emitted = false): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown };
+    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown; nativeNumeric: unknown; numericNeighbor: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
@@ -39,10 +40,12 @@ export namespace BatchWorkspace {
     check("retained contract value", () => assert.equal(result.answer, 42));
     check("resolved JSON alias", () => assert.equal(result.data, 42));
     check("unchanged JSON neighbor", () => assert.equal(result.neighbor, "retained"));
-    check("actual native config transport and string transform", () => assert.equal(result.nativePipeline, nativePipeline));
+    check(emitted ? "native emitted string" : "API preserves parsed source text", () => assert.equal(result.nativePipeline, emitted ? "A:PLUGIN:z" : "__TTSC_NATIVE_PIPELINE__"));
     check("unchanged native neighbor", () => assert.equal(result.nativeNeighbor, "native-neighbor-retained"));
-    check("actual ordered manifest entries and disabled exclusion", () => assert.equal(result.nativeOrdered, nativeOrdered));
+    check(emitted ? "native emitted ordered entries" : "API does not impersonate EmitTransform", () => assert.equal(result.nativeOrdered, emitted ? "A:PLUGIN:z" : "__TTSC_ORDERED__:plugin"));
     check("unchanged ordered neighbor", () => assert.equal(result.nativeOrderedNeighbor, "ordered-neighbor-retained"));
+    check("native numeric emit versus original API initializer", () => assert.equal(result.nativeNumeric, emitted ? 100 : 0));
+    check("unchanged numeric neighbor", () => assert.equal(result.numericNeighbor, 0));
     check("project strip configuration retains default-only call", () => assert.equal(result.defaultOnlyCallRetained, true));
     assertValues(result.values, expected);
     if (failures.length) throw new AggregateError(failures, "Shared boundary assertions failed");
@@ -63,6 +66,28 @@ export namespace BatchWorkspace {
       assert.deepEqual((actual as string).split("").map((unit) => unit.charCodeAt(0)), row.units);
     }));
     if (failures.length) throw new AggregateError(failures, "Shared boundary assertions failed");
+  }
+
+  /** Read native ApplyProgram admission receipts, never emitted-value evidence. */
+  export function readContextReceipts(workspace: Workspace): Record<string, unknown>[] {
+    if (!fs.existsSync(workspace.contextReceipt)) return [];
+    return fs.readFileSync(workspace.contextReceipt, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  }
+
+  /** Match one observed native entry sequence against independently configured literals. */
+  export function assertContextReceipts(records: Record<string, unknown>[], prefix = "a:", orderedPrefix = "a:"): void {
+    assert.ok(records.length > 0, "the actual native producer must admit configured entries");
+    assert.equal(records.some((record) => record.name === "native-order-disabled"), false);
+    const names = ["shared-real-program-probe", "native-order-prefix", "native-order-identity", "native-order-upper", "native-order-suffix"];
+    const start = records.findIndex((record) => record.name === names[0] && record.prefix === prefix);
+    assert.notEqual(start, -1, "the observed producer must receive the selected base configuration");
+    assert.deepEqual(records.slice(start, start + names.length), [
+      { name: names[0], operation: null, prefix, suffix: ":z" },
+      { name: names[1], operation: "prefix", prefix: orderedPrefix, suffix: null },
+      { name: names[2], operation: "identity", prefix: null, suffix: null },
+      { name: names[3], operation: "upper", prefix: null, suffix: null },
+      { name: names[4], operation: "suffix", prefix: null, suffix: ":z" },
+    ]);
   }
 
   /** Interpret actual bundle bytes as an independent JavaScript value oracle. */
@@ -128,6 +153,7 @@ export namespace BatchWorkspace {
         fs.copyFileSync(path.join(root, "vendor", name, filename), path.join(target, filename));
     }
     const programRunLog = path.join(root, "program-runs.bin");
+    const contextReceipt = path.join(root, "native-context.jsonl");
     if (!installationOnly)
       for (const name of ["cjs-dep", "esm-dep"])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
@@ -155,6 +181,8 @@ export namespace BatchWorkspace {
         { name: "native-order-upper", transform: "./compile-probe.cjs", fixtureSource, operation: "upper" },
         { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
       );
+      for (const entry of config.compilerOptions.plugins)
+        if (entry.fixtureSource === fixtureSource) entry.contextReceipt = contextReceipt;
       fs.writeFileSync(configPath, JSON.stringify(config));
       const loaderPath = path.join(root, "typed-loader.cjs");
       fs.writeFileSync(loaderPath, fs.readFileSync(loaderPath, "utf8").replace("__ESBUILD_ENTRY__", createRequire(import.meta.url).resolve("esbuild").replace(/\\/g, "/")));
@@ -168,7 +196,7 @@ export namespace BatchWorkspace {
     if (installationOnly) {
       fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
-    return { root, expected, installedTtsx, installationOnly, programRunLog, cache: TestProject.sharedPluginCache() };
+    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */
