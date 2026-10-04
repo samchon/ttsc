@@ -33,7 +33,10 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     if err := os.WriteFile(name, data, 0o644); err != nil { t.Fatal(err) }
   }
   copyTree := func(source, destination string) {
-    err := filepath.WalkDir(source, func(name string, entry fs.DirEntry, walkErr error) error {
+    resolved, err := filepath.EvalSymlinks(source)
+    if err != nil { t.Fatal(err) }
+    source = resolved
+    err = filepath.WalkDir(source, func(name string, entry fs.DirEntry, walkErr error) error {
       if walkErr != nil { return walkErr }
       if entry.IsDir() { return nil }
       relative, err := filepath.Rel(source, name)
