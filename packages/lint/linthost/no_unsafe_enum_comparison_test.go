@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeEnumComparison verifies the lint rule corpus
+// TestRuleCorpusNoUnsafeEnumComparison verifies a reduced trigger from the lint rule corpus
 // fixture typescript-no-unsafe-enum-comparison.ts under a real Program.
 //
 // `typescript/no-unsafe-enum-comparison` is type-aware: a parser-only engine run
@@ -15,7 +15,7 @@ import (
 // check`, and assert on the rendered diagnostics.
 //
 // The corpus fixture packages/lint/test/testdata/corpus/typescript-no-unsafe-enum-comparison.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
-// trigger (`Color === "red"`) so a future shim regression surfaces here without
+// trigger (`color === "red"`) so a future shim regression surfaces here without
 // depending on the full fixture.
 //
 //  1. Seed a project that compares a string enum value against a raw

@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusNoUnsafeCall verifies the lint rule corpus fixture
+// TestRuleCorpusNoUnsafeCall verifies a reduced trigger from the lint rule corpus
 // typescript-no-unsafe-call.ts under a real Program.
 //
 // `typescript/no-unsafe-call` is type-aware: it asks the Checker for the callee's
