@@ -59,4 +59,16 @@ func TestLSPProxyAugmentsCodeActionResponse(t *testing.T) {
   if got := len(decoded.Result); got != 2 {
     t.Fatalf("expected 2 actions, got %d in %s", got, body)
   }
+  var response struct {
+    ID int `json:"id"`
+    Result []struct {
+      Title string `json:"title"`
+    } `json:"result"`
+  }
+  if err := json.Unmarshal(body, &response); err != nil {
+    t.Fatalf("merged action titles not JSON: %v", err)
+  }
+  if response.ID != 11 || len(response.Result) != 2 || response.Result[0].Title != "Add import" || response.Result[1].Title != "Apply ttsc lint fix" {
+    t.Fatalf("correlated result lost an authored action title:\n%s", body)
+  }
 }

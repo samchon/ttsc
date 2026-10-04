@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "encoding/json"
   "strings"
   "sync"
   "sync/atomic"
@@ -60,9 +61,33 @@ func TestLSPProxyAugmentedCodeActionDoesNotBlockUpstreamPump(t *testing.T) {
   if !strings.Contains(string(body), "publishDiagnostics") {
     t.Fatalf("upstream pump was blocked by plugin code action, got:\n%s", body)
   }
+  var notification struct {
+    Method string `json:"method"`
+    Params struct {
+      URI string `json:"uri"`
+    } `json:"params"`
+  }
+  if err := json.Unmarshal(body, &notification); err != nil {
+    t.Fatalf("notification is not JSON: %v", err)
+  }
+  if notification.Method != "textDocument/publishDiagnostics" || notification.Params.URI != "file:///b.ts" {
+    t.Fatalf("unrelated notification was not forwarded before release:\n%s", body)
+  }
   releaseCallback()
   body = h.recvEditor()
   if !strings.Contains(string(body), "Add import") || !strings.Contains(string(body), "ttsc fix") {
     t.Fatalf("codeAction response was not eventually augmented:\n%s", body)
+  }
+  var response struct {
+    ID int `json:"id"`
+    Result []struct {
+      Title string `json:"title"`
+    } `json:"result"`
+  }
+  if err := json.Unmarshal(body, &response); err != nil {
+    t.Fatalf("augmented response is not JSON: %v", err)
+  }
+  if response.ID != 9 || len(response.Result) != 2 || response.Result[0].Title != "Add import" || response.Result[1].Title != "ttsc fix" {
+    t.Fatalf("augmented action membership or response identity lost:\n%s", body)
   }
 }
