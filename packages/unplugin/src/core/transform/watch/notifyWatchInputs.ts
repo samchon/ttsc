@@ -31,7 +31,7 @@ import { selectionInputs } from "./selectionInputs";
  * When both project and module hooks are present, both receive their respective
  * registrations; without module hooks, delivery stops after project handoff.
  *
- * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus each module's consulted routing configs; membership remains an explicitly requested additional input.
+ * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus the known selected config and consulted routing configs. Optional producer input lists need not supply that selection-owned recovery input; membership remains an explicitly requested additional input.
  * @evidence contracts/common.md#clear-and-simple-design Both host models share one routing observation batch, with dependency selection, evidence mapping and record persistence delegated to their actual owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Generation derivation removes disposed scratch inputs. A refused project record requests volatility through a supplied markVolatile callback instead of inventing a record; host-owned cache withdrawal remains that callback's responsibility, not an effect fabricated by this orchestrator.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project dependencies, scratch exclusion and routing, followed by separated tags under documentation guidance.
@@ -56,7 +56,7 @@ export function notifyWatchInputs(
   }
   const state = envelopeDerivation(cached);
   const routedInputs = selectionInputs(
-    selection.consulted,
+    [...new Set([...selection.consulted, selection.tsconfig])],
     selection.filesystem,
     (input) => input,
   );

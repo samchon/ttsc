@@ -39,7 +39,7 @@ import { selectionInputs } from "./selectionInputs";
  * @param selection The configs that routed the file to its project, handed
  *   beside the failed generation's inputs.
  *
- * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked/external inputs, named diagnostic paths and current routing configs. Ordinary recovery paths omit generation evidence that a replayed failure did not revalidate; separately captured membership can still accompany them, while project-record delivery maps available retained facts under its own contract.
+ * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked/external inputs, named diagnostic paths and the known selected config alongside consulted routing configs, even when optional envelope lists omit it. Ordinary recovery paths omit generation evidence that a replayed failure did not revalidate; separately captured membership can still accompany them, while project-record delivery maps available retained facts under its own contract.
  * @evidence contracts/common.md#clear-and-simple-design One append boundary owns scratch exclusion and lexical deduplication; module recovery and project-record delivery share the same routing observations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic extraction accepts only supported TypeScript forms, and recovery absence is explicit rather than fabricated successful state or fixture-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain recovery, external-path coverage and failed evidence ownership; parameter prose and separated tags follow documentation guidance.
@@ -109,7 +109,7 @@ export function notifyFailedGenerationInputs(
     }
   }
   const routedInputs = selectionInputs(
-    selection.consulted,
+    [...new Set([...selection.consulted, selection.tsconfig])],
     selection.filesystem,
     (input) => input,
   );
