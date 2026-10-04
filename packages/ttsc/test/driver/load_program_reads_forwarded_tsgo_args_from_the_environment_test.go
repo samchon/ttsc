@@ -30,7 +30,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification LoadProgram resolves strictness and diagnostics from the environment unless explicit TsgoArgs wins, and reports a malformed environment payload.
 // @evidence contracts/testing.md#independent-expectations The authored nullable access type-checks with strict off and fails with strict on; expected precedence comes from explicit embedder options over inherited flags.
-// @evidence contracts/testing.md#distinguishing-cases Environment strict, conflicting explicit noImplicitAny, empty environment and malformed JSON own the four tested branches; diagnostic text itself is not pinned.
+// @evidence contracts/testing.md#distinguishing-cases Environment strict requires literal nullable-identifier diagnostic code 18047; conflicting explicit noImplicitAny, empty environment and malformed JSON retain their separate branches without pinning diagnostic text.
 // @evidence contracts/testing.md#execution-ownership The Go test/driver unit uses t.Setenv and direct Program loads; it exercises native option decoding, not launcher-to-sidecar delivery.
 func TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment(t *testing.T) {
   root := t.TempDir()
@@ -78,6 +78,15 @@ func TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment(t *testing.T) {
     }
     if len(diags) == 0 {
       t.Fatal("expected the strict-null diagnostic the forwarded flag turns on")
+    }
+    foundNullable := false
+    for _, diag := range diags {
+      if diag.Code == 18047 {
+        foundNullable = true
+      }
+    }
+    if !foundNullable {
+      t.Fatalf("expected TS18047 for x.length with nullable x, got %#v", diags)
     }
   })
 

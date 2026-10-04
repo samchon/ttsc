@@ -25,6 +25,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases This owns the relative-cwd success case and restores process cwd afterward; missing config is covered separately.
 // @evidence contracts/testing.md#execution-ownership Go test/driver calls LoadProgram directly after os.Chdir, with no compiler CLI; this case is not parallel because cwd is process state.
 func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
+  t.Setenv(driver.TsgoArgsEnv, "")
   parent := t.TempDir()
   project := filepath.Join(parent, "project")
   writeProjectFile(t, project, "tsconfig.json", `{
@@ -42,7 +43,11 @@ func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
   if err := os.Chdir(parent); err != nil {
     t.Fatal(err)
   }
-  defer os.Chdir(previous)
+  t.Cleanup(func() {
+    if err := os.Chdir(previous); err != nil {
+      t.Errorf("restore process cwd: %v", err)
+    }
+  })
 
   prog, diags, err := driver.LoadProgram("project", "tsconfig.json", driver.LoadProgramOptions{})
   if err != nil {

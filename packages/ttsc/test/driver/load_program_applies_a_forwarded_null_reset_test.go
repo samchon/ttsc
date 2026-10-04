@@ -49,6 +49,12 @@ func TestLoadProgramAppliesAForwardedNullReset(t *testing.T) {
   if len(diags) != 0 {
     t.Fatalf("unexpected load diagnostics: %#v", diags)
   }
+  progClosed := false
+  defer func() {
+    if !progClosed {
+      prog.Close()
+    }
+  }()
   options := prog.ParsedConfig.CompilerOptions()
   if options.DeclarationDir != "" || options.TsBuildInfoFile != "" {
     t.Fatalf("the reset did not apply: declarationDir=%q tsBuildInfoFile=%q", options.DeclarationDir, options.TsBuildInfoFile)
@@ -57,6 +63,7 @@ func TestLoadProgramAppliesAForwardedNullReset(t *testing.T) {
     t.Fatalf("the reset program reported diagnostics: %#v", diags)
   }
   prog.Close()
+  progClosed = true
 
   twin, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
     TsgoArgs: []string{"--declaration", "false"},

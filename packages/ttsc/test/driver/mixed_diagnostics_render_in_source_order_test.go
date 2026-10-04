@@ -24,6 +24,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Different producers and source lines contrast; full diagnostic formatting is not independently checked.
 // @evidence contracts/testing.md#execution-ownership Go unit TestMixedDiagnosticsRenderInSourceOrder is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
+  t.Setenv(driver.TsgoArgsEnv, "")
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": { "module": "commonjs", "target": "es2020" },
@@ -43,6 +44,17 @@ func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
   if len(compilerDiags) == 0 {
     t.Fatal("type error did not produce a compiler diagnostic")
   }
+  compilerMessage := ""
+  for _, diag := range compilerDiags {
+    if diag.Code == 2322 && diag.Line == 2 &&
+      filepath.Clean(filepath.FromSlash(diag.File)) == filepath.Join(root, "index.ts") {
+      compilerMessage = diag.Message
+      break
+    }
+  }
+  if compilerMessage == "" {
+    t.Fatalf("missing independently expected index.ts line 2 TS2322: %#v", compilerDiags)
+  }
   source := prog.SourceFile(filepath.Join(root, "index.ts"))
   if source == nil {
     t.Fatal("source file not found")
@@ -53,7 +65,7 @@ func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
   driver.WritePrettyDiagnostics(&rendered, diagnostics, root)
   output := rendered.String()
   lintIndex := strings.Index(output, "lint finding on the first line")
-  compilerIndex := strings.Index(output, compilerDiags[0].Message)
+  compilerIndex := strings.Index(output, compilerMessage)
   if lintIndex < 0 || compilerIndex < 0 {
     t.Fatalf("pretty render omitted a diagnostic:\n%s", output)
   }
