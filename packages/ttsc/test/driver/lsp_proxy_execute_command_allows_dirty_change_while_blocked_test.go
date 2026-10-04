@@ -72,6 +72,7 @@ func TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked(t *testing.T) {
 
   body := h.recvEditor()
   var decoded struct {
+    ID int `json:"id"`
     Result any `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
@@ -79,5 +80,12 @@ func TestLSPProxyExecuteCommandAllowsDirtyChangeWhileBlocked(t *testing.T) {
   }
   if decoded.Result != nil {
     t.Fatalf("dirty command response was not suppressed:\n%s", body)
+  }
+  var members map[string]json.RawMessage
+  if err := json.Unmarshal(body, &members); err != nil {
+    t.Fatalf("command response members are not JSON: %v", err)
+  }
+  if decoded.ID != 20 || !bytes.Equal(bytes.TrimSpace(members["result"]), []byte("null")) {
+    t.Fatalf("dirty command must receive its correlated explicit null result: %s", body)
   }
 }
