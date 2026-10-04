@@ -6,9 +6,9 @@ import "testing"
 // the replacement ships as an editor suggestion, never as an autofix, and
 // that accepting it converges.
 //
-// Upstream declares `hasSuggestions` without a fixer, so `ttsc fix` must
-// leave the source untouched while the LSP quick-fix path rewrites the
-// member expression once and then finds nothing further to report.
+// The actual finding has a suggestion and no automatic fix. This unit checks
+// the in-memory automatic edit pass leaves the source untouched, then explicitly
+// applies the suggestion edits and re-lints the result; no CLI or LSP request runs.
 //
 //  1. Report `foo.a` after `const {a} = foo` and capture the finding.
 //  2. Assert the automatic-fix path applies zero edits.
