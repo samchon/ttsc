@@ -18,6 +18,8 @@ type plugin struct{}
 // Config values must cross the actual descriptor/native manifest connection.
 // Ordered entries retain their marker through prefix/upper and consume it on
 // suffix, so the final literal distinguishes descriptor order and disabled entries.
+// The named numeric marker changes only its literal-zero initializer; other
+// variables and numeric literals retain their original values.
 func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransform, error) {
   operation, _ := context.Entry.Config["operation"].(string)
   prefix, ok := context.Entry.Config["prefix"].(string)
@@ -36,6 +38,19 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
   return func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visitor = ec.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
+      if node != nil && node.Kind == shimast.KindVariableDeclaration {
+        declaration := node.AsVariableDeclaration()
+        name := declaration.Name()
+        initializer := declaration.Initializer
+        if name != nil && name.Kind == shimast.KindIdentifier && name.Text() == "__TTSC_OWN_MARKER__" &&
+          initializer != nil && initializer.Kind == shimast.KindNumericLiteral && initializer.Text() == "0" {
+          // Preserve the existing visitor's processing of any other declaration
+          // children before replacing only this initializer through the emit factory.
+          visited := visitor.VisitEachChild(node).AsVariableDeclaration()
+          return ec.Factory.UpdateVariableDeclaration(visited, visited.Name(), visited.ExclamationToken, visited.Type,
+            ec.Factory.NewNumericLiteral("100", 0))
+        }
+      }
       if node != nil && node.Kind == shimast.KindStringLiteral {
         text := node.Text()
         if operation == "" && text == "__TTSC_NATIVE_PIPELINE__" {
