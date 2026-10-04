@@ -836,7 +836,11 @@ function load(
   // (`commonJsImportFacade`); entry predicates can instead admit served source.
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url)) {
-      E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-import");
+      E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-import", {
+        emittedFile: served.emittedFile,
+        moduleOptions: served.moduleOptions,
+        sourceFile: served.sourceFile,
+      });
       return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
     }
     return {
@@ -855,7 +859,11 @@ function load(
     };
   }
   if (format === "commonjs")
-    E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-load");
+    E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-load", {
+      emittedFile: served.emittedFile,
+      moduleOptions: served.moduleOptions,
+      sourceFile: served.sourceFile,
+    });
   return { format, shortCircuit: true, source: format === "commonjs" ? CommonJsRuntimeSource.prepare(served.source, filename) : served.source };
 }
 

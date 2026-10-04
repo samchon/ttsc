@@ -68,6 +68,8 @@ export namespace E2ETrace {
    * Observe the actual source string before CommonJS preparation, not a launch.
    * UTF-16LE preserves JavaScript code units, including unpaired surrogates;
    * these bytes represent the consumed string, not original disk or emit bytes.
+   * Optional served-emit coordinates report the caller's selected ownership
+   * metadata, not current artifact identity or successful preparation.
    * Disabled tracing performs no sink IO or source conversion. Observer failure
    * leaves the caller's preparation and exception behavior untouched.
    *
@@ -85,6 +87,11 @@ export namespace E2ETrace {
     filename: string,
     selectedFormat: string,
     origin: string,
+    emitAttribution?: {
+      emittedFile?: string;
+      moduleOptions: { module?: string; target?: string } | null;
+      sourceFile?: string;
+    },
   ): void {
     const selected = process.env.TTSC_E2E_TRACE;
     if (!selected) return;
@@ -105,6 +112,7 @@ export namespace E2ETrace {
       const sourcePayload = payload(token, "runtime-source", Buffer.from(source, "utf16le"));
       event(token, "runtime-source-preparation", process.pid, {
         origin, filename, selectedFormat, source: sourcePayload,
+        emitAttribution: emitAttribution ?? null,
         sourceEncoding: "utf16le", sourceCodeUnits: source.length,
         representation: "consumed-javascript-string",
       });
