@@ -7,18 +7,19 @@ import fs from "node:fs";
  * and be computed again.
  *
  * Pre-existing symbolic or multiply linked entries are left untouched so a
- * restored cache cannot refresh an unrelated inode's usage metadata.
+ * restored alias is rejected by the initial lstat. The later path-based utimes
+ * is a separate operation, not an atomic inode-identity check against replacement.
  *
  * @evidence contracts/common.md#principled-implementation A successful cache hit advances the file's mtime used by age/LRU pruning; a failed refresh cannot invalidate an already obtained answer.
  * @evidence contracts/common.md#clear-and-simple-design This helper changes only usage metadata and leaves answer validation to the reader and eviction to the collector.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual hit usage drives the timestamp, without recognized keys, expected answers or foreign API patches.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain failed-refresh consequences and pre-existing alias rejection without confusing usage metadata with answer validity.
  * @evidence contracts/portability.md#os-neutral-implementation Node utimes uses native file timestamp semantics; callers supply an owned cache entry and failures are tolerated rather than assuming a platform's open-file permissions.
- * @evidence contracts/performance.md#efficient-algorithms One metadata update avoids rewriting cached answer bytes on every hit.
+ * @evidence contracts/performance.md#efficient-algorithms An lstat admission probe precedes at most one timestamp update, avoiding answer-byte rewrites. Both are synchronous native path operations with path-text and filesystem costs, not a constant elapsed-time bound.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The owning reader validates equivalent answers; this helper merely records a completed hit.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Usage updates postpone age eviction under the collector's size/protection policy; no open handle is retained here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Best-effort mtime updates influence the collector's age/LRU policy using the current wall clock; skipped/failed refreshes or clock changes do not guarantee postponement. This helper retains no handle and provides no storage-size bound.
  */
 export function recordCacheFileUse(file: string): void {
   try {

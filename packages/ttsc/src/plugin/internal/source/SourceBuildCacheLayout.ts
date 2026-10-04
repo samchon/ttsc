@@ -28,7 +28,7 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * @evidence contracts/common.md#meaningful-documentation Native prose locates the workspace cache and explains its disposable lifetime; public constant comments describe their payloads with separated members under the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path construction, directory-entry inspection and atomic rename are delegated to Node APIs; layout names are protocol components rather than platform separators.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups independently reviewed operations; it does not itself run a traversal.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups separately owned operations; grouping itself does not run a traversal.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Layout names do not establish computation identity or validity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace has no acquired state; its maintenance operations own reclamation decisions.
  */
@@ -87,11 +87,11 @@ export namespace SourceBuildCacheLayout {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Effective environment injection is a supported host boundary; explicit user-owned roots are deliberately protected.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain default-root ownership and why overrides suppress maintenance; prose and tags are visibly separated.
    * @evidence contracts/portability.md#os-neutral-implementation The gate reads injected environment values with Windows case-insensitive names and uses path-aware collector APIs without separator assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms A fixed ownership branch reads the injected environment; Windows name matching scans its keys and text. Admitted collectors perform size and age scans whose cost depends on retained entries.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed ownership branch reads the injected environment; Windows name matching scans its keys and text. Admitted collectors additionally perform native metadata/ownership scans, optional entry sorts and recursive deletion, with path/text and retained-entry costs. Delegated ownership retries can lack a deadline; fixed dispatch count does not bound collector work.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This dispatch does not produce or validate a reusable computation result.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Default binary and answer roots are opportunistically reclaimed; explicit roots remain caller-owned and live Go leases can defer object collection.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Default binary and answer collectors attempt opportunistic reclamation; explicit roots remain caller-owned. Live or unknown owners, protected entries, failures and future-invocation pacing can retain payloads or ownership records without a finite bound; this dispatch acquires no independent handle.
    */
   export function maybePruneSourceBuildCaches(
     paths: ITtscSourceBuildCachePaths,
