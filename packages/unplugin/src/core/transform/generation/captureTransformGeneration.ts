@@ -11,7 +11,6 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTE
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
-import { disposeFilesystemClockReference } from "../clock/disposeFilesystemClockReference";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
@@ -56,7 +55,7 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
 import { generationNotificationsAvailable, retainGenerationNotifications } from "./retainGenerationNotifications";
-import { removeCaptureScratch } from "./removeCaptureScratch";
+import { releaseCaptureResources } from "./releaseCaptureResources";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 import { selectReportedMembershipPolicy } from "./selectReportedMembershipPolicy";
@@ -791,67 +790,18 @@ export async function captureTransformGeneration(props: {
   } finally {
     // Waiters must never block on a lock whose holder threw.
     sharedClaim?.release();
-    let cleanupFailed = false;
-    let cleanupFailure: unknown;
-    try {
-      try {
-        if (!retainTracker && tracker !== undefined) {
-          tracker.close();
-        }
-      } finally {
-        try {
-          if (!retainHostInputTracker && hostInputTracker !== undefined) {
-            hostInputTracker.close();
-          }
-        } finally {
-          try {
-            if (!retainCandidateTracker && candidateTracker !== undefined) {
-              candidateTracker.close();
-            }
-          } finally {
-            try {
-              await removeCaptureScratch(scratchDirectory);
-            } finally {
-              if (
-                !retainClockReferenceDirectory &&
-                clockReferenceDirectory !== undefined
-              ) {
-                disposeFilesystemClockReference(clockReferenceDirectory);
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      cleanupFailed = true;
-      cleanupFailure = error;
-    }
-    if (cleanupFailed) {
-      // The generation never leaves this function when local cleanup fails.
-      // Close everything that was waiting to transfer, without letting a
-      // secondary teardown error replace the first failure.
-      for (const retained of [
-        retainTracker ? tracker : undefined,
-        retainHostInputTracker ? hostInputTracker : undefined,
-        retainCandidateTracker ? candidateTracker : undefined,
-      ]) {
-        try {
-          retained?.close();
-        } catch {
-          // Continue releasing the other generation-owned resources.
-        }
-      }
-      if (
-        retainClockReferenceDirectory &&
-        clockReferenceDirectory !== undefined
-      ) {
-        disposeFilesystemClockReference(clockReferenceDirectory);
-      }
-      // A capture that already failed keeps its own error: a cleanup failure
-      // thrown from this block would replace it, and the first failure is the
-      // one that explains why no generation exists.
-      if (!captureFailed) throw cleanupFailure;
-    }
+    await releaseCaptureResources({
+      project: tracker,
+      host: hostInputTracker,
+      candidate: candidateTracker,
+      retainProject: retainTracker,
+      retainHost: retainHostInputTracker,
+      retainCandidate: retainCandidateTracker,
+      scratchDirectory,
+      clockReferenceDirectory,
+      retainClockReference: retainClockReferenceDirectory,
+      captureFailed,
+    });
   }
   if (captured === undefined) {
     throw new Error("ttsc: transform generation capture produced no result");
