@@ -5,12 +5,15 @@ import {
 } from "node:child_process";
 
 import { traceInvocation } from "./traceInvocation";
+import { traceNativeIncarnation } from "./traceNativeIncarnation";
 
 /**
  * Observe one actual argument-array spawn without changing its options, return
  * value or thrown error. Start is the child's spawn event; exit and close are
  * separate observations and do not certify descendant shutdown. Call bounds
  * bracket spawn, rather than inventing an exact operating-system start time.
+ * Enabled Linux starts also sample a native incarnation for a later same-view
+ * observer; this does not replace the actual exit and close callbacks.
  *
  * @evidence contracts/common.md#principled-implementation
  *   One invocation correlates the actual attempt, spawn event, error, exit and
@@ -29,6 +32,7 @@ import { traceInvocation } from "./traceInvocation";
  * @evidence contracts/performance.md#efficient-algorithms
  *   Disabled tracing delegates spawn directly. Enabled calls serialize actual
  *   argument/options observations and fixed lifecycle events, including argv bytes.
+ *   Enabled Linux starts add bounded proc reads and native view metadata queries.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Actual process creation is effectful and never shared by this observer;
  *   existing process-holder callers alone decide whether to reuse a live child.
@@ -76,6 +80,7 @@ export function traceProcessSpawn(
       started,
       startLowerBound,
       startUpperBound,
+      data: { nativeIncarnation: traceNativeIncarnation(child.pid) },
     });
   });
   child.once("error", (error) =>
