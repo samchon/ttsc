@@ -6,10 +6,10 @@ import (
 )
 
 // TestUnicornBetterRegexReportsExactRangeAndMessage verifies the diagnostic
-// spans exactly the regex-literal token and carries the upstream message and a
+// spans exactly the authored regex-literal token and carries the expected message and a
 // single token-wide autofix edit.
 //
-// Upstream reports the Literal node and its message interpolates the raw and
+// The expected message interpolates the authored raw and optimized
 // optimized literals: `/[0-9]/ can be optimized to /\d/.`. An off-by-one on
 // either end of the range or edit would corrupt the surrounding declaration,
 // so the token bounds and the replacement text are pinned exactly.
@@ -19,7 +19,7 @@ import (
 //  3. Assert the fix is one edit spanning the token with the canonical text.
 //
 // @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies the digit-class message, one literal-wide diagnostic and one literal-wide replacement edit.
-// @evidence contracts/testing.md#independent-expectations The authored token [0-9], independently located byte bounds and literal /\d/ replacement specify the upstream shorthand contract rather than reading rule-computed ranges.
+// @evidence contracts/testing.md#independent-expectations The authored token [0-9], independently located byte bounds and literal /\d/ replacement specify the expected shorthand rewrite rather than reading rule-computed ranges.
 // @evidence contracts/testing.md#distinguishing-cases The declaration prefix and semicolon are outside the exact diagnostic/edit range; canonical no-report forms are owned by TestUnicornBetterRegexLeavesOptimalLiterals.
 // @evidence contracts/testing.md#execution-ownership This named Go unit entry exercises the owning lint engine with a virtual AST; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexReportsExactRangeAndMessage(t *testing.T) {
