@@ -45,6 +45,8 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * completed default cache only after all runtime readers have exited.
  * A composite dependency and its excluded root retain both runtime values
  * and recursive sorted path population without claiming existing-byte identity.
+ * Computed missing imports preserve all three native error codes in one host
+ * before rethrowing a captured Node error through the launcher boundary.
  * A real fork rescues absent child.js to its original child.ts and preserves
  * status/output. Its same owned leaf close gates parent completion and reuse;
  * arbitrary descendant termination is not inferred.
