@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
+import { privateRuntimeRootDir } from "../../../../../packages/ttsc/src/compiler/internal/build/privateRuntimeRootDir";
 import { singleRootProjectConfig } from "../../../../../packages/ttsc/src/launcher/internal/singleRootProjectConfig";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -22,9 +23,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Compose exact compiler argv for suppression, guarded emission and terminal
  *    output.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual BuildExecution.resolveExecutionContext, applyProjectNoEmit and TsgoArguments.createTsgoBuildArgs/isolatedTsgoOutputArgs. Exact literal argv distinguishes suppression, runtime root pinning, final private output isolation, guarded emission and terminal forwarding. Actual singleRootProjectConfig projects checked/unchecked overlays with exact source/config/root, suppression overrides and empty inherited-population replacements.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual privateRuntimeRootDir, BuildExecution.resolveExecutionContext, applyProjectNoEmit and TsgoArguments.createTsgoBuildArgs/isolatedTsgoOutputArgs. Exact literal argv distinguishes suppression, runtime root pinning, final private output isolation, guarded emission and terminal forwarding. Actual singleRootProjectConfig projects checked/unchecked overlays with exact source/config/root, suppression overrides and empty inherited-population replacements.
  * @evidence contracts/testing.md#independent-expectations Authored option values establish configured suppression and explicit override. Literal ordered argv follows the supported command contract: project selection first, explicit emit defaults before user forwarding, and requested error guards last. No fake compiler reimplements emission or generates the expected arguments.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent emit versus explicit true/false, configured noEmit, extension rewriting for explicit emit, a forwarded false error guard followed by authoritative true, and a terminal request with no requested guard. Four actual config populations contrast absent root/output, a JSON null reset of an inherited declared root, named published destinations and a composite declared root; final isolation clears bundled/declaration/build-info destinations and emitting absent-root pinning differs from disabled pinning/nonemission. Checked/unchecked overlays distinguish own noEmitOnError absence from false, host-native separators from opaque opposite separators and fresh returned arrays. Input options remain unchanged. Actual output and native Program multiplicity remain responsibilities of the shared compiler E2E; argv neither certifies inferred compiler roots nor actual published-output nonmutation.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent emit versus explicit true/false, configured noEmit, extension rewriting for explicit emit, a forwarded false error guard followed by authoritative true, and a terminal request with no requested guard. Five actual config populations contrast absent root/output, a JSON null reset of an inherited declared root, named published destinations and composite absent/declared roots; ordinary absent/null roots use the native volume while composite absent roots use the project coordinate, and forwarded root tokens follow internal defaults; final isolation clears bundled/declaration/build-info destinations and emitting absent-root pinning differs from disabled pinning/nonemission. Checked/unchecked overlays distinguish own noEmitOnError absence from false, host-native separators from opaque opposite separators and fresh returned arrays. Input options remain unchanged. Actual output and native Program multiplicity remain responsibilities of the shared compiler E2E; argv neither certifies inferred compiler roots nor actual published-output nonmutation.
  * @evidence contracts/testing.md#execution-ownership This exported source unit resolves owned temporary configs with plugins false and process.execPath as an existing unused binary. Resolution only reads paths/config; argv and overlay composition start no compiler or native artifact. The owned project is removed in finally.
  */
 export function test_plugin_free_build_arguments_preserve_configured_emit_and_final_guards(): void {
@@ -120,12 +121,14 @@ export function test_plugin_free_build_arguments_preserve_configured_emit_and_fi
       assert.deepEqual(supplied, { passthrough: ["--showconfig"] });
     });
     const privateOutput = path.join(root, "private runtime output");
+    const volumeRoot = path.parse(root).root;
     const isolated = ["--outFile", "null", "--declarationDir", "null", "--tsBuildInfoFile", "null", "--outDir", privateOutput];
     assert.deepEqual(TsgoArguments.isolatedTsgoOutputArgs({}), []);
     for (const [name, compilerOptions, rootPrefix] of [
-      ["absent-root-output", { noEmit: true }, ["--rootDir", root]],
-      ["nullable-root-reset", { noEmit: true, rootDir: null }, ["--rootDir", root]],
-      ["named-published-output", { noEmit: true, outDir: "lib", declaration: true, declarationDir: "types", tsBuildInfoFile: "state/build.tsbuildinfo" }, ["--rootDir", root]],
+      ["absent-root-output", { noEmit: true }, ["--rootDir", volumeRoot]],
+      ["nullable-root-reset", { noEmit: true, rootDir: null }, ["--rootDir", volumeRoot]],
+      ["named-published-output", { noEmit: true, outDir: "lib", declaration: true, declarationDir: "types", tsBuildInfoFile: "state/build.tsbuildinfo" }, ["--rootDir", volumeRoot]],
+      ["composite-absent-root", { composite: true }, ["--rootDir", root]],
       ["composite-declared-root", { composite: true, declaration: true, declarationMap: true, rootDir: "src", outDir: "lib" }, []],
     ] as const) check(`runtime-isolation/${name}`, () => {
       const config = path.join(root, `${name}.json`);
@@ -158,6 +161,19 @@ export function test_plugin_free_build_arguments_preserve_configured_emit_and_fi
         assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: false, pinInferredRootDir: true }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit"]);
         assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: false }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false"]);
       }
+      assert.deepEqual(TsgoArguments.createTsgoBuildArgs(actual, { emit: true, pinInferredRootDir: true, passthrough: ["--rootDir", "forwarded-root"] }, { listEmittedFiles: false, noEmitOnError: false }), ["-p", config, "--noEmit", "false", "--emitDeclarationOnly", "false", ...rootPrefix, "--rootDir", "forwarded-root"]);
+    });
+    check("private layout root policy", () => {
+      const project = process.platform === "win32" ? "C:\\fixture\\project" : "/fixture/project";
+      const volume = process.platform === "win32" ? "C:\\" : "/";
+      const explicit = process.platform === "win32" ? "D:\\explicit\\source" : "/explicit/source";
+      assert.equal(privateRuntimeRootDir(project, undefined, false), volume);
+      assert.equal(privateRuntimeRootDir(project, null, undefined), volume);
+      assert.equal(privateRuntimeRootDir(project, undefined, true), project);
+      assert.equal(privateRuntimeRootDir(project, "src", true), process.platform === "win32" ? "C:\\fixture\\project\\src" : "/fixture/project/src");
+      assert.equal(privateRuntimeRootDir(project, explicit, false), explicit);
+      if (process.platform === "win32")
+        assert.equal(privateRuntimeRootDir("\\\\server\\share\\project", undefined, false), "\\\\server\\share\\");
     });
     for (const checked of [true, false]) check(`single-root-overlay/${checked}`, () => {
       const input = process.platform === "win32"
