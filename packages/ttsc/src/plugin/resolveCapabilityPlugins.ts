@@ -9,6 +9,7 @@ import type {
   ITtscCapabilityPluginResolution,
 } from "./ITtscCapabilityPlugin";
 import type { ITtscCapabilityResolutionEntry } from "./internal/ITtscCapabilityResolutionEntry";
+import { CapabilityPluginResult } from "./internal/CapabilityPluginResult";
 import { CapabilityResolutionFormat } from "./internal/CapabilityResolutionFormat";
 import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
 import { readCapabilityResolution } from "./internal/readCapabilityResolution";
@@ -110,8 +111,8 @@ export function resolveCapabilityPluginResolution(options: {
     return resolved(cached, options.capability, cwd, tsconfig, authority);
 
   const binary = resolveBinary();
-  if (binary === null || binary === undefined) return unavailable();
-  try {
+  if (binary === null || binary === undefined) return CapabilityPluginResult.unavailable();
+  return CapabilityPluginResult.fromTask(() => {
     const loaded = loadProjectPlugins({
       binary,
       cwd: options.cwd,
@@ -176,17 +177,11 @@ export function resolveCapabilityPluginResolution(options: {
     return recorded === null
       ? {
           isCurrent: () => false,
-          plugins: select(answer, options.capability),
+          plugins: CapabilityPluginResult.select(answer, options.capability),
           status: "resolved",
         }
       : resolved(recorded, options.capability, cwd, tsconfig, authority);
-  } catch {
-    // A project whose plugin configuration does not load is a project the user
-    // already sees an error for, from the command that compiles it. Failing here
-    // would turn "your lint config has a typo" into "the graph is broken", and
-    // the caller's own degraded answer is the honest one.
-    return unavailable();
-  }
+  });
 }
 
 /**
@@ -243,41 +238,9 @@ function resolved(
         return false;
       }
     },
-    plugins: select(entry, capability),
+    plugins: CapabilityPluginResult.select(entry, capability),
     status: "resolved",
   };
-}
-
-/** Degraded absence is never evidence that the project has no publisher. */
-function unavailable(): ITtscCapabilityPluginResolution {
-  return { isCurrent: () => false, plugins: [], status: "unavailable" };
-}
-
-/** The declaring plugins, from a resolution however it was obtained. */
-function select(
-  resolution: {
-    manifest: string;
-    projectContext: string | null;
-    plugins: readonly {
-      binary: string;
-      capabilities: Record<string, boolean>;
-    }[];
-  },
-  capability: string,
-): ITtscCapabilityPlugin[] {
-  return resolution.plugins
-    .filter(
-      (plugin) =>
-        plugin.binary !== "" && plugin.capabilities[capability] === true,
-    )
-    .map((plugin) => ({
-      binary: plugin.binary,
-      manifest: resolution.manifest,
-      ...(plugin.capabilities.projectContextArgs === true &&
-      resolution.projectContext !== null
-        ? { projectContext: resolution.projectContext }
-        : {}),
-    }));
 }
 
 /**
