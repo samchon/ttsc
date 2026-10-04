@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferReturnThisType verifies the lint rule corpus
+// TestRuleCorpusPreferReturnThisType verifies a reduced trigger from the lint rule corpus
 // fixture typescript-prefer-return-this-type.ts under a real Program.
 //
 // `typescript/prefer-return-this-type` is type-aware: it inspects the declared
@@ -15,8 +15,8 @@ import (
 // project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // The corpus fixture packages/lint/test/testdata/corpus/typescript-prefer-return-this-type.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
-// trigger (a class method declared to return the class name whose body is exactly
-// `return this;`) so a future shim regression surfaces here without depending on
+// trigger (a class method declared to return the class name that logs its input and then
+// returns `this`) so a future shim regression surfaces here without depending on
 // the full fixture.
 //
 //  1. Seed a project with a class method that returns `this` but is

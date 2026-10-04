@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestRuleCorpusPreferRegexpExec verifies the lint rule corpus fixture
+// TestRuleCorpusPreferRegexpExec verifies a reduced trigger from the lint rule corpus
 // typescript-prefer-regexp-exec.ts under a real Program.
 //
 // `typescript/prefer-regexp-exec` is type-aware: a parser-only engine run skips it
@@ -15,10 +15,10 @@ import (
 // diagnostics.
 //
 // The corpus fixture packages/lint/test/testdata/corpus/typescript-prefer-regexp-exec.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger
-// (`str.match(/foo/)`) so a future shim regression surfaces here without depending
+// (`text.match(/foo/)`) so a future shim regression surfaces here without depending
 // on the full fixture.
 //
-// 1. Seed a project that calls `str.match(/foo/)` on a `string`.
+// 1. Seed a project that calls `text.match(/foo/)` on a `string`.
 // 2. Run `check` with typescript/prefer-regexp-exec enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
 //
