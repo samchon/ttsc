@@ -14,6 +14,7 @@ import { createUnstableGenerationError } from "../../../../../packages/unplugin/
 import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkFailureFingerprint";
 import { recordGenerationProofFailure } from "../../../../../packages/unplugin/src/core/transform/generation/recordGenerationProofFailure";
 import { walkSnapshotComplete } from "../../../../../packages/unplugin/src/core/transform/validation/walkSnapshotComplete";
+import { mergeMembershipPolicyOverlay } from "../../../../../packages/unplugin/src/core/tsconfig/mergeMembershipPolicyOverlay";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
@@ -24,7 +25,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *
  * @evidence contracts/testing.md#behavioral-verification Actual createTtscTransformCache/transformFilesystem/collectProjectInputSnapshot isolate two provider tables. One nested readdir EACCES yields incomplete directory authority while the sibling reads and independently hashes both files; recovering that provider yields a complete first snapshot without changing the sibling's observations.
  * @evidence contracts/testing.md#independent-expectations Native roots, literal directory-read-failed classification, true/false completeness and Node SHA-256 over authored main/hidden bytes are independent expectations. Provider traces must never enter the sibling root, detecting cross-cache observation or global mutation.
- * @evidence contracts/testing.md#distinguishing-cases Concurrently retained views contrast refused and healthy enumeration, omitted defaults preserve native reading, and a subsequent recovered first view contrasts with a still-healthy unchanged sibling. Both caches and all trace ledgers have distinct owners.
+ * @evidence contracts/testing.md#distinguishing-cases Concurrently retained views contrast refused and healthy enumeration, omitted defaults preserve native reading, and a subsequent recovered first view contrasts with a still-healthy unchanged sibling. Both caches and all trace ledgers have distinct owners. A separate native inherited-src outDir is replaced by the actual generated overlay policy: forty output assets and forty non-admitted src assets add no byte reads, while src source appearance/edit/removal changes literal collected hashes. Independent native Node digests establish content expectations.
  * @evidence contracts/testing.md#execution-ownership This exported unit invokes source snapshot owners in process over two native temporary corpora and supported cache-local filesystem arguments. It starts no compiler, peer, process or host; actual capture-loop selection remains separate. Two refused native snapshots also feed the actual terminal diagnostic owner, preserving exact two-attempt text and project/directory-read-failed attribution without asserting compiler retry execution. Finally resets both caches.
  */
 export function test_cache_local_filesystem_views_isolate_failure_and_recovery(): void {
@@ -129,5 +130,56 @@ export function test_cache_local_filesystem_views_isolate_failure_and_recovery()
     assert.deepEqual(observe(1).hashes, healthy.hashes);
   } finally {
     for (const cache of caches) resetTtscTransformCache(cache);
+  }
+  const overlayRoot = fs.realpathSync.native(TestProject.createProject({
+    "base.json": '{"compilerOptions":{"outDir":"src"}}',
+    "tsconfig.json": '{"extends":"./base.json"}',
+    "src/main.ts": "export const main = 1;\n",
+  }));
+  const inherited = readProjectMembershipPolicy(path.join(overlayRoot, "tsconfig.json"));
+  const effective = mergeMembershipPolicyOverlay(inherited, { outDir: "${configDir}\\generated" }, overlayRoot);
+  assert.ok(inherited.excludedDirectories.includes(path.join(overlayRoot, "src")));
+  assert.equal(effective.excludedDirectories.includes(path.join(overlayRoot, "src")), false);
+  assert.ok(effective.excludedDirectories.includes(path.join(overlayRoot, "generated")));
+  const selectedReads: string[] = [];
+  const overlayCache = createTtscTransformCache({ readFile: (input) => {
+    selectedReads.push(input);
+    return fs.readFileSync(input);
+  } });
+  const collect = () => {
+    const filesystem = transformFilesystem(overlayCache);
+    return collectProjectInputSnapshot(overlayRoot, createHostPathIdentityContext(filesystem), filesystem, undefined, {
+      policy: effective, declaredKeys: new Set(["src/main.ts", "src/late.ts"]),
+    });
+  };
+  try {
+    const initial = collect();
+    assert.equal(initial.complete, true);
+    assert.deepEqual(selectedReads, [path.join(overlayRoot, "src", "main.ts")]);
+    const steadyReads = selectedReads.length;
+    const assets: Record<string, string> = { "generated/emitted.ts": "export const generated = 1;\n" };
+    for (let index = 0; index < 40; index += 1) {
+      assets["generated/chunk-" + index + ".js"] = "// output\n";
+      assets["src/asset-" + index + ".js"] = "// ignored\n";
+    }
+    TestProject.writeFiles(overlayRoot, assets);
+    selectedReads.length = 0;
+    const ignored = collect();
+    assert.equal(ignored.complete, true);
+    assert.deepEqual(ignored.hashes, initial.hashes);
+    assert.ok(selectedReads.length <= steadyReads, "forty irrelevant assets in each tree add no byte comparisons");
+    assert.deepEqual(selectedReads, [path.join(overlayRoot, "src", "main.ts")]);
+    const late = path.join(overlayRoot, "src", "late.ts");
+    fs.writeFileSync(late, "export const late = 1;\n");
+    const appeared = collect();
+    assert.equal(appeared.complete, true);
+    assert.deepEqual(Object.keys(appeared.hashes).sort(), ["src/late.ts", "src/main.ts"]);
+    assert.equal(appeared.hashes["src/late.ts"], digest("export const late = 1;\n"));
+    fs.writeFileSync(late, "export const late = 2;\n");
+    assert.equal(collect().hashes["src/late.ts"], digest("export const late = 2;\n"));
+    fs.unlinkSync(late);
+    assert.deepEqual(collect().hashes, initial.hashes, "removal remains visible under the replaced inherited outDir");
+  } finally {
+    resetTtscTransformCache(overlayCache);
   }
 }

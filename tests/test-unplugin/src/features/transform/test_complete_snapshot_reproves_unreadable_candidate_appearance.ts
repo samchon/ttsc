@@ -13,6 +13,7 @@ import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/sr
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { matchesCompleteInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/matchesCompleteInputSnapshot";
+import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -34,7 +35,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual selectExternalInputPaths, captureExternalInputSnapshot and captureUniversalHostInputValidation establish the generation before matchesCompleteInputSnapshot consumes it. Full fallback must reject an absent host candidate that becomes present even if EACCES leaves its byte hash unavailable. Fresh readable candidate capture additionally forbids grouped/exact absence after only lexical metadata becomes unavailable.
  * @evidence contracts/testing.md#independent-expectations Real native creation/stat/realpath establish presence independently of the validator; only reading that exact file throws authored EACCES. Literal false distinguishes existence from unavailable bytes, while unchanged absence and recovered absence require true. Capture records setup facts and does not compute the expected verdict. Node SHA-256 independently supplies the readable host-byte witness; healthy admission must retain a present entry, while EIO/EACCES may conservatively decline or retain only a readable entry without metadata reuse.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged absent, readable file appearance, unreadable file appearance, directory appearance and removal recovery exercise distinct state transitions. The candidate remains in the actual external selection and universal manifest; it lies below excluded node_modules so project source membership cannot incidentally detect its creation. Fresh healthy/EIO/EACCES captures keep actual external selection and recorded bytes, distinguishing metadata observation failure from native absence.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged absent, readable file appearance, unreadable file appearance, directory appearance and removal recovery exercise distinct state transitions. The candidate remains in the actual external selection and universal manifest; it lies below excluded node_modules so project source membership cannot incidentally detect its creation. Fresh healthy/EIO/EACCES captures keep actual external selection and recorded bytes, distinguishing metadata observation failure from native absence. A separate native scratch/config alias row uses actual selector and capture owners; scratch deletion leaves external and exact watch lists plus complete proof unchanged, while a real descriptor edit rejects it. Native hashes are setup observations, not compiler certification.
  * @evidence contracts/testing.md#execution-ownership A single source entry directly runs owning selectors/capture/complete validation over real temporary files through the result's existing filesystem registration. The envelope is authored without compiler output planting or tracker authority mutation; no native compiler, watcher, process or consumer installation runs.
  */
 export function test_complete_snapshot_reproves_unreadable_candidate_appearance(): void {
@@ -203,5 +204,85 @@ export function test_complete_snapshot_reproves_unreadable_candidate_appearance(
     }
   } finally {
     TRANSFORM_RESULT_FILESYSTEM.delete(result);
+  }
+  const projectRoot = fs.realpathSync.native(TestProject.createProject({
+    "tsconfig.json": '{"include":["src"]}',
+    "package.json": '{"private":true}',
+    "plugin.cjs": "module.exports = () => {};\n",
+    "src/main.ts": "export const main = 1;\n",
+    "node_modules/dep/index.d.ts": "export declare const dep: number;\n",
+  }));
+  const scratch = fs.realpathSync.native(TestProject.tmpdir("ttsc-scratch-exclusion-unit-"));
+  const temporary = path.join(scratch, "tsconfig.json");
+  const alias = path.join(TestProject.tmpdir("ttsc-scratch-exclusion-alias-"), "scratch");
+  fs.symlinkSync(scratch, alias, process.platform === "win32" ? "junction" : "dir");
+  fs.writeFileSync(temporary, '{"compilerOptions":{"removeComments":true}}');
+  const config = path.join(projectRoot, "tsconfig.json");
+  const main = path.join(projectRoot, "src", "main.ts");
+  const type = path.join(projectRoot, "node_modules", "dep", "index.d.ts");
+  const hosts = [config, path.join(projectRoot, "package.json"), path.join(projectRoot, "plugin.cjs")];
+  const proofInputs = [...hosts, type, temporary, path.join(alias, "tsconfig.json")];
+  const hash = (input: string) => crypto.createHash("sha256").update(fs.readFileSync(input)).digest("hex");
+  const temporaryResult: ITtscCompilerTransformation.ISuccess = {
+    type: "success", typescript: { "src/main.ts": "export const main = 2;\n" },
+    hostInputs: hosts,
+    hostInputHashes: Object.fromEntries(hosts.map((input) => [input, hash(input)])),
+    hostInputRealpaths: Object.fromEntries(hosts.map((input) => [input, fs.realpathSync.native(input)])),
+    graph: {
+      edges: { "src/main.ts": [type] }, globals: [],
+      configs: [config, temporary, path.join(alias, "tsconfig.json")],
+      inputHashes: Object.fromEntries(proofInputs.map((input) => [input, hash(input)])),
+      inputRealpaths: Object.fromEntries(proofInputs.map((input) => [input, fs.realpathSync.native(input)])),
+    },
+  };
+  const observed: TtscCachedProjectTransform = {
+    projectRoot, tsconfig: config, result: temporaryResult,
+    membershipPolicy: readProjectMembershipPolicy(config), inputHashes: {},
+    scratchDirectory: scratch, temporaryTsconfig: temporary,
+  };
+  try {
+    assert.equal(fs.realpathSync.native(path.join(alias, "tsconfig.json")), temporary);
+    const identities = envelopeDerivation(observed).identityContext;
+    const snapshot = collectProjectInputSnapshot(projectRoot, identities, DEFAULT_FILESYSTEM_OPERATIONS, undefined, { policy: observed.membershipPolicy });
+    assert.equal(snapshot.complete, true);
+    observed.inputHashes = snapshot.hashes;
+    observed.projectDirectories = snapshot.projectDirectories;
+    observed.projectSnapshotComplete = true;
+    const select = () => selectExternalInputPaths({
+      projectRoot, result: temporaryResult, membershipPolicy: observed.membershipPolicy,
+      scratchDirectory: scratch, temporaryTsconfig: temporary,
+    });
+    const expected = [...hosts, type].sort();
+    assert.deepEqual(select(), expected, "native temporary config and its physical alias stay outside the manifest");
+    const external = captureExternalInputSnapshot(observed, select(), undefined);
+    assert.equal(external.complete, true);
+    assert.deepEqual(external.failures.entries, []);
+    observed.externalInputPaths = select();
+    observed.externalInputHashes = external.hashes;
+    observed.externalInputRealpaths = external.realpaths;
+    observed.externalInputObservations = external.observations;
+    observed.externalInputSignatures = external.signatures;
+    const universal = captureUniversalHostInputValidation(observed, main);
+    assert.ok(universal.validation);
+    assert.deepEqual(universal.failures.entries, []);
+    observed.hostInputValidation = universal.validation;
+    const handoff = () => {
+      const watched: string[] = [];
+      notifyWatchInputs({ addWatchFile: (input) => watched.push(input) }, observed, main, {
+        consulted: [config], filesystem: DEFAULT_FILESYSTEM_OPERATIONS, tsconfig: config,
+      });
+      return watched.sort();
+    };
+    assert.deepEqual(handoff(), expected);
+    assert.equal(matchesCompleteInputSnapshot(observed), true);
+    fs.unlinkSync(temporary);
+    assert.deepEqual(select(), expected, "disposed scratch cannot join later validation");
+    assert.deepEqual(handoff(), expected);
+    assert.equal(matchesCompleteInputSnapshot(observed), true, "scratch removal preserves the actual complete proof");
+    fs.appendFileSync(path.join(projectRoot, "plugin.cjs"), "// real descriptor edit\n");
+    assert.equal(matchesCompleteInputSnapshot(observed), false, "real universal edits are not excluded beside scratch");
+  } finally {
+    fs.unlinkSync(alias);
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
   }
 }
