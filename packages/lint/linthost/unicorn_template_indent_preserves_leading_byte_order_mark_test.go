@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The fixer compares the exact authored output including the leading BOM and requires clean re-lint.
 // @evidence contracts/testing.md#independent-expectations A leading byte-order mark is source content outside the transformed template; the independent literal output preserves exactly one leading mark.
 // @evidence contracts/testing.md#distinguishing-cases The BOM-bearing source must change indentation while keeping the leading mark unchanged.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesLeadingByteOrderMark owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesLeadingByteOrderMark owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application compare the literal leading-BOM output and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentPreservesLeadingByteOrderMark(t *testing.T) {
   source := "\uFEFFconst query = gql`\none\n`;\n"
   expected := "\uFEFFconst query = gql`\n  one\n`;\n"

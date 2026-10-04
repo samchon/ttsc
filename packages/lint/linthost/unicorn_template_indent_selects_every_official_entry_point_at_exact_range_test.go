@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The engine requires four ordinary errors with authored template offsets, full message and quasi fixes.
 // @evidence contracts/testing.md#independent-expectations Official upstream tag/function/comment/Jest selector semantics and the literal message independently establish the four report locations.
 // @evidence contracts/testing.md#distinguishing-cases gql, stripIndent, HTML block comment and inline snapshot each retain a separate exact-range finding.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentSelectsEveryOfficialEntryPointAtExactRange owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentSelectsEveryOfficialEntryPointAtExactRange owns its explicit variants and named subcases as a discoverable Go unit entry; the real parser and engine compare four independently authored template ranges, the literal message and presence of quasi edits in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentSelectsEveryOfficialEntryPointAtExactRange(t *testing.T) {
   source := "declare const value: unknown;\n" +
     "const tagged = gql`\none\n`;\n" +
@@ -34,6 +34,7 @@ func TestUnicornTemplateIndentSelectsEveryOfficialEntryPointAtExactRange(t *test
     strings.Index(source, "`\n<div>"),
     strings.Index(source, "`\nsnapshot"),
   }
+  templates := []string{"`\none\n`", "`\ntwo\n`", "`\n<div>\n`", "`\nsnapshot\n`"}
   for index, finding := range findings {
     if finding.Rule != unicornTemplateIndentRuleName {
       t.Fatalf("finding %d rule: want %q, got %q", index, unicornTemplateIndentRuleName, finding.Rule)
@@ -44,8 +45,9 @@ func TestUnicornTemplateIndentSelectsEveryOfficialEntryPointAtExactRange(t *test
     if finding.Pos != starts[index] {
       t.Fatalf("finding %d start: want %d, got %d", index, starts[index], finding.Pos)
     }
-    if finding.End <= finding.Pos || source[finding.End-1] != '`' {
-      t.Fatalf("finding %d range does not cover the complete template: [%d,%d)", index, finding.Pos, finding.End)
+    wantEnd := starts[index] + len(templates[index])
+    if finding.End != wantEnd {
+      t.Fatalf("finding %d end: want %d, got %d", index, wantEnd, finding.End)
     }
     if len(finding.Fix) == 0 {
       t.Fatalf("finding %d must carry raw-quasi edits", index)

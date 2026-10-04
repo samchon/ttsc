@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual fixer compares the no-signal source with the authored two-space result and requires clean re-lint.
 // @evidence contracts/testing.md#independent-expectations The supported default fallback independently supplies two spaces when source/template indentation offers no signal.
 // @evidence contracts/testing.md#distinguishing-cases The unindented two-line body must change to two spaces; surrounding-tab and explicit-option hosts supply other policies.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFallsBackToTwoSpacesWithoutAnyIndentSignal owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFallsBackToTwoSpacesWithoutAnyIndentSignal owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application compare the two-space full source and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentFallsBackToTwoSpacesWithoutAnyIndentSignal(t *testing.T) {
   source := "const query = gql`\none\ntwo\n`;\n"
   expected := "const query = gql`\n  one\n  two\n`;\n"

@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The fixer compares nested-template output with an authored full source, parses it and requires no subsequent finding.
 // @evidence contracts/testing.md#independent-expectations An inner selected template may change its quasi whitespace without rewriting the enclosing substitution expression; the literal output independently preserves that distinction.
 // @evidence contracts/testing.md#distinguishing-cases The outer expression layout stays intact while the inner tagged body changes; ordinary multi-quasi preservation belongs to the adjacent fix host.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixesNestedTemplatesWithoutTouchingExpressions owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixesNestedTemplatesWithoutTouchingExpressions owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots, disk fix application and a direct fixed-source parse compare nested output and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentFixesNestedTemplatesWithoutTouchingExpressions(t *testing.T) {
   source := "declare const ready: boolean;\n" +
     "declare const value: string;\n" +

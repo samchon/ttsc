@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Actual fix execution compares complete authored CRLF output and requires clean re-lint.
 // @evidence contracts/testing.md#independent-expectations The supported line-ending preservation contract independently keeps CRLF while changing only indentation.
 // @evidence contracts/testing.md#distinguishing-cases CRLF outer/template lines retain their exact spelling; mixed and other ECMAScript separator hosts own broader boundaries.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesCRLF owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesCRLF owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application compare literal CRLF output and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentPreservesCRLF(t *testing.T) {
   source := "if (ready) {\r\n  use();\r\n}\r\n" +
     "const query = gql`\r\n" +

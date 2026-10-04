@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The real engine requires zero findings for all eleven named skip shapes.
 // @evidence contracts/testing.md#independent-expectations The supported selection scope and unchanged-output rule independently leave nonmatches, single-line bodies and correct indentation alone.
 // @evidence contracts/testing.md#distinguishing-cases Single-line, unselected/computed/call-result tags, comment proximity/type, indirect function argument and both indentation-correct forms retain named identities.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentSkipsUnselectedSingleLineAndAlreadyCorrectTemplates owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentSkipsUnselectedSingleLineAndAlreadyCorrectTemplates owns its explicit variants and named subcases as a discoverable Go unit entry; the real parser and engine require zero findings for all eleven named skip sources in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentSkipsUnselectedSingleLineAndAlreadyCorrectTemplates(t *testing.T) {
   sources := []string{
     "const single = gql`one`;\n",

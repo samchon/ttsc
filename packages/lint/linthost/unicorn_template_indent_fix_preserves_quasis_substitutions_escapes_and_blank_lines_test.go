@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The real fixer checks three quasi edits, no substitution overlap, authored full output, parsing and clean re-lint.
 // @evidence contracts/testing.md#independent-expectations Template substitutions and raw escapes must remain unchanged while whitespace indentation changes; independently authored source specifies both transformed and preserved meaning.
 // @evidence contracts/testing.md#distinguishing-cases Two substitutions, escaped newline/backtick text, interior indentation and blank lines retain their exact output and edit boundaries.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLines owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLines owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots, disk fix application and a direct fixed-source parse compare quasi edit bounds, full output and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLines(t *testing.T) {
   source := "declare const value: string;\n" +
     "declare const other: string;\n" +

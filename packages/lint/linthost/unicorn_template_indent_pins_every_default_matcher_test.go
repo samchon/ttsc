@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual rule requires ten default matcher findings at their authored markers.
 // @evidence contracts/testing.md#independent-expectations Official upstream defaults independently list six tags, two functions and two comment markers; the Go matcher does not generate the expected names.
 // @evidence contracts/testing.md#distinguishing-cases outdent/dedent/gql/sql/html/styled tags, dedent/stripIndent calls and HTML/indent comments retain their separate positions.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPinsEveryDefaultMatcher owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPinsEveryDefaultMatcher owns its explicit variants and named subcases as a discoverable Go unit entry; the real parser and default engine compare ten authored template marker positions in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentPinsEveryDefaultMatcher(t *testing.T) {
   source := "const taggedOutdent = outdent`\ntag-outdent\n`;\n" +
     "const taggedDedent = dedent`\ntag-dedent\n`;\n" +

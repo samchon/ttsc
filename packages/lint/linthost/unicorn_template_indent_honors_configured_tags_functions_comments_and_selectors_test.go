@@ -16,7 +16,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The engine checks named configured matches and reports overlapping selectors only once.
 // @evidence contracts/testing.md#independent-expectations Supported replacement lists, dotted paths, case-insensitive trimmed block comments and deduplication independently establish the literal selected positions.
 // @evidence contracts/testing.md#distinguishing-cases Configured and parenthesized paths report; replaced defaults/computed/call-result forms do not, and two overlapping selectors share one diagnostic.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors owns its explicit variants and named subcases as a discoverable Go unit entry; the real parser and configured engine compare the two named option/matching subcases and their authored finding positions/counts in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(t *testing.T) {
   t.Run("name and comment lists replace defaults", func(t *testing.T) {
     source := "const tagged = utils.dedent`\none\n`;\n" +

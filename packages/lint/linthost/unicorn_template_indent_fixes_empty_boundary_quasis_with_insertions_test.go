@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual fixer requires three quasi edits, zero-width boundary insertions and exact authored clean output.
 // @evidence contracts/testing.md#independent-expectations Empty leading/trailing quasis need insertions around unchanged substitutions rather than deleting expression text; the literal output independently establishes that contract.
 // @evidence contracts/testing.md#distinguishing-cases Both empty boundary quasis and the nonempty middle quasi retain their distinct insertion/replacement checks.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixesEmptyBoundaryQuasisWithInsertions owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentFixesEmptyBoundaryQuasisWithInsertions owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application compare zero-width quasi edits, full source and clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentFixesEmptyBoundaryQuasisWithInsertions(t *testing.T) {
   source := "declare const value: string;\n" +
     "declare const other: string;\n" +

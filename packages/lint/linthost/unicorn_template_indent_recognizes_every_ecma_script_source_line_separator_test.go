@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Actual fix execution checks six named source-indent and parent-margin scenarios against authored full output.
 // @evidence contracts/testing.md#independent-expectations ECMAScript source line semantics independently distinguish CR, U+2028 and U+2029 as line boundaries for indentation inference.
 // @evidence contracts/testing.md#distinguishing-cases Each separator owns both surrounding-indent and parent-margin controls, with clean re-lint and named failure identity.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application execute all six named source-indent/parent-margin subcases in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator(t *testing.T) {
   separators := []struct {
     name string

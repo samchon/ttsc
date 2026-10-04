@@ -16,7 +16,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Actual engine construction requires ConfigError and authored fragments for every named malformed option payload.
 // @evidence contracts/testing.md#independent-expectations The public indent/list/selector schema independently rejects invalid types, whitespace, duplicates and selector syntax.
 // @evidence contracts/testing.md#distinguishing-cases Nonobject/unknown, empty/nonwhitespace/zero/fraction indent and invalid list/selector inputs retain all named failures.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRejectsMalformedOptionsBeforeLinting owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRejectsMalformedOptionsBeforeLinting owns its explicit variants and named subcases as a discoverable Go unit entry; direct configured engine construction compares ConfigError fragments for all eleven named invalid options in the Go test process without creating fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentRejectsMalformedOptionsBeforeLinting(t *testing.T) {
   cases := []struct {
     name    string

@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual rule requires silence for each named nonmatching inline snapshot call shape.
 // @evidence contracts/testing.md#independent-expectations The supported direct expect/snapshot call grammar independently excludes missing/extra arguments and wrong/member/computed/optional callees.
 // @evidence contracts/testing.md#distinguishing-cases Six named near-misses remain distinct; AcceptsParenthesizedJestInlineSnapshot supplies the adjacent accepted selection.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRejectsJestInlineSnapshotNearMisses owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentRejectsJestInlineSnapshotNearMisses owns its explicit variants and named subcases as a discoverable Go unit entry; the real parser and engine require zero findings in each of the six named inline-snapshot near-miss subcases in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentRejectsJestInlineSnapshotNearMisses(t *testing.T) {
   cases := []struct {
     name   string

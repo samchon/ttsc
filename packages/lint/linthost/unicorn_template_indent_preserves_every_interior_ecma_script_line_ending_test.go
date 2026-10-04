@@ -15,7 +15,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual fixer compares a full literal output retaining CR, LS and PS inside the template.
 // @evidence contracts/testing.md#independent-expectations ECMAScript permits these line separators and the supported preservation contract independently requires their original spelling with new indentation.
 // @evidence contracts/testing.md#distinguishing-cases Interior CR/U+2028/U+2029 plus LF boundary lines retain their distinct separator positions.
-// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesEveryInteriorECMAScriptLineEnding owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTemplateIndentPreservesEveryInteriorECMAScriptLineEnding owns its explicit variants and named subcases as a discoverable Go unit entry; real parser/engine snapshots and disk fix application compare literal CR, LS, PS and LF output with clean re-lint in the Go test process; no installed consumer, native producer or product child host runs.
 func TestUnicornTemplateIndentPreservesEveryInteriorECMAScriptLineEnding(t *testing.T) {
   source := "if (ready) {\n  use();\n}\n" +
     "const query = gql`\n" +
