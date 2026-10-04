@@ -8,9 +8,9 @@ import (
 // extension tables stay distinct.
 //
 // A project's own selection may name JavaScript, because a project that lists
-// `.js` under `allowJs` owns it. The widening may not: JavaScript reaches the
-// Program only when an import pulls it in, and lint would then judge a file the
-// project never chose. The two tables are adjacent functions differing only by
+// `.js` under `allowJs` owns it. Imported-source widening excludes JavaScript,
+// so an imported JavaScript file outside the project's selected roots is not
+// admitted through that lane. The tables are adjacent functions differing by
 // the JavaScript suffixes, so an edit that unified them would silently widen
 // lint onto imported JavaScript (samchon/ttsc#1065). This case guards that.
 //
