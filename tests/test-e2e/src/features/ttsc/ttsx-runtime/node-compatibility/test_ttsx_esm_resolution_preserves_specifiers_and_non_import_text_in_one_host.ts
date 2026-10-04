@@ -14,6 +14,9 @@ import { FixtureFiles } from "../../../../internal/FixtureFiles";
  * profiles. The entry catches failures separately so unrelated runtime
  * scenarios run before this test reports its collected assertions.
  *
+ * The consolidated Runtime owner can supply its exactly staged root and real
+ * observed spawn. The standalone entry retains its original allocation.
+ *
  * 1. Compile all ESM and source-package fixtures with their shared original
  *    options.
  * 2. Import each fixture through the actual runtime hooks in one Node process.
@@ -24,18 +27,20 @@ import { FixtureFiles } from "../../../../internal/FixtureFiles";
  * @evidence contracts/testing.md#distinguishing-cases Extensionless imports resolve while extensioned suffix identities and import-shaped strings, templates, comments and regex values remain intact; missing-import rejection remains separately exercised.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry runs public ttsx and twenty-one labeled modules; fixture source declarations are program inputs, not hidden test hosts.
  * @evidence contracts/e2e.md#necessary-boundary Compiler emit, Node hooks and ESM loading must agree on original source URLs; parsing alone cannot establish their assembly.
- * @evidence contracts/e2e.md#shared-execution Equivalent ES2022/bundler entry fixtures share one project load, emit, launcher and Node session. The enum and type-only-elision plus runtime-namespace consumers now use two central dependency-owned programs instead of four repeated package programs; the enum owner retains absent rootDir/outDir, and the built owner retains explicit rootDir/outDir and owns the configured enum, type-only elision and runtime namespace together. Raw packages without owning configs remain raw inputs to the runtime lowering path.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An explicit fixture-owned cache and untouched dist sentinel isolate cache-versus-deployment effects. A fresh project owns disjoint consumer module paths and scenario-owned side-effect names; each central package has one manifest and one immutable source identity, and the formerly different pub-dep packages have distinct pub-dep and paint-dep names so package-ID deduplication cannot alias unrelated bytes; imports occur once and launcher cleanup owns outputs, with no warm-cache transition claimed.
+ * @evidence contracts/e2e.md#shared-execution Equivalent ES2022/bundler entry fixtures share one project load, emit, launcher and Node session. Consolidated Runtime stages these exact fixture bytes on its existing allocation and supplies its actual spawn owner; standalone discovery keeps its original root. The enum and type-only-elision plus runtime-namespace consumers now use two central dependency-owned programs instead of four repeated package programs; the enum owner retains absent rootDir/outDir, and the built owner retains explicit rootDir/outDir and owns the configured enum, type-only elision and runtime namespace together. Raw packages without owning configs remain raw inputs to the runtime lowering path.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An explicit fixture-owned cache and untouched dist sentinel isolate cache-versus-deployment effects. The supplied root is admitted only after the prior Runtime graph is held and its native lifetimes are acknowledged; the real observed spawn rejects uncertain completion before another stage. A fresh project owns disjoint consumer module paths and scenario-owned side-effect names; each central package has one manifest and one immutable source identity, and the formerly different pub-dep packages have distinct pub-dep and paint-dep names so package-ID deduplication cannot alias unrelated bytes; imports occur once and launcher cleanup owns outputs, with no warm-cache transition claimed.
  * @evidence contracts/e2e.md#preserved-coverage The batch retains all original outputs for scanner and suffix preservation, enum forward/reverse values under both absent and explicit rootDir/outDir profiles, runtime namespaces, type-only elision, no-rootDir dependencies, ESM/package/MTS classification, source-package directory resolution and original cache-only-run typed module output, dist sentinel bytes, absent dist/main.js and dist/package.json, existing empty per-run cache index after the explicit cache-dir invocation, and original import-meta-preserved asset lookup plus source-only marker and an exact native physical source-file URL (native realpath permits OS aliases such as Windows 8.3 spellings without accepting a cache file); assets alone could remain readable through mirrored cache links; The additional allow-ts-extension-ok, cts-commonjs and mts-runner-ok literals run in the same host; The standalone extension-import and CTS entries are removed because their original ES2022/bundler options and literal runtime values execute here; the original NodeNext MTS and CommonJS suppression entries remain until their distinct emitter profiles have verified shared owners. Labeled caught imports and aggregated assertions report unrelated failures together.
  */
-export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host() {
-  const root = TestProject.createProject(
+export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host(
+  prepared?: { root: string; spawn: typeof TestProject.spawn },
+) {
+  const root = prepared?.root ?? TestProject.createProject(
     FixtureFiles.read(
       "ttsc/ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host/inputs-1",
     ),
   );
   const cacheDir = path.join(root, ".ttsx-cache");
-  const result = TestProject.spawn(
+  const result = (prepared?.spawn ?? TestProject.spawn)(
     TestProject.TTSX_BIN,
     [
       "--cwd",
