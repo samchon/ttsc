@@ -90,7 +90,7 @@ export interface ITtscLintUnicornBetterRegexRuleOptions {
  * Options for `unicorn/template-indent`.
  *
  * Each selection list replaces the corresponding default list. `indent` is
- * either a positive number of spaces or the exact non-empty whitespace string
+ * either a positive integer number of spaces or the exact non-empty whitespace string
  * added after the opening template's source-line margin.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/template-indent.md
@@ -270,7 +270,7 @@ export type TtscLintUnicornPreventAbbreviationsImportMode =
  * `false` disables every replacement for the name. An object enables or
  * disables individual replacement spellings.
  *
- * @evidence contracts/common.md#principled-implementation False removes a discouraged-name entry and a boolean map toggles its candidate expansions.
+ * @evidence contracts/common.md#principled-implementation False disables a discouraged-name entry and prevents alternate-case fallback; a boolean map toggles its candidate expansions.
  * @evidence contracts/common.md#clear-and-simple-design The value type separates one name's replacement policy from the outer name-to-policy table.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement spellings are configurable data rather than built-in exceptions for known source identifiers.
  * @evidence contracts/common.md#meaningful-documentation The prose distinguishes disabling an entire entry from toggling individual expansions.
@@ -417,8 +417,10 @@ export interface ITtscLintUnicornStringContentPatternOptions {
  *
  * The rule has no default patterns: without a configured `patterns` object it
  * reports nothing. Each key is a regular-expression source matched against
- * string-literal values and template-quasi raw text; the FIRST matching pattern
- * per node wins and every occurrence is replaced.
+ * nonempty string-literal values and line-ending-normalized template-quasi raw
+ * text; the FIRST matching pattern per eligible node wins and every occurrence
+ * is replaced literally. Recognized foreign-language template tags are exempt
+ * even when selected explicitly.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/string-content.md
  * @evidence contracts/common.md#principled-implementation Ordered regex keys and replacement entries determine content substitutions; selector overrides choose the inspected AST nodes.
@@ -441,9 +443,10 @@ export interface ITtscLintUnicornStringContentRuleOptions {
  *
  * A Browserslist query string, an array of such queries, or a core-js-compat
  * targets object (engine name to a version string or number, plus the special
- * `browsers` / `esmodules` keys). Resolved with the `production` environment
- * against the linted file's directory, exactly as upstream passes the value to
- * core-js-compat.
+ * `browsers` / `esmodules` keys). Queries use the native Browserslist resolver
+ * with the `production` environment and linted file's directory; target objects
+ * enter the native compatibility-target parser. This does not execute target
+ * runtimes or certify universal upstream resolver parity.
  *
  * @evidence contracts/common.md#principled-implementation The union preserves Browserslist queries and core-js-compatible target objects as distinct resolver input representations.
  * @evidence contracts/common.md#clear-and-simple-design One value type captures query strings, query lists and target maps without adding resolver machinery.
@@ -460,8 +463,10 @@ export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
  *
  * Without this option the rule resolves targets from Browserslist config
  * discovery and, as a last resort, the nearest `package.json` `engines` field.
- * Set `targets` to pin the baseline explicitly; it mirrors upstream's required
- * `targets` schema property.
+ * Set `targets` to pin the baseline explicitly. This public options object
+ * requires it; the runtime decoder also accepts an empty object and uses normal
+ * discovery. Unresolvable targets suppress findings rather than establish
+ * runtime support.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
  * @evidence contracts/common.md#principled-implementation An explicit options object requires targets while omission of the entire options value leaves discovery to the runtime resolver.
