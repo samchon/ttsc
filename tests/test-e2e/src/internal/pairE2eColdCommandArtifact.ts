@@ -11,8 +11,8 @@ import { readE2eTracePayload } from "./readE2eTracePayload";
  * file fact, never an independent expected build output or loaded-image proof.
  *
  * @evidence contracts/common.md#principled-implementation Requires the same writer/invocation build attempt and result, complete before-first-use artifact bytes, unchanged native file observations and later successful command results selecting that actual output path.
- * @evidence contracts/common.md#clear-and-simple-design One explicit producer requirement binds phase source/toolchain observations and the cold output's retained bytes without forcing a nonexistent before-baseline asset.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not fabricate artifact rows, expected hashes, child counts, successful commands or image identity. Missing observations stay problems and completeness remains false.
+ * @evidence contracts/common.md#clear-and-simple-design One explicit producer requirement, optionally restricted to an exact independent use-argument vector, binds phase source/toolchain observations and the cold output's retained bytes without forcing a nonexistent before-baseline asset.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not fabricate artifact rows, expected hashes, child counts, successful commands or image identity. Missing observations stay problems and completeness remains false. Exact positive-use admission never relabels a negative command as successful; all other command results remain in the phase traces and owning assertions.
  * @evidence contracts/common.md#meaningful-documentation Distinguishes derived actual build-output address, independent preparation requirements and observed file-byte equality from reproducibility, image loading and descendant joins.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Native identities were observed by the actual owning Go writer; this operation checks recorded facts and delegates retained-file reading to its native reader without OS-name classification.
  * @evidence contracts/performance.md#efficient-algorithms Visits the selected phase rows and matching command candidates, then reads each bounded artifact payload once to hash its actual bytes. Work and memory scale with rows plus captures, each at most64MiB.
@@ -29,6 +29,7 @@ export function pairE2eColdCommandArtifact(
     buildPrefix: readonly string[];
     buildSuffix: readonly string[];
     usePrefix: readonly string[];
+    useArguments?: readonly string[];
     minimumUses: number;
     producerAssets: readonly string[];
   },
@@ -37,6 +38,9 @@ export function pairE2eColdCommandArtifact(
     throw new Error("Cold artifact requires an explicit positive use requirement");
   if (!/^[a-z0-9-]+$/i.test(input.rawLabel))
     throw new Error("Cold artifact requires its actual owner-selected payload label");
+  if (input.useArguments !== undefined &&
+      (!Array.isArray(input.useArguments) || input.useArguments.some(value => typeof value !== "string")))
+    throw new Error("Cold artifact use arguments must be independently selected literal strings");
   const preparation = pairE2eTraceWriterManifest(phase, [{
     boundary: input.buildOwner, writerPid: input.writerPid, event: "process-attempt",
     data: { owner: input.buildOwner }, producerAssets: input.producerAssets,
@@ -92,7 +96,9 @@ export function pairE2eColdCommandArtifact(
       const useArgv = use.data?.argv;
       if (use.event !== "process-attempt" || use.data?.owner !== input.useOwner ||
         use.data?.selectedPath !== requested || !Array.isArray(useArgv) ||
-        JSON.stringify(useArgv.slice(1, input.usePrefix.length + 1)) !== JSON.stringify(input.usePrefix)) continue;
+        JSON.stringify(useArgv.slice(1, input.usePrefix.length + 1)) !== JSON.stringify(input.usePrefix) ||
+        (input.useArguments !== undefined &&
+          JSON.stringify(useArgv.slice(1)) !== JSON.stringify(input.useArguments))) continue;
       const ended = sameWriter.find(other => other.observation.invocation === use.invocation &&
         other.observation.event === "process-result" && other.observation.data?.owner === input.useOwner);
       if (use.sequence <= event.sequence || !ended || ended.observation.sequence <= use.sequence ||

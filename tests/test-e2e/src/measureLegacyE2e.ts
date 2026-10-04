@@ -134,6 +134,8 @@ export async function measureLegacyE2e(): Promise<void> {
       !Number.isSafeInteger(requirement.minimumUses) || requirement.minimumUses < 1 ||
       ![requirement.buildPrefix, requirement.buildSuffix, requirement.usePrefix, requirement.producerAssets]
         .every(values => Array.isArray(values) && values.every(value => typeof value === "string")) ||
+      (requirement.useArguments !== undefined &&
+        (!Array.isArray(requirement.useArguments) || requirement.useArguments.some(value => typeof value !== "string"))) ||
       requirement.producerAssets.length === 0)
       throw new Error("Invalid or duplicate independently selected cold artifact requirement");
     coldNames.add(requirement.boundary);
