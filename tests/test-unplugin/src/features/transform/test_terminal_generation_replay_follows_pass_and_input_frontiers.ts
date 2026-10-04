@@ -22,12 +22,15 @@ import { compilerGraphInputProofFailures } from "../../../../../packages/unplugi
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureFailedGenerationInputStates } from "../../../../../packages/unplugin/src/core/transform/generation/captureFailedGenerationInputStates";
 import { createUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/generation/createUnstableGenerationError";
+import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 
 /**
  * Verifies retained failures respect their pass and observed input frontier.
  *
  * Failed envelopes and unstable errors are supported consumer inputs, not
  * synthetic compiler attempts. Actual capture retry counts remain E2E.
+ * An unreadable null graph baseline also feeds a ready owner: four actual
+ * deliveries keep that owner without earning a content reuse signature.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored distinct bytes produce exact graph/content-changed and shared terminal replay without changing native content metadata.
  * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle. Null has no readable content to replace with a signature; distinct literal readable bytes must disagree with null or the independently hashed original bytes even while native content metadata is fixed.
@@ -169,6 +172,27 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         assert.equal(observed.complete, recordedHash === null);
         assert.equal(Object.hasOwn(observed.signatures, unreadable), false,
           "no unreadable content receives metadata reuse authority");
+        if (recordedHash === null) {
+          cached.externalInputHashes = observed.hashes;
+          cached.externalInputRealpaths = observed.realpaths;
+          cached.externalInputObservations = observed.observations;
+          const universal = captureUniversalHostInputValidation(cached, moduleFiles[0]!);
+          assert.ok(universal.validation);
+          cached.hostInputValidation = universal.validation;
+          const ready = Promise.resolve(cached);
+          deniedCache.set(fixture.key, ready);
+          for (const input of moduleFiles) {
+            const source = fs.readFileSync(input, "utf8");
+            const output = await fixture.api.transformTtsc(
+              input, source, fixture.options, undefined, deniedCache,
+            );
+            assert.equal(output?.code, source);
+            assert.equal(deniedCache.get(fixture.key), ready);
+          }
+          assert.equal(Object.hasOwn(cached.externalInputSignatures ?? {}, unreadable), false,
+            "successful deliveries still cannot promote unreadable content to a signature");
+          deniedCache.delete(fixture.key);
+        }
         denied = false;
         assert.deepEqual(contentMetadata(), nativeMetadata);
         assert.deepEqual(fs.readFileSync(unreadable), nativeBytes);
