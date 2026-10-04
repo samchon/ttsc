@@ -9,6 +9,7 @@ import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/co
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { createBuildWatchFile } from "../../../../../packages/unplugin/src/core/bridge/createBuildWatchFile";
 import { hostToolDirectory } from "../../../../../packages/unplugin/src/core/bridge/hostToolDirectory";
+import { resolveConfiguredHostRoot, selectBuildHostRoot } from "../../../../../packages/unplugin/src/core/bridge/buildHostRoot";
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { registerProjectRecord } from "../../../../../packages/unplugin/src/core/bridge/registerProjectRecord";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
@@ -30,9 +31,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * generation from the public shared cache. No producer, compiler or loader host
  * is substituted, and the expected output is authored consumer data.
  *
- * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, an empty listed directory predicate and project membership. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache.
- * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 supplies the declaration hash; deliberately absent candidate and empty native directory fix their literal predicates. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals. Native lstat/realpath independently establish the configured-root alias; Node SHA-256 of the lexical linked config determines its expected record filename, while persisted selected-config spelling/input key and exact physical target distinguish relocation or canonicalization.
- * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Additional factory rows contrast present loader versus absent native/absent loader fallback, Farm two-argument association versus loader/generic input-only calls, repeated registration, retained loader selection, changed methods and error propagation. The linked configured-root row distinguishes physical module spelling from lexical config/record spelling and repeats the same persisted handoff without changing bytes. Real watching streams, automatic Farm wrapper-root selection and installed host cache invalidation remain external boundaries.
+ * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, an empty listed directory predicate and project membership. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache. Actual resolveConfiguredHostRoot/selectBuildHostRoot fix empty, relative and absolute configured spellings at config-time while omitted roots read current cwd, composing the selected native alias into that persisted record.
+ * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 supplies the declaration hash; deliberately absent candidate and empty native directory fix their literal predicates. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals. Native lstat/realpath independently establish the configured-root alias; Node SHA-256 of the lexical linked config determines its expected record filename, while persisted selected-config spelling/input key and exact physical target distinguish relocation or canonicalization. Two independently existing native cwd roots separate config-time anchoring from invocation-time fallback, and exact prior cwd is restored synchronously in finally.
+ * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Additional factory rows contrast present loader versus absent native/absent loader fallback, Farm two-argument association versus loader/generic input-only calls, repeated registration, retained loader selection, changed methods and error propagation. The linked configured-root row distinguishes physical module spelling from lexical config/record spelling and repeats the same persisted handoff without changing bytes. Undefined differs from an explicit empty root; relative and absolute native alias selections stay fixed when cwd moves while an omitted root follows it. Real watching streams, automatic Farm wrapper-root selection and installed host cache invalidation remain external boundaries.
  * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used. The factory rows use authored native-context callback shapes with unrelated compiler fields opaque; they exercise the actual production-used channel operation, not installed webpack/Rspack/Farm/Rollup hosts. They do not certify TP/Bun loaders, registration assembly, project-record bridge lifetime or native watch receipt. The linked-root row creates and removes one native alias in finally and uses actual record creation/handoff operations with no bridge, native backend or compiler. It does not certify that a Farm transform wrapper automatically chose that configured root.
  */
 export async function test_build_loader_callbacks_hand_over_only_the_project_record(): Promise<void> {
@@ -229,7 +230,7 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
   }
   const linkedFixture = createCachedDeliveryUnitFixture();
   const physicalRoot = fs.realpathSync.native(path.dirname(path.dirname(linkedFixture.file)));
-  const aliasParent = TestProject.tmpdir("ttsc-farm-record-alias-");
+  const aliasParent = fs.realpathSync.native(TestProject.tmpdir("ttsc-farm-record-alias-"));
   const configuredRoot = path.join(aliasParent, "configured-root");
   const linkedConfig = path.join(configuredRoot, "tsconfig.json");
   try {
@@ -237,6 +238,29 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     assert.equal(fs.lstatSync(configuredRoot).isSymbolicLink(), true);
     assert.equal(fs.realpathSync.native(configuredRoot), physicalRoot);
     assert.equal(fs.realpathSync.native(linkedConfig), fs.realpathSync.native(path.join(physicalRoot, "tsconfig.json")));
+    const priorCwd = process.cwd();
+    let selectedRoot = configuredRoot;
+    try {
+      process.chdir(aliasParent);
+      assert.equal(resolveConfiguredHostRoot(undefined), undefined);
+      const emptyRoot = resolveConfiguredHostRoot("");
+      assert.equal(emptyRoot, aliasParent);
+      assert.equal(resolveConfiguredHostRoot("."), aliasParent);
+      const resolved = resolveConfiguredHostRoot("configured-root");
+      assert.equal(resolved, configuredRoot);
+      assert.equal(resolveConfiguredHostRoot(configuredRoot), configuredRoot);
+      assert.equal(selectBuildHostRoot(undefined), aliasParent);
+      assert.equal(selectBuildHostRoot(resolved), configuredRoot);
+      process.chdir(physicalRoot);
+      assert.equal(selectBuildHostRoot(undefined), physicalRoot, "unset root observes the invocation's current cwd");
+      assert.equal(selectBuildHostRoot(emptyRoot), aliasParent, "an explicit empty root is fixed at configuration time");
+      assert.equal(selectBuildHostRoot(resolved), configuredRoot, "configured root was fixed before the cwd moved");
+      assert.notEqual(selectBuildHostRoot(resolved), physicalRoot, "native alias spelling is not canonicalized");
+      selectedRoot = selectBuildHostRoot(resolved);
+    } finally {
+      process.chdir(priorCwd);
+    }
+    assert.equal(process.cwd(), priorCwd);
     const result = { ...linkedFixture.good.result,
       hostInputs: [linkedConfig],
       hostInputHashes: { [linkedConfig]: createHash("sha256").update(fs.readFileSync(linkedConfig)).digest("hex") },
@@ -244,7 +268,7 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     };
     const cached = { ...observeValidationUnitGeneration(physicalRoot, result),
       tsconfig: linkedConfig, membershipPolicy: readProjectMembershipPolicy(linkedConfig) };
-    const tool = hostToolDirectory(configuredRoot);
+    const tool = hostToolDirectory(selectedRoot);
     assert.equal(tool, path.join(configuredRoot, ".ttsc"));
     const expectedRecord = path.join(configuredRoot, ".ttsc", "records", createHash("sha256").update(path.resolve(linkedConfig)).digest("hex").slice(0, 32) + ".json");
     assert.equal(projectRecordFile(tool, linkedConfig), expectedRecord);
