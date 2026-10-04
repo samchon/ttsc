@@ -8,12 +8,12 @@ const unicornPreventAbbreviationsRuleName = "unicorn/prevent-abbreviations"
 
 // TestRuleCorpusUnicornPreventAbbreviations verifies that the checker-backed engine compares the annotated errCb binding diagnostic.
 //
-// The supported err/cb dictionary independently expands this compound name to errorCallback.
+// The err/cb naming policy motivates the authored error annotation on the errCb declaration; this entry compares diagnostic triples rather than rename edits.
 //
 // @evidence contracts/testing.md#behavioral-verification The checker-backed engine compares the annotated errCb binding diagnostic.
-// @evidence contracts/testing.md#independent-expectations The supported err/cb dictionary independently expands this compound name to errorCallback.
-// @evidence contracts/testing.md#distinguishing-cases The original binding/use corpus reports; independent full-name and ignore controls belong to options hosts.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornPreventAbbreviations owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and exact diagnostic or editor-suggestion comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
+// @evidence contracts/testing.md#independent-expectations The err/cb naming policy motivates the authored error annotation on the errCb declaration; this entry compares diagnostic triples rather than rename edits.
+// @evidence contracts/testing.md#distinguishing-cases The errCb declaration reports once while its call use and the fully spelled error parameter add no findings in this input.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornPreventAbbreviations owns this one authored binding/use source as a discoverable Go unit entry; checker-backed rule snapshots and annotated rule/severity/line comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestRuleCorpusUnicornPreventAbbreviations(t *testing.T) {
   source := "// expect: unicorn/prevent-abbreviations error\nconst errCb = (error: Error): void => {\n  console.error(error);\n};\n\nerrCb(new Error(\"fixture\"));\n"
   expected := parseRuleExpectations(t, source)
