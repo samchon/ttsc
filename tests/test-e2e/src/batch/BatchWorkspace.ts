@@ -176,11 +176,12 @@ export namespace BatchWorkspace {
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z" });
       const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
+      fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
       config.compilerOptions.plugins.push(
         { name: "native-order-prefix", transform: "./descriptors/create.cjs", fixtureSource, operation: "prefix", prefix: "a:" },
         { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },
         { name: "native-order-identity", transform: "./descriptors/context.cjs", fixtureSource, operation: "identity", contextProbe: factoryContextProbe },
-        { name: "native-order-upper", transform: "./compile-probe.cjs", fixtureSource, operation: "upper" },
+        { name: "native-order-upper", transform: "./descriptors/esm/src/index.ts", fixtureSource, operation: "upper", esmContextProbe: path.join(root, "factory-esm-context.json") },
         { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
       );
       for (const entry of config.compilerOptions.plugins)
