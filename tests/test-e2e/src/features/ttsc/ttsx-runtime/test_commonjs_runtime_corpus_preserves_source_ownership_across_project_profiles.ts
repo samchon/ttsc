@@ -43,6 +43,9 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * concurrent dependency children share the configured host. The configured host
  * consumes a real linked run index. Two public clean commands retire the
  * completed default cache only after all runtime readers have exited.
+ * A descriptor-retargeted run-index alias preserves the original and victim
+ * generation observations using this consumer and the existing external input
+ * island; unknown launch or failed alias removal stops reuse and retains both.
  * A dependency profile reads its two live physical root publications; a
  * nearer empty installation profile retains cache queries before and after its
  * host. Its child-local empty cache override preserves that native ancestry
