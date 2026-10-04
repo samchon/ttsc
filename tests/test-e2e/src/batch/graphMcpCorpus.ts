@@ -1,9 +1,8 @@
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 
-import { withIdentityBoundary } from "../../../internal/graph/internal/identityBoundary";
-import { assert } from "../../../internal/graph/internal/ttsgraph";
-
+type Client = { request(method: string, params: unknown): Promise<unknown> };
 const graphPackage = JSON.parse(
   fs.readFileSync(
     createRequire(import.meta.url).resolve("@ttsc/graph/package.json"),
@@ -93,32 +92,17 @@ const graphArguments = (props: {
 });
 
 /**
- * Verifies the @ttsc/graph launcher serves the redesigned graph tools to an MCP
- * client end to end over stdio.
- *
- * The TypeScript engine is unit-smoked in isolation; this case proves the
- * shipped pipeline works: the Node launcher spawns, starts `ttscgraph serve`
- * for a real project, refreshes the resident graph, and answers
- * initialize/tools-list/tools-call for the single source-flow tool, then exits
- * cleanly when stdin closes.
- *
- * 1. Materialize a project with a McpService.run -> mcpHelper call chain, then spawn the
- *    launcher against it.
- * 2. Drive initialize, tools/list, and a call to each request branch.
- * 3. Assert the entrypoints, architecture counts, a lookup hit, forward/path
- *    traces reaching the callee, source-free details, and a clean exit.
- *
- * @evidence contracts/testing.md#behavioral-verification The workspace-built MCP launcher initializes with package identity, lists its sole tool and exercises escape, entrypoints, tour, overview, lookup, trace, path, impact and details with native facts, coordinates and decorators.
- * @evidence contracts/testing.md#independent-expectations Literal tool names, authored McpService/mcpHelper/source/test declarations and range-only DTO expectations are independent controls; package version compares reported metadata to the workspace manifest, not packed installation, executable byte identity or loaded-image equality.
- * @evidence contracts/testing.md#distinguishing-cases Graph-free escape contrasts populated operations, external inclusion contrasts default exclusion, and method/object outlines and member implementation edges contrast source-body leakage and hub-mcpLog noise.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_serves_graph_tools_over_mcp borrows the shared workspace-built MCP launcher and explicitly selected real native session, not a consumer-local packed SDK installation and drives its actual stdio connection; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
- * @evidence contracts/e2e.md#necessary-boundary The Node launcher, MCP stdio transport, resident native serve producer and application handlers must assemble together; direct handler calls cannot detect the actual reported initialization metadata or wire/schema failures.
- * @evidence contracts/e2e.md#shared-execution Initialization/tool identity and the listed graph operations share one identity MCP/native client with this profile scoped to its two authored files. These stdio responses supply its native fact/head/decorator/range/projection controls; neighboring cached CLI facts are not the response oracle. Client/session sharing does not certify Program object reuse, construction count or packed installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes after settled requests; a timed-out or lost transport forbids further edits and resets, withdraws reuse and retains both project and external receipt inputs until the experiment attempts actual child joins. Tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology. Cached CLI facts serve unchanged assertions.
- * @evidence contracts/e2e.md#preserved-coverage Every original server/tool identity, next action, signature/decorator, range, role, exclusion, neighbor cap, object member and implementation-relation assertion remains in this existing batch.
+ * Carries the full native MCP branch population on the existing shared client.
+ * @evidence contracts/testing.md#behavioral-verification Actual initialize identity/guidance, sole-tool advertisement and escape/entrypoints/tour/overview/lookup/trace/path/impact/details replies retain every original assertion, including decorators, roles, range-only projection, exclusions and bounded neighbors.
+ * @evidence contracts/testing.md#independent-expectations Authored McpService/mcpHelper/direct-call/test/hub declarations and literal tool/DTO expectations prescribe the facts independently of extraction; initialization version is the actual package metadata contract.
+ * @evidence contracts/testing.md#distinguishing-cases Warm escape differs from populated queries, default external exclusion from opt-in, direct helper from terminal fan-in hub, and source-free method/object/member-implementation facts from source-body leakage.
+ * @evidence contracts/testing.md#execution-ownership The selected graph entry passes its actual initial response and same resident client once. Queries create no scene project, scoped compiler profile, launcher or host.
+ * @evidence contracts/e2e.md#necessary-boundary Native checker facts, application projection and actual MCP wire replies must agree; portable source policy cannot establish those actual responses.
+ * @evidence contracts/e2e.md#shared-execution Distinct McpService input names and its unchanged local DAG join the one upfront population. All branch queries borrow that same snapshot; there is no former two-file profile preparation or selection loop.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This helper issues readonly requests and warm escape only. The caller owns source mutations, transport authority and actual close receipts; terminal/recursive closed-universe variants are not merged or certified here.
+ * @evidence contracts/e2e.md#preserved-coverage Every original MCP assertion is retained verbatim against actual queries; the method decorator fixture adopts the shared standard decorator signature while preserving McpRoute('/run') metadata and call topology. These authored expectations may reveal unrelated-population conflicts in final CI; no passing result or global-universe equivalence is asserted.
  */
-export const case_ttscgraph_serves_graph_tools_over_mcp = async () => {
-  await withIdentityBoundary(async (client, _root, initialization) => {
+export async function assertGraphMcpCorpus(client: Client, initialization: unknown): Promise<void> {
     const init = initialization as {
       serverInfo?: { name?: string; version?: string };
       instructions?: string;
@@ -769,5 +753,5 @@ export const case_ttscgraph_serves_graph_tools_over_mcp = async () => {
       ),
       `details returns implementation candidates: ${JSON.stringify(interfaceDetails.nodes)}`,
     );
-  }, ["src/mcp-app.ts", "src/mcp-app.spec.ts"]);
-};
+
+}

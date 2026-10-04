@@ -1,3 +1,5 @@
+import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
+import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
 import assert from "node:assert/strict";
 import { FileSystemIterator } from "@ttsc/testing";
 import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
@@ -23,8 +25,8 @@ type NodeDetails = {
  * @evidence contracts/testing.md#distinguishing-cases String, implicitly numbered and duplicate-value enums distinguish declared member identity from a deduplicated type-value set; the class outline must remain unaffected.
  * @evidence contracts/testing.md#execution-ownership One TtsgraphClient.start owns one resident MCP/native session; a multi-handle details request and abstract dispatch trace serve all these declarations without CLI dumps or legacy scene dispatch.
  * @evidence contracts/e2e.md#necessary-boundary Real native checker extraction, snapshot transport and built MCP projection must carry each member fact. A synthetic graph cannot certify this producer boundary.
- * @evidence contracts/e2e.md#shared-execution The session first observes graph-free escape under invalid config with zero native starts, restores exact config bytes and initializes its one resident native snapshot. All later declaration, dispatch and readonly requests borrow that unchanged source graph; no per-scene fixture is created.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The MCP host's stdin is closed and actual process exit awaited after the body. Unknown closure rejects and shared inputs remain retained; no source mutation or force-kill substitutes for completion.
+ * @evidence contracts/e2e.md#shared-execution The session first observes graph-free escape under invalid config with zero native starts, restores exact config bytes and initializes its one resident native snapshot. All later declaration, dispatch and readonly requests share the upfront source population. The object outline advances the same resident snapshot by one controlled edit/restore; no per-scene fixture or compiler profile is created.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The MCP host's stdin is closed and actual process exit awaited after the body. Unknown closure rejects and shared inputs remain retained; Controlled object mutation captures/restores source bytes under actual client authority; no force-kill substitutes for completion.
  * @evidence contracts/e2e.md#preserved-coverage Preserves the original enum-details exact assertions with renamed authored Dup/Cls declarations replaced by Duplicate/Service. Retains both original signature head/body controls and both abstract implementation dispatch/terminal controls in this same resident session. Remaining impact and refresh distinctions are not certified.
  */
 export async function test_e2e_graph_batch(): Promise<void> {
@@ -32,7 +34,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
   await FileSystemIterator.write(workspace.root, await FileSystemIterator.read(path.join(workspace.root, "graph-stage")));
   const client = TtsgraphClient.start(workspace.root, path.join(workspace.root, "graph-native-starts.jsonl"));
   try {
-    await client.request("initialize", {
+    const initialization = await client.request("initialize", {
       protocolVersion: "2025-06-18", capabilities: {},
       clientInfo: { name: "shared-e2e", version: "1" },
     });
@@ -75,6 +77,8 @@ export async function test_e2e_graph_batch(): Promise<void> {
     await assertGraphReadonlyCorpus(client);
     await assertGraphDispatchCorpus(client);
     await assertGraphReverseCorpus(client);
+    await assertGraphMcpCorpus(client, initialization);
+    await assertGraphNativeShapeCorpus(client, workspace.root);
     const response = await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
