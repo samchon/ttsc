@@ -92,12 +92,10 @@ type storybookHierarchySeparator struct{}
 
 func (storybookHierarchySeparator) Name() string { return "storybook/hierarchy-separator" }
 
-// DiagnosticTags strikes the separator through: `|` is Storybook's superseded
-// hierarchy separator, and a title that uses it still renders — Storybook
-// keeps reading it — so the finding is exactly "this still works, migrate off
-// it", never "delete this title property".
+// DiagnosticTags leaves the obsolete separator untagged. The rule does not
+// establish a Storybook version where it still performs hierarchy separation.
 func (storybookHierarchySeparator) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+  return nil
 }
 func (storybookHierarchySeparator) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -116,7 +114,7 @@ func (storybookHierarchySeparator) Check(ctx *Context, node *shimast.Node) {
   if !located {
     // The decoded title carries the separator, so the finding is real even when
     // the raw spelling that produced it cannot be bounded. Report the property
-    // rather than dropping the diagnostic: a wider strikethrough is an
+    // rather than dropping the diagnostic: a wider reported range is an
     // imprecision, a missing diagnostic is a rule that stopped working.
     ctx.Report(prop, message)
     return
@@ -371,12 +369,10 @@ type storybookNoStoriesOf struct{}
 
 func (storybookNoStoriesOf) Name() string { return "storybook/no-stories-of" }
 
-// DiagnosticTags strikes the `storiesOf` import specifier through. The builder
-// API is deprecated in favor of CSF but still runs, and the whole reported
-// range is the specifier that names it, so migration — not deletion — is the
-// instruction the editor should render.
+// DiagnosticTags leaves storiesOf untagged. It was removed in Storybook 8;
+// this import predicate does not establish an earlier working runtime version.
 func (storybookNoStoriesOf) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+  return nil
 }
 func (storybookNoStoriesOf) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportSpecifier}

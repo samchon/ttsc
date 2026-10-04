@@ -3,31 +3,25 @@ package linthost
 import (
   "strings"
   "testing"
-
-  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// TestStorybookLegacyApiFindingsTagDeprecated verifies the two storybook rules
-// that report a superseded-but-working construct tag their findings
-// Deprecated, and that a wrong-package import does not.
+// TestStorybookLegacyApiFindingsTagDeprecated keeps the historical entry name
+// while checking obsolete storiesOf and pipe-title findings remain untagged.
 //
-// Deprecated strikes the range through and means "this still works, migrate
-// off it" — which is exactly what `storiesOf` and the `|` title separator are:
-// Storybook keeps honouring both. `storybook/no-renderer-packages` is the
-// negative twin because it also reports an import, but a renderer package is
-// not a deprecated API; it is the wrong layer to import from, and striking it
-// through would misstate why it is reported.
+// The public Deprecated tag requires still-working code. These rules do not
+// select an installed Storybook version, and storiesOf was removed in 8.0
+// while custom hierarchy separators were removed in 6.0. Parsed source alone
+// cannot certify that either legacy operation still works. Renderer-package
+// findings remain untagged for their separate integration-layer policy.
 //
-//  1. Report ordinary and aliased `storiesOf` imports plus direct and every
-//     supported escaped piped meta title, asserting one Deprecated tag each.
-//  2. Assert each range covers the deprecated construct itself, never its
-//     live alias or title property.
-//  3. Assert the negative twin `storybook/no-renderer-packages` reports
-//     untagged, and a same-named import from an application module is silent.
+//  1. Check ordinary/aliased storiesOf and literal/four escaped pipe titles.
+//  2. Pin each exact range to the obsolete import name or pipe spelling.
+//  3. Require empty tags for these and renderer-package findings, and no
+//     finding for a same-named import from an application module.
 //
-// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies Deprecated tags and exact ranges for storiesOf and pipe-title forms; renderer-package misuse stays untagged.
-// @evidence contracts/testing.md#independent-expectations DiagnosticTagDeprecated denotes still-working legacy APIs; literal markers locate obsolete constructs, while a wrong integration-layer import has a different meaning.
-// @evidence contracts/testing.md#distinguishing-cases Ordinary/aliased imports and literal/four escaped pipe spellings pin ranges; a same-named application import stays clean and renderer-package reports lack Deprecated.
+// @evidence contracts/testing.md#behavioral-verification Actual snapshots verify empty tags and exact ranges for the storiesOf import names and five raw pipe spellings; renderer-package findings stay untagged and the application import stays clean.
+// @evidence contracts/testing.md#independent-expectations Deprecated requires a still-working construct, which these version-independent predicates cannot establish after Storybook removed these legacy operations. Independent literal markers locate the obsolete spellings without certifying installed-runtime support.
+// @evidence contracts/testing.md#distinguishing-cases Ordinary/aliased imports and literal/four escaped pipe spellings pin distinct raw ranges; a same-named application import stays clean, and renderer-package misuse has its own untagged finding.
 // @evidence contracts/testing.md#execution-ownership TestStorybookLegacyApiFindingsTagDeprecated owns these explicit variants as one Go unit entry; actual parsed-source engine operations run in the shared Go process without an installed Storybook host.
 func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
   cases := []struct {
@@ -77,8 +71,8 @@ func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
       t.Fatalf("%s: findings = %d, want 1 (%+v)", testCase.rule, len(findings), findings)
     }
     finding := findings[0]
-    if len(finding.Tags) != 1 || finding.Tags[0] != publicrule.DiagnosticTagDeprecated {
-      t.Fatalf("%s: tags = %v, want [Deprecated]", testCase.rule, finding.Tags)
+    if len(finding.Tags) != 0 {
+      t.Fatalf("%s: tags = %v, want none", testCase.rule, finding.Tags)
     }
     // `storiesOf` can also appear in the call below the import; the first
     // occurrence is the imported API the rule reports.
