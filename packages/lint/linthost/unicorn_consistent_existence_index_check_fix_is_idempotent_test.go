@@ -5,11 +5,10 @@ import "testing"
 // TestUnicornConsistentExistenceIndexCheckFixIsIdempotent verifies the fixed
 // source reaches a stable fixed point: re-linting it reports nothing.
 //
-// The rule rewrites one comparison into another comparison on the very same
-// binding, so a wrong output operator or a stale literal would make the rule
-// re-report its own emission and loop `ttsc fix`. Feeding each rewritten source
-// back through the rule and requiring zero findings proves `=== -1` / `!== -1`
-// are terminal for all three magnitude arms.
+// The rule rewrites one comparison into another comparison on the same binding.
+// Independently authored whole-source goldens detect incorrect output; the
+// separate zero-findings rerun checks stability for these three magnitude arms.
+// Stability alone would not establish that the chosen operator is correct.
 //
 //  1. Fix `< 0`, `>= 0`, and `> -1` on a const-bound index.
 //  2. Re-lint each rewritten source.
