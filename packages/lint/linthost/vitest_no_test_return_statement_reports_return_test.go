@@ -8,8 +8,9 @@ import (
 
 // TestVitestNoTestReturnStatementReportsReturn verifies vitest/no-test-return-statement flags returned values.
 //
-// Returning arbitrary values from tests is ignored by Vitest and usually masks
-// a missing assertion or await. This locks the direct test-callback detection.
+// This lint policy rejects explicit return statements inside test callbacks.
+// The case compares a returned call with an expression statement; it does not
+// determine the call's return type or test Vitest's promise completion behavior.
 //
 // 1. Parse a test callback with a return statement.
 // 2. Enable vitest/no-test-return-statement.

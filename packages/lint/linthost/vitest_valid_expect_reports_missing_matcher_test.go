@@ -8,9 +8,9 @@ import (
 
 // TestVitestValidExpectReportsMissingMatcher verifies vitest/valid-expect rejects bare expect calls.
 //
-// `expect(value)` without a matcher records no assertion. This pins the
-// matcher-chain traversal that accepts `.not`, `.resolves`, and `.rejects`
-// before the final matcher call.
+// `expect(value)` without a matcher records no assertion. This case distinguishes
+// the bare subject call from a completed `.toBe(1)` matcher call; it does not
+// exercise `.not`, `.resolves`, or `.rejects` modifier chains.
 //
 // 1. Parse a test containing a bare expect call.
 // 2. Enable vitest/valid-expect.
