@@ -26,11 +26,11 @@ export interface ITtscLintSecurityRules {
   "security/detect-bidi-characters"?: TtscLintRuleSetting;
 
   /**
-   * Detect Buffer reads/writes called with `noAssert = true`, which skips
-   * Node's offset/length bounds checks.
+   * Detect recognized Buffer-style read/write method names called with literal
+   * `true` in the historical `noAssert` argument position.
    *
-   * The flag lets the offset slide past the buffer end and read unrelated
-   * memory, so production code should never set it.
+   * Receiver bindings and the installed Node version are not resolved; this is
+   * a source-pattern policy rather than proof of unchecked memory access.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-buffer-noassert.md
    */
@@ -62,10 +62,10 @@ export interface ITtscLintSecurityRules {
   "security/detect-disable-mustache-escape"?: TtscLintRuleSetting;
 
   /**
-   * Detect `eval(...)` calls whose argument is not a string literal.
+   * Detect `eval(...)` calls whose argument the native static-expression
+   * recognizer cannot resolve.
    *
-   * Any expression argument means caller-controlled data can reach a
-   * code-execution sink. The rule flags the call shape, not proven taint.
+   * The rule flags the call shape, not proven caller control or taint.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-eval-with-expression.md
    */
@@ -87,8 +87,9 @@ export interface ITtscLintSecurityRules {
   "security/detect-new-buffer"?: TtscLintRuleSetting;
 
   /**
-   * Detect Express applications mounting `csrf` middleware before
-   * `methodOverride`, which lets the CSRF token be bypassed.
+   * Detect a property call named `csrf` followed in source traversal by a
+   * property call named `methodOverride`. The native check does not resolve
+   * Express middleware registration, receiver identity, or execution order.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-no-csrf-before-method-override.md
    */
@@ -96,7 +97,7 @@ export interface ITtscLintSecurityRules {
 
   /**
    * Detect `fs` calls (`readFile`, `writeFile`, `createReadStream`, ...) whose
-   * filename argument is not a string literal.
+   * filename argument cannot be resolved by the native static recognizer.
    *
    * Dynamic filenames are the standard path-traversal sink; sanitise or
    * allow-list before the call.
@@ -106,8 +107,8 @@ export interface ITtscLintSecurityRules {
   "security/detect-non-literal-fs-filename"?: TtscLintRuleSetting;
 
   /**
-   * Detect `new RegExp(...)` construction whose pattern argument is not a
-   * string literal.
+   * Detect `new RegExp(...)` and `RegExp(...)` calls whose pattern argument
+   * cannot be resolved by the native static recognizer.
    *
    * Caller-controlled patterns can both trigger catastrophic backtracking and
    * let an attacker reshape the matcher to bypass intended validation.
@@ -117,7 +118,8 @@ export interface ITtscLintSecurityRules {
   "security/detect-non-literal-regexp"?: TtscLintRuleSetting;
 
   /**
-   * Detect `require(...)` calls whose specifier is computed at runtime.
+   * Detect `require(...)` calls whose specifier the native static-expression
+   * recognizer cannot resolve; this does not prove runtime caller control.
    *
    * A dynamic specifier lets caller-controlled data choose the module to load,
    * bypassing any module allow-list on Node.

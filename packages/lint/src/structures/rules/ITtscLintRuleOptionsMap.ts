@@ -137,7 +137,7 @@ export interface ITtscLintRuleOptionsMap {
   /** Accepted parameter syntax and parameter-count policy. */
   "functional/functional-parameters": ITtscLintFunctionalParametersRuleOptions;
 
-  /** Identifier/code exemptions and Map/Set mutation allowance. */
+  /** Identifier/code exemptions and collection-style method-name allowance. */
   "functional/immutable-data": ITtscLintFunctionalImmutableDataRuleOptions;
 
   /** Empty object slot; this inheritance policy has no configurable fields. */

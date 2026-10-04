@@ -810,7 +810,7 @@ func (s *ConfigStore) residentRuleConfigState() residentRuleConfigState {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback exists for supported file-agnostic consumers and cannot override ResolveRules execution scope.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes metadata compatibility from file execution and documents copied ownership with separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions selects option bytes by rule name and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the entries keeping the last entry that declares options for the canonical name, O(entries), then one copy of the winning message.
+// @evidence contracts/performance.md#efficient-algorithms Normalize the input name, then scan entries for its last nonempty payload and copy the winner; work includes name normalization and hashing plus O(entries + winning payload bytes), with output storage proportional to the copied payload.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache; every call reads the store's entries.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The winning message is copied so the caller cannot mutate store memory; no handle or task is acquired.
 func (s *ConfigStore) RuleOptions(name string) json.RawMessage {

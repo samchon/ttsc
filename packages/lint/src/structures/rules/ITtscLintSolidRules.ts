@@ -17,8 +17,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  */
 export interface ITtscLintSolidRules {
   /**
-   * Reject early and conditional `return` from a Solid component — Solid
-   * components must return exactly once at the top level.
+   * For recognized JSX component functions with multiple returns, report all
+   * but the last and a conditional expression in the last return. A single
+   * conditional return is not rejected by this native check.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/components-return-once.md
    */
@@ -34,7 +35,7 @@ export interface ITtscLintSolidRules {
   "solid/event-handlers"?: TtscLintRuleSetting;
 
   /**
-   * Route each Solid export to the correct entry point (`solid-js`,
+   * Route recognized named Solid exports to the correct entry point (`solid-js`,
    * `solid-js/web`, or `solid-js/store`) and relocate a misrouted one to where
    * it belongs, joining an existing import from that entry when the file
    * already has one. The diagnostic names the symbol and its entry point.
@@ -67,8 +68,8 @@ export interface ITtscLintSolidRules {
   "solid/jsx-no-script-url"?: TtscLintRuleSetting;
 
   /**
-   * Reject Solid JSX component names that are not declared or imported in
-   * scope.
+   * Reject bare JSX component names absent from the file's collected declaration
+   * and import names. Member tags are skipped; this is not lexical resolution.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/jsx-no-undef.md
    */
@@ -102,8 +103,8 @@ export interface ITtscLintSolidRules {
 
   /**
    * Reject Solid APIs that rely on ES6 `Proxy` (including `new Proxy`,
-   * `Proxy.revocable`, imports from `solid-js/store`, and dynamic spread shapes
-   * through `mergeProps`). For shipping to runtimes without `Proxy` support;
+   * `Proxy.revocable`, imports from `solid-js/store`, and recognized
+   * `mergeProps` calls regardless of their argument shape). For shipping to runtimes without `Proxy` support;
    * off by default.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-proxy-apis.md
@@ -114,14 +115,13 @@ export interface ITtscLintSolidRules {
    * Reject React-style dependency arrays in Solid tracked scopes
    * (`createEffect(() => ..., [deps])`).
    *
-   * Type-aware via the Checker. The tag below claims the array is dead, so the
-   * callee has to be the Solid primitive itself rather than a same-named local
-   * or a shadowing parameter, and only symbol resolution can say that. Enabling
+   * Type-aware via the Checker: the callee has to resolve to the Solid primitive
+   * rather than a same-named local or a shadowing parameter. Enabling
    * this rule therefore puts the whole run on the checker path.
    *
-   * Tagged `Unnecessary`: the reported range is the array literal alone, and
-   * Solid tracks dependencies automatically, so deleting it is the whole
-   * resolution and an editor greys it out.
+   * The native check requires two arguments, a parameterless function and an
+   * array literal. Findings remain untagged: evaluating the array can have
+   * effects, so safe deletion is not proven.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-react-deps.md
    */
@@ -132,9 +132,8 @@ export interface ITtscLintSolidRules {
    * uses `class` and `for`.
    *
    * The two renames are autofixed by rewriting the name token alone, so the
-   * value survives untouched. The `key` arm stays diagnostic-only: a Solid DOM
-   * element does not consume `key`, so its resolution is a deletion that has to
-   * take the surrounding whitespace with it.
+   * value survives untouched. The `key` arm stays diagnostic-only; no deletion
+   * or proof of absent DOM attribute effects is supplied.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-react-specific-props.md
    */
@@ -199,9 +198,10 @@ export interface ITtscLintSolidRules {
   "solid/self-closing-comp"?: TtscLintRuleSetting;
 
   /**
-   * Require `style={{...}}` keys to be valid kebab-case CSS properties
-   * (`"font-size"`, not React's `fontSize`) and dimensioned values to be
-   * strings — Solid does not append implicit `px`.
+   * Report uppercase letters in explicit `style={{...}}` property names and
+   * nonzero numeric literals for recognized dimensioned property names, plus
+   * literal string style values. The check does not validate all CSS names or
+   * infer the types of arbitrary value expressions.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/style-prop.md
    */

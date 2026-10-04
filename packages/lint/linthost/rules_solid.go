@@ -801,9 +801,9 @@ func (s *solidState) reportReactDeps(ctx *Context) {
 }
 
 // solidTrackedCallName returns the canonical Solid name only when the call is
-// proven to come from a Solid module binding. The rule carries an
-// `Unnecessary` tag, so a same-named local helper cannot be treated as a Solid
-// primitive merely because the file imports some other Solid symbol.
+// proven to come from a Solid module binding. A same-named local helper cannot
+// be treated as a Solid primitive merely because the file imports another Solid
+// symbol. Findings remain untagged because argument evaluation can have effects.
 func (s *solidState) solidTrackedCallName(ctx *Context, call *shimast.CallExpression) string {
   if ctx == nil || call == nil {
     return ""

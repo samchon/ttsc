@@ -44,7 +44,8 @@ export interface ITtscLintFunctionalRules {
   /**
    * Reject property assignment (`obj.x = ...`), element assignment (`arr[0] =
    * ...`), and collection mutation methods. Configurable ignore patterns and
-   * `ignoreMapsAndSets` allow selected code or Map/Set methods; constructor
+   * `ignoreMapsAndSets` allow selected code or collection-style method names
+   * without resolving their receivers to Map/Set bindings; constructor
    * initialization has no dedicated allowance.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/immutable-data.md
@@ -76,16 +77,15 @@ export interface ITtscLintFunctionalRules {
   "functional/no-conditional-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoConditionalStatementsRuleOptions>;
 
   /**
-   * Reject expression statements that exist purely for their side effects
-   * (`mutate(x);`); pure code is built up from expressions with assigned or
-   * returned results.
+   * Reject expression statements except source text beginning with a quoted
+   * `use ` directive. The native check does not classify expression purity.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/no-expression-statements.md
    */
   "functional/no-expression-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalEmptyRuleOptions>;
 
   /**
-   * Reject `let` declarations so every binding is `const`. The shared
+   * Reject `let` declarations; this rule does not reject `var`. The shared
    * ignore-pattern options can carve out specific identifier shapes (test
    * locals, loop counters) when a full ban is too aggressive.
    *
