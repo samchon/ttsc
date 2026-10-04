@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   type NativeBuildContext,
   type UnpluginFactory,
@@ -7,6 +6,10 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import {
+  resolveConfiguredHostRoot,
+  selectBuildHostRoot,
+} from "./bridge/buildHostRoot";
 import { createBuildWatchFile } from "./bridge/createBuildWatchFile";
 import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
@@ -114,7 +117,7 @@ const unpluginFactory: UnpluginFactory<
   // host this factory serves takes any path, and its record lives below the
   // directory it runs in.
   let farmRoot: string | undefined;
-  const hostRoot = (): string => farmRoot ?? process.cwd();
+  const hostRoot = (): string => selectBuildHostRoot(farmRoot);
   // Where a host that cannot write below its root keeps its records
   // (samchon/ttsc#1480): below this user's temporary directory, which every
   // host this factory serves accepts but Farm on another drive.
@@ -428,8 +431,7 @@ const unpluginFactory: UnpluginFactory<
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
-        farmRoot =
-          config.root === undefined ? undefined : path.resolve(config.root);
+        farmRoot = resolveConfiguredHostRoot(config.root);
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
