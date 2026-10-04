@@ -10,13 +10,13 @@ const unicornConsistentFunctionScopingRuleName = "unicorn/consistent-function-sc
 //
 // A function depending only on its own parameters is capture-free under the supported scoping policy, independently requiring the authored report.
 //
-// 1. Execute the retained lexical source or option variants.
-// 2. Check their authored diagnostic, range or configuration result.
+// 1. Execute the authored nested-normalizer source.
+// 2. Compare the annotated rule, error severity and line.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed NewEngine.Run compares the annotated nested normalize function diagnostics.
 // @evidence contracts/testing.md#independent-expectations A function depending only on its own parameters is capture-free under the supported scoping policy, independently requiring the authored report.
-// @evidence contracts/testing.md#distinguishing-cases The nested normalizer reports; dedicated capture hosts own outer-bound clean counterparts.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentFunctionScoping owns its explicit variants as a discoverable Go unit entry; checker and engine operations execute in the shared process with isolated fixtures and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#distinguishing-cases The parameter-only nested normalizer reports once; the outer function and receiver property names add no findings.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentFunctionScoping owns its authored source as a discoverable Go unit entry; checker and engine operations execute in the shared process with isolated fixtures and no installed consumer, native producer or product child host.
 func TestRuleCorpusUnicornConsistentFunctionScoping(t *testing.T) {
   source := `export function formatNames(names: string[]): string[] {
   // expect: unicorn/consistent-function-scoping error
