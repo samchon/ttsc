@@ -27,6 +27,7 @@ const mixedRuntime = {
   dual: dual.observed,
   sameNamedOwnership: ownership.observed,
   rawPackageOwnership: ownership.packageOwn,
+  rawLowering: ownership.rawLowering,
   standardEsm: standardEsm.observed,
   standardCommonjs: standardCommonjs.observed,
   memberEsm: memberEsm.observed,
