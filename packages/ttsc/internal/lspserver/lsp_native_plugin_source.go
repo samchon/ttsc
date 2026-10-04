@@ -1045,31 +1045,14 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {
-  // Route the Program-loading read verbs through the plugin's resident daemon so
-  // a warm Program is reused across verbs. serveRun returns served=false for a
-  // sidecar that predates lsp-serve or a transport failure, falling back to the
-  // spawn-per-verb path below with no behavior change. The static discovery
-  // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
-  // on exec by design.
-  if command == serveVerbDiagnostics ||
-    command == serveVerbCodeActions {
-    if body, served, err := s.serveRun(plugin, command, args); served {
-      return body, err
-    }
-  }
-  if command == serveVerbProjectDiagnostics ||
-    command == serveVerbHints {
-    // These newer optional verbs join the daemon on a weaker condition than the
-    // original document reads. A staged sidecar may implement the direct verb
-    // while its older resident loop rejects it. A nonzero resident reply is
-    // indistinguishable from the verb itself failing, so retry once through the
-    // advertised direct command. A genuine failure pays one extra spawn and is
-    // then handled exactly as it was before lsp-serve.
-    if body, served, err := s.serveRun(plugin, command, args); served && err == nil {
-      return body, nil
-    }
-  }
-  return s.runWithStdin(plugin, command, nil, args...)
+  return runNativePluginRead(command, args,
+    func(verb string, arguments []string) ([]byte, bool, error) {
+      return s.serveRun(plugin, verb, arguments)
+    },
+    func(verb string, arguments []string) ([]byte, error) {
+      return s.runWithStdin(plugin, verb, nil, arguments...)
+    },
+  )
 }
 
 // runWithStdin runs a sidecar subcommand like run, additionally wiring stdin to

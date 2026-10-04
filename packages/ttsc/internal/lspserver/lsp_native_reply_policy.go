@@ -81,3 +81,31 @@ func nativePluginCommandResult(plugin NativeLSPPluginEntry, command string, runE
   if stdout.truncated { return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit) }
   return bytes.TrimSpace(stdout.Bytes()), nil
 }
+
+// runNativePluginRead selects the source's existing resident/direct operation.
+// Original document reads keep a served error; optional project/hint reads
+// retry directly after an unserved or failed resident attempt. Static verbs
+// bypass resident execution. Both dependencies are the caller's actual native
+// operations, not peer replacements, and arguments and returned values pass
+// unchanged. Common: At most one resident and one direct call are dispatched;
+// delegated execution, parsing and waits retain their own costs and resources.
+// The supplied resident owner controls warm Program reuse; this policy adds no
+// memo, handle or retained task and does not certify transport or OS receipt.
+func runNativePluginRead(
+  command string,
+  args []string,
+  resident func(string, []string) ([]byte, bool, error),
+  direct func(string, []string) ([]byte, error),
+) ([]byte, error) {
+  if command == serveVerbDiagnostics || command == serveVerbCodeActions {
+    if body, served, err := resident(command, args); served {
+      return body, err
+    }
+  }
+  if command == serveVerbProjectDiagnostics || command == serveVerbHints {
+    if body, served, err := resident(command, args); served && err == nil {
+      return body, nil
+    }
+  }
+  return direct(command, args)
+}

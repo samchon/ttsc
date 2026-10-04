@@ -17,12 +17,13 @@ import (
 // rich/legacy diagnostics, direct-edit admission and changes-only edits. They
 // also own first-command precedence, action admission, stdin/argv projection
 // and result error formatting. They do not certify actual pipe transport,
-// discovered ownership, child argv/exit status or resident fallback.
+// discovered ownership or child argv/exit status. Resident/direct routing is
+// checked with ordinary operation inputs, without claiming a native peer.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls the actual buffer/decoders/edit predicate and production-used action, registry, stdin/argv and result policies; exact limits, values, guard order, first owner and supplied-error formatting are asserted.
+// @evidence contracts/testing.md#behavioral-verification Calls the actual buffer/decoders/edit predicate and production-used action, registry, stdin/argv, result and resident/direct policies; exact limits, values, guard order, first owner, supplied-error formatting and retry order are asserted.
 // @evidence contracts/testing.md#independent-expectations Literal 4MiB/1MiB limits, authored JSON fields, marker text and null/direct-edit controls establish expectations independently of native producers or decoder outputs.
-// @evidence contracts/testing.md#distinguishing-cases Named groups distinguish exact/overflow bytes, rich/legacy/malformed JSON, absent/null/direct edits, first/duplicate commands, absent/empty/nonempty buffers, context admission and success/overflow/failure outcome precedence.
-// @evidence contracts/testing.md#execution-ownership This untagged Go Test calls existing in-process operations in the owning lspserver package. It creates no Program, host, child or artifact and does not replace the remaining native transport assertions.
+// @evidence contracts/testing.md#distinguishing-cases Named groups distinguish exact/overflow bytes, rich/legacy/malformed JSON, absent/null/direct edits, first/duplicate commands, absent/empty/nonempty buffers, context admission, outcome precedence and resident served-error versus optional direct retry and static bypass.
+// @evidence contracts/testing.md#execution-ownership This untagged Go Test calls production-used in-process operations in the owning lspserver package. Ordinary supplied resident/direct operations observe routing only; it creates no Program, host, child or artifact and does not certify native failure acquisition or transport receipt.
 func TestNativeReplyPolicies(t *testing.T) {
   t.Run("stdout_exact_limit_and_overflow", func(t *testing.T) {
     prefix := `[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"source":"ttsc/fake","message":"`
@@ -136,5 +137,70 @@ func TestNativeReplyPolicies(t *testing.T) {
     if err == nil || err.Error() != expected || len(err.Error()) > 1024*1024+4096 { t.Error("failed result stderr prefix/limit/precedence changed") }
     emptyStderr := limitedBuffer{limit: nativePluginCommandStderrLimit}
     if _, err := nativePluginCommandResult(plugin, "lsp-code-actions", errors.New("exit status 7"), &stdout, &emptyStderr); err == nil || err.Error() != "ttscserver: literal lsp-code-actions failed: exit status 7" { t.Errorf("empty stderr fallback = %v", err) }
+  })
+  t.Run("resident_direct_selection", func(t *testing.T) {
+    residentError := errors.New("resident unsupported")
+    directError := errors.New("direct failure")
+    for _, row := range []struct {
+      command string
+      served bool
+      residentErr error
+      directErr error
+      expected []string
+      expectedErr error
+      directBody bool
+    }{
+      {"lsp-diagnostics", true, nil, nil, []string{"resident"}, nil, false},
+      {"lsp-code-actions", true, residentError, nil, []string{"resident"}, residentError, false},
+      {"lsp-diagnostics", false, residentError, nil, []string{"resident", "direct"}, nil, true},
+      {"lsp-project-diagnostics", true, residentError, nil, []string{"resident", "direct"}, nil, true},
+      {"lsp-project-diagnostics", true, nil, nil, []string{"resident"}, nil, false},
+      {"lsp-hints", false, nil, directError, []string{"resident", "direct"}, directError, true},
+      {"lsp-hints", true, residentError, nil, []string{"resident", "direct"}, nil, true},
+      {"lsp-command-ids", true, nil, nil, []string{"direct"}, nil, true},
+      {"lsp-code-action-kinds", true, nil, nil, []string{"direct"}, nil, true},
+      {"lsp-execute-command", true, nil, nil, []string{"direct"}, nil, true},
+    } {
+      t.Run(row.command+"/"+strings.Join(row.expected, "-"), func(t *testing.T) {
+        args := []string{"literal source", "--opaque={}"}
+        calls := []string{}
+        residentBody := []byte("resident-body")
+        directBody := []byte(`{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}`)
+        got, err := runNativePluginRead(row.command, args,
+          func(command string, supplied []string) ([]byte, bool, error) {
+            calls = append(calls, "resident")
+            if command != row.command || !slices.Equal(supplied, []string{"literal source", "--opaque={}"}) { t.Fatal("resident command/args changed") }
+            return residentBody, row.served, row.residentErr
+          },
+          func(command string, supplied []string) ([]byte, error) {
+            calls = append(calls, "direct")
+            if command != row.command || !slices.Equal(supplied, []string{"literal source", "--opaque={}"}) { t.Fatal("direct command/args changed") }
+            return directBody, row.directErr
+          },
+        )
+        if !slices.Equal(calls, row.expected) || err != row.expectedErr { t.Fatalf("routing = %v, %v", calls, err) }
+        expectedBody := residentBody
+        if row.directBody { expectedBody = directBody }
+        if len(got) != len(expectedBody) || &got[0] != &expectedBody[0] { t.Fatal("selected body identity changed") }
+        if row.directBody && string(got) != `{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}` { t.Fatal("direct publication bytes changed") }
+        if !slices.Equal(args, []string{"literal source", "--opaque={}"}) { t.Fatal("caller arguments changed") }
+      })
+    }
+    for _, noArgs := range [][]string{nil, {}} {
+      calls := []string{}
+      got, err := runNativePluginRead("lsp-project-diagnostics", noArgs,
+        func(command string, supplied []string) ([]byte, bool, error) {
+          calls = append(calls, "resident")
+          if command != "lsp-project-diagnostics" || len(supplied) != 0 || (supplied == nil) != (noArgs == nil) { t.Fatal("resident empty args changed") }
+          return nil, true, residentError
+        },
+        func(command string, supplied []string) ([]byte, error) {
+          calls = append(calls, "direct")
+          if command != "lsp-project-diagnostics" || len(supplied) != 0 || (supplied == nil) != (noArgs == nil) { t.Fatal("direct empty args changed") }
+          return []byte(`{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}`), nil
+        },
+      )
+      if err != nil || !slices.Equal(calls, []string{"resident", "direct"}) || string(got) != `{"uri":"file:///project/tsconfig.json","diagnostics":[{"code":"direct"}]}` { t.Fatal("optional empty-args fallback changed") }
+    }
   })
 }
