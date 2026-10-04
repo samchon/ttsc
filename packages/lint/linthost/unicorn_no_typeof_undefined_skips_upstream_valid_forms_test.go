@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms verifies the negative
-// twin of every reporting surface: the forms upstream lists as valid must
+// controls for the authored reporting guards: each listed form must
 // produce zero findings.
 //
 // Each guard has a way to over-match. The `typeof` must be the LEFT operand, so
@@ -18,13 +18,13 @@ import "testing"
 // unresolved-implicit-global branches of that guard.
 //
 //  1. Enable unicorn/no-typeof-undefined on one source stacking every
-//     upstream-valid shape.
+//     authored negative shape.
 //  2. Run the checker-backed snapshot path.
 //  3. Assert the rule reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource requires zero findings for the complete authored guard matrix.
-// @evidence contracts/testing.md#independent-expectations The independently authored upstream valid forms specify left-operand, string-literal, equality and local-binding requirements rather than reading production match results.
-// @evidence contracts/testing.md#distinguishing-cases Reversed operands, template/other-string/identifier targets, relational operators, other unary/update/plain expressions, bare typeof and unresolved/window/globalThis operands do not report; TestRuleCorpusUnicornNoTypeofUndefined owns local equality positives.
+// @evidence contracts/testing.md#independent-expectations The independently authored negative forms specify left-operand, string-literal, equality and local-binding requirements rather than reading production match results.
+// @evidence contracts/testing.md#distinguishing-cases Reversed operands, template/other-string/identifier targets, relational operators, other unary/update/plain expressions, bare typeof and unresolved/window/globalThis operands do not report; TestUnicornNoTypeofUndefinedFixRewritesComparisons owns local equality positives.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms is a discoverable Go unit host; owning checker-backed engine operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms(t *testing.T) {
   source := "declare const a: { b: unknown };\n" +

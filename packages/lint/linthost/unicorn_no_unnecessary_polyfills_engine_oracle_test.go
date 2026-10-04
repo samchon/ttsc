@@ -40,8 +40,8 @@ func assertPolyfillStringSlice(t *testing.T, label string, got, want []string) {
 }
 
 // TestUnicornNoUnnecessaryPolyfillsBrowserslistQueryOracle verifies the
-// browserslist query-engine port against every query the generator resolved
-// with the real browserslist 4.28.6 at a frozen clock.
+// native query engine against the stored fixture queries, whose generator calls
+// pinned browserslist 4.28.6 with a frozen clock. This test does not regenerate it.
 //
 // browserslist queries fan out through dozens of selectors (usage, version
 // ranges, `and`/`or`/`not` composition, aliases, `dead`, `defaults`), and a
@@ -54,8 +54,8 @@ func assertPolyfillStringSlice(t *testing.T, label string, got, want []string) {
 //  3. Assert the resolved browser list matches upstream exactly and in order.
 //
 // @evidence contracts/testing.md#behavioral-verification browserslistResolve executes every fixture query with a frozen clock and requires its complete target list or a resolver error.
-// @evidence contracts/testing.md#independent-expectations Expected lists and errors originate from pinned upstream Browserslist execution under the recorded clock and environment, not the Go resolver.
-// @evidence contracts/testing.md#distinguishing-cases Successful, empty and malformed/error queries remain distinct; failures print their actual query or index, preserving identity inside the shared loop.
+// @evidence contracts/testing.md#independent-expectations Expected lists and error booleans are stored independently of the Go resolver. Fixture provenance names Browserslist 4.28.6; the checked generator calls Browserslist with a frozen clock and production environment, while this body reads the recorded outputs.
+// @evidence contracts/testing.md#distinguishing-cases Successful and malformed/error queries remain distinct; failures print their actual query or index, preserving identity inside the shared loop.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnnecessaryPolyfillsBrowserslistQueryOracle owns its literal cases as a discoverable Go unit entry; the owning operation runs in the shared Go test process with isolated fixture state and no consumer installation, native producer or product child host.
 func TestUnicornNoUnnecessaryPolyfillsBrowserslistQueryOracle(t *testing.T) {
   var fixture struct {

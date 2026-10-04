@@ -83,10 +83,10 @@ func assertProjectReports(t *testing.T, files map[string]string, rel, source, op
 
 // TestUnicornNoUnnecessaryPolyfillsBrowserslistrcDiscovery verifies the second
 // link in the resolution chain: with no `targets` option the rule reads the
-// nearest `.browserslistrc`, resolves it under the `production` environment,
-// and reports only when every production target already ships the feature.
+// fixture-root `.browserslistrc` under the `production` environment,
+// with opposite Object.assign expectations for Node 6 and Node 0.12.
 //
-// The two upstream fixtures are exact twins — same file, opposite
+// The two authored fixtures are paired controls — same source, opposite
 // production/development node floors — so they pin both that the config is
 // honored and that the `development` section is ignored.
 //
@@ -96,7 +96,7 @@ func assertProjectReports(t *testing.T, files map[string]string, rel, source, op
 //
 // @evidence contracts/testing.md#behavioral-verification NewEngine.Run resolves an actual fixture .browserslistrc and distinguishes the selected environment by an exact redundant object-assign error or zero findings.
 // @evidence contracts/testing.md#independent-expectations The authored Node 6 versus 0.12 Object.assign boundary and default production section establish opposite results independently of the Go resolver.
-// @evidence contracts/testing.md#distinguishing-cases Production 6/development 0.12 reports; production 0.12/development 6 is clean. PackageJsonBrowserslistSection owns the manifest counterpart.
+// @evidence contracts/testing.md#distinguishing-cases Production 6/development 0.12 reports; production 0.12/development 6 is clean.
 // @evidence contracts/testing.md#execution-ownership TestUnicornNoUnnecessaryPolyfillsBrowserslistrcDiscovery owns its literal cases as a discoverable Go unit entry; the owning operation runs in the shared Go test process with isolated fixture state and no consumer installation, native producer or product child host.
 func TestUnicornNoUnnecessaryPolyfillsBrowserslistrcDiscovery(t *testing.T) {
   assertProjectReports(t, map[string]string{
