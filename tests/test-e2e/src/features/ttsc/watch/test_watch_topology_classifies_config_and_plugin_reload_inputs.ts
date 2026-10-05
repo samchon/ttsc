@@ -31,35 +31,38 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  */
 export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
   async (preparedRoot?: string, onClosed?: () => void): Promise<void> => {
-    const root = preparedRoot ?? TestProject.tmpdir("ttsc-native-plugin-watch-");
-    if (preparedRoot === undefined) TestProject.copyDirectory(
-      path.join(
-        TestProject.WORKSPACE_ROOT,
-        "tests",
-        "test-e2e",
-        "fixtures",
-        "ttsc",
-        "api",
-        "baseline",
-      ),
-      root,
-    );
+    const root =
+      preparedRoot ?? TestProject.tmpdir("ttsc-native-plugin-watch-");
+    if (preparedRoot === undefined)
+      TestProject.copyDirectory(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "tests",
+          "test-e2e",
+          "fixtures",
+          "ttsc",
+          "api",
+          "baseline",
+        ),
+        root,
+      );
     const source = path.join(root, "src", "main.ts");
     const config = path.join(root, "tsconfig.json");
     const plugin = path.join(root, "plugin");
-    if (preparedRoot === undefined) TestProject.copyDirectory(
-      path.join(
-        TestProject.WORKSPACE_ROOT,
-        "packages",
-        "ttsc",
-        "test",
-        "fixtures",
-        "e2e",
-        "plugin_source_state_holds_takes_a_digest_the_caller_vouches_for",
-        "inputs-1",
-      ),
-      plugin,
-    );
+    if (preparedRoot === undefined)
+      TestProject.copyDirectory(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages",
+          "ttsc",
+          "test",
+          "fixtures",
+          "e2e",
+          "plugin_source_state_holds_takes_a_digest_the_caller_vouches_for",
+          "inputs-1",
+        ),
+        plugin,
+      );
     const goMod = path.join(plugin, "go.mod");
     const nested = path.join(plugin, "internal", "rules", "rule.go");
     const pruned = [
@@ -137,7 +140,10 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
         fs.mkdirSync(path.join(created, "node_modules", "pkg"), {
           recursive: true,
         });
-        fs.copyFileSync(nested, path.join(created, "node_modules", "pkg", "ignored.go"));
+        fs.copyFileSync(
+          nested,
+          path.join(created, "node_modules", "pkg", "ignored.go"),
+        );
         await waitForPath(changes, added, "plugin", () => undefined);
       });
       await new Promise((resolve) => setTimeout(resolve, 1_000));

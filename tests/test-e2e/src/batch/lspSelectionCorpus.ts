@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes } from "../features/ttsc/native-plugins/server/test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes";
 import { test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes } from "../features/ttsc/native-plugins/server/test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes";
+import { test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes } from "../features/ttsc/native-plugins/server/test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
@@ -17,28 +17,57 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The original body joins each native selection close before the next mutation. Original config/manifest bytes restore only after its supported close callback; an unresolved close retains inputs and cache. Body errors remain failures even after successful cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Connects all five original terminal config/dependency/source/descriptor cases, intervening positive lint publication and real recompiled edited-rule message. Native preparation and descendant totals are unmeasured; source edits change only the owning package copy and restore after close.
  */
-export async function lspSelectionCorpus(workspace: BatchWorkspace.Workspace): Promise<void> {
+export async function lspSelectionCorpus(
+  workspace: BatchWorkspace.Workspace,
+): Promise<void> {
   const root = path.join(workspace.root, "tools/lsp-selection");
   const copy = path.join(workspace.root, "tools/mutable-lint-producer");
-  const originals = new Map([path.join(root, "tsconfig.json"), path.join(root, "package.json"), path.join(copy, "linthost/rules_var.go"), path.join(copy, "lib/index.js")].map((file) => [file, fs.readFileSync(file)]));
+  const originals = new Map(
+    [
+      path.join(root, "tsconfig.json"),
+      path.join(root, "package.json"),
+      path.join(copy, "linthost/rules_var.go"),
+      path.join(copy, "lib/index.js"),
+    ].map((file) => [file, fs.readFileSync(file)]),
+  );
   const failures: unknown[] = [];
-  for (const run of [test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes, test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes]) {
-  let closed = false;
-  try {
-    await run({ root, copy, cache: workspace.cache, retain: BatchWorkspace.retain,
-      closed: () => { closed = true; }, });
-  } catch (error) { failures.push(error); }
-  if (closed) {
-    let restorationFailed = false;
-    for (const [file, bytes] of originals)
-      try { fs.writeFileSync(file, bytes); }
-      catch (error) { failures.push(error); restorationFailed = true; BatchWorkspace.retain("LSP selector restoration failed after close"); }
-    if (restorationFailed) break;
-  } else {
-    BatchWorkspace.retain("LSP selector native close unresolved; inputs retained");
-    failures.push(new Error("LSP selection close remained unresolved"));
-    break;
+  for (const run of [
+    test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes,
+    test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes,
+  ]) {
+    let closed = false;
+    try {
+      await run({
+        root,
+        copy,
+        cache: workspace.cache,
+        retain: BatchWorkspace.retain,
+        closed: () => {
+          closed = true;
+        },
+      });
+    } catch (error) {
+      failures.push(error);
+    }
+    if (closed) {
+      let restorationFailed = false;
+      for (const [file, bytes] of originals)
+        try {
+          fs.writeFileSync(file, bytes);
+        } catch (error) {
+          failures.push(error);
+          restorationFailed = true;
+          BatchWorkspace.retain("LSP selector restoration failed after close");
+        }
+      if (restorationFailed) break;
+    } else {
+      BatchWorkspace.retain(
+        "LSP selector native close unresolved; inputs retained",
+      );
+      failures.push(new Error("LSP selection close remained unresolved"));
+      break;
+    }
   }
-  }
-  if (failures.length) throw new AggregateError(failures, "LSP terminal selection corpus");
+  if (failures.length)
+    throw new AggregateError(failures, "LSP terminal selection corpus");
 }

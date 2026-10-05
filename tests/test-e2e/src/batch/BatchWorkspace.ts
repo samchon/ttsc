@@ -347,9 +347,20 @@ export namespace BatchWorkspace {
     const mutableLint = path.join(root, "tools/mutable-lint-producer");
     const owningLint = path.join(TestProject.WORKSPACE_ROOT, "packages/lint");
     fs.mkdirSync(mutableLint, { recursive: true });
-    for (const entry of ["package.json", "go.mod", "go.sum", "internal", "lib", "linthost", "plugin", "rule", "src"]) {
+    for (const entry of [
+      "package.json",
+      "go.mod",
+      "go.sum",
+      "internal",
+      "lib",
+      "linthost",
+      "plugin",
+      "rule",
+      "src",
+    ]) {
       const from = path.join(owningLint, entry);
-      if (fs.existsSync(from)) fs.cpSync(from, path.join(mutableLint, entry), { recursive: true });
+      if (fs.existsSync(from))
+        fs.cpSync(from, path.join(mutableLint, entry), { recursive: true });
     }
     const mutableModules = path.join(mutableLint, "node_modules");
     const owningModules = path.join(owningLint, "node_modules");
@@ -359,22 +370,52 @@ export namespace BatchWorkspace {
       if (name.startsWith("@")) {
         fs.mkdirSync(path.join(mutableModules, name));
         for (const dependency of fs.readdirSync(path.join(owningModules, name)))
-          fs.symlinkSync(path.join(owningModules, name, dependency), path.join(mutableModules, name, dependency), process.platform === "win32" ? "junction" : "dir");
-      } else fs.symlinkSync(path.join(owningModules, name), path.join(mutableModules, name), process.platform === "win32" ? "junction" : "dir");
+          fs.symlinkSync(
+            path.join(owningModules, name, dependency),
+            path.join(mutableModules, name, dependency),
+            process.platform === "win32" ? "junction" : "dir",
+          );
+      } else
+        fs.symlinkSync(
+          path.join(owningModules, name),
+          path.join(mutableModules, name),
+          process.platform === "win32" ? "junction" : "dir",
+        );
     }
-    const nativeWatchModules = path.join(root, "tools/native-watch/node_modules/@ttsc");
+    const nativeWatchModules = path.join(
+      root,
+      "tools/native-watch/node_modules/@ttsc",
+    );
     fs.mkdirSync(nativeWatchModules, { recursive: true });
-    fs.symlinkSync(mutableLint, path.join(nativeWatchModules, "lint"), process.platform === "win32" ? "junction" : "dir");
-    const selectionModules = path.join(root, "tools/lsp-selection/node_modules/@ttsc");
+    fs.symlinkSync(
+      mutableLint,
+      path.join(nativeWatchModules, "lint"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    const selectionModules = path.join(
+      root,
+      "tools/lsp-selection/node_modules/@ttsc",
+    );
     fs.mkdirSync(selectionModules, { recursive: true });
-    fs.symlinkSync(mutableLint, path.join(selectionModules, "lint"), process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      mutableLint,
+      path.join(selectionModules, "lint"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
     await FileSystemIterator.write(
       path.join(root, "tools/native-topology"),
-      await FileSystemIterator.read(path.resolve(import.meta.dirname, "../../fixtures/ttsc/api/baseline")),
+      await FileSystemIterator.read(
+        path.resolve(import.meta.dirname, "../../fixtures/ttsc/api/baseline"),
+      ),
     );
     await FileSystemIterator.write(
       path.join(root, "tools/native-topology/plugin"),
-      await FileSystemIterator.read(path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/test/fixtures/e2e/plugin_source_state_holds_takes_a_digest_the_caller_vouches_for/inputs-1")),
+      await FileSystemIterator.read(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages/ttsc/test/fixtures/e2e/plugin_source_state_holds_takes_a_digest_the_caller_vouches_for/inputs-1",
+        ),
+      ),
     );
     const graphNegativeRoot = TestProject.tmpdir(
       "ttsc-shared-graph-uninstalled-",
@@ -431,10 +472,19 @@ export namespace BatchWorkspace {
       root,
       "tools/runtime-frontdoors/node_modules/runtime-cache-control",
     );
-    for (const [template, destination] of [["scoped", "@scope/preload"], ["plain", "plain-preload"]])
+    for (const [template, destination] of [
+      ["scoped", "@scope/preload"],
+      ["plain", "plain-preload"],
+    ])
       await FileSystemIterator.write(
         path.join(root, "tools/runtime-frontdoors/node_modules", destination),
-        await FileSystemIterator.read(path.join(root, "tools/runtime-frontdoors/preload-templates", template)),
+        await FileSystemIterator.read(
+          path.join(
+            root,
+            "tools/runtime-frontdoors/preload-templates",
+            template,
+          ),
+        ),
       );
     await FileSystemIterator.write(
       orphanPackage,

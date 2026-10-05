@@ -33,7 +33,10 @@ export async function nativeWatchCorpus(
   const ignoredPackage = path.join(producer, "node_modules/e2e-watch-pruned");
   assert.equal(fs.existsSync(ignoredPackage), false);
   const originals = new Map(
-    [source, config, markdown, rule, module].map((file) => [file, fs.readFileSync(file)]),
+    [source, config, markdown, rule, module].map((file) => [
+      file,
+      fs.readFileSync(file),
+    ]),
   );
   const lintConfig = path.join(root, "lint.config.cjs");
   assert.equal(fs.existsSync(lintConfig), false);
@@ -149,19 +152,28 @@ export async function nativeWatchCorpus(
     assert.equal(single.length, 1, session.transcript());
     assert.notEqual(single[0]!.pid, duplicate[0]!.pid);
     const ruleText = originals.get(rule)!.toString();
-    const editedRule = ruleText.replace('"Unexpected var, use let or const instead."', '"Unexpected var, from the watched sibling Go source."');
+    const editedRule = ruleText.replace(
+      '"Unexpected var, use let or const instead."',
+      '"Unexpected var, from the watched sibling Go source."',
+    );
     assert.notEqual(editedRule, ruleText);
     const sourceBoundary = session.transcript().length;
     fs.writeFileSync(rule, editedRule);
     await cycle(10);
-    assert.match(session.transcript().slice(sourceBoundary), /Unexpected var, from the watched sibling Go source\./);
+    assert.match(
+      session.transcript().slice(sourceBoundary),
+      /Unexpected var, from the watched sibling Go source\./,
+    );
     const sourceEpoch = samples(session.transcript().slice(sourceBoundary));
     assert.equal(sourceEpoch.length, 1);
     assert.notEqual(sourceEpoch[0]!.pid, single[0]!.pid);
     const moduleBoundary = session.transcript().length;
     fs.appendFileSync(module, "\n// watched owning module metadata\n");
     await cycle(11);
-    assert.match(session.transcript().slice(moduleBoundary), /Unexpected var, from the watched sibling Go source\./);
+    assert.match(
+      session.transcript().slice(moduleBoundary),
+      /Unexpected var, from the watched sibling Go source\./,
+    );
     const moduleEpoch = samples(session.transcript().slice(moduleBoundary));
     assert.equal(moduleEpoch.length, 1);
     assert.notEqual(moduleEpoch[0]!.pid, sourceEpoch[0]!.pid);
@@ -209,7 +221,10 @@ export async function nativeWatchCorpus(
           if (fs.existsSync(json)) fs.unlinkSync(json);
         },
         () => fs.unlinkSync(lintConfig),
-        () => { if (fs.existsSync(ignoredPackage)) fs.rmSync(ignoredPackage, { recursive: true }); },
+        () => {
+          if (fs.existsSync(ignoredPackage))
+            fs.rmSync(ignoredPackage, { recursive: true });
+        },
       ])
         try {
           restore();

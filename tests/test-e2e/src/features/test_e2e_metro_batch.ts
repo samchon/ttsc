@@ -4879,14 +4879,20 @@ export async function test_e2e_metro_batch(): Promise<void> {
       const original = originalDelivered[0]!;
       assert.match(original, /"authored-marker"/);
       const ticksBeforeRestart = fs.statSync(workspace.programRunLog).size;
-      fs.writeFileSync(source, original.replace('"authored-marker"', '"offline-restart-marker"'));
+      fs.writeFileSync(
+        source,
+        original.replace('"authored-marker"', '"offline-restart-marker"'),
+      );
       fs.mkdirSync(traceRoot, { recursive: true });
       let restarted: ReturnType<typeof createLoaderPoolWorker> | undefined;
       let restartJoined = false;
       try {
         restarted = createLoaderPoolWorker({
-          mode: "metro", root: workspace.root, cache: workspace.cache,
-          session: session + "-offline-restart", traceRoot,
+          mode: "metro",
+          root: workspace.root,
+          cache: workspace.cache,
+          session: session + "-offline-restart",
+          traceRoot,
           metro: pathToFileURL(path.join(lib, "transformer.js")).href,
           turbopack: TestUnpluginRuntime.libUrl("turbopack"),
         });
@@ -4894,20 +4900,38 @@ export async function test_e2e_metro_batch(): Promise<void> {
         assert.equal(reply.ok, true, reply.error);
         assert.match(reply.value.ast.source, /offline-restart-marker/);
         assert.doesNotMatch(reply.value.ast.source, /["']authored-marker["']/);
-        assert.equal(fs.statSync(workspace.programRunLog).size, ticksBeforeRestart + 1,
-          "one fresh native probe invocation must validate the offline-edited generation");
+        assert.equal(
+          fs.statSync(workspace.programRunLog).size,
+          ticksBeforeRestart + 1,
+          "one fresh native probe invocation must validate the offline-edited generation",
+        );
       } catch (error) {
         failures.push(error);
       } finally {
-        try { if (restarted !== undefined) { await restarted.close(); restartJoined = true; } }
-        catch (error) { failures.push(error); }
+        try {
+          if (restarted !== undefined) {
+            await restarted.close();
+            restartJoined = true;
+          }
+        } catch (error) {
+          failures.push(error);
+        }
         if (restartJoined) {
           try {
             fs.writeFileSync(source, original);
-            for (const name of fs.readdirSync(traceRoot)) fs.unlinkSync(path.join(traceRoot, name));
+            for (const name of fs.readdirSync(traceRoot))
+              fs.unlinkSync(path.join(traceRoot, name));
             fs.rmdirSync(traceRoot);
-          } catch (error) { failures.push(error); BatchWorkspace.retain("fresh Metro restoration failed after closure"); }
-        } else BatchWorkspace.retain("fresh Metro adapter closure unresolved; offline input retained");
+          } catch (error) {
+            failures.push(error);
+            BatchWorkspace.retain(
+              "fresh Metro restoration failed after closure",
+            );
+          }
+        } else
+          BatchWorkspace.retain(
+            "fresh Metro adapter closure unresolved; offline input retained",
+          );
       }
     }
     if (bodyFailure !== undefined) failures.unshift(bodyFailure);

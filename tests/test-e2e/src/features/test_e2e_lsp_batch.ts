@@ -1293,9 +1293,21 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
  */
 export async function test_e2e_lsp_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  const outcomes = await Promise.allSettled([runEditorCorpus(), lspSelectionCorpus(workspace)]);
-  const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected").map((outcome) => outcome.reason);
-  if (failures.length) throw new AggregateError(failures, "ordinary editor and terminal selection boundaries");
+  const outcomes = await Promise.allSettled([
+    runEditorCorpus(),
+    lspSelectionCorpus(workspace),
+  ]);
+  const failures = outcomes
+    .filter(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === "rejected",
+    )
+    .map((outcome) => outcome.reason);
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "ordinary editor and terminal selection boundaries",
+    );
 }
 
 /**

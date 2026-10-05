@@ -58,13 +58,25 @@ export async function runtimeFrontdoorsCorpus(
   let ownershipUnresolved = false;
   let lastDepartedPid: number | undefined;
   const plantDepartedGeneration = (name: string) => {
-    if (ownershipUnresolved || lastDepartedPid === undefined) throw new Error("no resolved departed runtime actor owns the stale-generation seed");
-    try { process.kill(lastDepartedPid, 0); throw new Error("the preceding runtime actor PID is no longer provably gone"); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
+    if (ownershipUnresolved || lastDepartedPid === undefined)
+      throw new Error(
+        "no resolved departed runtime actor owns the stale-generation seed",
+      );
+    try {
+      process.kill(lastDepartedPid, 0);
+      throw new Error(
+        "the preceding runtime actor PID is no longer provably gone",
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+    }
     const directory = path.join(workspace.cache, "ttsx/project", name);
     assert.equal(fs.existsSync(directory), false);
     fs.mkdirSync(path.join(directory, "fs"), { recursive: true });
-    fs.writeFileSync(path.join(directory, `owner-${lastDepartedPid}.json`), JSON.stringify({ hostname: os.hostname(), pid: lastDepartedPid }));
+    fs.writeFileSync(
+      path.join(directory, `owner-${lastDepartedPid}.json`),
+      JSON.stringify({ hostname: os.hostname(), pid: lastDepartedPid }),
+    );
     fs.writeFileSync(path.join(directory, "fs/main.js"), "");
     return directory;
   };
@@ -141,7 +153,10 @@ export async function runtimeFrontdoorsCorpus(
     try {
       process.kill(result.pid, 0);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ESRCH") { lastDepartedPid = result.pid; return result; }
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") {
+        lastDepartedPid = result.pid;
+        return result;
+      }
       BatchWorkspace.retain(
         "runtime frontdoor PID closure could not be observed",
       );
@@ -182,11 +197,19 @@ export async function runtimeFrontdoorsCorpus(
     ],
   ] as const)
     capture(name, () => {
-      const stale = name === "import-preload require-register typed main" ? plantDepartedGeneration("ended-register-run") : undefined;
+      const stale =
+        name === "import-preload require-register typed main"
+          ? plantDepartedGeneration("ended-register-run")
+          : undefined;
       const result = run([...args]);
       assert.equal(result.status, 0, result.stderr);
       assert.deepEqual(JSON.parse(result.stdout.trim()), typed);
-      if (stale !== undefined) assert.equal(fs.existsSync(stale), false, "actual register preparation must sweep its separately seeded departed owner");
+      if (stale !== undefined)
+        assert.equal(
+          fs.existsSync(stale),
+          false,
+          "actual register preparation must sweep its separately seeded departed owner",
+        );
     });
   capture("JavaScript main under import preload", () => {
     const result = run([
@@ -222,26 +245,86 @@ export async function runtimeFrontdoorsCorpus(
       "--no-plugins",
       "-r",
       orphanPreload,
-      "--require=./a.ts", "-r=./a.cjs", "-r", "./c.tsx", "--require", "./b.cjs",
-      "-r", "@scope/preload", "--require", "plain-preload/register",
+      "--require=./a.ts",
+      "-r=./a.cjs",
+      "-r",
+      "./c.tsx",
+      "--require",
+      "./b.cjs",
+      "-r",
+      "@scope/preload",
+      "--require",
+      "plain-preload/register",
       "src/handled.ts",
-      "--", "generate", "--help", "--version", "--watch", "--build", "-r", "./after.cjs", "--", "b",
+      "--",
+      "generate",
+      "--help",
+      "--version",
+      "--watch",
+      "--build",
+      "-r",
+      "./after.cjs",
+      "--",
+      "b",
     ]);
     capture("handled actor status", () =>
       assert.equal(result.status, 0, result.stderr),
     );
-    capture("ttsx startup sweeps a genuinely departed owner", () => assert.equal(fs.existsSync(stale), false));
+    capture("ttsx startup sweeps a genuinely departed owner", () =>
+      assert.equal(fs.existsSync(stale), false),
+    );
     capture("handled actor orphan, preloads and continuation", () => {
-      const observations = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_HANDLED_PRELOADS:"));
+      const observations = result.stdout
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("TTSC_HANDLED_PRELOADS:"));
       assert.equal(observations.length, 1);
-      const observed = JSON.parse(observations[0]!.slice("TTSC_HANDLED_PRELOADS:".length)) as { cwd: string; preload: unknown; scoped: unknown; subpath: unknown; argv: unknown };
-      assert.equal(fs.realpathSync.native(observed.cwd), fs.realpathSync.native(root));
-      const expected = { preload: "loaded", scoped: "scoped", subpath: "subpath", argv: ["generate", "--help", "--version", "--watch", "--build", "-r", "./after.cjs", "--", "b"] };
+      const observed = JSON.parse(
+        observations[0]!.slice("TTSC_HANDLED_PRELOADS:".length),
+      ) as {
+        cwd: string;
+        preload: unknown;
+        scoped: unknown;
+        subpath: unknown;
+        argv: unknown;
+      };
+      assert.equal(
+        fs.realpathSync.native(observed.cwd),
+        fs.realpathSync.native(root),
+      );
+      const expected = {
+        preload: "loaded",
+        scoped: "scoped",
+        subpath: "subpath",
+        argv: [
+          "generate",
+          "--help",
+          "--version",
+          "--watch",
+          "--build",
+          "-r",
+          "./after.cjs",
+          "--",
+          "b",
+        ],
+      };
       const { cwd, ...preloads } = observed;
       assert.deepEqual(preloads, expected);
-      assertOrphan(result.stdout, 1, ["PRELOAD a.ts", "PRELOAD a.cjs", "PRELOAD c.tsx", "PRELOAD b.cjs", "TTSC_HANDLED_PRELOADS:" + JSON.stringify({ ...expected, cwd }), "handled: boom", "still alive"]);
+      assertOrphan(result.stdout, 1, [
+        "PRELOAD a.ts",
+        "PRELOAD a.cjs",
+        "PRELOAD c.tsx",
+        "PRELOAD b.cjs",
+        "TTSC_HANDLED_PRELOADS:" + JSON.stringify({ ...expected, cwd }),
+        "handled: boom",
+        "still alive",
+      ]);
     });
-    capture("post-entry require remains a script token", () => assert.doesNotMatch(result.stdout + result.stderr, /UNEXPECTED POST-ENTRY PRELOAD|entry file is required|Unknown compiler option/i));
+    capture("post-entry require remains a script token", () =>
+      assert.doesNotMatch(
+        result.stdout + result.stderr,
+        /UNEXPECTED POST-ENTRY PRELOAD|entry file is required|Unknown compiler option/i,
+      ),
+    );
   });
   for (const [name, status, message, type, answer] of [
     ["exit.ts", 7, undefined, "module", 2],
@@ -256,7 +339,7 @@ export async function runtimeFrontdoorsCorpus(
         "-r",
         orphanPreload,
         "src/" + name,
-    ]);
+      ]);
       capture(name + " status", () =>
         assert.equal(result.status, status, result.stderr),
       );
@@ -267,17 +350,35 @@ export async function runtimeFrontdoorsCorpus(
       );
     });
   capture("mistyped preload outside include rejects before entry", () => {
-    const result = run([workspace.installedTtsx, "--no-plugins", "-r", "./invalid-preload.ts", "src/handled.ts"]);
+    const result = run([
+      workspace.installedTtsx,
+      "--no-plugins",
+      "-r",
+      "./invalid-preload.ts",
+      "src/handled.ts",
+    ]);
     assert.notEqual(result.status, 0, result.stdout);
     assert.match(result.stderr, /root check failed for .*invalid-preload\.ts/);
-    assert.match(result.stderr, /Type 'string' is not assignable to type 'number'/);
-    assert.doesNotMatch(result.stdout, /TTSC_HANDLED_PRELOADS|handled: boom|still alive|INVALID_PRELOAD_RAN/);
+    assert.match(
+      result.stderr,
+      /Type 'string' is not assignable to type 'number'/,
+    );
+    assert.doesNotMatch(
+      result.stdout,
+      /TTSC_HANDLED_PRELOADS|handled: boom|still alive|INVALID_PRELOAD_RAN/,
+    );
   });
   // Startup admission must precede user code; its three environment states
   // require separate Node lifetimes but reuse this staged project and SDK.
-  const ownerRun = path.join(workspace.cache, "ttsx/project/owner-preload-contract");
+  const ownerRun = path.join(
+    workspace.cache,
+    "ttsx/project/owner-preload-contract",
+  );
   const ownerMarker = path.join(root, "owner-preload-marker");
-  const ownerPreload = path.join(path.dirname(workspace.installedTtsx), "internal/runtimeOwnerPreload.js");
+  const ownerPreload = path.join(
+    path.dirname(workspace.installedTtsx),
+    "internal/runtimeOwnerPreload.js",
+  );
   const ownerEnv = {
     ...env,
     NODE_OPTIONS: "",
@@ -293,32 +394,55 @@ export async function runtimeFrontdoorsCorpus(
     assert.equal(fs.existsSync(ownerMarker), false);
     fs.mkdirSync(ownerRun, { recursive: true });
     fs.writeFileSync(ownerEnv.TTSX_RUNTIME_MANIFEST, "{}");
-    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], ownerEnv);
+    const result = run(
+      ["-r", ownerPreload, "owner-preload-program.cjs"],
+      ownerEnv,
+    );
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "TTSC_OWNER_PRELOAD:claimed-before-user");
+    assert.equal(
+      result.stdout.trim(),
+      "TTSC_OWNER_PRELOAD:claimed-before-user",
+    );
     assert.equal(fs.readFileSync(ownerMarker, "utf8"), "claimed-before-user");
   });
   capture("owner preload removed-run startup fails before user code", () => {
-    if (ownershipUnresolved) throw new Error("owner preload run remains owned by an unresolved child");
-    assert.equal(path.dirname(ownerRun), path.join(workspace.cache, "ttsx/project"));
+    if (ownershipUnresolved)
+      throw new Error("owner preload run remains owned by an unresolved child");
+    assert.equal(
+      path.dirname(ownerRun),
+      path.join(workspace.cache, "ttsx/project"),
+    );
     fs.rmSync(ownerRun, { recursive: true, force: true });
     fs.rmSync(ownerMarker, { force: true });
     ownerRunRemoved = true;
-    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], ownerEnv);
+    const result = run(
+      ["-r", ownerPreload, "owner-preload-program.cjs"],
+      ownerEnv,
+    );
     assert.notEqual(result.status, 0, result.stdout);
     assert.equal(fs.existsSync(ownerMarker), false, result.stderr);
     assert.doesNotMatch(result.stdout, /TTSC_OWNER_PRELOAD:/);
   });
-  capture("owner preload manifestless startup is independent of the removed run", () => {
-    assert.equal(ownerRunRemoved, true, "the missing-run transition must have completed");
-    assert.equal(fs.existsSync(ownerRun), false);
-    assert.equal(fs.existsSync(ownerMarker), false);
-    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], { ...ownerEnv, TTSX_RUNTIME_MANIFEST: "" });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "TTSC_OWNER_PRELOAD:independent");
-    assert.equal(fs.readFileSync(ownerMarker, "utf8"), "independent");
-    assert.equal(fs.existsSync(ownerRun), false);
-  });
+  capture(
+    "owner preload manifestless startup is independent of the removed run",
+    () => {
+      assert.equal(
+        ownerRunRemoved,
+        true,
+        "the missing-run transition must have completed",
+      );
+      assert.equal(fs.existsSync(ownerRun), false);
+      assert.equal(fs.existsSync(ownerMarker), false);
+      const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], {
+        ...ownerEnv,
+        TTSX_RUNTIME_MANIFEST: "",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), "TTSC_OWNER_PRELOAD:independent");
+      assert.equal(fs.readFileSync(ownerMarker, "utf8"), "independent");
+      assert.equal(fs.existsSync(ownerRun), false);
+    },
+  );
   if (!ownershipUnresolved)
     for (const [file, bytes] of [
       [orphanEnum, orphanEnumBytes],

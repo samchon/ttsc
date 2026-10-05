@@ -50,14 +50,21 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied package/node_modules link isolate edits from workspace files. Each client is owned immediately on startup; after the original selection notification, direct-child close/status1 is joined before restart. Selection-change sentinel returns1 through the maintained native command/launcher, so it is not incorrectly treated as clean shutdown0. Startup/body/join failure preserves attempted shutdown errors and conservatively retains consumer/copy/already-owned shared cache; no unresolved input is reset or removed. Close is not arbitrary descendant or loaded-image proof.
  * @evidence contracts/e2e.md#preserved-coverage Keeps original message equality, actual source edit, edited-message equality and both selection notifications; no capability stub or cache opt-out substitutes for rebuilt source.
  */
-export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes(
-  prepared?: { root: string; copy: string; cache: string; retain: (reason: string) => void; closed: () => void },
-) {
-  const project = prepared === undefined ? TestLint.createProject({
-    name: "ttscserver-plugin-selection-inputs",
-    rules: { "no-var": "error" },
-    source: SOURCE,
-  }) : { tmpdir: prepared.root, cleanup: () => undefined };
+export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes(prepared?: {
+  root: string;
+  copy: string;
+  cache: string;
+  retain: (reason: string) => void;
+  closed: () => void;
+}) {
+  const project =
+    prepared === undefined
+      ? TestLint.createProject({
+          name: "ttscserver-plugin-selection-inputs",
+          rules: { "no-var": "error" },
+          source: SOURCE,
+        })
+      : { tmpdir: prepared.root, cleanup: () => undefined };
   const workspaceLint = path.join(
     TestProject.WORKSPACE_ROOT,
     "packages",
@@ -67,30 +74,36 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
   // through the workspace package's own node_modules.
   const copy = prepared?.copy ?? TestProject.tmpdir("ttsc-lint-copy-");
   const realCopy = fs.realpathSync.native(copy);
-  if (prepared === undefined) for (const entry of [
-    "package.json",
-    "go.mod",
-    "go.sum",
-    "internal",
-    "lib",
-    "linthost",
-    "plugin",
-    "rule",
-    "src",
-  ]) {
-    const from = path.join(workspaceLint, entry);
-    if (fs.existsSync(from))
-      fs.cpSync(from, path.join(copy, entry), { recursive: true });
-  }
-  if (prepared === undefined) fs.symlinkSync(
-    path.join(workspaceLint, "node_modules"),
-    path.join(copy, "node_modules"),
-    process.platform === "win32" ? "junction" : "dir",
-  );
+  if (prepared === undefined)
+    for (const entry of [
+      "package.json",
+      "go.mod",
+      "go.sum",
+      "internal",
+      "lib",
+      "linthost",
+      "plugin",
+      "rule",
+      "src",
+    ]) {
+      const from = path.join(workspaceLint, entry);
+      if (fs.existsSync(from))
+        fs.cpSync(from, path.join(copy, entry), { recursive: true });
+    }
+  if (prepared === undefined)
+    fs.symlinkSync(
+      path.join(workspaceLint, "node_modules"),
+      path.join(copy, "node_modules"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
   const link = path.join(project.tmpdir, "node_modules", "@ttsc", "lint");
   if (prepared === undefined) {
     fs.rmSync(link, { force: true, recursive: true });
-    fs.symlinkSync(copy, link, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      copy,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
   }
   const file = path.join(project.tmpdir, "src", "main.ts");
   const uri = pathToFileURL(file).href;

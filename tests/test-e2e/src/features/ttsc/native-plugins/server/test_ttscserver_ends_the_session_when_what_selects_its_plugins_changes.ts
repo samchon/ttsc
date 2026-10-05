@@ -50,14 +50,20 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked private config/manifest change. Every client is owned before initialize; selection waiters precede writes and positive no-var readiness is armed before didOpen. Each intentional native selection-error close/status1 is joined before the next session or mutation. Failure retains consumer/already-owned cache before bounded shutdown, preserving original and cleanup errors; no unresolved reset/removal, forced success, arbitrary descendant or loaded-image proof is claimed.
  * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
-export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes(
-  prepared?: { root: string; cache: string; retain: (reason: string) => void; closed: () => void },
-) {
-  const project = prepared === undefined ? TestLint.createProject({
-    name: "ttscserver-plugin-selection-config",
-    rules: { "no-var": "error" },
-    source: SOURCE,
-  }) : { tmpdir: prepared.root, cleanup: () => undefined };
+export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes(prepared?: {
+  root: string;
+  cache: string;
+  retain: (reason: string) => void;
+  closed: () => void;
+}) {
+  const project =
+    prepared === undefined
+      ? TestLint.createProject({
+          name: "ttscserver-plugin-selection-config",
+          rules: { "no-var": "error" },
+          source: SOURCE,
+        })
+      : { tmpdir: prepared.root, cleanup: () => undefined };
   const tsconfig = path.join(project.tmpdir, "tsconfig.json");
   const manifest = path.join(project.tmpdir, "package.json");
   const configured = fs.readFileSync(tsconfig, "utf8");

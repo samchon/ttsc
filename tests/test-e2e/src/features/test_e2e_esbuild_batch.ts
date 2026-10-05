@@ -52,14 +52,22 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
     combinedFailures.push(error);
   });
   let topologyClosed = false;
-  const topology = test_watch_topology_classifies_config_and_plugin_reload_inputs(
-    path.join(workspace.root, "tools/native-topology"),
-    () => { topologyClosed = true; },
-  ).catch((error: unknown) => {
-    combinedFailures.push(error);
-  }).finally(() => {
-    if (!topologyClosed) BatchWorkspace.retain("native topology supported close did not complete");
-  });
+  const topology =
+    test_watch_topology_classifies_config_and_plugin_reload_inputs(
+      path.join(workspace.root, "tools/native-topology"),
+      () => {
+        topologyClosed = true;
+      },
+    )
+      .catch((error: unknown) => {
+        combinedFailures.push(error);
+      })
+      .finally(() => {
+        if (!topologyClosed)
+          BatchWorkspace.retain(
+            "native topology supported close did not complete",
+          );
+      });
   try {
     const previous = process.env.TTSC_CACHE_DIR;
     process.env.TTSC_CACHE_DIR = workspace.cache;

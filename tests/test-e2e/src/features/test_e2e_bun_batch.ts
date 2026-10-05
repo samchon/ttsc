@@ -21,13 +21,19 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 export async function test_e2e_bun_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
-  const tickOffset = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+  const tickOffset = fs.existsSync(workspace.programRunLog)
+    ? fs.statSync(workspace.programRunLog).size
+    : 0;
   const result = TestProject.spawn(
     process.env.TTSC_BUN_BINARY ?? "bun",
     ["bun-entry.mjs"],
     {
       cwd: workspace.root,
-      env: { TTSC_CACHE_DIR: workspace.cache, TTSC_E2E_BUN_RECEIPTS: workspace.contextReceipt, TTSC_E2E_BUN_PROGRAM_LOG: workspace.programRunLog },
+      env: {
+        TTSC_CACHE_DIR: workspace.cache,
+        TTSC_E2E_BUN_RECEIPTS: workspace.contextReceipt,
+        TTSC_E2E_BUN_PROGRAM_LOG: workspace.programRunLog,
+      },
     },
   );
   assert.equal(result.error, undefined);
@@ -37,23 +43,42 @@ export async function test_e2e_bun_batch(): Promise<void> {
     BatchWorkspace.readPayload(result.stdout),
     workspace.expected,
   );
-  const second = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_BUN_SECOND:"));
+  const second = result.stdout
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("TTSC_BUN_SECOND:"));
   assert.equal(second.length, 1);
-  BatchWorkspace.assertResult(JSON.parse(second[0].slice("TTSC_BUN_SECOND:".length)), workspace.expected);
-  const epochLines = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_BUN_EPOCHS:"));
+  BatchWorkspace.assertResult(
+    JSON.parse(second[0].slice("TTSC_BUN_SECOND:".length)),
+    workspace.expected,
+  );
+  const epochLines = result.stdout
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("TTSC_BUN_EPOCHS:"));
   assert.equal(epochLines.length, 1);
-  const epochs = JSON.parse(epochLines[0].slice("TTSC_BUN_EPOCHS:".length)) as number[];
+  const epochs = JSON.parse(
+    epochLines[0].slice("TTSC_BUN_EPOCHS:".length),
+  ) as number[];
   assert.equal(epochs.length, 3);
   assert.equal(epochs[0], receiptOffset);
   const receipts = BatchWorkspace.readContextReceipts(workspace);
   assert.equal(epochs[2], receipts.length);
-  const tickLines = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_BUN_TICKS:"));
+  const tickLines = result.stdout
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("TTSC_BUN_TICKS:"));
   assert.equal(tickLines.length, 1);
-  assert.deepEqual(JSON.parse(tickLines[0].slice("TTSC_BUN_TICKS:".length)), [tickOffset, tickOffset + 1, tickOffset + 2]);
+  assert.deepEqual(JSON.parse(tickLines[0].slice("TTSC_BUN_TICKS:".length)), [
+    tickOffset,
+    tickOffset + 1,
+    tickOffset + 2,
+  ]);
   assert.equal(fs.statSync(workspace.programRunLog).size, tickOffset + 2);
   for (let pass = 0; pass < 2; pass++) {
-    assert.ok(Number.isInteger(epochs[pass + 1]) && epochs[pass + 1] > epochs[pass]);
-    BatchWorkspace.assertContextReceipts(receipts.slice(epochs[pass], epochs[pass + 1]));
+    assert.ok(
+      Number.isInteger(epochs[pass + 1]) && epochs[pass + 1] > epochs[pass],
+    );
+    BatchWorkspace.assertContextReceipts(
+      receipts.slice(epochs[pass], epochs[pass + 1]),
+    );
   }
   if (!(result.pid > 0)) {
     BatchWorkspace.retain("Bun build child returned no owned process identity");
@@ -61,18 +86,38 @@ export async function test_e2e_bun_batch(): Promise<void> {
   }
   try {
     process.kill(result.pid, 0);
-    BatchWorkspace.retain("Bun build child remains live before fresh runtime startup");
+    BatchWorkspace.retain(
+      "Bun build child remains live before fresh runtime startup",
+    );
     throw new Error("Bun build child closure unresolved");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
   }
-  const runtime = TestProject.spawn(process.env.TTSC_BUN_BINARY ?? "bun", [
-    "--preload", path.join(path.dirname(TestUnpluginRuntime.libPath("bun", "mjs")), "bun-register.mjs"), "bun-runtime-entry.mjs",
-  ], { cwd: workspace.root, env: { TTSC_CACHE_DIR: workspace.cache } });
+  const runtime = TestProject.spawn(
+    process.env.TTSC_BUN_BINARY ?? "bun",
+    [
+      "--preload",
+      path.join(
+        path.dirname(TestUnpluginRuntime.libPath("bun", "mjs")),
+        "bun-register.mjs",
+      ),
+      "bun-runtime-entry.mjs",
+    ],
+    { cwd: workspace.root, env: { TTSC_CACHE_DIR: workspace.cache } },
+  );
   assert.equal(runtime.error, undefined);
   assert.equal(runtime.signal, null);
   assert.equal(runtime.status, 0, runtime.stderr);
-  BatchWorkspace.assertResult(BatchWorkspace.readPayload(runtime.stdout), workspace.expected);
-  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(epochs[2]));
-  assert.equal(fs.statSync(workspace.programRunLog).size, tickOffset + 3, "fresh public runtime preload must acquire its own native probe Program");
+  BatchWorkspace.assertResult(
+    BatchWorkspace.readPayload(runtime.stdout),
+    workspace.expected,
+  );
+  BatchWorkspace.assertContextReceipts(
+    BatchWorkspace.readContextReceipts(workspace).slice(epochs[2]),
+  );
+  assert.equal(
+    fs.statSync(workspace.programRunLog).size,
+    tickOffset + 3,
+    "fresh public runtime preload must acquire its own native probe Program",
+  );
 }

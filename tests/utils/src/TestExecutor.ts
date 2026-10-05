@@ -99,18 +99,34 @@ export namespace TestExecutor {
         const importInvocation = trace.begin();
         trace.record("test-import", importInvocation, {
           pid: process.pid,
-          data: { writerRuntime: process.version, file, moduleUrl, phase: "started" },
+          data: {
+            writerRuntime: process.version,
+            file,
+            moduleUrl,
+            phase: "started",
+          },
         });
         try {
           exports = await import(moduleUrl);
           trace.record("test-import", importInvocation, {
             pid: process.pid,
-            data: { writerRuntime: process.version, file, moduleUrl, phase: "returned" },
+            data: {
+              writerRuntime: process.version,
+              file,
+              moduleUrl,
+              phase: "returned",
+            },
           });
         } catch (error) {
           trace.record("test-import", importInvocation, {
             pid: process.pid,
-            data: { writerRuntime: process.version, file, moduleUrl, phase: "threw", error: String(error) },
+            data: {
+              writerRuntime: process.version,
+              file,
+              moduleUrl,
+              phase: "threw",
+              error: String(error),
+            },
           });
           fail(`Test import failed: ${file}`, error);
           continue;

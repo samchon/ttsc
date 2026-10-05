@@ -125,11 +125,18 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       const entry = await server.ssrLoadModule("/src/main.ts");
       assert.equal(typeof entry.fail, "function");
       let thrown: Error | undefined;
-      try { entry.fail(); } catch (error) { thrown = error as Error; }
+      try {
+        entry.fail();
+      } catch (error) {
+        thrown = error as Error;
+      }
       assert.ok(thrown instanceof Error);
       assert.equal(thrown.message, "authored");
       const position = positionOf(authored, "new Error");
-      assert.match(thrown.stack ?? "", new RegExp(`main\\.ts:${position.line + 1}:${position.column + 1}\\b`));
+      assert.match(
+        thrown.stack ?? "",
+        new RegExp(`main\\.ts:${position.line + 1}:${position.column + 1}\\b`),
+      );
     }
     assert.equal(compilerResolutions, 0);
     const loaded = await nodes();
