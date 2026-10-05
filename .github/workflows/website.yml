@@ -51,16 +51,17 @@ jobs:
             setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+        id: build
+      - run: pnpm --filter @ttsc/benchmark-evidence charts
+      - run: pnpm --filter @ttsc/website build
       - name: Save Built Go Modules and Objects
-        if: steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.objects }}
           key: ${{ steps.go-objects.outputs.cache-primary-key }}
-      - run: pnpm --filter @ttsc/benchmark-evidence charts
-      - run: pnpm --filter @ttsc/website build
       - if: github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
