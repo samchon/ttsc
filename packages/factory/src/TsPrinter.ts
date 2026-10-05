@@ -75,7 +75,7 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *
  *   const printer = new TsPrinter({ printWidth: 80, indent: "  " });
  *   printer.print(factory.createStringLiteral("hello")); // "hello"
- *   ```;
+ *   ```
  *
  * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Numeric and bitwise operands retain grouping because rounding and observable conversions forbid general reassociation; class expression statements preserve expression-local names. Parentheses and blocks also cover the grammar slots a fuzz against the TypeScript parser showed to rebind: `new` targets, `as`/`satisfies` before `&`, `|`, `<` or a conditional `?`, statement-leading comma lists, `for`-header `in`, dangling `else`, `for...of` sources and decorator element access. A `<` comparison that a later `>` followed by `(` or a template could pair with into type arguments is parenthesized, or its right operand is written as `(+0 as number, ...)`, so the printed tree parses back to the same tree. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
  * @evidence contracts/common.md#clear-and-simple-design The instance retains only three layout settings; private helpers own grammar boundaries, comment rendering and list layout, while the document engine owns width decisions. The exhaustive switch keeps node lowering visible in one owner.
