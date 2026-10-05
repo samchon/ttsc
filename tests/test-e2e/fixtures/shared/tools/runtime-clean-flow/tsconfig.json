@@ -1,1 +1,1 @@
-{"compilerOptions":{"types":[],"plugins":[]},"include":[]}
+{"compilerOptions":{"target":"ES2022","module":"CommonJS","strict":true,"types":[],"lib":["esnext"],"plugins":[],"rootDir":"src","outDir":"dist"},"include":["src"]}

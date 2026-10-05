@@ -18,6 +18,10 @@ const runtime = path.join(cache, "ttsx");
 const runs = path.join(runtime, "project");
 const home = path.join(root, "clean-process-home");
 const temporary = path.join(home, "tmp");
+const registerMarker = path.join(root, "executed.txt");
+const registerDiagnostics = path.join(root, "register-diagnostics.json");
+const registerSource = path.join(root, "src/main.ts");
+const registerSourceBytes = fs.readFileSync(registerSource);
 const environment = {
   HOME: home, USERPROFILE: home, LOCALAPPDATA: path.join(home, "AppData/Local"),
   XDG_CACHE_HOME: path.join(home, "xdg"), TMPDIR: temporary, TEMP: temporary, TMP: temporary,
@@ -44,6 +48,9 @@ try {
     seed = spawnSync(process.execPath, [path.join(__dirname, "runtime-lock-seed.cjs")], {
       cwd: root, encoding: "utf8", windowsHide: true,
       env: { ...process.env, TTSC_E2E_LOCK_DIRECTORY: lockDirectory,
+        TTSC_E2E_REGISTER_IMPLEMENTATION: path.join(launcher, "../register.js"),
+        TTSC_E2E_REGISTER_MARKER: registerMarker,
+        TTSC_E2E_REGISTER_DIAGNOSTICS: registerDiagnostics,
         TTSC_E2E_MISSING_OWNED_SOURCE: missingSource,
         TTSC_E2E_LOCK_IMPLEMENTATION: path.join(launcher, "internal/runtime/acquireDependencyBuildLock.js") },
     });
@@ -53,7 +60,12 @@ try {
   assert.equal(seed.error, undefined);
   assert.equal(seed.signal, null);
   assert.equal(seed.status, 1, seed.stderr);
-  assert.equal(seed.stdout.trim(), "holder-acquired");
+  assert.equal(seed.stdout.trim(), "FIRST\nholder-acquired");
+  assert.deepEqual(JSON.parse(fs.readFileSync(registerDiagnostics, "utf8")), {
+    includedRejected: true, firstExecuted: true, excludedRejected: true, markersAbsent: true,
+  });
+  assert.equal(fs.existsSync(registerMarker), false);
+  assert.deepEqual(fs.readFileSync(registerSource), registerSourceBytes);
   assert.match(seed.stderr, /the JavaScript emitted for .*owned-lazy\.cts is missing: .*owned-lazy\.cjs/);
   assert.doesNotMatch(seed.stdout, /lazy ran/);
   assert.equal(typeof seed.pid, "number");
