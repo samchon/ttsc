@@ -24,7 +24,7 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
- * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering and all three child lifetimes are explicit costs, not one-process or one-Program claims.
+ * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering and all four child lifetimes (including the detached registered descendant) are explicit costs, not one-process or one-Program claims.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Default/explicit clean need no separate launcher. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
@@ -54,7 +54,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     .map((relative) => ({ file: path.join(workspace.root, relative), bytes: fs.readFileSync(path.join(workspace.root, relative)) }));
   const installedInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(installedPackage);
   const installedDirectory = workspace.installationOnly ? undefined : { names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs };
-  let result: ReturnType<typeof TestProject.spawn>;
+  let result: ReturnType<typeof TestProject.spawn> | undefined;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
     "--cwd", workspace.projectAlias,
@@ -78,8 +78,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx, TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias },
     });
   } finally {
-    if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
+    if (result?.stderr.includes("registered descendant closure remained unresolved"))
+      BatchWorkspace.retain("the registered descendant has no actual ESRCH acknowledgement; keep its held configuration and refuse later shared consumers");
+    else if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
   }
+  assert.ok(result);
   assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl").sort(), baseline);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
@@ -106,10 +109,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.doesNotMatch(result.stdout, /dependency-secret-should-be-stripped/);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "entry:dependency-value").length, 1);
   const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
-    produced: string[]; nativeEmitBefore: number; nativeEmitAfter: number; registerStatus: number; registerPid: number; registerBefore: number; registerAfter: number;
+    produced: string[]; nativeEmitBefore: number; nativeEmitAfter: number; registerStatus: number; registerPid: number; descendantPid: number; descendantResult: string; descendantClosed: boolean; registerBefore: number; registerAfter: number;
   };
   assert.equal(declarationObservation.registerStatus, 0);
   assert.ok(declarationObservation.registerPid > 0);
+  assert.ok(Number.isSafeInteger(declarationObservation.descendantPid) && declarationObservation.descendantPid > 0);
+  assert.equal(declarationObservation.descendantResult, "descendant-ready");
+  assert.equal(declarationObservation.descendantClosed, true);
   assert.ok(declarationObservation.produced.includes("types/runtime-corpus/native-factory.d.ts"));
   assert.ok(declarationObservation.produced.includes("types/runtime-corpus/native-factory.d.ts.map"));
   assert.ok(declarationObservation.produced.includes("state/app.tsbuildinfo"));

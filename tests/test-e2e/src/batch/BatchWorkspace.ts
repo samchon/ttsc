@@ -38,9 +38,11 @@ export namespace BatchWorkspace {
     expected: readonly { title: string; units: number[] }[];
   }
   let preparation: Promise<Workspace> | undefined;
+  let reuseFailure: Error | undefined;
 
   /** Borrow the immutable prepared input graph; preparation happens once. */
   export function open(): Promise<Workspace> {
+    if (reuseFailure !== undefined) return Promise.reject(reuseFailure);
     return preparation ??= prepare();
   }
 
@@ -148,14 +150,16 @@ export namespace BatchWorkspace {
     return JSON.parse(lines[0]!.slice("TTSC_BATCH:".length));
   }
 
-  /** Keep uncertain process inputs rather than deleting them at runner exit. */
+  /** Keep uncertain process inputs and refuse later borrowers of that graph. */
   export function retain(reason: string): void {
+    reuseFailure ??= new Error("Shared input reuse is blocked: " + reason);
     if (preparation !== undefined)
       void preparation.then(({ root }) => TestProject.retainTemporaryDirectory(root, reason));
   }
 
   /** Release shared inputs only after all consumers have returned. */
   export async function close(): Promise<void> {
+    if (reuseFailure !== undefined) return;
     if (preparation === undefined) return;
     const { root, projectAlias } = await preparation;
     if (!fs.existsSync(root)) return;

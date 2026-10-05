@@ -7,11 +7,13 @@ const { spawnSync } = require("node:child_process");
 const root = path.dirname(__dirname);
 const launcher = path.dirname(process.env.TTSC_E2E_INSTALLED_TTSX);
 const { TtscCompiler } = require(path.join(launcher, "../TtscCompiler.js"));
+const { runTtsc } = require(path.join(launcher, "internal/runTtsc.js"));
 const artifacts = path.join(root, "tools/runtime-declared-artifacts");
 const inputs = new Map([
   "runtime-declared.json", "runtime-base.json", "runtime-owned.json",
   "src/runtime-corpus/native-factory.ts", "src/runtime-corpus/excluded-owner.ts",
   "src/runtime-corpus/declared-owned.cts", "src/runtime-corpus/declaration-entry.cts",
+  "src/runtime-corpus/descendant-lazy.cts", "tools/runtime-descendant/worker.cjs",
   "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
   "tools/native-emission/tsconfig.json", "tools/native-emission/banner.config.json",
   "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
@@ -73,7 +75,6 @@ nativeOptions.compilerOptions.plugins = rootEntries.map((entry) => ({
 const nativeEmitBefore = receiptCount();
 try {
   fs.writeFileSync(nativeConfigFile, JSON.stringify(nativeOptions));
-  const { runTtsc } = require(path.join(launcher, "internal/runTtsc.js"));
   assert.equal(runTtsc(["--cwd", nativeProject, "--emit"]), 0, "the actual public forced-emit dispatch must complete");
 } finally {
   fs.writeFileSync(nativeConfigFile, nativeConfiguration);
@@ -141,13 +142,58 @@ try {
 } finally {
   fs.unlinkSync(configuration);
 }
-assert.equal(registered.error, undefined);
-assert.equal(registered.signal, null);
-assert.equal(registered.status, 0, registered.stderr);
-assert.ok(registered.pid > 0);
-assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
-assert.equal(registered.stdout.trim(), 'lowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
-assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
-assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
+const descendant = path.join(__dirname, "runtime-descendant");
+const childReport = fs.existsSync(path.join(descendant, "parent.json")) ? JSON.parse(fs.readFileSync(path.join(descendant, "parent.json"), "utf8")) : undefined;
+const childIsRunning = () => {
+  if (childReport === undefined) return false;
+  assert.ok(Number.isSafeInteger(childReport.child) && childReport.child > 0);
+  try { process.kill(childReport.child, 0); return true; }
+  catch (error) { if (error.code === "ESRCH") return false; throw error; }
+};
+const defaultRuntime = path.join(root, "node_modules/.cache/ttsc/ttsx");
+const defaultRuns = path.join(defaultRuntime, "project");
+const cleanDefault = () => {
+  const cache = process.env.TTSC_CACHE_DIR;
+  try { delete process.env.TTSC_CACHE_DIR; return runTtsc(["clean", "--cwd", root]); }
+  finally { if (cache === undefined) delete process.env.TTSC_CACHE_DIR; else process.env.TTSC_CACHE_DIR = cache; }
+};
+const descendantFailures = [];
+try {
+  assert.equal(registered.error, undefined);
+  assert.equal(registered.signal, null);
+  assert.equal(registered.status, 0, registered.stderr);
+  assert.ok(registered.pid > 0);
+  assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
+  assert.equal(registered.stdout.trim(), 'lowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
+  assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
+  assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
+  assert.ok(childReport, "the actual registered parent must publish its owned child identity");
+  assert.equal(childReport.parent, registered.pid);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(descendant, "ready.json"), "utf8")), { pid: childReport.child });
+  assert.equal(childIsRunning(), true, "the registered parent must exit while its actual descendant still owns the run");
+  assert.equal(fs.readdirSync(defaultRuns).length, 1);
+  assert.equal(cleanDefault(), 0);
+  assert.equal(fs.readdirSync(defaultRuns).length, 1, "default clean must preserve the actual live descendant owner");
+  fs.writeFileSync(path.join(descendant, "release"), "release");
+  const deadline = Date.now() + 30000;
+  while (!fs.existsSync(path.join(descendant, "result")) || childIsRunning()) {
+    assert.ok(Date.now() < deadline, "the released descendant did not finish its actual lazy import");
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+  }
+  assert.equal(fs.readFileSync(path.join(descendant, "result"), "utf8"), "descendant-ready");
+  assert.equal(cleanDefault(), 0);
+  assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the completed registered run");
+} catch (error) { descendantFailures.push(error); }
+finally {
+  fs.writeFileSync(path.join(descendant, "release"), "release");
+  try {
+    const deadline = Date.now() + 30000;
+    while (childIsRunning()) {
+      assert.ok(Date.now() < deadline, "registered descendant closure remained unresolved");
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+    }
+  } catch (error) { descendantFailures.push(new Error("registered descendant closure remained unresolved", { cause: error })); }
+}
+if (descendantFailures.length) throw new AggregateError(descendantFailures, "registered descendant live/lazy/finished cleanup");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, registerStatus: registered.status, registerPid: registered.pid, registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
