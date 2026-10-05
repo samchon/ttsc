@@ -230,10 +230,13 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
         notifyWatchInputs({ addWatchFile: (input) => { healthy.push(input); } }, cached, delivered, selection);
         assert.deepEqual(healthy.sort(), ["package.json", "plugin.cjs", "tsconfig.json", "src/types.d.ts"].map((name) => path.join(spelling, name)).sort());
         const failed: string[] = [];
+        let failedBatches = 0;
         notifyFailedGenerationInputs({ addWatchFiles: (inputs, failure) => {
+          ++failedBatches;
           assert.equal(failure, true);
           failed.push(...inputs.map((input) => input.file));
         } }, cached, delivered, selection);
+        assert.equal(failedBatches, 1, "each failed delivery registers exactly one batch");
         assert.deepEqual(failed.sort(), ["src/main.ts", "src/types.d.ts", "tsconfig.json"].map((name) => path.join(spelling, name)).sort());
       }
     } finally {
