@@ -37,7 +37,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * Startup preloads run before these observations and cannot
  * authorize persistence merely through a stable NODE_OPTIONS string.
  *
- * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
+ * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A descriptor without its explicit external-read declaration is not persisted, and the caller excludes nonempty captured diagnostics because a cache hit cannot replay them.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains isolation cost, input-proof responsibility, environment identity and write refusal in distinct paragraphs; exported operation comments and tag spacing follow the documentation skill.
@@ -342,7 +342,8 @@ export namespace PluginDescriptorEvaluationCache {
    * Entry format tag. Moves when the entry shape or its proof rule changes, so
    * an entry written under another rule is evaluated again.
    */
-  const FORMAT = "ttsc-descriptor-evaluation-v5";
+  // File-entry evaluation must not reuse answers computed with Node -e globals.
+  const FORMAT = "ttsc-descriptor-evaluation-v6";
 
   interface IEntry {
     evaluation: IEvaluation;

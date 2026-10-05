@@ -8,11 +8,12 @@ import {
  *
  * What the descriptor's resolutions read is recorded by the resolution input
  * recorder (`RESOLUTION_INPUT_RECORDER_PATH`), bracketing every resolution the
- * hooks see. The process starts with ttsx's runtime hooks
- * preloaded and recording descriptor inputs, so a `require` of the recorder
- * would be recorded as one of them. The recorder is read and evaluated as a
- * module of its own instead, as a Go config loader evaluates the copy it
- * embeds: nothing resolves it, so nothing records it.
+ * hooks see. The process starts with ttsx's runtime hooks preloaded, then this
+ * file arms descriptor input recording after its own bootstrap imports. The
+ * recorder is read and evaluated as a module of its own, as a Go config loader
+ * evaluates the copy it embeds: nothing resolves it, so nothing records it.
+ * Running this CommonJS entry as a file keeps its CommonJS bindings local;
+ * Node's -e global bindings must not become ambient values in ESM descriptors.
  */
 export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const fs = require("node:fs");`,
@@ -41,6 +42,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `try {`,
   `  const request = process.env.TTSC_PLUGIN_ENTRY;`,
   `  const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
+  `  process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "1";`,
   `  const recorder = createResolutionInputRecorder({ extensions: typeof globalThis.Bun === "object" ? [".tsx", ".jsx", ".ts", ".mjs", ".js", ".cjs", ".json"] : [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });`,
   `  if (typeof Module.registerHooks !== "function" || !requireResolveConsultsHooks()) recorder.invalidateObservation();`,
   `  function asFile(resolved) {`,

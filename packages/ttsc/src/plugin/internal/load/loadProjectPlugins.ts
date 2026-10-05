@@ -1026,7 +1026,7 @@ function loadPluginEntry(
   // descriptor module, so they are derived here from the resolved `request`
   // rather than carried on the shared base context. They give factories a
   // load-mode-independent stand-in for `__dirname`/`__filename`, which are
-  // undefined when a descriptor loads through ttsx or as ESM.
+  // normally absent from an ESM descriptor's own module scope.
   const context: ITtscPluginFactoryContext = {
     ...base,
     dirname: path.dirname(request),
@@ -1201,6 +1201,7 @@ function loadCommonJsDescriptor(
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
   const bunConfig = path.join(dir, "bunfig.toml");
+  const shim = path.join(dir, "load-descriptor.cjs");
   const runtimeHookPreload = path.join(
     __dirname,
     "..",
@@ -1211,6 +1212,11 @@ function loadCommonJsDescriptor(
     "runtimeHookPreload.js",
   );
   try {
+    // Node's CommonJS -e evaluator installs __filename/__dirname and other
+    // CommonJS bindings on globalThis. Those globals leak into ESM descriptors
+    // even when their checked output and loader format are correctly ESM.
+    // A real CommonJS entry keeps the evaluator's bindings module-local.
+    fs.writeFileSync(shim, COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE);
     if (runtimeCapabilities.bun) {
       // A descriptor receives exactly the environment supplied by its ttsc
       // invocation. Bun otherwise auto-loads project `.env*`, local/global
@@ -1237,8 +1243,10 @@ function loadCommonJsDescriptor(
           ...(runtimeCapabilities.registerHooks
             ? ["--require", runtimeHookPreload]
             : []),
-          "-e",
-          COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
+          // NODE_OPTIONS may select a string-input type. This evaluator is a
+          // .cjs file, so clear only that input-mode setting in Node's argv.
+          ...(runtimeCapabilities.bun ? [] : ["--input-type", ""]),
+          shim,
         ],
         {
           cwd: context.projectRoot,
@@ -1251,7 +1259,9 @@ function loadCommonJsDescriptor(
             TTSC_PLUGIN_CONTEXT: JSON.stringify(context),
             TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
             TTSC_PLUGIN_DESCRIPTOR_OUT: out,
-            TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "1",
+            // Bootstrap files belong to the evaluator, not the descriptor.
+            // The generated shim arms observations before loading its entry.
+            TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "0",
             TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT: inputsOut,
             TTSC_PLUGIN_ENTRY: request,
           },
