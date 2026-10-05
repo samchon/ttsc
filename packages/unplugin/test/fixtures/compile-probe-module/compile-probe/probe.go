@@ -142,17 +142,28 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
   return reportConfiguredDependencies(program, context)
 }
 
-// reportConfiguredDependencies declares only explicitly selected resident
-// non-declaration sources through the actual per-entry reporting API. Config
+// reportConfiguredDependencies declares explicitly selected resident sources
+// or the actual Program's non-declaration sources through the per-entry API. Config
 // paths are native cwd-relative or absolute; source spelling passed to the
 // reporter comes from the loaded Program. Every contributing entry must make
-// its own completeness declaration. Missing reportedFiles performs no work.
+// its own completeness declaration. The two source selections cannot coexist;
+// absence of both performs no work.
 // Duplicate and self dependencies are reported unchanged for the host's actual
 // aggregation policy; no JSON envelope or all-file completeness is fabricated.
 func reportConfiguredDependencies(program *driver.Program, context driver.PluginContext) error {
   configuredFiles, present := context.Entry.Config["reportedFiles"]
-  if !present {
+  configuredProgramSources, programSourcesPresent := context.Entry.Config["reportedProgramSources"]
+  if present && programSourcesPresent {
+    return fmt.Errorf("reportedFiles and reportedProgramSources cannot both be configured")
+  }
+  if !present && !programSourcesPresent {
     return nil
+  }
+  if programSourcesPresent {
+    enabled, ok := configuredProgramSources.(bool)
+    if !ok || !enabled {
+      return fmt.Errorf("reportedProgramSources must be true")
+    }
   }
   stringsOf := func(value any, option string) ([]string, error) {
     entries, ok := value.([]any)
@@ -169,9 +180,13 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
     }
     return paths, nil
   }
-  files, err := stringsOf(configuredFiles, "reportedFiles")
-  if err != nil {
-    return err
+  var files []string
+  var err error
+  if present {
+    files, err = stringsOf(configuredFiles, "reportedFiles")
+    if err != nil {
+      return err
+    }
   }
   var dependencies []string
   if configured, present := context.Entry.Config["reportedDependencies"]; present {
@@ -180,10 +195,13 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
       return err
     }
   }
-  if len(files) == 0 {
+  if present && len(files) == 0 {
     return nil
   }
   if program == nil || program.TSProgram == nil {
+    if programSourcesPresent {
+      return fmt.Errorf("reportedProgramSources requires the actual loaded Program")
+    }
     return fmt.Errorf("reportedFiles requires the actual loaded Program")
   }
   resolve := func(file string) string {
@@ -202,6 +220,10 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
   // inside ApplyProgram, unlike driver.Program.SourceFiles.
   for _, source := range program.TSProgram.GetSourceFiles() {
     if source.IsDeclarationFile {
+      continue
+    }
+    if programSourcesPresent {
+      actual = append(actual, source.FileName())
       continue
     }
     key := resolve(source.FileName())
