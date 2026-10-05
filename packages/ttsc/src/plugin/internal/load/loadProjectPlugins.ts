@@ -1201,7 +1201,8 @@ function loadCommonJsDescriptor(
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
   const bunConfig = path.join(dir, "bunfig.toml");
-  const shim = path.join(dir, "load-descriptor.cjs");
+  // The runtime hooks recognize only this evaluator-owned output sibling.
+  const shim = `${out}.cjs`;
   const runtimeHookPreload = path.join(
     __dirname,
     "..",
@@ -1259,9 +1260,10 @@ function loadCommonJsDescriptor(
             TTSC_PLUGIN_CONTEXT: JSON.stringify(context),
             TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
             TTSC_PLUGIN_DESCRIPTOR_OUT: out,
-            // Bootstrap files belong to the evaluator, not the descriptor.
-            // The generated shim arms observations before loading its entry.
-            TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "0",
+            // User --import preloads run after the hooks install and before
+            // the entry. Record them too; only the exact generated bootstrap
+            // and its synchronous implementation imports are excluded.
+            TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "1",
             TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT: inputsOut,
             TTSC_PLUGIN_ENTRY: request,
           },

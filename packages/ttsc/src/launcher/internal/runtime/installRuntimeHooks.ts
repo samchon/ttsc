@@ -95,6 +95,11 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * advertises the supported source extensions; foreign resolver methods and
  * global extension registries are never replaced.
  *
+ * Direct descriptor evaluation records user preloads after hook installation.
+ * Only the generated CommonJS output sibling takes Node's native resolve/load
+ * path; its synchronous bootstrap suspends recording of implementation imports.
+ * This does not certify startup inputs read before the hooks were installed.
+ *
  * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades delegate native evaluation and project detected own named exports under the selected namespace capability; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation mutates neither Module._resolveFilename nor require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
@@ -279,6 +284,10 @@ function resolve(
   context: ResolveContext,
   nextResolve: NextResolve,
 ): ResolveResult {
+  // The generated file belongs to the evaluator. Other roots, including user
+  // --import preloads, retain ordinary resolution and input observations.
+  if (isDescriptorEvaluatorBootstrap(specifier))
+    return nextResolve(specifier, context);
   const candidates = observePluginDescriptorResolutionCandidates(
     specifier,
     context.parentURL,
@@ -527,9 +536,9 @@ function observePluginDescriptorResolutionCandidates(
 
 /**
  * Report one resolved descriptor edge to the parent loader. The channel is
- * armed by the generated descriptor shim only after ttsx's own runtime and
- * imports have loaded, keeping compiler implementation files out of the
- * project's persistent-cache inputs.
+ * active for direct-evaluator user preloads after hook installation. The exact
+ * generated evaluator entry bypasses these hooks and suspends recording only while its
+ * synchronous implementation imports load; descriptor imports then resume it.
  */
 function recordPluginDescriptorResolution(
   specifier: string,
@@ -794,6 +803,9 @@ function load(
   context: LoadContext,
   nextLoad: NextLoad,
 ): LoadResult {
+  // Preserve Node's file-entry evaluation without facade/export-name scans of
+  // the owned bootstrap or observations of its temporary path and manifests.
+  if (isDescriptorEvaluatorBootstrap(url)) return nextLoad(url, context);
   if (!url.startsWith("file:")) {
     return nextLoad(url, context);
   }
@@ -966,6 +978,23 @@ function hasCondition(
   for (const entry of context.conditions ?? [])
     if (entry === condition) return true;
   return false;
+}
+
+/**
+ * Identify only the direct evaluator's generated CommonJS output sibling.
+ * The parent supplies an absolute output under a canonical private directory;
+ * URL conversion and native path resolution preserve that exact spelling.
+ * No directory-wide exclusion or user preload/descriptor path is selected.
+ * This comparison performs no filesystem read and retains no additional state.
+ */
+function isDescriptorEvaluatorBootstrap(value: string): boolean {
+  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_OUT;
+  return (
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" &&
+    out !== undefined &&
+    path.isAbsolute(out) &&
+    runtimeFilePath(value) === path.resolve(`${out}.cjs`)
+  );
 }
 
 /** Whether `filename` is the TypeScript main module named on Node's argv. */

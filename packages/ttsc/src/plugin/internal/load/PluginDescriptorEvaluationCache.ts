@@ -130,7 +130,7 @@ export namespace PluginDescriptorEvaluationCache {
     version: string;
   }): string | null {
     const environment = SidecarEnvironment.merge(props.env);
-    // Startup preloads run before the descriptor recorder and can read inputs
+    // Startup preloads can run before the descriptor recorder and read inputs
     // it never sees; a stable option string cannot prove their current meaning.
     if (SidecarEnvironment.read(environment, "NODE_OPTIONS")?.trim())
       return null;
