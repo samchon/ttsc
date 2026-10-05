@@ -21,13 +21,13 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  * 3. Reuse an unchanged result, then edit the base helper, deeper JSON base and
  *    explicitly extended package-local base separately. Require a fresh
  *    evaluation with each new contributor source.
- * 4. Reject a cycle and malformed extends value, and distinguish the supported
- *    32-file chain from one exceeding that same native reader limit.
+ * 4. Reject cycle, malformed and depth inputs, then require CJS contributor
+ *    reloads, invalid-source and collision errors, and an unnamed exit status.
  *
- * @evidence contracts/testing.md#behavioral-verification The authored factory launches its emitted extractor through an explicit Node launcher, resolves nested JSON/script bases and containing-file-relative string plugins, and returns exact contributor sources and dependency hashes. An unchanged second call reuses its completed cache while helper-only and base-only edits re-evaluate; cycle, malformed-path and over-depth inputs reject.
- * @evidence contracts/testing.md#independent-expectations Authored fixture directories identify the two expected contributor sources; SHA-256 of the base and helper's actual bytes independently establishes input proof. A deliberately valid v9 payload with an unrelated registration must not supply the v10 result, and an external launch counter distinguishes reuse from re-evaluation.
- * @evidence contracts/testing.md#distinguishing-cases An extends-only root contrasts with a base supplying a string-valued plugin and a deeper JSON base. Unchanged bytes, helper-only and base-only edits, an explicit node_modules base, a cycle, a numeric extends value and adjacent 32/33-file depth boundaries retain separate outcomes.
- * @evidence contracts/testing.md#execution-ownership This unit executes current createTtscPlugin and its emitted evaluator source in Node over owned temporary files using the supported launcher override. It neither patches a process API nor builds a native artifact; ttsx compiler integration remains owned by E2E.
+ * @evidence contracts/testing.md#behavioral-verification The authored factory launches its emitted extractor through an explicit Node launcher, resolves inherited and CJS helper/package contributors, and returns exact sources and dependency hashes. Changed inputs re-evaluate while unchanged inputs reuse. Malformed contributor values and namespace collisions reject; a config exiting seven without an envelope retains its single-line status error.
+ * @evidence contracts/testing.md#independent-expectations Authored fixture directories identify expected contributor sources; SHA-256 establishes input proof. A valid v9 payload must not supply the v10 result. Literal alpha/beta/demo arrays, required nonempty source and hyphen-to-underscore collision names define contributor policy. Authored process.exit(7) independently requires status seven without an invented reason; the launch counter observes each real evaluator attempt.
+ * @evidence contracts/testing.md#distinguishing-cases Existing inheritance, cache, cycle, malformed-path and 32/33-depth outcomes remain. CJS helper and package-only alpha/beta changes contrast with unchanged config bytes; number, missing-source object and malformed required module reject separately. Both a-b/a_b and react-hooks/react_hooks collide; exiting before an envelope contrasts with the valid contributor returns.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry, root, selected JSON path and supported Node launcher execute actual factory/extractor calls. The added ten changed or terminal inputs each require a real evaluator process and assert its launch counter increment. No extra caller, compiler Program, Go source/build or product host is created. Typed acquisition, installed ttsx transport and stdout/stderr isolation remain E2E observations.
  */
 export function test_lint_config_descriptor_extractor_inherits_contributors(): void {
   const root = TestProject.tmpdir("ttsc-lint-inherited-contributors-unit-");
@@ -125,6 +125,70 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
     fs.writeFileSync(path.join(depthDir, "30.json"), JSON.stringify({ extends: "./31.json" }));
     fs.writeFileSync(path.join(depthDir, "31.json"), JSON.stringify({ plugins: { terminal: { source: third } } }));
     assert.throws(() => factory(context), /extends chain exceeds the depth limit of 32/);
+
+    const cjsConfig = path.join(root, "nested", "portable.cjs");
+    const selection = path.join(root, "nested", "selection.cjs");
+    const packageDir = path.join(root, "nested", "node_modules", "demo-contributor");
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, "package.json"), '{"main":"index.cjs"}\n');
+    const packageEntry = path.join(packageDir, "index.cjs");
+    fs.writeFileSync(rootConfig, JSON.stringify({ extends: "./nested/portable.cjs" }));
+    cacheFiles.push(cachePath("v10"));
+    fs.writeFileSync(cjsConfig, 'module.exports = require("./selection.cjs");\n');
+    const launchesBefore = fs.readFileSync(counter, "utf8").split("\n").length - 1;
+    let addedLaunches = 0;
+    const requireNextLaunch = (): void => {
+      assert.equal(
+        fs.readFileSync(counter, "utf8").split("\n").length - 1,
+        launchesBefore + ++addedLaunches,
+        "each changed or terminal input needs one real Node evaluator",
+      );
+    };
+    fs.writeFileSync(selection, `module.exports = { plugins: { alpha: { source: ${JSON.stringify(first)} } } };\n`);
+    assert.deepEqual(factory(context).contributors, [{ name: "alpha", source: first }]);
+    requireNextLaunch();
+    fs.writeFileSync(selection, `module.exports = { plugins: { beta: { source: ${JSON.stringify(second)} } } };\n`);
+    assert.deepEqual(factory(context).contributors, [{ name: "beta", source: second }]);
+    requireNextLaunch();
+    fs.writeFileSync(selection, 'module.exports = { plugins: { demo: "demo-contributor" } };\n');
+    fs.writeFileSync(packageEntry, `module.exports = { source: ${JSON.stringify(first)} };\n`);
+    assert.deepEqual(factory(context).contributors, [{ name: "demo", source: first }]);
+    requireNextLaunch();
+    fs.writeFileSync(packageEntry, `module.exports = { source: ${JSON.stringify(second)} };\n`);
+    assert.deepEqual(factory(context).contributors, [{ name: "demo", source: second }]);
+    requireNextLaunch();
+
+    for (const value of ["42", "{}", '"demo-contributor"']) {
+      fs.writeFileSync(selection, `module.exports = { plugins: { demo: ${value} } };\n`);
+      fs.writeFileSync(packageEntry, "module.exports = {};\n");
+      assert.throws(() => factory(context), /contributor "demo".*source/i, value);
+      requireNextLaunch();
+    }
+    for (const [left, right, goName] of [
+      ["a-b", "a_b", "a_b"],
+      ["react-hooks", "react_hooks", "react_hooks"],
+    ]) {
+      fs.writeFileSync(selection, `module.exports = ${JSON.stringify({
+        plugins: { [left!]: { source: first }, [right!]: { source: second } },
+      })};\n`);
+      assert.throws(() => factory(context), (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.ok(error.message.includes(rootConfig));
+        assert.ok(error.message.includes(`"${left}", "${right}" all normalize to "${goName}"`));
+        assert.match(error.message, /contributor namespaces collide/);
+        return true;
+      });
+      requireNextLaunch();
+    }
+    fs.writeFileSync(cjsConfig, "process.exit(7);\nmodule.exports = { plugins: {} };\n");
+    assert.throws(() => factory(context), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /evaluation failed with exit code 7$/);
+      assert.equal(error.message.includes("\n"), false);
+      return true;
+    });
+    requireNextLaunch();
+    assert.equal(addedLaunches, 10);
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
