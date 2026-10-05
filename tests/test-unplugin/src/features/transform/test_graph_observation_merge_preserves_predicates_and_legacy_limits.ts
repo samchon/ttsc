@@ -41,6 +41,8 @@ import { normalizeGraphInputObservation } from "../../../../../packages/unplugin
  * 5. Release an owned scratch wrapper without invalidating persistent graph
  *    inputs, including malformed/conflicting scratch facts. The original config
  *    and a same-prefix sibling remain independently validated.
+ * 6. Preserve a proof failure on one lexical alias even when another spelling
+ *    of the same native file has an independently recorded successful proof.
  *
  * @evidence contracts/testing.md#behavioral-verification Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
  * @evidence contracts/testing.md#independent-expectations Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
@@ -325,4 +327,45 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   assert.deepEqual(compilerGraphInputProofFailures(persistentConflict).entries, [
     { domain: "graph", kind: "proof-conflict", detail: "conflicting-observation", path: original },
   ], "scratch exclusion does not suppress a persistent config's conflicting observations");
+
+  const candidateAliasDirectory = path.join(root, "candidate-alias");
+  fs.symlinkSync(path.dirname(present), candidateAliasDirectory,
+    process.platform === "win32" ? "junction" : "dir");
+  const aliasedCandidate = path.join(candidateAliasDirectory, "index.ts");
+  try {
+    const candidateRealpath = fs.realpathSync.native(present);
+    assert.equal(fs.realpathSync.native(aliasedCandidate), candidateRealpath);
+    assert.equal(createHash("sha256").update(fs.readFileSync(aliasedCandidate)).digest("hex"), presentHash);
+    for (const failedAlias of [false, true]) {
+      const result: ITtscCompilerTransformation.ISuccess = {
+        type: "success", typescript: { "src/main.ts": "export {};\n" },
+        graph: {
+          edges: { "src/main.ts": [] },
+          candidates: { "src/main.ts": [present, aliasedCandidate] },
+          inputHashes: { "src/main.ts": mainHash, [present]: presentHash,
+            ...(failedAlias ? {} : { [aliasedCandidate]: presentHash }) },
+          inputRealpaths: { "src/main.ts": fs.realpathSync.native(main), [present]: candidateRealpath,
+            ...(failedAlias ? {} : { [aliasedCandidate]: candidateRealpath }) },
+          ...(failedAlias ? { inputProofFailures: { [aliasedCandidate]: "content-unavailable" } } : {}),
+        },
+      };
+      const cached: TtscCachedProjectTransform = {
+        projectRoot: root, tsconfig: path.join(root, "tsconfig.json"), result, inputHashes: {},
+      };
+      const state = envelopeDerivation(cached);
+      const indexed = envelopeGraphIndexes(state, cached);
+      assert.equal(indexed.inputProofs.has(present), true,
+        "a failed alias cannot remove the other spelling's independently recorded proof");
+      assert.equal(indexed.inputProofs.has(aliasedCandidate), !failedAlias);
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, failedAlias ? [
+        { domain: "graph", kind: "proof-missing", detail: "content-unavailable", path: aliasedCandidate },
+      ] : [], "physical equality cannot lend another spelling's proof to a failed alias");
+      assert.equal(compilerGraphInputProofFailures(cached).omitted, 0);
+      assert.equal(evidencedWatchInput(cached, state, present, (input) => input).file, present);
+      assert.equal(evidencedWatchInput(cached, state, aliasedCandidate, (input) => input).file, aliasedCandidate,
+        "the watch carrier preserves the alias spelling without certifying its missing producer proof");
+    }
+  } finally {
+    fs.unlinkSync(candidateAliasDirectory);
+  }
 }
