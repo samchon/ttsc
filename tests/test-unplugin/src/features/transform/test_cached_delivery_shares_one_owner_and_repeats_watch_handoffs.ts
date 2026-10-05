@@ -7,6 +7,7 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
+import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
@@ -31,10 +32,12 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
  *    actual coordinator's recorded-state fallback without candidate reads.
  * 4. Create a candidate and assert the actual action selector retires its owner;
  *    do not enter the subsequent native capture from this source unit.
+ * 5. Begin an explicit pass, change the descriptor after its first delivery,
+ *    preserve later first deliveries, then require repeated-delivery capture.
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
- * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with appearance/eviction. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
+ * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with appearance/eviction. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
  * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Finally resets both owning caches and deletes the result filesystem registration.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
@@ -283,6 +286,27 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         assert.equal(fixture.cache.get(fixture.key), freshOwner);
       }
     }
+    const passObserved = observeValidationUnitGeneration(root, result);
+    const passOwner = Promise.resolve(passObserved);
+    fixture.cache.set(fixture.key, passOwner);
+    beginTtscTransformBuild(fixture.cache);
+    assert.equal((await deliver(modules[0]!, 0))?.code, code);
+    assert.equal(typeof passObserved.deliveryEpoch, "number");
+    assert.equal(fixture.cache.get(fixture.key), passOwner);
+    fs.appendFileSync(path.join(root, "plugin.cjs"), "// changed after the first pass delivery\n");
+    for (const file of modules.slice(1)) {
+      assert.equal((await fixture.api.transformTtsc(file, fixture.source,
+        fixture.options, undefined, fixture.cache))?.code, code);
+      assert.equal(fixture.cache.get(fixture.key), passOwner,
+        "later first deliveries share the pass's established proof");
+    }
+    assert.equal(selectCachedGenerationAction({ cache: fixture.cache, cached: passObserved,
+      epoch: passObserved.deliveryEpoch, file: modules[0]!, generation: passOwner,
+      key: fixture.key, source: fixture.source }), "capture",
+      "a repeated delivery revalidates the descriptor rather than sharing first-delivery proof");
+    assert.equal(fixture.cache.has(fixture.key), false);
+    // The next coordinator delivery would acquire a producer. This row ends
+    // at the actual mismatch action and does not certify capture or read counts.
   } finally {
     settle(observed);
     fixture.dispose();

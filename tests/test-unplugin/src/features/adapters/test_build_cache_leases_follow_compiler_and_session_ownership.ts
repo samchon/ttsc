@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 
+import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
+import { createViteBuildLifecycle } from "../../../../../packages/unplugin/src/core/vite/createViteBuildLifecycle";
 import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import { resolveOptions } from "../../../../../packages/unplugin/src/core/options/resolveOptions";
 import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
@@ -12,18 +14,22 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * Verifies compiler callbacks and the shared session lease preserve ownership.
  *
  * The scripted timer runs the actual idle callback without sleeping or claiming
- * a native scheduling deadline. Cache entries are unresolved consumer promises,
- * not compiler results. Actual webpack/Rspack compilation stays in E2E.
+ * a native scheduling deadline. Lease entries are unresolved consumer promises,
+ * not compiler results. The Vite controller also receives an existing supported
+ * ready consumer fixture, without proving acquisition or installed Vite hooks.
+ * Actual webpack/Rspack compilation stays in E2E.
  *
  * 1. Keep one promise through overlapping owners and repeated delivery passes.
  * 2. Release the final owner, cancel that grace through reacquisition, and then
  *    execute the final idle callback to require eviction.
  * 3. Register actual raw webpack/Rspack hooks against captured compiler inputs;
  *    equal options share a pair, one shutdown preserves it and the last drops it.
+ * 4. Contrast Vite owner overlap, final serve reset, ordinary build grace and
+ *    watch retention, including mode values and an end arriving after close.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration/shutdown callbacks; exact promise and pair identity distinguish premature reclamation and stale registry retention.
+ * @evidence contracts/testing.md#behavioral-verification Calls createViteBuildLifecycle, createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration/shutdown callbacks; exact promise and pair identity distinguish premature reclamation and stale registry retention.
  * @evidence contracts/testing.md#independent-expectations Active owners and ordinary pass boundaries retain the same promise; final idle removes it. Literal tap names, one restoration rule, 2000ms requested grace and callback cancellation specify independent ownership expectations, not compile counts.
- * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. No output or installed-host equivalence is inferred.
+ * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. The actual Vite controller contrasts duplicate/unstarted owners, replacement-before-end, final serve reset, ordinary grace reacquisition, non-nullish watch values, close and late end. No output or installed-host equivalence is inferred.
  * @evidence contracts/testing.md#execution-ownership This exported source unit calls real owners in process. It replaces only testbody global timer descriptors synchronously and restores exact descriptors in finally; no Go peer, host, artifact or wall-clock wait is used.
  */
 export function test_build_cache_leases_follow_compiler_and_session_ownership(): void {
@@ -121,6 +127,73 @@ export function test_build_cache_leases_follow_compiler_and_session_ownership():
     const fresh = sharedBuildTransformCache(key);
     assert.notEqual(fresh, shared);
     runIdle();
+
+    const fixture = createCachedDeliveryUnitFixture();
+    const ready = Promise.resolve(fixture.good);
+    const lifecycle = createViteBuildLifecycle(fixture.cache);
+    const first = {};
+    const replacement = {};
+    const seed = (): void => { fixture.cache.set(fixture.key, ready); };
+    try {
+      assert.equal(lifecycle.command, undefined);
+      assert.equal(lifecycle.watching, true);
+      assert.equal(lifecycle.buildWatching, false);
+      lifecycle.start(first);
+      lifecycle.configure({ command: "serve", server: { watch: null }, build: { watch: undefined } });
+      assert.equal(lifecycle.watching, false);
+      assert.equal(lifecycle.buildWatching, false);
+      seed();
+      assert.equal(lifecycle.end(first), true, "an unconfigured start did not register an owner");
+      assert.equal(fixture.cache.size, 0);
+      lifecycle.configure({ command: "serve", server: { watch: undefined }, build: { watch: null } });
+      assert.equal(lifecycle.watching, true);
+      assert.equal(lifecycle.buildWatching, false);
+      seed();
+      lifecycle.start(first);
+      lifecycle.start(first);
+      lifecycle.start(replacement);
+      assert.equal(lifecycle.end({}), false, "an unstarted identity cannot decrement active owners");
+      assert.equal(lifecycle.end(first), false, "replacement starts before its predecessor ends");
+      assert.equal(fixture.cache.get(fixture.key), ready);
+      assert.equal(lifecycle.end(replacement), true, "duplicate start did not add ownership");
+      assert.equal(fixture.cache.size, 0, "last serve end resets the ready consumer owner");
+
+      lifecycle.configure({ command: "build" });
+      seed();
+      lifecycle.start(first);
+      lifecycle.start(replacement);
+      assert.equal(lifecycle.end(first), false);
+      assert.equal(scheduled.size, 0);
+      assert.equal(lifecycle.end(replacement), true);
+      assert.equal(scheduled.size, 1);
+      assert.equal(fixture.cache.get(fixture.key), ready, "ordinary build releases through grace");
+      lifecycle.start(first);
+      assert.equal(scheduled.size, 0, "a new ordinary build cancels the idle release");
+      runIdle();
+      assert.equal(fixture.cache.get(fixture.key), ready);
+      assert.equal(lifecycle.end(first), true);
+      runIdle();
+      assert.equal(fixture.cache.size, 0);
+
+      lifecycle.configure({ command: "build", build: { watch: false } });
+      assert.equal(lifecycle.buildWatching, true, "any non-nullish build watch value enables watch mode");
+      seed();
+      lifecycle.start(first);
+      assert.equal(lifecycle.end(first), true);
+      assert.equal(scheduled.size, 0);
+      assert.equal(fixture.cache.get(fixture.key), ready);
+      lifecycle.start(replacement);
+      lifecycle.close();
+      assert.equal(fixture.cache.size, 0);
+      assert.equal(lifecycle.end(replacement), true, "late end after close cannot decrement below zero");
+      seed();
+      lifecycle.start(first);
+      assert.equal(lifecycle.end(first), true);
+      assert.equal(fixture.cache.get(fixture.key), ready, "a fresh watch owner still uses the reset identity set");
+    } finally {
+      lifecycle.close();
+      fixture.dispose();
+    }
     assert.ok(delays.length > 0);
     assert.ok(delays.every((delay) => delay === 2000));
     assert.equal(unrefs, delays.length);
