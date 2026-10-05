@@ -16,11 +16,11 @@ import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../../structures/ITtscPluginFactoryContext";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
-import type { TtscPluginStage } from "../../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
+import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
@@ -317,7 +317,7 @@ export function loadProjectPlugins(options: {
     context.projectRoot,
   );
   const records = plugins.map((plugin, index) => {
-    const stage = resolvePluginStage(plugin);
+    const stage = PluginDescriptorAdmission.stage(plugin);
     validatePluginSource(plugin);
     const contributors = validatePluginContributors(plugin);
     const source = resolvePluginSource(plugin.source, context.projectRoot);
@@ -1038,19 +1038,18 @@ function loadPluginEntry(
     effectiveEnv,
     descriptorCache,
   );
-  if (isTtscPlugin(loaded.descriptor)) {
-    rejectJsTransformFunctions(specifier, loaded.descriptor);
-    return {
-      hostInputHashes: loaded.hostInputHashes,
-      hostInputRealpaths: loaded.hostInputRealpaths,
-      hostInputs: loaded.inputs,
-      observationsComplete: loaded.observationsComplete,
-      plugin: loaded.descriptor,
-    };
-  }
-  throw new Error(
-    `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+  const plugin = PluginDescriptorAdmission.descriptor(
+    loaded.descriptor,
+    specifier,
   );
+  rejectJsTransformFunctions(specifier, plugin);
+  return {
+    hostInputHashes: loaded.hostInputHashes,
+    hostInputRealpaths: loaded.hostInputRealpaths,
+    hostInputs: loaded.inputs,
+    observationsComplete: loaded.observationsComplete,
+    plugin,
+  };
 }
 
 /**
@@ -1986,30 +1985,6 @@ function restoreEnv(
   }
 }
 
-function isTtscPlugin(value: unknown): value is ITtscPlugin {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-
-
-function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
-  if (plugin.stage === undefined) {
-    return "transform";
-  }
-  if (!isPluginStage(plugin.stage)) {
-    if (plugin.stage === "output") {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" requested removed stage "output"; ` +
-          "upgrade the plugin to a transform-stage descriptor compatible with this ttsc version",
-      );
-    }
-    throw new Error(
-      `ttsc: plugin "${plugin.name}" requested unsupported stage ${JSON.stringify(plugin.stage)}`,
-    );
-  }
-  return plugin.stage;
-}
-
 function resolvePluginSource(source: string, projectRoot: string): string {
   return PluginPackageResolution.resolveRealPath(
     path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
@@ -2082,12 +2057,6 @@ function mergeContributors(
   const out = [...(first ?? []), ...(second ?? [])];
   return out.length === 0 ? undefined : out;
 }
-
-function isPluginStage(value: string): value is TtscPluginStage {
-  return value === "transform" || value === "check";
-}
-
-
 
 function ttscPackageRoot(): string {
   return path.resolve(__dirname, "..", "..", "..", "..");

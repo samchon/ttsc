@@ -16,6 +16,7 @@ import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
+import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
@@ -23,7 +24,6 @@ import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { formatGoWorkPath } from "./formatGoWorkPath";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
-import { pluginSourceCovers } from "./pluginSourceCovers";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
 import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
@@ -130,7 +130,7 @@ export function buildSourcePlugin(opts: {
     tsgoVersion: opts.tsgoVersion,
   });
   const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir, env);
-  requireCachesOutsideSources(
+  SourcePluginAdmission.requireCachesOutsideSources(
     [paths.root, paths.goBuildRoot],
     [...sourceDigests.keys()],
   );
@@ -212,8 +212,6 @@ export function buildSourcePlugin(opts: {
 }
 
 const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
-
-const TSGO_GO_MODULE_PATH = "github.com/microsoft/typescript-go";
 
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 
@@ -577,13 +575,7 @@ function mergeContributors(opts: {
   );
   const imports: string[] = [];
   for (const contributor of sortedContributors) {
-    if (fs.existsSync(path.join(contributor.source, "go.mod"))) {
-      throw new Error(
-        `ttsc: plugin "${opts.pluginName}" contributor "${contributor.name}" must ship Go ` +
-          `source as a package, not a module (go.mod found at ${contributor.source}/go.mod). ` +
-          `Remove go.mod so the contributor compiles inside the host module's dependency graph.`,
-      );
-    }
+    SourcePluginAdmission.requireContributorPackage(opts.pluginName, contributor);
     const target = path.join(contribRoot, contributor.name);
     if (fs.existsSync(target)) {
       // Defensive: validatePluginContributors already rejects duplicate
@@ -809,36 +801,6 @@ function anchorReplaceDirectories(
 }
 
 /**
- * Refuse a build whose caches lie among the sources its key digests.
- *
- * Every build writes its binary, its lock, and Go's objects below those caches,
- * so a cache inside a keyed source directory changes the source while the build
- * runs: the binary could never be published under the key it was built for,
- * and each later build would key a new state. A cache
- * below a directory the sources never include, such as the default one in
- * `node_modules`, is outside them by the rule the key itself uses
- * (`pluginSourceCovers`).
- *
- * @param caches The plugin cache root and the Go build cache root.
- * @param sources Every source directory the key covers.
- * @throws When a cache lies inside a source, naming both.
- */
-function requireCachesOutsideSources(
-  caches: readonly string[],
-  sources: readonly string[],
-): void {
-  for (const cache of caches)
-    for (const source of sources)
-      if (pluginSourceCovers(source, path.resolve(cache), "directory"))
-        throw new Error(
-          `ttsc: the cache ${cache} lies inside the plugin source ${source}, ` +
-            `which the plugin's binary is keyed on, so every build would change ` +
-            `the source it was keyed on. Place the cache outside the plugin's ` +
-            `sources; the default one, in node_modules, already is.`,
-        );
-}
-
-/**
  * Require the sources a build compiled to be the ones its key digested.
  *
  * The key reads each source directory before the build, which copies the module
@@ -882,7 +844,10 @@ function writeGoWork(
     sourceInfo.modulePath === TTSC_GO_MODULE_PATH
       ? useDirs.filter((dir) => {
           const modulePath = goModReader.read(dir).modulePath;
-          return modulePath !== null && !isTtscManagedModulePath(modulePath);
+          return (
+            modulePath !== null &&
+            !SourcePluginAdmission.isManagedModule(modulePath)
+          );
         })
       : useDirs;
   const useLines = ["\t."];
@@ -940,18 +905,11 @@ function validateSourceReplacements(
     return;
   }
   const overlayModules = collectOverlayModulePaths(useDirs, goModReader);
-  for (const replacement of sourceReplacements) {
-    if (
-      isTtscManagedModulePath(replacement.modulePath) ||
-      overlayModules.has(replacement.modulePath)
-    ) {
-      throw new Error(
-        `ttsc: plugin "${pluginName}" go.mod replaces ttsc-managed module ` +
-          `${JSON.stringify(replacement.modulePath)}. Remove this replace directive; ` +
-          `ttsc supplies its own compiler and shim modules while building source plugins.`,
-      );
-    }
-  }
+  SourcePluginAdmission.requireSourceReplacements(
+    sourceReplacements,
+    overlayModules,
+    pluginName,
+  );
 }
 
 function sourceBuildWorkspaceReplacements(
@@ -1115,14 +1073,6 @@ function collectOverlayModulePaths(
     }
   }
   return out;
-}
-
-function isTtscManagedModulePath(modulePath: string): boolean {
-  return (
-    modulePath === TTSC_GO_MODULE_PATH ||
-    modulePath === TSGO_GO_MODULE_PATH ||
-    modulePath.startsWith("github.com/microsoft/typescript-go/shim/")
-  );
 }
 
 function runGoBuild(
