@@ -1,3 +1,4 @@
+import { linkedValue } from "batch-linked-value";
 import data from "@data";
 import { acceptedValue } from "./contract";
 import { values } from "./factory-values";
@@ -14,6 +15,6 @@ export function observeEmittedEffects(): void {
 export const authoredMarker = "authored-marker";
 const defaultOnlyCall = () => { console.log("DEFAULT_ONLY_RETAINED"); };
 const defaultOnlyCallRetained = String(defaultOnlyCall).includes("DEFAULT_ONLY_RETAINED");
-export const result = { authoredMarker, defaultOnlyCallRetained, answer: acceptedValue(), data: data.answer, neighbor: data.neighbor, values, nativePipeline, nativeNeighbor, nativeOrdered, nativeOrderedNeighbor, nativeNumeric: __TTSC_OWN_MARKER__, numericNeighbor };
+export const result = { authoredMarker, linkedValue, defaultOnlyCallRetained, answer: acceptedValue(), data: data.answer, neighbor: data.neighbor, values, nativePipeline, nativeNeighbor, nativeOrdered, nativeOrderedNeighbor, nativeNumeric: __TTSC_OWN_MARKER__, numericNeighbor };
 globalThis.TTSC_BATCH_RESULT = result;
 

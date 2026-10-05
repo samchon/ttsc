@@ -36,12 +36,13 @@ export namespace BatchWorkspace {
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
   export function assertResult(value: unknown, expected: Workspace["expected"], emitted = false): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown; nativeNumeric: unknown; numericNeighbor: unknown };
+    const result = value as { authoredMarker: unknown; linkedValue: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown; nativeNumeric: unknown; numericNeighbor: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
     };
     check("authored source marker", () => assert.equal(result.authoredMarker, "authored-marker"));
+    check("resolved linked package binding", () => assert.equal(result.linkedValue, "linked"));
     check("retained contract value", () => assert.equal(result.answer, 42));
     check("resolved JSON alias", () => assert.equal(result.data, 42));
     check("unchanged JSON neighbor", () => assert.equal(result.neighbor, "retained"));
@@ -170,6 +171,7 @@ export namespace BatchWorkspace {
     assert.ok(fs.existsSync(installedTtsx), "packed SDK must publish its actual runtime launcher");
     const modules = path.join(root, "node_modules");
     if (!installationOnly) prepareEvidenceDependencies(modules, "snapshot", "installed");
+    fs.symlinkSync(path.join(root, "src/linked-value"), path.join(modules, "batch-linked-value"), "junction");
     for (const name of installationOnly ? [] : ["banner", "paths", "strip", "wasm", "playground", "unplugin"])
       fs.symlinkSync(path.join(TestProject.WORKSPACE_ROOT, "packages", name), path.join(modules, "@ttsc", name), "junction");
     for (const name of ["path-dependency", "trace-dependency", "batch-record-dependency"]) {
