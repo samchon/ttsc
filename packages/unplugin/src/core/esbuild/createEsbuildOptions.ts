@@ -9,12 +9,11 @@ import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
 import { registerProjectRecord } from "../bridge/registerProjectRecord";
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
 import { typescriptTransformSourcePattern } from "../source/typescriptTransformSourcePattern";
-import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
-import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
+import { createEsbuildBuildLifecycle } from "./createEsbuildBuildLifecycle";
 
 /**
  * The esbuild adapter: its native loader owns the transform and the
@@ -81,8 +80,7 @@ export function createEsbuildOptions(
   includes: (file: string) => boolean,
 ): UnpluginOptions {
   const cache = createTtscTransformCache();
-  const owners = new WeakSet<object>();
-  let lifecycles = 0;
+  const lifecycle = createEsbuildBuildLifecycle(cache);
   let bridge: HostWatchBridge | undefined;
   // The bridge's change sequence when the current pass opened, which every
   // delivery of the pass is registered against (samchon/ttsc#1460).
@@ -97,21 +95,14 @@ export function createEsbuildOptions(
         // Setup can fail validation without receiving onDispose. Acquire only
         // at onStart, and retain a generation while another owner is active.
         build.onStart(() => {
-          if (!owners.has(build)) {
-            owners.add(build);
-            lifecycles += 1;
-          }
-          beginTtscTransformBuild(cache);
+          lifecycle.start(build);
           // No record is proven here: esbuild keeps no cache of a loader's
           // result, so every build runs every module through the loader,
           // and each delivery writes the record of the generation it read.
           passStartedAt = bridge?.begin();
         });
         build.onDispose(() => {
-          if (!owners.delete(build)) return;
-          lifecycles -= 1;
-          if (lifecycles !== 0) return;
-          resetTtscTransformCache(cache);
+          if (!lifecycle.dispose(build)) return;
           const open = bridge;
           bridge = undefined;
           passStartedAt = undefined;
