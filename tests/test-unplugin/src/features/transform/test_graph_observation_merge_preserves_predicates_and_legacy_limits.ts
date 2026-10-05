@@ -11,6 +11,7 @@ import { envelopeGraphIndexes } from "../../../../../packages/unplugin/src/core/
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { compilerGraphInputProofFailures } from "../../../../../packages/unplugin/src/core/transform/validation/compilerGraphInputProofFailures";
+import { compilerInputRealpathObservation } from "../../../../../packages/unplugin/src/core/transform/inputs/compilerInputRealpathObservation";
 import { evidencedWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/evidencedWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
@@ -288,9 +289,13 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       ]);
       fs.writeFileSync(original, originalBytes);
       fs.unlinkSync(original);
+      assert.throws(() => fs.realpathSync.native(original),
+        (error: NodeJS.ErrnoException) => error.code === "ENOENT");
+      assert.deepEqual(compilerInputRealpathObservation(original, DEFAULT_FILESYSTEM_OPERATIONS),
+        { ok: true, path: original },
+        "compiler realpath failure preserves the cleaned lexical spelling, independently of content absence");
       assert.deepEqual(compilerGraphInputProofFailures(cached).entries, [
         { domain: "graph", kind: "read-file-changed", path: original },
-        { domain: "graph", kind: "realpath-changed", path: original },
       ]);
       fs.writeFileSync(original, originalBytes);
       fs.writeFileSync(sibling, '{"compilerOptions":{"strict":false}}\n');
