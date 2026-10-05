@@ -5,6 +5,7 @@ import path from "node:path";
 import webpack from "webpack";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { bundlerCacheCorpus } from "../batch/bundlerCacheCorpus";
 import { runRspackShared } from "../batch/runRspackShared";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
@@ -30,6 +31,8 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  */
 export async function test_e2e_webpack_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  const combinedFailures: unknown[] = [];
+  try {
   const configReceiptOffset =
     BatchWorkspace.readConfigPathReceipts(workspace).length;
   const previous = process.env.TTSC_CACHE_DIR;
@@ -192,19 +195,29 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     assert.equal(path.isAbsolute(String(receipt.tsconfig)), true);
     assert.equal(
       fs.realpathSync.native(String(receipt.cwd)),
-      fs.realpathSync.native(workspace.root),
+    fs.realpathSync.native(workspace.root),
     );
   } finally {
     try {
       if (compiler !== undefined) {
         const owned = compiler;
-        await new Promise<void>((resolve, reject) =>
-          owned.close((error) => (error ? reject(error) : resolve())),
-        );
+        try {
+          await new Promise<void>((resolve, reject) =>
+            owned.close((error) => (error ? reject(error) : resolve())),
+          );
+        } catch (error) {
+          BatchWorkspace.retain("shared webpack owner closure remained unresolved");
+          throw error;
+        }
       }
     } finally {
       if (previous === undefined) delete process.env.TTSC_CACHE_DIR;
       else process.env.TTSC_CACHE_DIR = previous;
     }
   }
+  } catch (error) { combinedFailures.push(error); }
+  try { await BatchWorkspace.open(); await bundlerCacheCorpus(workspace); }
+  catch (error) { combinedFailures.push(error); }
+  if (combinedFailures.length === 1) throw combinedFailures[0];
+  if (combinedFailures.length > 1) throw new AggregateError(combinedFailures, "webpack/Rspack and cache frontier failures");
 }
