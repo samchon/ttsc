@@ -22,6 +22,18 @@ exports.default = (context) => {
   const fs = require("node:fs");
   const settings = require("node:path").join(context.dirname, "cache-settings.json");
   fs.appendFileSync(context.plugin.evaluationCounter, "x");
+  if (observation === "capability-module")
+    return { name: "capability-probe", source: context.plugin.fixtureSource, capabilities: { probe: true }, hostInputHashes: {} };
+  if (observation === "capability-undeclared")
+    return { name: "capability-probe", source: context.plugin.fixtureSource, capabilities: JSON.parse(fs.readFileSync(settings, "utf8")) };
+  if (observation === "capability-race") {
+    const capabilities = require("batch-cache-capability");
+    const nearer = require("node:path").join(context.dirname, "node_modules/batch-cache-capability");
+    fs.mkdirSync(nearer, { recursive: true });
+    fs.writeFileSync(require("node:path").join(nearer, "package.json"), '{"name":"batch-cache-capability","main":"index.cjs"}\n');
+    fs.writeFileSync(require("node:path").join(nearer, "index.cjs"), 'module.exports = { probe: false };\n');
+    return { name: "capability-probe", source: context.plugin.fixtureSource, capabilities };
+  }
   if (observation === "isolation") {
     if (cachedInput.name === "bad") throw new Error("descriptor is bad");
     return {

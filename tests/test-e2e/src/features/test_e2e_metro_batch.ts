@@ -16,6 +16,8 @@ import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal
 import { prunesPluginSourceDirectory } from "../../../../packages/ttsc/lib/plugin/internal/source/prunesPluginSourceDirectory";
 import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins";
 import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
+import { resolveCapabilityPlugins } from "../../../../packages/ttsc/lib/plugin/resolveCapabilityPlugins";
+import { CapabilityResolutionFormat } from "../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
@@ -346,6 +348,89 @@ export async function test_e2e_metro_batch(): Promise<void> {
       }
     }
     for (const owned of [replacementInput, internalReplacement]) {
+      assert.equal(path.relative(workspace.root, owned).startsWith(".."), false);
+      fs.rmSync(owned, { recursive: true, force: true });
+    }
+  }
+  const capabilityCache = path.join(workspace.cache, "capability-source-flow");
+  const capabilityCounter = path.join(traceRoot, "capability-evaluations.log");
+  const hoistedCapability = path.join(workspace.root, "node_modules/batch-cache-capability");
+  const nearerCapability = path.join(workspace.root, "descriptors/node_modules/batch-cache-capability");
+  const capabilityProducer = path.join(nativeProbe.fixtureSource, "probe.go");
+  const originalCapabilityProducer = fs.readFileSync(capabilityProducer);
+  const capabilityEnvironment = { TTSC_BINARY: TestProject.TSGO_BINARY, TTSC_CACHE_DIR: capabilityCache, GOFLAGS: baselineBuildEnv.GOFLAGS };
+  const savedCapabilityEnvironment = Object.fromEntries(Object.keys(capabilityEnvironment).map((key) => [key, process.env[key]]));
+  const applyCapabilityEnvironment = (values: NodeJS.ProcessEnv): void => {
+    for (const [key, value] of Object.entries(values))
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+  };
+  const selectCapabilityObservation = (observation: string): void => {
+    const config = JSON.parse(originalConfig.toString("utf8"));
+    config.compilerOptions.plugins = [{ ...publicNativeProbe, cacheObservation: observation, evaluationCounter: capabilityCounter }];
+    fs.writeFileSync(configPath, JSON.stringify(config));
+  };
+  const capabilityAnswer = () => resolveCapabilityPlugins({ capability: "probe", cwd: workspace.root, tsconfig: configPath });
+  const capabilityRecord = (): string => {
+    const file = CapabilityResolutionFormat.resolutionFile({ cwd: workspace.root, tsconfig: configPath });
+    assert.equal(typeof file, "string", "supported runtime authority must own a persisted capability answer");
+    return file!;
+  };
+  const capabilityIdentity = (): { binary: string; inode: string } => {
+    const answer = capabilityAnswer();
+    assert.equal(answer.length, 1);
+    assert.equal(fs.existsSync(answer[0]!.binary), true);
+    return { binary: answer[0]!.binary, inode: String(fs.statSync(capabilityRecord(), { bigint: true }).ino) };
+  };
+  try {
+    applyCapabilityEnvironment(capabilityEnvironment);
+    selectCapabilityObservation("capability-module");
+    const first = capabilityIdentity();
+    assert.deepEqual(capabilityIdentity(), first, "unchanged proof must retain the actual binary and answer record");
+    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), "x");
+    fs.appendFileSync(capabilityProducer, "\n// capability source epoch\n");
+    const edited = capabilityIdentity();
+    assert.notEqual(edited.binary, first.binary);
+    assert.notEqual(edited.inode, first.inode);
+    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), "x", "unchanged descriptor evaluation survives a source-only rebuild");
+    applyCapabilityEnvironment({ GOFLAGS: "-tags=ttsc_capability_probe" });
+    const flagged = capabilityIdentity();
+    assert.notEqual(flagged.binary, edited.binary);
+    assert.notEqual(flagged.inode, edited.inode);
+    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), "xx");
+    const ignored = path.join(path.dirname(nativeProbe.fixtureSource), "node_modules/capability-ignored/index.js");
+    assert.equal(fs.existsSync(ignored), false);
+    fs.mkdirSync(path.dirname(ignored), { recursive: true });
+    fs.writeFileSync(ignored, "// excluded source epoch\n");
+    try { assert.deepEqual(capabilityIdentity(), flagged); }
+    finally { fs.rmSync(path.dirname(ignored), { recursive: true }); }
+
+    selectCapabilityObservation("capability-undeclared");
+    fs.writeFileSync(descriptorSettings, '{"probe":true}\n');
+    assert.equal(capabilityAnswer().length, 1);
+    fs.writeFileSync(descriptorSettings, '{"probe":false}\n');
+    assert.equal(capabilityAnswer().length, 0, "an undeclared read cannot keep its earlier capability");
+
+    assert.equal(fs.existsSync(hoistedCapability), false);
+    assert.equal(fs.existsSync(nearerCapability), false);
+    fs.mkdirSync(hoistedCapability, { recursive: true });
+    fs.writeFileSync(path.join(hoistedCapability, "package.json"), '{"name":"batch-cache-capability","main":"index.cjs"}\n');
+    fs.writeFileSync(path.join(hoistedCapability, "index.cjs"), 'module.exports = { probe: true };\n');
+    selectCapabilityObservation("capability-race");
+    assert.equal(capabilityAnswer().length, 1, "the first evaluation reads the independently authored hoisted capability");
+    const second = capabilityAnswer().length;
+    fs.rmSync(capabilityRecord(), { force: true });
+    const fresh = capabilityAnswer().length;
+    assert.equal(fresh, 0, "a fresh evaluation selects the nearer false capability");
+    assert.equal(second, fresh, "load-time candidate appearance must invalidate the earlier answer");
+  } catch (error) {
+    publicApiFailures.push(new Error("capability source/read-authority state flow", { cause: error }));
+  } finally {
+    applyCapabilityEnvironment(savedCapabilityEnvironment);
+    fs.writeFileSync(configPath, originalConfig);
+    fs.writeFileSync(descriptorSettings, originalSettings);
+    fs.writeFileSync(capabilityProducer, originalCapabilityProducer);
+    for (const owned of [hoistedCapability, nearerCapability]) {
       assert.equal(path.relative(workspace.root, owned).startsWith(".."), false);
       fs.rmSync(owned, { recursive: true, force: true });
     }
