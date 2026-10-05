@@ -197,6 +197,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(initialNativeCalls, 1, "one actual native ApplyProgram invocation serves the two-worker pool; actual initial capture observations: " + JSON.stringify({
     nativeCalls: initialNativeCalls,
     callerOptions: [metro.requestedOptions, turbopack.requestedOptions],
+    adapterCalls: [metro.adapterCalls, turbopack.adapterCalls],
     contextReceipts: BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset),
     configPathReceipts: fs.readFileSync(workspace.configPathReceipt, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
     casePolicyReceipts: fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).slice(caseOffset).map((line) => JSON.parse(line)),
