@@ -379,13 +379,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "strip must compose with both native standard-decorator modules",
   );
   const payload = BatchWorkspace.readPayload(result.stdout);
-  if (workspace.installationOnly) {
-    assert.equal((payload as { answer: unknown }).answer, 42);
-    BatchWorkspace.assertValues(
-      (payload as { values: unknown }).values,
-      workspace.expected,
-    );
-  } else {
+  // The full suite retains the packed installation oracle in this same run.
+  assert.equal((payload as { answer: unknown }).answer, 42);
+  BatchWorkspace.assertValues(
+    (payload as { values: unknown }).values,
+    workspace.expected,
+  );
+  if (!workspace.installationOnly) {
     BatchWorkspace.assertResult(payload, workspace.expected, true);
     const entryPolicy = (
       payload as {
