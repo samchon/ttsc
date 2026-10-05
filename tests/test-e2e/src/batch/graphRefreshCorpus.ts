@@ -152,7 +152,7 @@ export async function verify(client: Client, root: string): Promise<void> {
           );
 
         assert.deepStrictEqual(
-          await lookup("docs/one.md#first"),
+          await lookup("refreshspec/citationalpha#citationalpha"),
           ["subject"],
           "the original address must answer before the edit",
         );
@@ -162,7 +162,7 @@ export async function verify(client: Client, root: string): Promise<void> {
         fs.writeFileSync(
           path.join(root, "src", "tag-refresh.ts"),
           [
-            "/** @evidence docs/two.md#second The section this implements. */",
+            "/** @evidence refreshspec/citationbeta#citationbeta The section this implements. */",
             "export function subject(): void {}",
             "",
           ].join("\n"),
@@ -170,12 +170,12 @@ export async function verify(client: Client, root: string): Promise<void> {
         );
 
         assert.deepStrictEqual(
-          await lookup("docs/two.md#second"),
+          await lookup("refreshspec/citationbeta#citationbeta"),
           ["subject"],
           "the new address must answer without restarting the session",
         );
         assert.deepStrictEqual(
-          await lookup("docs/one.md#first"),
+          await lookup("refreshspec/citationalpha#citationalpha"),
           [],
           "the replaced address must stop answering",
         );
