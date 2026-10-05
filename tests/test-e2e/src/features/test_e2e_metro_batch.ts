@@ -291,15 +291,14 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const replacementManifest = path.join(replacementModule, "go.mod");
   const originalReplacementManifest = fs.readFileSync(replacementManifest);
   const replacementInput = path.join(workspace.root, "replacement-input");
+  const replacementFixture = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/source-replacement-input");
   const replacementAlias = path.join(workspace.root, "replacement-input-alias");
   const moduleAlias = path.join(workspace.root, "replacement-module-alias");
   const internalReplacement = path.join(replacementModule, "internal-replacement");
   for (const owned of [replacementInput, replacementAlias, moduleAlias, internalReplacement])
     assert.equal(fs.existsSync(owned), false, "replacement epochs own initially absent input paths");
   try {
-    fs.mkdirSync(replacementInput);
-    fs.writeFileSync(path.join(replacementInput, "go.mod"), "module example.com/batch-replacement\n\ngo 1.26\n");
-    fs.writeFileSync(path.join(replacementInput, "dep.go"), "package replacement\n");
+    fs.cpSync(replacementFixture, replacementInput, { recursive: true });
     fs.symlinkSync(replacementInput, replacementAlias, "junction");
     fs.symlinkSync(replacementModule, moduleAlias, "junction");
     const manifest = (target: string): string => originalReplacementManifest.toString("utf8") +
@@ -330,9 +329,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
         publicApiFailures.push(new Error("Go replacement source population: " + spelling, { cause: error }));
       }
     }
-    fs.mkdirSync(internalReplacement);
-    fs.writeFileSync(path.join(internalReplacement, "go.mod"), "module example.com/batch-replacement\n\ngo 1.26\n");
-    fs.writeFileSync(path.join(internalReplacement, "dep.go"), "package replacement\n");
+    fs.cpSync(replacementFixture, internalReplacement, { recursive: true });
     fs.writeFileSync(replacementManifest, manifest(path.join(moduleAlias, "internal-replacement")));
     assert.deepEqual(pluginModuleReplaceDirectories(replacementModule, descriptorEnv), [], "actual Go directive JSON and physical containment must keep an aliased internal target inside its source owner");
   } catch (error) {
