@@ -160,10 +160,18 @@ export namespace BatchWorkspace {
     };
     for (const name of ["ttsc", `ttsc-${target}`])
       pnpm(["pack", "--out", path.join(root, `${name}.tgz`)], path.join(TestProject.WORKSPACE_ROOT, "packages", name));
+    const authoredManifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
     fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({
+      ...authoredManifest,
       private: true, type: "commonjs",
       dependencies: { ttsc: "file:./ttsc.tgz", [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`, typescript: "7.0.2" },
     }));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).imports, {
+      "#local-descriptor": "./descriptors/input.cjs",
+      "#installed-descriptor": "batch-descriptor-input",
+      "#missing-local-descriptor": "./descriptors/optional.cjs",
+      "#missing-package-descriptor": "batch-absent-descriptor-input",
+    }, "installation dependencies must preserve the authored descriptor import map");
     pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], root);
     const installed = createRequire(path.join(root, "package.json"));
     const sdk = path.dirname(installed.resolve("ttsc/package.json"));

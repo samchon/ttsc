@@ -1051,12 +1051,14 @@ const graphArguments = (request: Record<string, unknown>) => ({
       return response.structuredContent!;
     };
 
-    const identity = await call({ from: "identity", to: "identity" });
+    const identityHandle = "src/trace-policy.ts#identity:function";
+    const identity = await call({ from: identityHandle, to: identityHandle });
     assert.deepEqual(
       identity.result!.path?.map((node) => node.name),
       ["identity"],
       "a self trace returns its one-node identity path",
     );
+    assert.deepEqual(identity.result!.path?.map((node) => node.id), [identityHandle], "both ends name the authored trace-policy declaration rather than another shared identity");
     assert.deepEqual(identity.result!.hops, [], "a self path has zero hops");
     assert.deepEqual(identity.result!.steps, [], "a self path has zero steps");
     assert.equal(
@@ -1071,7 +1073,7 @@ const graphArguments = (request: Record<string, unknown>) => ({
     );
 
     const disconnected = await call({
-      from: "identity",
+      from: identityHandle,
       to: "disconnected",
       focus: "execution",
     });
@@ -1087,7 +1089,7 @@ const graphArguments = (request: Record<string, unknown>) => ({
       "an ambiguous start still returns candidates",
     );
     assert.equal(ambiguousStart.next?.action, "clarify");
-    const ambiguousTarget = await call({ from: "identity", to: "duplicate" });
+    const ambiguousTarget = await call({ from: identityHandle, to: "duplicate" });
     assert.ok(
       (ambiguousTarget.result!.candidates?.length ?? 0) >= 2,
       "an ambiguous target still returns candidates",
