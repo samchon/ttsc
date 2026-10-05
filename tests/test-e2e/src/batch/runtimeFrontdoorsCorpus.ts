@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { BatchWorkspace } from "./BatchWorkspace";
+import { runRuntimeSignalSessions } from "../features/ttsc/ttsx-runtime/test_ttsx_forwards_termination_signals_and_cleans_up_on_posix";
 
 /**
  * Retain irreducible Node startup and terminal contracts on one staged graph.
@@ -17,11 +18,11 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units.
  * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
- * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one project instead of per-case fixtures. It does not certify signal forwarding, every require spelling, cold orphan cache coherence or an overall single-digit process budget.
+ * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. Every require spelling, cold orphan cache coherence and an overall single-digit process budget remain uncertified.
  */
-export function runtimeFrontdoorsCorpus(
+export async function runtimeFrontdoorsCorpus(
   workspace: BatchWorkspace.Workspace,
-): void {
+): Promise<void> {
   const root = path.join(workspace.root, "tools/runtime-frontdoors");
   const register = path.resolve(
     path.dirname(workspace.installedTtsx),
@@ -179,6 +180,16 @@ export function runtimeFrontdoorsCorpus(
     capture("immutable " + sources[index], () =>
       assert.deepEqual(fs.readFileSync(sources[index]!), original[index]),
     );
+  if (process.platform !== "win32") {
+    let pending = 0;
+    try {
+      await runRuntimeSignalSessions(path.join(root, "signals"), () => {
+        pending++;
+        return () => { pending--; };
+      }, workspace.installedTtsx, { TTSC_CACHE_DIR: undefined, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined });
+    } catch (error) { failures.push(new Error("native POSIX signal sessions", { cause: error })); }
+    finally { if (pending !== 0) BatchWorkspace.retain("native signal session closure remained unresolved"); }
+  }
   if (failures.length)
     throw new AggregateError(
       failures,

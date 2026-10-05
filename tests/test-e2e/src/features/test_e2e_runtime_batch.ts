@@ -333,7 +333,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   if (!workspace.installationOnly) {
     try {
       await BatchWorkspace.open();
-      runtimeFrontdoorsCorpus(workspace);
+      await runtimeFrontdoorsCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
     }
