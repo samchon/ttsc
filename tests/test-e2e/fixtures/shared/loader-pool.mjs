@@ -17,11 +17,11 @@ async function deliver(sourceSuffix = "", deliveredSource) {
     const result = await transformer.transform({ src: (deliveredSource ?? fs.readFileSync(path.join(root, filename), "utf8")) + sourceSuffix, filename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
     return { mode, ast: result.ast };
   }
-  const resourcePath = path.join(root, "src/map.ts");
+  const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
   let completions = 0;
   const delivery = await new Promise((resolve, reject) => loader.call({
-    rootContext: root, resourcePath, getOptions: () => ({ project, compilerOptions }),
+    rootContext: root, resourcePath, getOptions: () => ({ compilerOptions }),
     async: () => (error, content, map) => { completions += 1; error ? reject(error) : resolve({ content, map }); },
     addDependency(file) { dependencies.push(file); },
     addContextDependency(directory) { contextDependencies.push(directory); },

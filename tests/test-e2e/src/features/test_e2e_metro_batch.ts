@@ -16,7 +16,7 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
- * @evidence contracts/e2e.md#shared-execution The pool borrows the one immutable prepared population and explicit project. No worker creates a project or a per-case producer.
+ * @evidence contracts/e2e.md#shared-execution The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/absent-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/absent-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
  */
@@ -33,7 +33,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const originalContract = fs.readFileSync(contractPath);
   const bannerPath = path.join(workspace.root, "config", "banner.config.json");
   const originalBanner = fs.readFileSync(bannerPath);
-  const deliveredPaths = [path.join(workspace.root, "src/bundle.ts"), path.join(workspace.root, "src/map.ts")];
+  const deliveredPaths = [path.join(workspace.root, "src/bundle.ts"), path.join(workspace.root, "src/pool-routing/map.ts")];
   const originalDelivered = deliveredPaths.map((file) => fs.readFileSync(file, "utf8"));
   const configPath = path.join(workspace.root, "tsconfig.json");
   const originalConfig = fs.readFileSync(configPath);
@@ -89,6 +89,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.match(metro.ast.source, /Authored source positions remain observable/);
   assert.notEqual(metro.ast.source, fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"));
   assert.ok(metro.ast.source.includes("STRIPPED_DEBUG_RAN"), "API source text retains the authored effect; only actual runtime emit invokes the stripped function");
+  assert.ok(metro.ast.source.includes('logger.trace("drop")'), "the source lane retains the configured trace call that the runtime emit lane must remove");
   assert.ok(metro.ast.source.includes("TTSC_BATCH_RESULT"));
   assert.equal(turbopack.completions, 1);
   assert.deepEqual(turbopack.errors, []);
@@ -101,8 +102,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const record = JSON.parse(fs.readFileSync(projectRecordFile, "utf8"));
   assert.equal(record.root, fs.realpathSync.native(workspace.root));
   assert.equal(record.tsconfig, fs.realpathSync.native(path.join(workspace.root, "tsconfig.json")));
-  for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
+  for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "config/strip.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
+  assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, path.join(workspace.root, "src/pool-routing/tsconfig.json")), "the implicit loader selection must retain the files-empty solution that routed to the native root project");
   assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native ApplyProgram invocation serves the two-worker pool");
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");

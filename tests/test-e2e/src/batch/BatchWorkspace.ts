@@ -215,7 +215,7 @@ export namespace BatchWorkspace {
       const automaticPackage = path.join(root, "packages/batch-auto-discovery");
       const automaticManifestFile = path.join(automaticPackage, "package.json");
       const automaticManifest = JSON.parse(fs.readFileSync(automaticManifestFile, "utf8"));
-      const reportedFiles = ["src/bundle.ts", "src/map.ts"];
+      const reportedFiles = ["src/bundle.ts", "src/map.ts", "src/pool-routing/map.ts"];
       // The explicitly complete files declare their real imported input tree
       // as well as the relative/absolute/duplicate/self reporting controls.
       const reportedDependencies = [
