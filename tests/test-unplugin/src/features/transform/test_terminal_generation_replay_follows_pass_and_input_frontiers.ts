@@ -29,7 +29,7 @@ import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src
  * Verifies retained failures respect their pass and observed input frontier.
  *
  * Failed envelopes and unstable errors are supported consumer inputs, not
- * synthetic compiler attempts. Actual capture retry counts remain E2E.
+ * synthetic compiler attempts. Actual capture and its retry assembly are outside this unit.
  * An unreadable null graph baseline also feeds a ready owner: four actual
  * deliveries keep that owner without earning a content reuse signature.
  * A separate native dangling host link retains null content and no signature;
