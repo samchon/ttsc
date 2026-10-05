@@ -176,12 +176,19 @@ for (const option of ["--project", "--no-plugins", "--strict", "@tools/runtime-n
   assert.ok(rejected.stderr.split(/\r?\n/).some((line) => line.includes("ttsx:") && line.includes(option)), "the actual JavaScript refusal must name " + option);
 assert.match(rejected.stderr, /script\.js is JavaScript/);
 assert.match(rejected.stderr, /TS6046/);
+assert.match(rejected.stderr, /TS6133/);
+assert.match(rejected.stderr, /tools[\\/]configured-owners[\\/]diagnostic[\\/]src[\\/]index\.ts/);
+assert.doesNotMatch(rejected.stdout, /dependency entry ran/);
 if (readonlyActive) {
   assert.match(rejected.stderr, /is not writable/);
   assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
   assert.match(rejected.stderr, /"include" or "files"/);
 }
-assert.deepEqual(JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8")),
+const rejectedObservation = JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8"));
+assert.equal(typeof rejectedObservation.dependencyStatus, "number");
+assert.notEqual(rejectedObservation.dependencyStatus, 0);
+const { dependencyStatus, ...priorRejectionObservation } = rejectedObservation;
+assert.deepEqual(priorRejectionObservation,
   { statuses: [2, 2], exitCode: 2, pid: rejected.pid,
     readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] },
     response: { statuses: [0, 0, 2] } });

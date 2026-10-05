@@ -10,6 +10,7 @@ assert.equal(fs.existsSync(path.join(root, "missing-entry.ts")), false);
 let completed;
 let readonly;
 let response;
+let dependencyStatus;
 // Both preflight queries stop before compiler or program creation. The real
 // installed CLI that follows this preload owns the JavaScript rejection exit.
 Promise.all([
@@ -43,6 +44,17 @@ Promise.all([
     if (cache === undefined) delete process.env.TTSC_CACHE_DIR;
     else process.env.TTSC_CACHE_DIR = cache;
   }
+}).then(async () => {
+  const dependencyFiles = ["package.json", "tsconfig.json", "src/dependency-entry.ts"].map((file) => path.join(__dirname, "dependency", file));
+  dependencyFiles.push(...["package.json", "tsconfig.json", "banner.config.json", "src/index.ts"].map((file) => path.join(root, "tools/configured-owners/diagnostic", file)));
+  const dependencyBytes = dependencyFiles.map((file) => fs.readFileSync(file));
+  dependencyStatus = await runTtsx(["--cwd", root, "-P", "tools/runtime-negative/dependency/tsconfig.json", "tools/runtime-negative/dependency/src/dependency-entry.ts"]);
+  assert.equal(typeof dependencyStatus, "number");
+  assert.notEqual(dependencyStatus, 0, "the imported workspace project's own check must reject before the entry success effect");
+  for (let index = 0; index < dependencyFiles.length; index++)
+    assert.deepEqual(fs.readFileSync(dependencyFiles[index]), dependencyBytes[index]);
+  assert.equal(fs.existsSync(path.join(__dirname, "dependency/dependency-output")), false);
+  assert.equal(fs.existsSync(path.join(root, "tools/configured-owners/diagnostic/lib")), false);
 }).catch((error) => {
   process.stderr.write(String(error) + "\n");
   process.exitCode = 1;
@@ -53,5 +65,7 @@ process.once("beforeExit", () => {
   assert.deepEqual(signals.map((signal) => process.listenerCount(signal)), listeners, "all dispatcher signal listeners must settle before exit");
   assert.equal(fs.existsSync(path.join(root, "missing-entry.ts")), false);
   assert.ok(readonly, "the owned readonly transition must settle before the actor exits");
-  fs.writeFileSync(path.join(__dirname, "observed.json"), JSON.stringify({ statuses: completed, exitCode: process.exitCode, pid: process.pid, readonly, response }));
+  assert.equal(typeof dependencyStatus, "number");
+  assert.notEqual(dependencyStatus, 0);
+  fs.writeFileSync(path.join(__dirname, "observed.json"), JSON.stringify({ statuses: completed, exitCode: process.exitCode, pid: process.pid, readonly, response, dependencyStatus }));
 });

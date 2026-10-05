@@ -242,7 +242,7 @@ export namespace BatchWorkspace {
         ["batch-commonjs-lowering", "lowering"],
       ])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/export-population", directory!), path.join(modules, name!), "junction");
-      for (const [name, mode] of [["batch-configured-esnext", "esnext"], ["batch-configured-legacy", "legacy"]])
+      for (const [name, mode] of [["batch-configured-esnext", "esnext"], ["batch-configured-legacy", "legacy"], ["batch-configured-diagnostic", "diagnostic"]])
         fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));

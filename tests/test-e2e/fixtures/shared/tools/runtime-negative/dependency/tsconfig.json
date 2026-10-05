@@ -1,0 +1,1 @@
+{"compilerOptions":{"module":"CommonJS","target":"ES2022","strict":true,"skipLibCheck":true,"types":[],"noUnusedLocals":false,"rootDir":"src","outDir":"dependency-output"},"files":["src/dependency-entry.ts"]}
