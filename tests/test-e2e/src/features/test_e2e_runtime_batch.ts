@@ -90,9 +90,21 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     finally { fs.closeSync(descriptor); fs.unlinkSync(file); }
   };
   const base = path.join(workspace.root, "runtime-base.json");
+  const callerParent = path.join(workspace.cache, "runtime-caller");
+  const callerDirectory = path.join(callerParent, "isolated");
+  const relativeCache = path.relative(workspace.projectAlias, workspace.cache);
+  const wrongCallerCache = path.resolve(callerDirectory, relativeCache);
+  if (!workspace.installationOnly) {
+    assert.equal(path.isAbsolute(relativeCache), false);
+    assert.notEqual(wrongCallerCache, workspace.cache);
+    assert.equal(fs.existsSync(callerParent), false);
+    assert.equal(fs.existsSync(callerDirectory), false);
+    assert.equal(fs.existsSync(wrongCallerCache), false);
+    fs.mkdirSync(callerDirectory, { recursive: true });
+  }
   const selected = workspace.installationOnly ? [] : [
     "--cwd", workspace.projectAlias,
-    "--cache-dir", workspace.cache,
+    "--cache-dir", relativeCache,
     "-P", "runtime-owned.json",
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
@@ -112,7 +124,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       }
     }
     result = TestProject.spawn(process.execPath, [workspace.installedTtsx, ...selected, workspace.installationOnly ? "src/installation-runtime.ts" : "src/runtime.mts", ...(workspace.installationOnly ? [] : ["--config", "x", "--port", "3", "--help"])], {
-      cwd: workspace.root,
+      cwd: workspace.installationOnly ? workspace.root : callerDirectory,
       env: { TTSC_CACHE_DIR: workspace.cache, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined,
         TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary, TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
         TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx, TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias,
@@ -141,6 +153,16 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
+  if (!workspace.installationOnly) {
+    assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "relative-runner-cache").length, 1);
+    assert.equal(fs.existsSync(path.join(wrongCallerCache, "project")), false);
+    assert.equal(fs.existsSync(path.join(wrongCallerCache, "plugins")), false);
+    assert.equal(fs.existsSync(path.join(workspace.cache, "plugins")), true);
+    assert.equal(fs.existsSync(path.join(workspace.cache, "project")), true);
+    assert.deepEqual(fs.readdirSync(path.join(workspace.cache, "project")), []);
+    fs.rmdirSync(callerDirectory);
+    fs.rmdirSync(callerParent);
+  }
   assert.doesNotMatch(result.stderr, /TTSC_TEST_RUNTIME_BARREL_LOADED|TTSC_TEST_PATTERN_RUNTIME_LOADED/, "both bare and wildcard ttsc export conditions must avoid the throwing runtime entries");
   assert.doesNotMatch(result.stderr, /must-be-stripped/, "strip must compose with both native standard-decorator modules");
   const payload = BatchWorkspace.readPayload(result.stdout);

@@ -51,6 +51,7 @@ const configuredOwners = await observeConfiguredOwners();
 const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
+console.info("relative-runner-cache");
 console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
