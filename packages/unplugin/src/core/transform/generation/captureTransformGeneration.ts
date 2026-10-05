@@ -93,8 +93,10 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  *   population-sized, independent of the eight retained diagnostic witnesses.
  *   Enabled private tracing serializes actual invocation, proof premises,
  *   bounded failure witnesses and publication admission through the existing
- *   trace sink. Key lists and retained witness text contribute payload cost;
- *   a publication attempt does not establish that its store write completed.
+ *   trace sink. Key lists, collected walk failures/unstable keys and retained
+ *   tracker witnesses contribute payload cost; these diagnostic copies do not
+ *   repeat native proof. A publication attempt does not establish that its
+ *   store write completed.
  * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Snapshot and result storage grow with observed inputs/output bytes; native
@@ -724,6 +726,28 @@ export async function captureTransformGeneration(props: {
         configStateComplete: cached.configStateComplete,
         projectHeldStill: cached.projectHeldStill,
         walkStable,
+        projectWalk: {
+          before: {
+            complete: before.complete,
+            directoryComplete: before.directoryComplete,
+            unstableFiles: [...before.unstableFiles],
+            walkFailures: before.walkFailures,
+          },
+          after: {
+            complete: inputSnapshot.complete,
+            directoryComplete: inputSnapshot.directoryComplete,
+            unstableFiles: [...inputSnapshot.unstableFiles],
+            walkFailures: inputSnapshot.walkFailures,
+          },
+          tracker:
+            tracker === undefined
+              ? null
+              : {
+                  changes: [...tracker.changes],
+                  changesOmitted: tracker.changesOmitted,
+                  membershipChanged: tracker.membershipChanged,
+                },
+        },
         dependenciesProven: externalInputSnapshot.dependenciesProven,
         externalSnapshotComplete: externalInputSnapshot.complete,
         adoptionFailure: adoptionFailure ?? null,
