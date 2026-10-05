@@ -974,25 +974,6 @@ export namespace BatchWorkspace {
         resolveSourceBuildCachePaths(source, undefined, env).root,
         expected,
       );
-      const observedGoArguments = fs
-        .readFileSync(invocations, "utf8")
-        .trim()
-        .split(/\r?\n/)
-        .map((line) => JSON.parse(line) as string[]);
-      const longModuleFile = path
-        .join(dependency, "go.mod")
-        .replace(/\\/g, "/");
-      assert.ok(
-        observedGoArguments.some(
-          (args) =>
-            args[0] === "mod" &&
-            args.includes("-json") &&
-            args.some(
-              (argument) => argument.replace(/\\/g, "/") === longModuleFile,
-            ),
-        ),
-        "the actual Go metadata process must accept the deeply nested absolute module filename",
-      );
       const secondSource = path.join(container, "relocated");
       fs.cpSync(source, secondSource, {
         recursive: true,
@@ -1192,6 +1173,45 @@ export namespace BatchWorkspace {
           countBuilds(),
           6,
           "the replacement-to-workspace role transition has one distinct native build",
+        );
+        // Metadata reads the workspace's proven external copy. The prior
+        // replacement-only epochs do not read this dependency's go.mod.
+        const workspaceBuild = buildActions().at(-1);
+        assert.ok(workspaceBuild);
+        assert.equal(workspaceBuild.status, 0);
+        assert.equal(workspaceBuild.signal, null);
+        const observedGoArguments = fs
+          .readFileSync(invocations, "utf8")
+          .trim()
+          .split(/\r?\n/)
+          .map((line) => JSON.parse(line) as string[]);
+        const dependencyLayout = path.relative(
+          path.parse(dependency).root,
+          path.join(dependency, "go.mod"),
+        );
+        const externalCopies = path.join(workspaceBuild.cwd, ".ttsc", "external");
+        assert.ok(
+          observedGoArguments.some((args) => {
+            if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
+              return false;
+            const filename = args[3];
+            if (typeof filename !== "string" || !path.isAbsolute(filename))
+              return false;
+            const relative = path.relative(externalCopies, filename);
+            return (
+              filename.length > 180 &&
+              relative !== ".." &&
+              !relative.startsWith(".." + path.sep) &&
+              !path.isAbsolute(relative) &&
+              relative.endsWith(path.sep + dependencyLayout)
+            );
+          }),
+          "the actual workspace metadata process must accept its deeply nested absolute copied module filename: " +
+            JSON.stringify({
+              buildCwd: workspaceBuild.cwd,
+              dependencyLayout,
+              observedGoArguments,
+            }),
         );
         const dependencyModText = originalDependencyMod.toString("utf8");
         assert.ok(dependencyModText.includes("go 1.26.0"));
