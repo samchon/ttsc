@@ -24,7 +24,7 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
- * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn exactly once. Every remaining operation reads bytes or compares literal values; it invokes no legacy test or profile launcher.
+ * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload reuses one real installed-register Node actor after actual public API output capture; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Internal native compilation and both child lifetimes are explicit costs, not one-process or one-Program claims.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Default/explicit clean need no separate launcher. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
@@ -62,6 +62,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "--sourceMap", "false", "--inlineSourceMap",
     "-r", "./runtime-map-diagnostics.cjs",
     "-r", "./tools/native-source-borrower.cjs",
+    "-r", "./tools/runtime-declared-flow.cjs",
     "-r", "./tools/runtime-clean-flow.cjs",
   ];
   if (!workspace.installationOnly) fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
@@ -91,8 +92,22 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   for (const input of excludedInputs) assert.deepEqual(fs.readFileSync(input.file), input.bytes, "excluded alias delivery must preserve both authored sources");
   assert.deepEqual({ names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs }, installedDirectory);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts").length, 2);
+  assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "tool").length, 1);
   assert.doesNotMatch(result.stdout, /STALE tool\.js/);
-  const nativeReceipts = BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset);
+  const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
+    produced: string[]; registerStatus: number; registerPid: number; registerBefore: number; registerAfter: number;
+  };
+  assert.equal(declarationObservation.registerStatus, 0);
+  assert.ok(declarationObservation.registerPid > 0);
+  assert.ok(declarationObservation.produced.includes("types/runtime-corpus/native-factory.d.ts"));
+  assert.ok(declarationObservation.produced.includes("types/runtime-corpus/native-factory.d.ts.map"));
+  assert.ok(declarationObservation.produced.includes("state/app.tsbuildinfo"));
+  const allNativeReceipts = BatchWorkspace.readContextReceipts(workspace);
+  assert.ok(Number.isInteger(declarationObservation.registerBefore) && declarationObservation.registerBefore > receiptOffset);
+  assert.ok(Number.isInteger(declarationObservation.registerAfter) && declarationObservation.registerAfter > declarationObservation.registerBefore);
+  assert.equal(allNativeReceipts.length, declarationObservation.registerAfter, "every later native context must remain accounted for after the register actor closes");
+  const nativeReceipts = allNativeReceipts.slice(receiptOffset, declarationObservation.registerBefore);
+  BatchWorkspace.assertContextReceipts(allNativeReceipts.slice(declarationObservation.registerBefore, declarationObservation.registerAfter));
   BatchWorkspace.assertContextReceipts(nativeReceipts);
   assert.deepEqual(nativeReceipts.filter((receipt) => receipt.name === "native-auto-discovery"), [
     { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },

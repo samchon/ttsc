@@ -7,7 +7,6 @@ import path from "node:path";
 import { resolveSourceBuildCachePaths } from "../../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { canonicalCheckedOutputProfiles } from "../../../internal/ttsc/internal/runtime-canonical-checked-output-profiles";
 import { canonicalCommonJsOrphanProfiles } from "../../../internal/ttsc/internal/runtime-canonical-commonjs-orphan-profiles";
 import { canonicalDecoratorMapProfile } from "../../../internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile";
 import { runCanonicalRuntimeProfiles } from "../../../internal/ttsc/internal/runtime-canonical-profile-assembly";
@@ -606,11 +605,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),
         ...(includeLanguageProfiles ? canonicalResponseDecoratorProfiles() : []),
         ...(includeLanguageProfiles ? canonicalRuntimeLanguageProfiles() : []),
-        ...canonicalCheckedOutputProfiles(
-          {
-            declared: readProfile("output-declared-bytes"),
-          },
-        ),
       ]);
       failures.push(...runtime.failures);
       safeForCleanup = runtime.safeForCleanup;
