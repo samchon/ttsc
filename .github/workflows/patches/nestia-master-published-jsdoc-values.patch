@@ -62,3 +62,43 @@ index b5bb4abcc..a8efe19dd 100644
  		"finite":   `{"type":"string","x-finite":1.5}`,
  		"literal":  `{"const":null}`,
  		"union":    `{"oneOf":[{"const":null},{"const":1}]}`,
+diff --git a/packages/sdk/native/sdk/sdk_transform.go b/packages/sdk/native/sdk/sdk_transform.go
+--- a/packages/sdk/native/sdk/sdk_transform.go
++++ b/packages/sdk/native/sdk/sdk_transform.go
+@@ -10,7 +10,6 @@ import (
+ 	"reflect"
+ 	"sort"
+-	"strconv"
+ 	"strings"
+ 
+ 	shimast "github.com/microsoft/typescript-go/shim/ast"
+ 	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+@@ -24,6 +23,7 @@ import (
+ 	nativeiterate "github.com/samchon/typia/packages/typia/native/core/programmers/iterate"
+ 	nativejson "github.com/samchon/typia/packages/typia/native/core/programmers/json"
+ 	schemametadata "github.com/samchon/typia/packages/typia/native/core/schemas/metadata"
++	nativeutils "github.com/samchon/typia/packages/typia/native/core/utils"
+ )
+ 
+ type nestiaSDKSite struct {
+@@ -1052,6 +1052,7 @@ func nestiaSDKPropertySchemas(
+ // the way typia's object writer does (`json_schema_jsDocTags`, unexported):
+-// the first text part, trimmed, read as a boolean, a number, null, or else a
+-// string.
++// the first text part, trimmed, read as a boolean, a finite JavaScript number,
++// null, or else a string. Nonfinite and Go-only numeric text stays text under
++// the published typia 15.0.1 cast, matching component and decomposed schemas.
+ func nestiaSDKJsDocExtensions(schema nativeiterate.JsonSchema, tags []schemametadata.IJsDocTagInfo) {
+ 	for _, tag := range tags {
+ 		if strings.HasPrefix(tag.Name, "x-") == false {
+@@ -1064,8 +1065,8 @@ func nestiaSDKJsDocExtensions(schema nativeiterate.JsonSchema, tags []schemametadata
+ 			value := strings.ReplaceAll(strings.TrimSpace(text.Text), "\r\n", "\n")
+ 			if value == "true" || value == "false" {
+ 				schema[tag.Name] = value == "true"
+-			} else if number, err := strconv.ParseFloat(value, 64); err == nil {
+-				schema[tag.Name] = number
++			} else if reading := nativeutils.NumberUtil.Read(value); reading.Numeric && reading.Finite {
++				schema[tag.Name] = reading.Value
+ 			} else if value == "null" {
+ 				schema[tag.Name] = nil
+ 			} else {
