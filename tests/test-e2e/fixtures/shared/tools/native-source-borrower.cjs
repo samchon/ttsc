@@ -1,3 +1,7 @@
+// Node capability workers inherit -r. These mutations belong to the main
+// Runtime consumer; workers still run the product's runtime hooks.
+if (!require("node:worker_threads").isMainThread) return;
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");

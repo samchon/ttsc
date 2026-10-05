@@ -221,9 +221,16 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const goCacheB = path.join(apiRootB, "go-build");
     fs.mkdirSync(goCacheB, { recursive: true });
     fs.writeFileSync(path.join(goCacheB, "seed"), "go object\n");
-    assert.deepEqual(compilerB.clean(), [path.join(apiRootB, "plugins"), goCacheB]);
+    const descriptorCacheB = path.join(apiRootB, "descriptors");
+    assert.equal(fs.statSync(descriptorCacheB).isDirectory(), true, "actual descriptor evaluation publishes its owned cache before clean");
+    assert.notEqual(fs.readdirSync(descriptorCacheB).length, 0);
+    const unrelatedCacheB = path.join(apiRootB, "unowned-neighbor");
+    fs.writeFileSync(unrelatedCacheB, "preserve unrelated cache bytes\n");
+    assert.deepEqual(compilerB.clean(), [path.join(apiRootB, "plugins"), descriptorCacheB, goCacheB]);
     assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
+    assert.equal(fs.existsSync(descriptorCacheB), false);
     assert.equal(fs.existsSync(goCacheB), false);
+    assert.equal(fs.readFileSync(unrelatedCacheB, "utf8"), "preserve unrelated cache bytes\n");
   } finally {
     for (const target of ownedLegacy) {
       const sentinel = path.join(target, "public-clean-owned");

@@ -1,3 +1,6 @@
+// Observe the main Runtime's stack modules, not capability-worker loads.
+if (!require("node:worker_threads").isMainThread) return;
+
 const { findSourceMap, registerHooks } = require("node:module");
 const path = require("node:path");
 const { fileURLToPath } = require("node:url");

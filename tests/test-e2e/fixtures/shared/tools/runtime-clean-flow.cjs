@@ -1,3 +1,6 @@
+// Inherited preloads must not clean the main Runtime consumer's resources.
+if (!require("node:worker_threads").isMainThread) return;
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
