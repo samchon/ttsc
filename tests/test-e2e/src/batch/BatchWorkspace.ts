@@ -104,6 +104,10 @@ export namespace BatchWorkspace {
   export function assertContextReceipts(records: Record<string, unknown>[], prefix = "a:", orderedPrefix = "a:"): void {
     assert.ok(records.length > 0, "the actual native producer must admit configured entries");
     assert.equal(records.some((record) => record.name === "native-order-disabled"), false);
+    const automatic = records.filter((record) => record.name === "native-auto-discovery");
+    assert.ok(automatic.length > 0, "the package marker must select its real automatic native entry despite hidden package.json exports");
+    for (const record of automatic)
+      assert.deepEqual(record, { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null });
     const names = ["shared-real-program-probe", "native-order-prefix", "native-order-identity", "native-order-upper", "native-order-suffix"];
     const start = records.findIndex((record) => record.name === names[0] && record.prefix === prefix);
     assert.notEqual(start, -1, "the observed producer must receive the selected base configuration");
