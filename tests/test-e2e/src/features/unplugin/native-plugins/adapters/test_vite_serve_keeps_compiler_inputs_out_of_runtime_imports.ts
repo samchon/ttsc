@@ -10,6 +10,7 @@ import path from "node:path";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 
 /**
  * Verifies Vite serves and refreshes compiler-only inputs without resolving
@@ -23,8 +24,8 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * 2. Edit, remove, and restore its dependency without touching the consumer.
  * 3. Assert client/SSR invalidation, recovery, and restart on the same plugin.
  *
- * @evidence contracts/testing.md#behavioral-verification Client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED.
- * @evidence contracts/testing.md#independent-expectations Authored secret type literals fix output; a pre-resolver throws if compiler-only paths become runtime imports.
+ * @evidence contracts/testing.md#behavioral-verification Client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED. The selected prepared island also requires the actual native banner in SSR delivered code and calls its authored fail function through the same real module runner; exact original line/column and message must survive that generated-line shift.
+ * @evidence contracts/testing.md#independent-expectations Authored secret type literals fix output; a pre-resolver throws if compiler-only paths become runtime imports. positionOf reads the original new Error token rather than a source map or returned stack, and literal banner/message independently establish shift and executed throw.
  * @evidence contracts/testing.md#distinguishing-cases Client/SSR, node_modules declaration, non-module asset, delete/failure/recreate and server restart.
  * @evidence contracts/testing.md#execution-ownership Selected Vite invokes viteServeCorpus, which calls this body with its upfront island. One actual watching server, a real HMR client and a server restart own all client/SSR transitions above; no per-case native fixture is prepared.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
@@ -117,6 +118,19 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     events = await observeReloadEvents(server);
     for (const ssr of [false, true])
       assert.match((await request(ssr)).code, /INITIAL/);
+    if (preparedRoot !== undefined) {
+      const authored = fs.readFileSync(path.join(root, "src/main.ts"), "utf8");
+      const transformed = await request(true);
+      assert.match(transformed.code, /SSR attribution banner/);
+      const entry = await server.ssrLoadModule("/src/main.ts");
+      assert.equal(typeof entry.fail, "function");
+      let thrown: Error | undefined;
+      try { entry.fail(); } catch (error) { thrown = error as Error; }
+      assert.ok(thrown instanceof Error);
+      assert.equal(thrown.message, "authored");
+      const position = positionOf(authored, "new Error");
+      assert.match(thrown.stack ?? "", new RegExp(`main\\.ts:${position.line + 1}:${position.column + 1}\\b`));
+    }
     assert.equal(compilerResolutions, 0);
     const loaded = await nodes();
     for (const node of loaded) {

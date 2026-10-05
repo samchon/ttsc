@@ -10,14 +10,14 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * Restore watching and watcherless development generations on one upfront
  * island.
  *
- * @evidence contracts/testing.md#behavioral-verification Real Vite client/SSR requests preserve literal INITIAL/UPDATED/RECOVERED/RESTARTED, actual HMR recovery and zero runtime edges for compiler inputs; a later watch:null server returns unserved startup output after main changes.
+ * @evidence contracts/testing.md#behavioral-verification Real Vite client/SSR requests preserve literal INITIAL/UPDATED/RECOVERED/RESTARTED, actual HMR recovery and zero runtime edges for compiler inputs. The same watching server executes an independently positioned authored throw after a real two-line native banner and must map its exact line/column. A later watch:null server returns unserved startup output after main changes.
  * @evidence contracts/testing.md#independent-expectations Original helper assertions use authored Secret literals and a resolver rejecting compiler inputs. The watcherless source/result shape independently requires its original generation.
  * @evidence contracts/testing.md#distinguishing-cases Client/SSR, external declaration/asset, deletion/failure/recreation/restart and watcherless immutable generation remain distinct actual paths.
  * @evidence contracts/testing.md#execution-ownership Selected Vite calls this body after its build/broker/observer finish. Two server acquisitions and one actual watching-server restart share one upfront island and source producer; native preparation counts are unmeasured.
  * @evidence contracts/e2e.md#necessary-boundary Native adapter delivery, real Vite environment graphs, kernel subscriptions and HMR socket notifications must agree. Source coordinator units do not prove those assemblies.
  * @evidence contracts/e2e.md#shared-execution Watching transitions share one server until the required restart. watch:null needs a different startup mode and follows its actual closure on the same island; no per-transition fixture/install/host is created.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original bytes restore only after real HMR client/server closure; unknown close or restoration failure retains shared inputs and forbids the next server. Body and close failures stay errors. Compiler caches are never deleted to manufacture reuse.
- * @evidence contracts/e2e.md#preserved-coverage Connects original valid serve/HMR and watch:null startup-generation assertions. Banner-shifted SSR stack attribution and missing-candidate resolution races remain separate unproved coverage.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original valid serve/HMR, banner-shifted authored SSR line/column and watch:null startup-generation assertions. Missing-candidate resolution races remain separate unproved coverage. SSR adds a real request in the existing server, not another host or native probe.
  */
 export async function viteServeCorpus(
   workspace: BatchWorkspace.Workspace,
