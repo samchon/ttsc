@@ -113,6 +113,47 @@ for await (const line of createInterface({ input: process.stdin })) {
         if (previousMarker === undefined) delete process.env.TTSC_DESC_MARKER;
         else process.env.TTSC_DESC_MARKER = previousMarker;
       }
+      if (command.descriptorFlow.lint) {
+        const input = command.descriptorFlow.lint;
+        const mod = createRequire(import.meta.url)(input.factory);
+        const factory = mod.createTtscPlugin ?? mod.default ?? mod;
+        const config = path.join(input.root, "lint.config.ts");
+        const helper = path.join(input.root, "typed-selection.ts");
+        const moduleHelper = path.join(input.root, "module-selection.mjs");
+        const originalConfig = fs.readFileSync(config);
+        const originalHelper = fs.readFileSync(helper);
+        const originalModule = fs.readFileSync(moduleHelper);
+        const previousEnv = { TTSC_TTSX_BINARY: process.env.TTSC_TTSX_BINARY, TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY };
+        const context = (configFile) => ({ binary: "", cwd: input.root, projectRoot: input.root,
+          pluginConfigDir: input.root, tsconfig: path.join(input.root, "tsconfig.json"),
+          filename: input.factory, dirname: path.dirname(input.factory),
+          plugin: { transform: "@ttsc/lint", configFile } });
+        const observe = (name, configFile = "./lint.config.ts") => {
+          try { results.push({ name, failed: false, contributors: factory(context(configFile)).contributors ?? [] }); }
+          catch (error) { results.push({ name, failed: true, message: String(error?.message ?? error) }); }
+        };
+        try {
+          process.env.TTSC_TTSX_BINARY = input.ttsx;
+          process.env.TTSC_TSGO_BINARY = command.descriptorFlow.tsgo;
+          observe("lint-initial");
+          fs.writeFileSync(moduleHelper, `export default { beta: { source: ${JSON.stringify(input.beta)} } };\n`);
+          observe("lint-module-edit");
+          fs.writeFileSync(helper, `export default { beta: { source: ${JSON.stringify(input.beta)} } };\n`);
+          observe("lint-typed-edit");
+          fs.writeFileSync(config, `export default { plugins: { "react-hooks": { source: ${JSON.stringify(input.alpha)} }, react_hooks: { source: ${JSON.stringify(input.beta)} } } };\n`);
+          observe("lint-typed-collision");
+          fs.writeFileSync(config, 'declare const console: { log(value: string): void; error(value: string): void };\nconsole.log("failed config stdout");\nconsole.error("failed config stderr");\nthrow new Error("intentional config failure");\nexport {};\n');
+          observe("lint-typed-failure");
+          observe("lint-json-log", "./lint.config.json");
+        } finally {
+          fs.writeFileSync(config, originalConfig);
+          fs.writeFileSync(helper, originalHelper);
+          fs.writeFileSync(moduleHelper, originalModule);
+          for (const [key, value] of Object.entries(previousEnv)) {
+            if (value === undefined) delete process.env[key]; else process.env[key] = value;
+          }
+        }
+      }
       value = results;
       }
     } else value = await deliver(command.sourceSuffix, command.deliveredSource);

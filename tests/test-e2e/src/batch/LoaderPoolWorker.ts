@@ -15,6 +15,9 @@ export interface LoaderPoolOutcome {
  * of the current disk input, without changing the worker or compiler options. A
  * descriptorFlow command uses the same Node caller before adapter admission;
  * it does not start a worker and its evaluator attempts remain actual cost. A
+ * mixed lint input graph uses that same command and worker stdout/stderr to
+ * carry contributor results and joined logs; factory re-evaluations are actual
+ * internal calls, not a zero-cost or one-Program assertion. A
  * timeout refuses ownership resolution; it does not kill or certify release.
  *
  * @evidence contracts/testing.md#behavioral-verification The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
@@ -63,7 +66,7 @@ export function createLoaderPoolWorker(props: {
   }));
   void closed.catch(() => undefined);
   return {
-    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string; runtimeInputs?: { config: string; cache: string; nodePath: string } }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
+    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string; runtimeInputs?: { config: string; cache: string; nodePath: string }; lint?: { root: string; factory: string; ttsx: string; alpha: string; beta: string } }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
       const id = ++next;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: delivery remains unresolved: ${stderr}`)); }, 120_000);
       pending.set(id, { resolve, reject, timer });

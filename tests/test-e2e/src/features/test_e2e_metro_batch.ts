@@ -38,6 +38,14 @@ import { buildSourcePlugin, computeCacheKey, createFakeGoBinary, ensureExecutabl
  * certificate despite the fixture's explicit reports. Actual transformed source
  * membership and record inputs remain separate transport assertions; the direct
  * notifyWatchInputs unit owns complete/unmarked selection in one envelope.
+ * The same descriptor command advances one lint config graph through MJS
+ * helper and typed-helper edits, a typed namespace collision and a thrown
+ * config, then reads its logging JSON contributor. Six actual factory calls
+ * replace eight former calls and three outer capture processes. Their real
+ * evaluator/checked-load costs remain; no worker or request is added. Exact
+ * contributor arrays cross the strict JSON reply channel and joined stderr
+ * owns success/failure logs, with source/environment restoration before native
+ * adapter admission. CLI termination is not inferred from these caught errors.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -1942,6 +1950,21 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const descriptorFailureRoot = path.join(workspace.root, "descriptor-process-flow");
   assert.equal(fs.existsSync(descriptorFailureRoot), false);
   fs.cpSync(path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/ttsc/descriptor-process-corpus"), descriptorFailureRoot, { recursive: true });
+  const lintDescriptorRoot = path.join(descriptorFailureRoot, "lint-flow");
+  fs.cpSync(path.join(workspace.root, "descriptors/lint-flow"), lintDescriptorRoot, { recursive: true });
+  const lintAlpha = nativeProbe.fixtureSource as string;
+  const lintBeta = path.join(TestProject.WORKSPACE_ROOT, "packages/lint/plugin");
+  for (const filename of ["typed-selection.ts", "module-selection.mjs", "logging-contributor.cjs"]) {
+    const file = path.join(lintDescriptorRoot, filename);
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace('"__LINT_ALPHA_SOURCE__"', JSON.stringify(lintAlpha)));
+  }
+  const loggingPackage = path.join(lintDescriptorRoot, "node_modules/logging-contributor");
+  fs.mkdirSync(loggingPackage, { recursive: true });
+  fs.writeFileSync(path.join(loggingPackage, "package.json"), '{"main":"index.cjs"}\n');
+  fs.copyFileSync(path.join(lintDescriptorRoot, "logging-contributor.cjs"), path.join(loggingPackage, "index.cjs"));
+  fs.writeFileSync(path.join(lintDescriptorRoot, "lint.config.json"), JSON.stringify({ plugins: { demo: "logging-contributor" } }));
+  const lintDescriptorBytes = new Map(["lint.config.ts", "typed-selection.ts", "module-selection.mjs"].map((name) =>
+    [path.join(lintDescriptorRoot, name), fs.readFileSync(path.join(lintDescriptorRoot, name))]));
   const descriptorRuntimeRoot = path.join(descriptorFailureRoot, "runtime-inputs");
   const runtimeDescriptor = path.join(descriptorRuntimeRoot, "descriptor");
   const runtimeDescriptorConfig = path.join(runtimeDescriptor, "tsconfig.json");
@@ -1995,10 +2018,36 @@ export async function test_e2e_metro_batch(): Promise<void> {
     api: path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js"),
     binary: TestProject.NATIVE_BINARY,
     tsgo: TestProject.TSGO_BINARY,
+    lint: { root: lintDescriptorRoot, factory: path.join(TestProject.WORKSPACE_ROOT, "packages/lint/lib/index.js"),
+      ttsx: TestProject.TTSX_BIN, alpha: lintAlpha, beta: lintBeta },
   });
   assert.equal(descriptorReply.error, undefined);
-  const descriptorRecords = descriptorReply.value as { name: string; failed: boolean; message: string }[];
-  assert.deepEqual(descriptorRecords.map((record) => record.name), ["factory", "module", "counterfeit", "counterfeit-missing", "mutated-missing", "late-candidate-race", "directory-candidate-race", "context", "body"]);
+  const descriptorRecords = descriptorReply.value as { name: string; failed: boolean; message?: string; contributors?: { name: string; source: string }[] }[];
+  assert.deepEqual(descriptorRecords.map((record) => record.name), ["factory", "module", "counterfeit", "counterfeit-missing", "mutated-missing", "late-candidate-race", "directory-candidate-race", "context", "body",
+    "lint-initial", "lint-module-edit", "lint-typed-edit", "lint-typed-collision", "lint-typed-failure", "lint-json-log"]);
+  for (const [name, contributors] of [
+    ["lint-initial", [{ name: "alpha", source: lintAlpha }]],
+    ["lint-module-edit", [{ name: "beta", source: lintBeta }, { name: "alpha", source: lintAlpha }]],
+    ["lint-typed-edit", [{ name: "beta", source: lintBeta }]],
+    ["lint-json-log", [{ name: "demo", source: lintAlpha }]],
+  ] as const) {
+    const observed = descriptorRecords.find((row) => row.name === name);
+    assert.equal(observed?.failed, false, name + ": " + observed?.message);
+    assert.deepEqual(observed?.contributors, contributors, "actual helper-only re-evaluation and JSON package selection: " + name);
+  }
+  const lintCollision = descriptorRecords.find((row) => row.name === "lint-typed-collision");
+  assert.equal(lintCollision?.failed, true);
+  assert.equal(lintCollision?.contributors, undefined);
+  assert.ok(lintCollision?.message?.includes(path.join(lintDescriptorRoot, "lint.config.ts")));
+  assert.match(lintCollision?.message ?? "", /"react-hooks", "react_hooks" all normalize to "react_hooks"/);
+  assert.match(lintCollision?.message ?? "", /contributor namespaces collide/);
+  const lintFailure = descriptorRecords.find((row) => row.name === "lint-typed-failure");
+  assert.equal(lintFailure?.failed, true);
+  assert.equal(lintFailure?.contributors, undefined, "failed typed evaluation must not publish contributor JSON");
+  assert.match(lintFailure?.message ?? "", /intentional config failure/);
+  assert.match(lintFailure?.message ?? "", /evaluation failed with exit code/);
+  for (const [file, bytes] of lintDescriptorBytes) assert.deepEqual(fs.readFileSync(file), bytes,
+    "the retained worker restores its typed/MJS config epoch before adapter admission");
   assert.equal(fs.existsSync(path.join(descriptorFailureRoot, "forbidden-fallback.txt")), false);
   for (const [name, reason] of [
     ["factory", /factory-env:effective/], ["module", /module-initialization:loaded/],
@@ -2360,6 +2409,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
       try {
         assert.match(workers[0]!.diagnostics(), /DESCRIPTOR_STDOUT_MARKER loaded/);
         assert.equal(/factory-env:ambient|absent-ambient/.test(workers[0]!.diagnostics()), false);
+        const lintStderr = workers[0]!.diagnostics();
+        for (const marker of ["loading executable lint config", "executable lint config warning", "loading mjs lint config"])
+          assert.equal(lintStderr.split(marker).length - 1, 3, "each changed healthy graph retains its real evaluator log: " + marker);
+        for (const marker of ["loading JSON contributor", "JSON contributor warning", "failed config stdout", "failed config stderr"])
+          assert.equal(lintStderr.split(marker).length - 1, 1, "real package/failure logs survive only on the joined stderr channel: " + marker);
       } catch (error) { failures.push(error); }
       assert.equal(path.dirname(descriptorFailureRoot), workspace.root);
       fs.rmSync(descriptorFailureRoot, { recursive: true });
