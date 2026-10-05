@@ -15,26 +15,26 @@ type Profile = {
 };
 
 /**
- * Prepares five checked-output ownership profiles from exact authored maps.
+ * Prepares four remaining checked-output ownership profiles from exact authored maps.
  * Real runtime entry, public register, explicit compiler seed and
- * missing-output failure stay distinct. The original nine logical requests
+ * missing-output failure stay distinct. The remaining eight logical requests
  * borrow the canonical root, with the declared seed and three consumers
  * preserving their original options and checked outputs.
  *
  * @evidence contracts/common.md#principled-implementation Actual outputs, source-tree effects and owned missing-emit errors determine assertions; stale adjacent JavaScript must not supply execution.
- * @evidence contracts/common.md#clear-and-simple-design Five callbacks isolate installed package, excluded alias, declaration/build-info, stale neighbor and missing owned output behaviors.
+ * @evidence contracts/common.md#clear-and-simple-design Four callbacks isolate installed package, excluded alias, declaration/build-info, stale neighbor behaviors; the missing-owned failure now shares the selected Runtime lock-holder child.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No predicted output path or synthetic process result replaces real files and native commands. Only the assembler invocation holding namespace is outside the active-profile snapshot.
  * @evidence contracts/common.md#meaningful-documentation Documents original request counts, seed authority and borrowed alias capability without claiming unexecuted symlink coverage.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths and realpath compare a supplied actual alias with the consumer root; actual capability absence cannot certify divergence coverage.
  * @evidence contracts/performance.md#efficient-algorithms Filesystem snapshots hash B active-profile bytes and visit E entries, with O(B+E) work plus native command costs; holding unrelated completed canonical inputs is not active-profile data.
- * @evidence contracts/performance.md#reuse-equivalent-work The declared output seed is reused by three runtime consumers; original option vectors and main transports retain nine real requests.
+ * @evidence contracts/performance.md#reuse-equivalent-work The declared output seed is reused by three runtime consumers; original option vectors and main transports retain eight real requests.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The parent launcher handles completion and retention before profile moves. Exact input and output snapshots remain available across declared consumers.
  * @evidence contracts/testing.md#behavioral-verification Real status/output plus package entries/mtime, source emits, declared bytes and actionable missing-emit diagnostics verify the original effects.
  * @evidence contracts/testing.md#independent-expectations Literal output markers and originally authored file/path expectations define the oracle independently from produced artifacts.
  * @evidence contracts/testing.md#distinguishing-cases Installed package versus excluded source, declaration/build-info preservation, direct versus required stale neighbor and actual missing owned output contrast independently.
  * @evidence contracts/testing.md#execution-ownership The canonical parent owns the installed tool, optional alias and profile staging. Callbacks invoke actual TTSC/TTSX/Node register routes, not private runtime predictions.
  * @evidence contracts/e2e.md#necessary-boundary Public runtime loading must respect actual checked publication and missing-output failures; direct output inference cannot prove those connections.
- * @evidence contracts/e2e.md#shared-execution Five original consumer roots reuse one canonical root while retaining nine requests, including the explicit compiler seed and three declared consumers.
+ * @evidence contracts/e2e.md#shared-execution Four remaining consumer roots reuse one canonical root while retaining nine requests, including the explicit compiler seed and three declared consumers.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the invocation-owned holding namespace is excluded; every active profile input and output stays in its original snapshot scope. The actual alias is borrowed, not synthesized by a fake backend.
  * @evidence contracts/e2e.md#preserved-coverage All installed/no-source-emit/declaration-byte/stale-output/missing-emit assertions remain. Physical fallback reports no alias capability proof.
  */
@@ -44,7 +44,6 @@ export function canonicalCheckedOutputProfiles(
     excluded: Files;
     declared: Files;
     stale: Files;
-    missing: Files;
   },
   rootAlias?: string,
 ): Profile[] {
@@ -261,38 +260,6 @@ export function canonicalCheckedOutputProfiles(
           }
         }
         complete("stale neighbor output", failures);
-      },
-    },
-    {
-      name: "output-missing-owned",
-      files: inputs.missing,
-      run(root, _persistent, spawn): void {
-        const failures: unknown[] = [];
-        const result = spawn(
-          TestProject.TTSX_BIN,
-          ["--cwd", root, "src/main.ts"],
-          {
-            cwd: root,
-          },
-        );
-        if (result) {
-          collect(failures, () => assert.equal(result.error, undefined));
-          collect(failures, () => assert.equal(result.signal, null));
-          collect(failures, () => assert.notEqual(result.status, null));
-          collect(failures, () =>
-            assert.notEqual(result.status, 0, result.stdout),
-          );
-          collect(failures, () =>
-            assert.match(
-              result.stderr,
-              /the JavaScript emitted for .*lazy\.ts is missing: .*lazy\.js/,
-            ),
-          );
-          collect(failures, () =>
-            assert.doesNotMatch(result.stdout, /lazy ran/),
-          );
-        }
-        complete("missing owned output", failures);
       },
     },
   ];

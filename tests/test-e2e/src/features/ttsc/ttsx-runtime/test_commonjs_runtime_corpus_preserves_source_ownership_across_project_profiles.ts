@@ -633,7 +633,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
             excluded: readProfile("output-excluded-link"),
             declared: readProfile("output-declared-bytes"),
             stale: readProfile("output-stale-neighbor"),
-            missing: readProfile("output-missing-owned"),
           },
           rootAlias,
         ),

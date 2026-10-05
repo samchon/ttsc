@@ -30,14 +30,29 @@ try {
     path.join(fs.realpathSync.native(root), "node_modules/.cache/ttsc"), "the declared workspace keeps this cleanup in its own native boundary");
   fs.mkdirSync(runtime, { recursive: true });
   const lockDirectory = fs.realpathSync.native(runtime) + ".lock";
-  const seed = spawnSync(process.execPath, [path.join(__dirname, "runtime-lock-seed.cjs")], {
-    cwd: root, encoding: "utf8", windowsHide: true,
-    env: { ...process.env, TTSC_E2E_LOCK_DIRECTORY: lockDirectory,
-      TTSC_E2E_LOCK_IMPLEMENTATION: path.join(launcher, "internal/runtime/acquireDependencyBuildLock.js") },
-  });
+  const { RuntimeManifestRegistry } = require(path.join(launcher, "internal/runtime/RuntimeManifestRegistry.js"));
+  const missingSource = fs.realpathSync.native(path.join(__dirname, "../src/runtime-corpus/owned-lazy.cts"));
+  const owned = RuntimeManifestRegistry.findEntryEmit(missingSource);
+  assert.ok(owned, "the shared prepared Program must own the lazy module's actual output");
+  const ownedBytes = fs.readFileSync(owned.emittedFile);
+  let seed;
+  try {
+    fs.unlinkSync(owned.emittedFile);
+    seed = spawnSync(process.execPath, [path.join(__dirname, "runtime-lock-seed.cjs")], {
+      cwd: root, encoding: "utf8", windowsHide: true,
+      env: { ...process.env, TTSC_E2E_LOCK_DIRECTORY: lockDirectory,
+        TTSC_E2E_MISSING_OWNED_SOURCE: missingSource,
+        TTSC_E2E_LOCK_IMPLEMENTATION: path.join(launcher, "internal/runtime/acquireDependencyBuildLock.js") },
+    });
+  } finally {
+    fs.writeFileSync(owned.emittedFile, ownedBytes);
+  }
   assert.equal(seed.error, undefined);
   assert.equal(seed.signal, null);
-  assert.equal(seed.status, 0, seed.stderr);
+  assert.equal(seed.status, 1, seed.stderr);
+  assert.equal(seed.stdout.trim(), "holder-acquired");
+  assert.match(seed.stderr, /the JavaScript emitted for .*owned-lazy\.cts is missing: .*owned-lazy\.cjs/);
+  assert.doesNotMatch(seed.stdout, /lazy ran/);
   assert.equal(typeof seed.pid, "number");
   assert.ok(seed.pid > 0);
   assert.throws(() => process.kill(seed.pid, 0), (error) => error.code === "ESRCH", "an actual exited holder must be distinguished from a live or reused PID");
@@ -65,7 +80,7 @@ try {
   assert.equal(malformedRemoved, true);
   fs.writeFileSync(path.join(root, "observed.json"), JSON.stringify({
     defaultStatus, explicitStatus, deadHolderRecovered, legacyKept, malformedKept,
-    explicitRemoved: legacyRemoved && malformedRemoved, seed: { pid: seed.pid, status: seed.status, signal: seed.signal },
+    explicitRemoved: legacyRemoved && malformedRemoved, seed: { pid: seed.pid, status: seed.status, signal: seed.signal, missingOwned: true },
   }));
 } finally {
   for (const name of Object.keys(environment)) {
