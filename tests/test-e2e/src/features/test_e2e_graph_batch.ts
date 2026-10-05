@@ -5,11 +5,14 @@ import path from "node:path";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertGraphDispatchCorpus } from "../batch/graphDispatchCorpus";
-import { assertGraphIdentityCorpus, prepareGraphIdentityCorpus } from "../batch/graphIdentityCorpus";
 import {
   assertGraphEncodedCorpus,
   writeGraphEncodedInputs,
 } from "../batch/graphEncodedCorpus";
+import {
+  assertGraphIdentityCorpus,
+  prepareGraphIdentityCorpus,
+} from "../batch/graphIdentityCorpus";
 import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
 import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
 import { assertGraphReadonlyCorpus } from "../batch/graphReadonlyCorpus";
@@ -125,13 +128,22 @@ export async function test_e2e_graph_batch(): Promise<void> {
       ["reverse", () => assertGraphReverseCorpus(client)],
       ["MCP", () => assertGraphMcpCorpus(client, initialization)],
       ["tour", () => assertGraphTourInputCorpus(client)],
-      ["native shape", () => assertGraphNativeShapeCorpus(client, workspace.root)],
+      [
+        "native shape",
+        () => assertGraphNativeShapeCorpus(client, workspace.root),
+      ],
       ["refresh", () => assertGraphRefreshCorpus(client, workspace.root)],
       ["encoding", () => assertGraphEncodedCorpus(client, workspace.root)],
-      ["package identity", () => assertGraphIdentityCorpus(client, workspace.root)],
+      [
+        "package identity",
+        () => assertGraphIdentityCorpus(client, workspace.root),
+      ],
     ] as const) {
-      try { await operation(); }
-      catch (cause) { failures.push(new Error(name, { cause })); }
+      try {
+        await operation();
+      } catch (cause) {
+        failures.push(new Error(name, { cause }));
+      }
     }
     const response = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
@@ -1541,8 +1553,9 @@ export async function test_e2e_graph_batch(): Promise<void> {
       assert.equal(omittedHop.result!.hops.length, 4);
       assert.equal(omittedHop.result!.truncated, true);
     }
-  } catch (error) { failures.push(error); }
-  finally {
+  } catch (error) {
+    failures.push(error);
+  } finally {
     try {
       client.endStdin();
       assert.equal(await client.waitForExit(), 0, client.stderrText());
@@ -1550,9 +1563,12 @@ export async function test_e2e_graph_batch(): Promise<void> {
       restoreIdentity();
     } catch (error) {
       failures.push(error);
-      BatchWorkspace.retain("Graph identity epoch could not be restored after verified native closure");
+      BatchWorkspace.retain(
+        "Graph identity epoch could not be restored after verified native closure",
+      );
     }
   }
   if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) throw new AggregateError(failures, "Graph corpus and lifetime failures");
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Graph corpus and lifetime failures");
 }
