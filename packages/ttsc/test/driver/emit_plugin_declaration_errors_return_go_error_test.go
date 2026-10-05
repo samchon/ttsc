@@ -25,7 +25,7 @@ import (
 //    content and the write policy without publishing the callback's output.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformers on an actual declaration-invalid class for both noEmitOnError values, asserting PluginEmitError, exactly TS4094, declaration error context, unbuffered callback JavaScript with the exported class/private-member initializer, withheld buffered writes and unchanged source. Callback capture is not native host or manifest publication.
-// @evidence contracts/testing.md#independent-expectations An exported anonymous class with private member independently owes TS4094; literal code and configured noEmitOnError define failure and write expectations.
+// @evidence contracts/testing.md#independent-expectations An exported anonymous class with private member independently owes TS4094; literal code and configured noEmitOnError define failure and write expectations. The pinned CommonJS transform preserves the named value declaration for a class initializer before assigning that same binding to exports; independent source names and initializer value define the three JavaScript assertions.
 // @evidence contracts/testing.md#distinguishing-cases Both write-policy modes preserve the failing typed error while toggling callback delivery; the false lane retains JavaScript despite declaration failure, the true lane delivers nothing, and neither callback writes artifacts to disk. Native host publication and manifest suppression remain caller-owned.
 // @evidence contracts/testing.md#execution-ownership Each named owning driver Go unit runs actual compiler and emitter APIs against private input with deferred Program close; no native executable or consumer install occurs.
 func TestEmitPluginDeclarationErrorsReturnGoError(t *testing.T) {
@@ -54,7 +54,10 @@ func TestEmitPluginDeclarationErrorsReturnGoError(t *testing.T) {
       }
       if !noEmitOnError {
         javascript, found := pending[filepath.Join(root, "lib", "index.js")]
-        if !found || !strings.Contains(javascript, "exports.value = class") || !strings.Contains(javascript, "this.hidden = 1;") {
+        classStart := strings.Index(javascript, "const value = class")
+        initializer := strings.Index(javascript, "this.hidden = 1;")
+        exportedBinding := strings.Index(javascript, "exports.value = value;")
+        if !found || classStart < 0 || initializer <= classStart || exportedBinding <= initializer {
           t.Fatalf("declaration failure lost the independently expected JavaScript: %q", javascript)
         }
       }
