@@ -13,6 +13,8 @@ const inputs = new Map([
   "runtime-declared.json", "runtime-base.json", "runtime-owned.json",
   "src/runtime-corpus/native-factory.ts", "src/runtime-corpus/excluded-owner.ts",
   "src/runtime-corpus/declared-owned.cts", "src/runtime-corpus/declaration-entry.cts",
+  "tools/configured-owners/legacy/tsconfig.json", "tools/configured-owners/legacy/src/register-entry.tsx",
+  "tools/configured-owners/legacy/src/register-view.tsx",
   "src/runtime-corpus/descendant-lazy.cts", "tools/runtime-descendant/worker.cjs",
   "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
   "tools/native-emission/tsconfig.json", "tools/native-emission/banner.config.json",
@@ -121,8 +123,8 @@ assert.equal(rejected.status, 2, rejected.stderr);
 assert.ok(rejected.pid > 0);
 try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure remained unresolved"); }
 catch (error) { if (error.code !== "ESRCH") throw error; }
-const readonlyActive = process.env.TTSC_E2E_READONLY_ROOT !== undefined;
-assert.equal(rejected.stdout.trim(), readonlyActive ? "read-only-ran\nincluded-ran" : "", "only the two included readonly transitions may produce stdout");
+const readonlyActive = process.env.TTSC_E2E_READONLY_DENIED === "1";
+assert.equal(rejected.stdout.trim(), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
 assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)(?:ran|outside-ran)(?:\r?\n|$)/, "neither the refused JavaScript entry nor the excluded typed entry may execute");
 assert.match(rejected.stderr, /-r requires a value/);
 assert.match(rejected.stderr, /ttsx: entry not found:/);
@@ -130,6 +132,7 @@ assert.match(rejected.stderr, /missing-entry\.ts/);
 for (const option of ["--project", "--no-plugins", "--strict", "@tools/runtime-negative/args.txt"])
   assert.ok(rejected.stderr.split(/\r?\n/).some((line) => line.includes("ttsx:") && line.includes(option)), "the actual JavaScript refusal must name " + option);
 assert.match(rejected.stderr, /script\.js is JavaScript/);
+assert.match(rejected.stderr, /TS6046/);
 if (readonlyActive) {
   assert.match(rejected.stderr, /is not writable/);
   assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
@@ -137,7 +140,8 @@ if (readonlyActive) {
 }
 assert.deepEqual(JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8")),
   { statuses: [2, 2], exitCode: 2, pid: rejected.pid,
-    readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] } });
+    readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] },
+    response: { statuses: [0, 0, 2] } });
 assert.equal(receiptCount(), registerBefore, "frontend refusals and plugin-free readonly calls must not execute a context-reporting fixture contributor; this is not a raw compiler/Program count");
 unchanged();
 const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
@@ -169,7 +173,7 @@ try {
   delete env.TTSC_CACHE_DIR;
   env.TEMP = env.TMP = env.TMPDIR = temporary;
   registered = spawnSync(process.execPath,
-    ["--require", path.join(launcher, "../register.js"), path.join(root, "src/runtime-corpus/declaration-entry.cts")],
+    ["--require", path.join(launcher, "../register.js"), path.join(root, "tools/configured-owners/legacy/src/register-entry.tsx")],
     { cwd: root, env, encoding: "utf8", windowsHide: true });
 } finally {
   fs.unlinkSync(configuration);
@@ -196,7 +200,7 @@ try {
   assert.equal(registered.status, 0, registered.stderr);
   assert.ok(registered.pid > 0);
   assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
-  assert.equal(registered.stdout.trim(), 'lowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
+  assert.equal(registered.stdout.trim(), 'TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>\nlowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
   assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
   assert.ok(childReport, "the actual registered parent must publish its owned child identity");

@@ -10,14 +10,12 @@ import { TtscCompiler } from "../../../../../../packages/ttsc/lib/index.js";
 
 import { test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host } from "../../../features/ttsc/ttsx-runtime/node-compatibility/test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host";
 import { test_ttsx_runs_a_nodenext_dual_format_dependency_graph } from "../../../features/ttsc/ttsx-runtime/test_ttsx_runs_a_nodenext_dual_format_dependency_graph";
-import { test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration } from "../../../features/ttsc/ttsx-runtime/test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration";
 import { test_ttsx_and_ttsc_follow_a_forwarded_root_dir } from "../../../features/ttsc/ttsx-runtime/test_ttsx_and_ttsc_follow_a_forwarded_root_dir";
 import { runRuntimeSignalSessions, runtimeSignalProgram } from "../../../features/ttsc/ttsx-runtime/test_ttsx_forwards_termination_signals_and_cleans_up_on_posix";
 
 import { FixtureFiles } from "../../FixtureFiles";
 import type { runCanonicalRuntimeProfiles } from "./runtime-canonical-profile-assembly";
 import { STANDARD_DECORATOR_OUTPUT, STANDARD_DECORATOR_SOURCE } from "./ttsx-decorators";
-import { JSX_COMPONENT_OUTPUT, JSX_COMPONENT_SOURCE, JSX_RUNTIME_PACKAGE } from "./ttsx-jsx";
 import { MOCHA_BIN, TTSX_REGISTER, linkTtscPackage } from "./ttsx-register";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 import { spawnNodeWorker } from "./source-build";
@@ -31,7 +29,9 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * compiler/register/launcher transport and independent literal observations.
  * The existing parent already combines suppression, relative cache placement,
  * fork rescue/owned close, dependency publication, both installation cache
- * boundaries and readonly stages. These callbacks do not repeat their hosts.
+ * boundaries. Readonly, successful JSX register/forwarding and native target
+ * response controls now belong to the selected Runtime's upfront graphs;
+ * these callbacks no longer stage their separate projects or launchers.
  *
  * @evidence contracts/common.md#principled-implementation Original byte snapshots and actual ordinary emit, runtime and public preload calls determine outcomes; compiler emission or effects are not simulated.
  * @evidence contracts/common.md#clear-and-simple-design Publication, rejection, option, package-export and JSX/member profiles share the existing staging owner and fixture constants, keeping incompatible configs separate.
@@ -44,7 +44,7 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, maxFunctionCount, physicalRea
  * @evidence contracts/testing.md#behavioral-verification Four ordinary emits preserve decorator syntax while runtime effects and source/config/output bytes remain exact; ESM member effects and public JSX registration/CLI outputs retain their complete original literals.
  * @evidence contracts/testing.md#independent-expectations Authored decorator/member fixture strings and JSX HTML determine output; captured ordinary compiler bytes establish nonmutation independently of runtime emission.
  * @evidence contracts/testing.md#distinguishing-cases ESNext/CommonJS TS and NodeNext MTS/CTS, ESM member initialization, public JSX registration/CLI, invalid decorator/missing library/invalid target rejection, config versus forwarded target, explicit library DOM absence and computed package exports are separate profiles.
- * @evidence contracts/testing.md#execution-ownership Consolidated Runtime explicitly selects these callbacks; original standalone donors remain unchanged. Remaining profiles call maintained public tools; the selected shared Runtime now owns the removed early-refusal bootstrap.
+ * @evidence contracts/testing.md#execution-ownership The inactive legacy corpus selects remaining callbacks; their unretired donors keep their transports. The selected shared Runtime owns the removed early-refusal bootstrap, successful JSX register/forwarding and native target response controls. Remaining profiles are not claimed consolidated merely because this array exists.
  * @evidence contracts/e2e.md#necessary-boundary Ordinary publication versus transient runtime, ESM bootstrap, and public register/CLI JSX transport require real compiler and Node connections beyond emission-policy units.
  * @evidence contracts/e2e.md#shared-execution Up to one hundred one original roots become staged configurations on the one canonical allocation; up to one hundred sixty-four authored public/worker requests plus two bounded departed-owner setup sequences remain separate authored calls whose actual process and Program costs await remote measurement. Linked run-index descriptor retarget keeps fresh original/victim indices beneath the existing external input island and its one negative host; unresolved launch or failed alias removal retains those inputs and aborts reuse. Flat and nested check-only inputs retain separate inferred-root requests and both source-adjacent emit absence checks; they reuse the canonical allocation only after the prior graph is held. The POSIX failure memo profile records all actual native argv while its single failed project emit count excludes enabled terminal config/source-list inspections; their process costs remain measured. The compiled owner preload uses three original Node lifetimes for existing-run admission, missing-run rejection and empty-manifest independence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The existing assembler holds previous input/output/cache aliases, preserving each immutable profile and blocking transitions after unknown launches. Ordinary build and runtime share one profile so captured publication is never replaced between assertions.
@@ -55,40 +55,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
   // One tracked external island keeps physical targets outside the consumer
   // config ancestry; an in-root holding path would change orphan discovery.
   const linkedInputs = TestProject.tmpdir("ttsx-shared-external-file-inputs-");
-  const preserveConfig = JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "preserve", jsxImportSource: "myjsx", outDir: "lib", types: [] }, include: ["src"] });
-  profiles.push({
-    name: "jsx-public-preserve-register",
-    files: {
-      ...JSX_RUNTIME_PACKAGE,
-      "package.json": JSON.stringify({ name: "preserved-jsx", private: true }),
-      "tsconfig.json": preserveConfig,
-      "src/view.tsx": JSX_COMPONENT_SOURCE,
-      "src/main.tsx": ['import { view } from "./view";', "console.log(view);", ""].join("\n"),
-    },
-    run: (root, _persistent, spawn) => {
-      linkTtscPackage(root);
-      const result = spawn(process.execPath, ["--require", TTSX_REGISTER, "src/main.tsx"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), JSX_COMPONENT_OUTPUT);
-      assert.equal(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"), preserveConfig);
-    },
-  });
-  profiles.push({
-    name: "jsx-automatic-and-forwarded-preserve",
-    files: {
-      ...JSX_RUNTIME_PACKAGE,
-      "package.json": JSON.stringify({ name: "forwarded-jsx", private: true }),
-      "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react-jsx", jsxImportSource: "myjsx", outDir: "lib", types: [] }, include: ["src"] }),
-      "src/main.tsx": [JSX_COMPONENT_SOURCE, "console.log(view);", ""].join("\n"),
-    },
-    run: (root, _persistent, spawn) => {
-      for (const flags of [[], ["--jsx", "preserve"]]) {
-        const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, ...flags, "src/main.tsx"], { cwd: root });
-        assert.equal(result.status, 0, `${flags.join(" ")}: ${result.stderr}`);
-        assert.equal(result.stdout.trim(), JSX_COMPONENT_OUTPUT);
-      }
-    },
-  });
   for (const [index, row] of [
     { options: {}, args: [], source: 'function invalid() { return 42; }\n@invalid\nclass Foo {}\nconsole.log("executed");', diagnostic: /TS1329/ },
     { options: { lib: [] }, args: [], source: STANDARD_DECORATOR_SOURCE, diagnostic: /TS2318/ },
@@ -2130,20 +2096,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     files: FixtureFiles.read("ttsc/ttsx_and_ttsc_follow_a_forwarded_root_dir/inputs-1"),
     run: (root, _persistent, spawn) => {
       test_ttsx_and_ttsc_follow_a_forwarded_root_dir({ root, spawn });
-    },
-  });
-  profiles.push({
-    name: "response-file-preserved-jsx-executes-automatic-runtime",
-    files: {
-      ...JSX_RUNTIME_PACKAGE,
-      "jsx.rsp": "--jsx preserve\n",
-      "package.json": JSON.stringify({ name: "jsx-modes", private: true }),
-      "tsconfig.json": TestProject.tsconfig({ target: "ES2022", module: "commonjs", strict: true, outDir: "lib", types: [], jsx: "react-jsx", jsxImportSource: "myjsx" }),
-      "src/view.tsx": JSX_COMPONENT_SOURCE,
-      "src/main.tsx": 'import { view } from "./view";\nconsole.log(view);\n',
-    },
-    run: (root, _persistent, spawn) => {
-      test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration({ root, spawn });
     },
   });
   profiles.push({

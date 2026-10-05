@@ -9,7 +9,6 @@ import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isO
 import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { canonicalDecoratorMapProfile } from "../../../internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile";
 import { runCanonicalRuntimeProfiles } from "../../../internal/ttsc/internal/runtime-canonical-profile-assembly";
-import { canonicalResponseDecoratorProfiles } from "../../../internal/ttsc/internal/runtime-canonical-response-decorator-profiles";
 import { canonicalRuntimeLanguageProfiles } from "../../../internal/ttsc/internal/runtime-canonical-language-profiles";
 import {
   prepareNativeDependencyPublicationCorpus,
@@ -557,7 +556,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
           },
         },
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),
-        ...(includeLanguageProfiles ? canonicalResponseDecoratorProfiles() : []),
         ...(includeLanguageProfiles ? canonicalRuntimeLanguageProfiles() : []),
       ]);
       failures.push(...runtime.failures);
