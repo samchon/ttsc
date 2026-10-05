@@ -92,11 +92,13 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  *   Both snapshots, proof maps, unions and enumerated-directory set are
  *   population-sized, independent of the eight retained diagnostic witnesses.
  *   Enabled private tracing serializes actual invocation, proof premises,
- *   bounded failure witnesses and publication admission through the existing
- *   trace sink. Key lists, collected walk failures/unstable keys and retained
+ *   bounded failure witnesses, tracker roles, release outcomes and publication
+ *   admission through the existing trace sink. Key lists, collected walk
+ *   failures/unstable keys and retained
  *   tracker witnesses contribute payload cost; these diagnostic copies do not
  *   repeat native proof. A publication attempt does not establish that its
- *   store write completed.
+ *   store write completed; a resource-release return does not certify every
+ *   backend close or any OS descendant's termination.
  * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Snapshot and result storage grow with observed inputs/output bytes; native
@@ -195,6 +197,7 @@ export async function captureTransformGeneration(props: {
     | undefined;
   let captured: TtscCachedProjectTransform | undefined;
   let captureFailed = false;
+  const compileTrace = traceInvocation();
   try {
     if (props.retainProjectMembership) {
       try {
@@ -283,6 +286,23 @@ export async function captureTransformGeneration(props: {
           primedPolicy,
         )
       : undefined;
+    compileTrace?.("bridge-tracker-lifecycle", {
+      pid: process.pid,
+      cwd: projectRoot,
+      data: {
+        phase: "before-compile-or-adoption",
+        role: "project",
+        constructed: tracker !== undefined,
+        tracker:
+          tracker === undefined
+            ? null
+            : {
+                changes: [...tracker.changes],
+                changesOmitted: tracker.changesOmitted,
+                membershipChanged: tracker.membershipChanged,
+              },
+      },
+    });
     // Plugin-only paths carry no recorded compiler-time reads. Capture their
     // precompile endpoints for postcompile admission comparisons; matching
     // endpoints do not independently certify every intervening state
@@ -335,7 +355,6 @@ export async function captureTransformGeneration(props: {
     // never touched (samchon/ttsc#1488), and the host keeps serving other work
     // while it runs (samchon/ttsc#1391).
     let result: ITtscCompilerTransformation;
-    const compileTrace = traceInvocation();
     if (adopted !== undefined) {
       result = adopted.result;
       compileTrace?.("bridge-cache-hit", {
@@ -477,6 +496,23 @@ export async function captureTransformGeneration(props: {
             }),
           )
         : undefined;
+    compileTrace?.("bridge-tracker-lifecycle", {
+      pid: process.pid,
+      cwd: projectRoot,
+      data: {
+        phase: "after-envelope",
+        role: "host",
+        constructed: hostInputTracker !== undefined,
+        tracker:
+          hostInputTracker === undefined
+            ? null
+            : {
+                changes: [...hostInputTracker.changes],
+                changesOmitted: hostInputTracker.changesOmitted,
+                membershipChanged: hostInputTracker.membershipChanged,
+              },
+      },
+    });
     // The candidates and the directories carrying them get their own tracker,
     // listening for renames alone. Every event that can make one of these
     // paths appear is a rename — the file itself, or a component of the path
@@ -508,6 +544,23 @@ export async function captureTransformGeneration(props: {
             ),
           )
         : undefined;
+    compileTrace?.("bridge-tracker-lifecycle", {
+      pid: process.pid,
+      cwd: projectRoot,
+      data: {
+        phase: "after-envelope",
+        role: "candidate",
+        constructed: candidateTracker !== undefined,
+        tracker:
+          candidateTracker === undefined
+            ? null
+            : {
+                changes: [...candidateTracker.changes],
+                changesOmitted: candidateTracker.changesOmitted,
+                membershipChanged: candidateTracker.membershipChanged,
+              },
+      },
+    });
     const inputSnapshot = collectProjectInputSnapshot(
       projectRoot,
       identities,
@@ -858,18 +911,52 @@ export async function captureTransformGeneration(props: {
   } finally {
     // Waiters must never block on a lock whose holder threw.
     sharedClaim?.release();
-    await releaseCaptureResources({
-      project: tracker,
-      host: hostInputTracker,
-      candidate: candidateTracker,
-      retainProject: retainTracker,
-      retainHost: retainHostInputTracker,
-      retainCandidate: retainCandidateTracker,
-      scratchDirectory,
-      clockReferenceDirectory,
-      retainClockReference: retainClockReferenceDirectory,
-      captureFailed,
+    compileTrace?.("bridge-resource-release", {
+      pid: process.pid,
+      cwd: projectRoot,
+      data: {
+        outcome: "calling",
+        constructed: {
+          project: tracker !== undefined,
+          host: hostInputTracker !== undefined,
+          candidate: candidateTracker !== undefined,
+        },
+        retainProject: retainTracker,
+        retainHost: retainHostInputTracker,
+        retainCandidate: retainCandidateTracker,
+        clockReferenceDirectory,
+        retainClockReference: retainClockReferenceDirectory,
+        captureFailed,
+      },
     });
+    try {
+      await releaseCaptureResources({
+        project: tracker,
+        host: hostInputTracker,
+        candidate: candidateTracker,
+        retainProject: retainTracker,
+        retainHost: retainHostInputTracker,
+        retainCandidate: retainCandidateTracker,
+        scratchDirectory,
+        clockReferenceDirectory,
+        retainClockReference: retainClockReferenceDirectory,
+        captureFailed,
+      });
+      // A return is not a certificate that every backend close succeeded:
+      // release preserves an earlier capture error over cleanup errors.
+      compileTrace?.("bridge-resource-release", {
+        pid: process.pid,
+        cwd: projectRoot,
+        data: { outcome: "returned", captureFailed },
+      });
+    } catch (error) {
+      compileTrace?.("bridge-resource-release", {
+        pid: process.pid,
+        cwd: projectRoot,
+        data: { outcome: "threw", captureFailed },
+      });
+      throw error;
+    }
   }
   if (captured === undefined) {
     throw new Error("ttsc: transform generation capture produced no result");
