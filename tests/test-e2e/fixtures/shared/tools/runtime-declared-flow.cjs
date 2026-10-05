@@ -67,18 +67,36 @@ const nativeConfigFile = path.join(nativeProject, "tsconfig.json");
 const nativeConfiguration = fs.readFileSync(nativeConfigFile);
 const nativeOptions = JSON.parse(nativeConfiguration);
 const rootEntries = JSON.parse(fs.readFileSync(path.join(root, "runtime-base.json"), "utf8")).compilerOptions.plugins;
+// Reporting is scoped to the Program that this dispatch actually loads. The
+// shared root's bundle/map inputs do not belong to this nested source owner.
+const emissionReports = {
+  reportedFiles: ["src/main.ts", "src/lib/value.ts", "src/package-entry.ts"],
+  reportedDependencies: [
+    "src/main.ts", "src/lib/value.ts", "src/package-entry.ts",
+    nativeConfigFile, path.join(nativeProject, "banner.config.json"),
+    path.join(root, "config/strip.config.json"),
+  ],
+};
 nativeOptions.compilerOptions.plugins = rootEntries.map((entry) => ({
   ...entry,
+  ...(Object.hasOwn(entry, "reportedFiles") ? emissionReports : {}),
   transform: typeof entry.transform === "string" && entry.transform.startsWith(".") ? path.resolve(root, entry.transform) : entry.transform,
   ...(typeof entry.configFile === "string" ? { configFile: entry.transform === "@ttsc/banner" ? path.join(nativeProject, "banner.config.json") : path.resolve(root, entry.configFile) } : {}),
 }));
+const automaticManifestFile = path.join(root, "packages/batch-auto-discovery/package.json");
+const automaticManifestBytes = fs.readFileSync(automaticManifestFile);
+const automaticManifest = JSON.parse(automaticManifestBytes);
+Object.assign(automaticManifest.ttsc.plugin, emissionReports);
 const nativeEmitBefore = receiptCount();
 try {
   fs.writeFileSync(nativeConfigFile, JSON.stringify(nativeOptions));
+  fs.writeFileSync(automaticManifestFile, JSON.stringify(automaticManifest));
   assert.equal(runTtsc(["--cwd", nativeProject, "--emit"]), 0, "the actual public forced-emit dispatch must complete");
 } finally {
-  fs.writeFileSync(nativeConfigFile, nativeConfiguration);
+  try { fs.writeFileSync(nativeConfigFile, nativeConfiguration); }
+  finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
 }
+assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "the automatic contributor must return to the root Program's reporting epoch");
 const nativeEmitAfter = receiptCount();
 const emittedMain = fs.readFileSync(path.join(nativeProject, "dist/main.js"), "utf8");
 assert.match(emittedMain, /from "\.\/lib\/value\.js"/);
