@@ -81,7 +81,22 @@ diff --git a/packages/sdk/native/sdk/sdk_transform.go b/packages/sdk/native/sdk/
  )
  
  type nestiaSDKSite struct {
-@@ -1052,6 +1052,7 @@ func nestiaSDKPropertySchemas(
+@@ -207,8 +207,9 @@
+-// typia hands over NaN and positive or negative Infinity wherever a type or a comment spells one: a
+-// numeric literal type such as `1e999`, a type tag argument such as
+-// `tags.Minimum<1e999>`, and a JSDoc `@x-` extension whose text parses as
+-// a float, which `NaN`, `Infinity`, and `inf` all do. encoding/json
+-// refuses those values, so one of them anywhere in the types a route reaches
++// typia hands over nonfinite numbers in numeric literal types such as `1e999`
++// and type tag arguments such as `tags.Minimum<1e999>`. The published typia
++// 15.0.1 cast preserves nonfinite JSDoc extension text as strings; those strings
++// remain unchanged here. Older float casting also supplied numeric values from
++// JSDoc extensions. encoding/json refuses nonfinite numeric values, so one of
++// them anywhere in the types a route reaches
+ // used to abort the whole metadata pass. The metadata is marshaled only here,
+ // so walking it here gives every value, baked schema and metadata literal
+ // alike, the same rule.
+@@ -1052,6 +1053,7 @@ func nestiaSDKPropertySchemas(
  // the way typia's object writer does (`json_schema_jsDocTags`, unexported):
 -// the first text part, trimmed, read as a boolean, a number, null, or else a
 -// string.
@@ -91,7 +106,7 @@ diff --git a/packages/sdk/native/sdk/sdk_transform.go b/packages/sdk/native/sdk/
  func nestiaSDKJsDocExtensions(schema nativeiterate.JsonSchema, tags []schemametadata.IJsDocTagInfo) {
  	for _, tag := range tags {
  		if strings.HasPrefix(tag.Name, "x-") == false {
-@@ -1064,8 +1065,8 @@ func nestiaSDKJsDocExtensions(schema nativeiterate.JsonSchema, tags []schemametadata
+@@ -1064,8 +1066,8 @@ func nestiaSDKJsDocExtensions(schema nativeiterate.JsonSchema, tags []schemametadata
  			value := strings.ReplaceAll(strings.TrimSpace(text.Text), "\r\n", "\n")
  			if value == "true" || value == "false" {
  				schema[tag.Name] = value == "true"
