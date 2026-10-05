@@ -4,6 +4,7 @@ import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/tra
 import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
 import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -29,7 +30,8 @@ import { createSourcePolicyProject } from "../../internal/source-policy/createSo
  *    dependency files, and that
  *    the walk's own hashes agree for those files; then pin the overlay and
  *    inheritance rules (empty, null, `${configDir}`, explicit `exclude`) the
- *    policy applies.
+ *    policy applies. The same JavaScript bytes are excluded with allowJs false
+ *    and admitted with allowJs true, with an independently computed SHA.
  *
  * @evidence contracts/testing.md#behavioral-verification Authored policy/overlay/walk operations apply output-option provenance and preserve exact admission distinctions when overlays replace inherited paths.
  * @evidence contracts/testing.md#independent-expectations Literal inherited/overlay output locations, empty/null/path-template values and explicit excluded/admitted file expectations independently specify each result; exact collected hashes corroborate predicates.
@@ -378,4 +380,29 @@ export async function test_transformttsc_the_walk_predicate_matches_the_walk(): 
     true,
     "an ordinary source the walk does hash must still be claimed",
   );
+
+  const javascript = path.join(project.root, "src", "allowjs-membership.js");
+  const javascriptBytes = "export const javascriptMember = 1;\n";
+  fs.writeFileSync(javascript, javascriptBytes, "utf8");
+  const javascriptHash = createHash("sha256").update(javascriptBytes).digest("hex");
+  const originalConfig = fs.readFileSync(tsconfig);
+  try {
+    for (const allowJs of [false, true]) {
+      fs.writeFileSync(tsconfig, JSON.stringify({
+        compilerOptions: { allowJs }, include: ["src"],
+      }), "utf8");
+      const javascriptPolicy = api.readProjectMembershipPolicy(tsconfig);
+      assert.equal(walkSees(javascriptPolicy, "src/allowjs-membership.js"), allowJs);
+      const javascriptHashes = api.collectProjectInputHashes(
+        project.root, undefined, undefined, javascriptPolicy,
+      );
+      assert.equal(Object.hasOwn(javascriptHashes, "src/allowjs-membership.js"), allowJs);
+      assert.equal(javascriptHashes["src/allowjs-membership.js"],
+        allowJs ? javascriptHash : undefined);
+      assert.equal(fs.readFileSync(javascript, "utf8"), javascriptBytes,
+        "only the compiler membership policy changes between the two walks");
+    }
+  } finally {
+    fs.writeFileSync(tsconfig, originalConfig);
+  }
 }

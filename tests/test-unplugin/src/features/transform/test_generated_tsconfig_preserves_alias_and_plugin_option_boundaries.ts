@@ -16,6 +16,9 @@ import { readTransformTsconfigState } from "../../../../../packages/unplugin/src
  * JSON. This tests configuration preparation, not native plugin execution or
  * compiler diagnostics. Literal protocol paths use native path.join anchors
  * and forward-slash encoding independently of the production alias readers.
+ * Two actual alias translations retain the absolute @lib mapping, withhold a
+ * regex silently and report the wildcard description once. The testbody restores
+ * stderr's exact own descriptor without resetting the reporter's private state.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls readTransformTsconfigState/createAliasPaths/createTransformTsconfig/resolveOptions over real JSONC and package-manifest presets. Actual wrapper JSON must extend the selected config, preserve inherited and inline mappings, add absolute bundler exact/subtree mappings, avoid invented baseUrl and anchor plugin config/configFile/transform paths at the project rather than scratch.
  * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test.
@@ -23,6 +26,37 @@ import { readTransformTsconfigState } from "../../../../../packages/unplugin/src
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit owns these actual filesystem/configuration operations in process. It installs nothing and starts no compiler, Go peer, plugin binary or host. Native type errors, banner output, plugin execution order and forwarded configFile evidence remain E2E producer/consumer connections; JSON preparation is not their certificate.
  */
 export function test_generated_tsconfig_preserves_alias_and_plugin_option_boundaries(): void {
+  const aliasRoot = TestProject.tmpdir("ttsc-alias-notice-policy-");
+  const aliasTarget = path.join(aliasRoot, "src", "library");
+  const aliasNotices: string[] = [];
+  const stderrWrite = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  try {
+    Object.defineProperty(process.stderr, "write", {
+      configurable: true,
+      writable: true,
+      value: (chunk: string | Uint8Array): boolean => {
+        aliasNotices.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+        return true;
+      },
+    });
+    const declaredAliases = [
+      { find: "@glob/*", replacement: aliasTarget },
+      { find: /^~/, replacement: aliasTarget },
+      { find: "@lib", replacement: aliasTarget },
+    ];
+    for (let delivery = 0; delivery < 2; delivery++) {
+      assert.deepEqual(createAliasPaths(declaredAliases), {
+        "@lib": [aliasTarget.replace(/\\/g, "/")],
+        "@lib/*": [path.join(aliasTarget, "*").replace(/\\/g, "/")],
+      });
+      assert.deepEqual(aliasNotices, [
+        'ttsc: the Vite alias "@glob/*" was not forwarded to the compile, because a "paths" key already reads "*" as its own wildcard. Declare it in your tsconfig\'s "paths" if ttsc must resolve through it.\n',
+      ], "wildcard reporting is once per description; regex withholding is silent");
+    }
+  } finally {
+    if (stderrWrite === undefined) delete (process.stderr as { write?: unknown }).write;
+    else Object.defineProperty(process.stderr, "write", stderrWrite);
+  }
   for (const preset of [false, true]) {
     const root = TestProject.tmpdir("ttsc-config-policy-unit-");
     const scratch = TestProject.tmpdir("ttsc-config-policy-scratch-");
