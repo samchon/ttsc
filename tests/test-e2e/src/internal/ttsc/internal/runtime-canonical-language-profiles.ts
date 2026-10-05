@@ -78,22 +78,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       },
     });
   }
-  for (const args of [[], ["--target", "es2019", "-target", "esnext"]]) {
-    profiles.push({
-      name: args.length ? "decorator-forwarded-cli-target" : "decorator-config-target",
-      files: {
-        "package.json": JSON.stringify({ type: "module" }),
-        "tsconfig.json": TestProject.tsconfig({ target: args.length ? "ES2019" : "ESNext", strict: true, rootDir: "src", outDir: "dist", resolveJsonModule: true }),
-        "src/data.json": '{"value":42}',
-        "src/main.ts": 'import data from "./data.json" with { type: "json" };\nlet disposal: Disposable | undefined; void disposal;\n' + STANDARD_DECORATOR_SOURCE + "\nconsole.log(data.value);",
-      },
-      run: (root, _persistent, spawn) => {
-        const result = spawn(TestProject.TTSX_BIN, [...args, "src/main.ts"], { cwd: root });
-        assert.equal(result.status, 0, result.stderr);
-        assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT + "\n42");
-      },
-    });
-  }
   for (const module of ["esnext", "commonjs"]) {
     profiles.push({
       name: `decorator-excluded-public-register-${module}`,

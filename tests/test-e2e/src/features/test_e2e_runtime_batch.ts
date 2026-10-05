@@ -108,7 +108,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "-P", "runtime-owned.json",
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
-    "--noEmit", "--emitDeclarationOnly", "--target", "es2019", "@runtime-args.txt",
+    "--noEmit", "--emitDeclarationOnly", "--target", "es2019", "-target", "es2019", "@runtime-args.txt",
     "--sourceMap", "false", "--inlineSourceMap",
     "-r", "./runtime-map-diagnostics.cjs",
     "-r", "./tools/native-source-borrower.cjs",
