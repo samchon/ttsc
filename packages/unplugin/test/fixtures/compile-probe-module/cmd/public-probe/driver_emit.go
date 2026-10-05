@@ -6,6 +6,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -41,6 +42,7 @@ func runBuild(args []string) (status int) {
   tsconfig := fs.String("tsconfig", "", "")
   manifest := fs.String("manifest", "manifest.json", "")
   provenancePath := fs.String("emit-provenance-json", "", "")
+  projectContextJSON := fs.String("project-context-json", "", "")
   _ = fs.String("plugins-json", "", "")
   _ = fs.Bool("emit", false, "")
   _ = fs.Bool("noEmit", false, "")
@@ -49,6 +51,20 @@ func runBuild(args []string) (status int) {
   _ = fs.String("outDir", "", "")
   if err := fs.Parse(args); err != nil {
     return 2
+  }
+  // The launcher can forward identity metadata to this selected host. Validate
+  // its object transport without replacing the explicit cwd/tsconfig Program
+  // inputs or claiming that the fixture established the reported identity.
+  if strings.TrimSpace(*projectContextJSON) != "" {
+    var identity map[string]json.RawMessage
+    if err := json.Unmarshal([]byte(*projectContextJSON), &identity); err != nil {
+      fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: invalid --project-context-json:", err)
+      return 2
+    }
+    if identity == nil {
+      fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: --project-context-json must be an object")
+      return 2
+    }
   }
   if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
     fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: emit provenance path must be absolute")
