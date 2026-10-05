@@ -21,6 +21,7 @@ type plugin struct{}
 // suffix, so the final literal distinguishes descriptor order and disabled entries.
 // The named numeric marker changes only its literal-zero initializer; other
 // variables and numeric literals retain their original values.
+// The nested native-emission source also owns its plain marker initializer.
 // The factory-arrow marker receives a real emit-factory arrow with a standalone
 // property access; this does not alter other variables or source-stage text.
 func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransform, error) {
@@ -39,6 +40,7 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
     return nil, fmt.Errorf("unknown shared native pipeline operation %q", operation)
   }
   return func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
+    nativeEmissionSource := sf != nil && strings.HasSuffix(filepath.ToSlash(sf.FileName()), "/tools/native-emission/src/main.ts")
     var visitor *shimast.NodeVisitor
     visitor = ec.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
       if node != nil && node.Kind == shimast.KindVariableDeclaration {
@@ -54,7 +56,8 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
           arrow := f.NewArrowFunction(nil, nil, f.NewNodeList([]*shimast.Node{parameter}), nil, nil, f.NewToken(shimast.KindEqualsGreaterThanToken), access)
           return f.UpdateVariableDeclaration(visited, visited.Name(), visited.ExclamationToken, visited.Type, arrow)
         }
-        if name != nil && name.Kind == shimast.KindIdentifier && name.Text() == "__TTSC_OWN_MARKER__" &&
+        if name != nil && name.Kind == shimast.KindIdentifier &&
+          (name.Text() == "__TTSC_OWN_MARKER__" || (nativeEmissionSource && name.Text() == "marker")) &&
           initializer != nil && initializer.Kind == shimast.KindNumericLiteral && initializer.Text() == "0" {
           // Preserve the existing visitor's processing of any other declaration
           // children before replacing only this initializer through the emit factory.
