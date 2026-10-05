@@ -15,7 +15,7 @@ const inputs = new Map([
   "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
   "tools/native-emission/tsconfig.json", "tools/native-emission/banner.config.json",
   "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
-  "src/native-public-dependency/index.ts",
+  "tools/native-emission/src/package-entry.ts",
   "tools/runtime-negative/args.txt", "tools/runtime-negative/script.js", "tools/runtime-negative/preload.cjs",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 assert.equal(fs.existsSync(artifacts), false);
@@ -83,7 +83,8 @@ const emittedMain = fs.readFileSync(path.join(nativeProject, "dist/main.js"), "u
 assert.match(emittedMain, /from "\.\/lib\/value\.js"/);
 assert.match(emittedMain, /marker = 100/);
 assert.match(emittedMain, /confined/);
-assert.deepEqual(fs.readdirSync(path.join(root, "src/native-public-dependency"), { recursive: true }).filter((file) => String(file).endsWith(".js")), [], "forced emission must not publish into the raw self-referenced dependency source tree");
+assert.match(fs.readFileSync(path.join(nativeProject, "dist/package-entry.js"), "utf8"), /dep = 1/);
+assert.equal(fs.existsSync(path.join(nativeProject, "src/package-entry.js")), false, "the legal raw package self-reference must publish under dist, not beside its input");
 unchanged();
 const registerBefore = receiptCount();
 const rejected = spawnSync(process.execPath, [
