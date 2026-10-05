@@ -25,7 +25,7 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Public esbuild plugin setup, native output delivery and onDispose must agree under the real host; captured hooks alone cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing input graph, plugin artifact and one build serve every value. Compatible inputs share preparation; this test starts no per-row compiler or project.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity write:false preserves inputs and public onDispose is awaited after the actual build. Cache environment restores in finally; a failed build remains an error and does not certify successful teardown.
- * @evidence contracts/e2e.md#preserved-coverage Keeps actual esbuild adapter delivery and teardown with the common value/utility matrix. Original overlapping-context and replacement-generation counts remain separate coverage obligations, not presumed from this one build.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps actual esbuild adapter delivery and teardown with the common value/utility matrix. The production-used createEsbuildBuildLifecycle operation and existing source-unit ownership matrix retain repeated start, unstarted/unknown disposal, overlap, last reset and late-disposal decisions. This one installed build owns real setup/delivery/disposal connection; it does not replay the old multi-context timing or fixture compile1/2/3 receipts.
  */
 export async function test_e2e_esbuild_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();

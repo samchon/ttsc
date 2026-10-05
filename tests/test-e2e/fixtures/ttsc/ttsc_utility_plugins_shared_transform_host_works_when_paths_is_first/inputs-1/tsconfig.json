@@ -1,1 +1,0 @@
-{"compilerOptions":{"target":"ES2022","module":"commonjs","declaration":true,"strict":true,"paths":{"@lib/*":["./src/modules/*"]},"outDir":"dist","rootDir":"src","plugins":[{"transform":"@ttsc/paths"},{"transform":"@ttsc/banner"},{"transform":"@ttsc/strip"}]},"include":["src"]}
