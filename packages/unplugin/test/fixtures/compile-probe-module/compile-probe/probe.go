@@ -21,6 +21,8 @@ type plugin struct{}
 // suffix, so the final literal distinguishes descriptor order and disabled entries.
 // The named numeric marker changes only its literal-zero initializer; other
 // variables and numeric literals retain their original values.
+// The factory-arrow marker receives a real emit-factory arrow with a standalone
+// property access; this does not alter other variables or source-stage text.
 func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransform, error) {
   operation, _ := context.Entry.Config["operation"].(string)
   prefix, ok := context.Entry.Config["prefix"].(string)
@@ -43,6 +45,15 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
         declaration := node.AsVariableDeclaration()
         name := declaration.Name()
         initializer := declaration.Initializer
+        if name != nil && name.Kind == shimast.KindIdentifier && name.Text() == "__TTSC_NATIVE_FACTORY_ARROW__" && initializer != nil {
+          visited := visitor.VisitEachChild(node).AsVariableDeclaration()
+          f := ec.Factory
+          standalone := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+          access := standalone.NewPropertyAccessExpression(f.NewIdentifier("input"), nil, standalone.NewIdentifier("value"), shimast.NodeFlagsNone)
+          parameter := f.NewParameterDeclaration(nil, nil, f.NewIdentifier("input"), nil, nil, nil)
+          arrow := f.NewArrowFunction(nil, nil, f.NewNodeList([]*shimast.Node{parameter}), nil, nil, f.NewToken(shimast.KindEqualsGreaterThanToken), access)
+          return f.UpdateVariableDeclaration(visited, visited.Name(), visited.ExclamationToken, visited.Type, arrow)
+        }
         if name != nil && name.Kind == shimast.KindIdentifier && name.Text() == "__TTSC_OWN_MARKER__" &&
           initializer != nil && initializer.Kind == shimast.KindNumericLiteral && initializer.Text() == "0" {
           // Preserve the existing visitor's processing of any other declaration
