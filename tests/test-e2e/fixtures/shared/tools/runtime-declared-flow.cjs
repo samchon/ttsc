@@ -12,7 +12,7 @@ const inputs = new Map([
   "runtime-declared.json", "runtime-base.json", "runtime-owned.json",
   "src/runtime-corpus/native-factory.ts", "src/runtime-corpus/excluded-owner.ts",
   "src/runtime-corpus/declared-owned.cts", "src/runtime-corpus/declaration-entry.cts",
-  "tools/runtime-declared-script.ts",
+  "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 assert.equal(fs.existsSync(artifacts), false);
 const compiled = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json", plugins: false }).compile();
@@ -39,7 +39,7 @@ const seed = new Map([...output.keys()].map((file) => [file, fs.readFileSync(fil
 const unchanged = () => {
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes, "actual runtime delivery must preserve every produced declaration, map and build-info byte");
   for (const [file, bytes] of inputs) assert.deepEqual(fs.readFileSync(file), bytes, "each delivery must preserve its authored source and compiler configuration");
-  for (const relative of ["src/runtime-corpus/native-factory.js", "src/runtime-corpus/declared-owned.cjs", "src/runtime-corpus/declaration-entry.cjs", "tools/runtime-declared-script.js"])
+  for (const relative of ["src/runtime-corpus/native-factory.js", "src/runtime-corpus/declared-owned.cjs", "src/runtime-corpus/declaration-entry.cjs", "tools/runtime-declared-script.js", "tools/runtime-placement.js"])
     assert.equal(fs.existsSync(path.join(root, relative)), false, "runtime delivery must not emit beside its authored input");
 };
 assert.deepEqual(require(path.join(root, "src/runtime-corpus/native-factory.ts")).observed,
@@ -55,12 +55,33 @@ let registered;
 const contextFile = path.join(root, "native-context.jsonl");
 const receiptCount = () => fs.readFileSync(contextFile, "utf8").trim().split(/\r?\n/).length;
 const registerBefore = receiptCount();
+const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
+const defaultOrphans = path.join(root, "node_modules/.cache/ttsc/ttsx-orphan");
+const temporary = path.join(__dirname, "runtime-placement-temp");
+assert.equal(fs.existsSync(temporary), false);
+fs.mkdirSync(temporary);
+const lowerings = (directory) => fs.existsSync(directory) ? fs.readdirSync(directory).filter((name) => name.endsWith(".js")) : [];
+const explicitBefore = new Set(lowerings(explicitOrphans));
+const previousTemporary = Object.fromEntries(["TEMP", "TMP", "TMPDIR"].map((name) => [name, process.env[name]]));
+try {
+  process.env.TEMP = process.env.TMP = process.env.TMPDIR = temporary;
+  assert.equal(require(path.join(__dirname, "runtime-placement.ts")).value, "lowered");
+} finally {
+  for (const [name, value] of Object.entries(previousTemporary)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+}
+assert.equal(lowerings(explicitOrphans).filter((name) => !explicitBefore.has(name)).length, 1, "the explicit runtime cache must receive this one actual orphan lowering");
+const defaultBefore = new Set(lowerings(defaultOrphans));
 try {
   const env = { ...process.env };
   delete env.TTSX_RUNTIME_MANIFEST;
   delete env.TTSX_RUNTIME_CACHE_DIR;
   delete env.TTSX_RUNTIME_RUN_DIR;
   delete env.TTSX_RUNTIME_RUNS_DIR;
+  delete env.TTSC_CACHE_DIR;
+  env.TEMP = env.TMP = env.TMPDIR = temporary;
   registered = spawnSync(process.execPath,
     ["--require", path.join(launcher, "../register.js"), path.join(root, "src/runtime-corpus/declaration-entry.cts")],
     { cwd: root, env, encoding: "utf8", windowsHide: true });
@@ -72,6 +93,8 @@ assert.equal(registered.signal, null);
 assert.equal(registered.status, 0, registered.stderr);
 assert.ok(registered.pid > 0);
 assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
-assert.equal(registered.stdout.trim(), 'entry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
+assert.equal(registered.stdout.trim(), 'lowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
+assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
+assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
 unchanged();
 fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), registerStatus: registered.status, registerPid: registered.pid, registerBefore, registerAfter: receiptCount() }));

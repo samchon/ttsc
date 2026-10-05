@@ -55,6 +55,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
     "--cwd", workspace.projectAlias,
+    "--cache-dir", workspace.cache,
     "-P", "runtime-owned.json",
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
@@ -93,6 +94,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.deepEqual({ names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs }, installedDirectory);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts").length, 2);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "tool").length, 1);
+  assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "lowered").length, 1);
   assert.doesNotMatch(result.stdout, /STALE tool\.js/);
   const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
     produced: string[]; registerStatus: number; registerPid: number; registerBefore: number; registerAfter: number;

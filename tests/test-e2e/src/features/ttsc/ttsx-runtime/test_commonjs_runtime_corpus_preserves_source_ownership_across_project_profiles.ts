@@ -7,7 +7,6 @@ import path from "node:path";
 import { resolveSourceBuildCachePaths } from "../../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { canonicalCommonJsOrphanProfiles } from "../../../internal/ttsc/internal/runtime-canonical-commonjs-orphan-profiles";
 import { canonicalDecoratorMapProfile } from "../../../internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile";
 import { runCanonicalRuntimeProfiles } from "../../../internal/ttsc/internal/runtime-canonical-profile-assembly";
 import { canonicalResponseDecoratorProfiles } from "../../../internal/ttsc/internal/runtime-canonical-response-decorator-profiles";
@@ -597,11 +596,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
             assert.equal(result.stdout.trim(), "derived-from-target");
           },
         },
-        ...canonicalCommonJsOrphanProfiles(
-          {
-            placement: readProfile("orphan-placement"),
-          },
-        ),
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),
         ...(includeLanguageProfiles ? canonicalResponseDecoratorProfiles() : []),
         ...(includeLanguageProfiles ? canonicalRuntimeLanguageProfiles() : []),
