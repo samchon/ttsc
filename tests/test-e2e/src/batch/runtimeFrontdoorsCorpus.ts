@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -19,7 +20,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units.
  * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
- * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. The same handled CLI carries all four require spellings, scoped/subpath preloads, typed TS/TSX outside include, exact preload order and post-entry option tokens. A separate mistyped preload must reject before main; that irreducible failed-startup actor adds at least one launcher and potentially an entry child, with native costs unmeasured. Existing fatal actors also carry constant-source orphan enum/package-format transitions. An overall single-digit process budget remains uncertified.
+ * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. The same handled CLI carries all four require spellings, scoped/subpath preloads, typed TS/TSX outside include, exact preload order and post-entry option tokens. A separate mistyped preload must reject before main; that irreducible failed-startup actor adds at least one launcher and potentially an entry child, with native costs unmeasured. Existing fatal actors also carry constant-source orphan enum/package-format transitions. Separately seeded stale generations use the preceding actually joined actor PID and a fresh ESRCH/hostname proof; real register startup and real ttsx startup must each sweep their own seed. No extra PID-establishing child is added. An overall single-digit process budget remains uncertified.
  */
 export async function runtimeFrontdoorsCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -55,6 +56,18 @@ export async function runtimeFrontdoorsCorpus(
     delete env[name];
   const failures: unknown[] = [];
   let ownershipUnresolved = false;
+  let lastDepartedPid: number | undefined;
+  const plantDepartedGeneration = (name: string) => {
+    if (ownershipUnresolved || lastDepartedPid === undefined) throw new Error("no resolved departed runtime actor owns the stale-generation seed");
+    try { process.kill(lastDepartedPid, 0); throw new Error("the preceding runtime actor PID is no longer provably gone"); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
+    const directory = path.join(workspace.cache, "ttsx/project", name);
+    assert.equal(fs.existsSync(directory), false);
+    fs.mkdirSync(path.join(directory, "fs"), { recursive: true });
+    fs.writeFileSync(path.join(directory, `owner-${lastDepartedPid}.json`), JSON.stringify({ hostname: os.hostname(), pid: lastDepartedPid }));
+    fs.writeFileSync(path.join(directory, "fs/main.js"), "");
+    return directory;
+  };
   const orphanRoot = path.join(root, "node_modules/runtime-cache-control");
   const orphanEntry = path.join(orphanRoot, "src/index.ts");
   const orphanEnum = path.join(orphanRoot, "src/enum.ts");
@@ -128,7 +141,7 @@ export async function runtimeFrontdoorsCorpus(
     try {
       process.kill(result.pid, 0);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ESRCH") return result;
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") { lastDepartedPid = result.pid; return result; }
       BatchWorkspace.retain(
         "runtime frontdoor PID closure could not be observed",
       );
@@ -169,9 +182,11 @@ export async function runtimeFrontdoorsCorpus(
     ],
   ] as const)
     capture(name, () => {
+      const stale = name === "import-preload require-register typed main" ? plantDepartedGeneration("ended-register-run") : undefined;
       const result = run([...args]);
       assert.equal(result.status, 0, result.stderr);
       assert.deepEqual(JSON.parse(result.stdout.trim()), typed);
+      if (stale !== undefined) assert.equal(fs.existsSync(stale), false, "actual register preparation must sweep its separately seeded departed owner");
     });
   capture("JavaScript main under import preload", () => {
     const result = run([
@@ -200,6 +215,7 @@ export async function runtimeFrontdoorsCorpus(
     });
   });
   capture("handled uncaught exception", () => {
+    const stale = plantDepartedGeneration("ended-ttsx-run");
     stageOrphan("module", 1);
     const result = run([
       workspace.installedTtsx,
@@ -214,6 +230,7 @@ export async function runtimeFrontdoorsCorpus(
     capture("handled actor status", () =>
       assert.equal(result.status, 0, result.stderr),
     );
+    capture("ttsx startup sweeps a genuinely departed owner", () => assert.equal(fs.existsSync(stale), false));
     capture("handled actor orphan, preloads and continuation", () => {
       const observations = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_HANDLED_PRELOADS:"));
       assert.equal(observations.length, 1);
