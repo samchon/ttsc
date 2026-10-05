@@ -11,6 +11,7 @@ let transformer, loader;
 let outsideProgramObserved = false;
 let metroConfiguration;
 let adapterCalls = [];
+let callbackObservation;
 if (mode === "metro") {
   const require = createRequire(import.meta.url);
   const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
@@ -21,6 +22,7 @@ if (mode === "metro") {
 } else loader = (await import(loaderUrl)).default;
 async function deliver(sourceSuffix = "", deliveredSource) {
   adapterCalls = [];
+  callbackObservation = undefined;
   if (mode === "metro") {
     const filename = "src/bundle.ts";
     const primaryCall = { mode, pid: process.pid, filename, startedAt: new Date().toISOString(), finishedAt: undefined, outcome: "pending" };
@@ -51,11 +53,12 @@ async function deliver(sourceSuffix = "", deliveredSource) {
   const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
   let completions = 0;
+  callbackObservation = { dependencies, contextDependencies, cacheability, errors, completions };
   const loaderCall = { mode, pid: process.pid, filename: resourcePath, startedAt: new Date().toISOString(), finishedAt: undefined, outcome: "pending" };
   adapterCalls.push(loaderCall);
   const delivery = await new Promise((resolve, reject) => loader.call({
     rootContext: root, resourcePath, getOptions: () => ({ compilerOptions }),
-    async: () => (error, content, map) => { completions += 1; error ? reject(error) : resolve({ content, map }); },
+    async: () => (error, content, map) => { completions += 1; callbackObservation.completions = completions; error ? reject(error) : resolve({ content, map }); },
     addDependency(file) { dependencies.push(file); },
     addContextDependency(directory) { contextDependencies.push(directory); },
     cacheable(value) { cacheability.push(value); },
@@ -115,5 +118,5 @@ for await (const line of createInterface({ input: process.stdin })) {
     } else value = await deliver(command.sourceSuffix, command.deliveredSource);
     process.stdout.write(JSON.stringify({ id: command.id, value }) + "\n");
   }
-  catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls }) + "\n"); }
+  catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls, callbackObservation }) + "\n"); }
 }

@@ -2202,7 +2202,13 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of failed) {
     assert.match(reply.error ?? "", /NotARealExternalType/);
     assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
+    assert.match(reply.error ?? "", /contract\.ts/, "the public diagnostic must name its actual failed source");
+    assert.doesNotMatch(reply.error ?? "", /\x1b\[/, "the adapter exception must remain a plain host diagnostic");
+    assert.equal(reply.adapterCalls?.[0]?.outcome, "threw");
+    assert.equal(typeof reply.adapterCalls?.[0]?.finishedAt, "string");
   }
+  assert.equal(failed[1]!.callbackObservation?.completions, 1,
+    "the same failed native delivery must settle the actual Turbopack callback once");
   const failedPublications = publications();
   assert.equal(failedPublications.filter((publication) => publication.type === "failure").length, 1,
     "one reusable failed publication must serve the two existing callers; actual failed epoch: " + JSON.stringify({

@@ -1,7 +1,12 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
-export interface LoaderPoolOutcome { value?: any; error?: string }
+export interface LoaderPoolOutcome {
+  value?: any;
+  error?: string;
+  adapterCalls?: { mode: string; pid: number; filename: string; outcome: string; startedAt: string; finishedAt?: string }[];
+  callbackObservation?: { dependencies: string[]; contextDependencies: string[]; cacheability: boolean[]; errors: string[]; completions: number };
+}
 /**
  * Own one real resident adapter process and join its actual close receipt.
  *
