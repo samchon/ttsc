@@ -18,6 +18,9 @@ export interface LoaderPoolOutcome {
  * mixed lint input graph uses that same command and worker stdout/stderr to
  * carry contributor results and joined logs; factory re-evaluations are actual
  * internal calls, not a zero-cost or one-Program assertion. A
+ * plugin-lock command retains actual lease/fence state in these same two
+ * residents; twelve command/reply barriers add no adapter delivery. An exited
+ * seed is a separately recorded real process, not a unit-only observation.
  * timeout refuses ownership resolution; it does not kill or certify release.
  *
  * @evidence contracts/testing.md#behavioral-verification The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
@@ -73,6 +76,12 @@ export function createLoaderPoolWorker(props: {
       child.stdin.write(JSON.stringify({ id, sourceSuffix, deliveredSource, descriptorFlow }) + "\n");
     }),
     diagnostics: () => stderr,
+    pluginLock: (input: { root: string; api: string; action: string }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
+      const id = ++next;
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: plugin lock transition remains unresolved: ${stderr}`)); }, 120_000);
+      pending.set(id, { resolve, reject, timer });
+      child.stdin.write(JSON.stringify({ id, pluginLock: input }) + "\n");
+    }),
     close: async () => {
       child.stdin.end(JSON.stringify({ close: true }) + "\n");
       let timer: ReturnType<typeof setTimeout> | undefined;

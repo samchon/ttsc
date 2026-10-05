@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 const [mode, root, metroUrl, loaderUrl] = process.argv.slice(2);
+const pluginLockSession = createRequire(import.meta.url)(path.join(root, "plugin-lock-session.cjs"));
 const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
 const compilerOptions = { paths: Object.fromEntries(Object.entries(rootPaths).map(([key, targets]) => [key, targets.map((target) => path.resolve(root, target))])) };
@@ -71,12 +72,13 @@ async function deliver(sourceSuffix = "", deliveredSource) {
 }
 // Bounded requests share these exact adapter/module/cache owners and session.
 // A line is an observation/state transition, never another worker or fixture.
-for await (const line of createInterface({ input: process.stdin })) {
+try { for await (const line of createInterface({ input: process.stdin })) {
   const command = JSON.parse(line);
   if (command.close) break;
   try {
     let value;
-    if (command.descriptorFlow) {
+    if (command.pluginLock) value = pluginLockSession.operation(command.pluginLock);
+    else if (command.descriptorFlow) {
       const scope = command.descriptorFlow.root;
       const { loadProjectPlugins } = createRequire(import.meta.url)(command.descriptorFlow.api);
       if (command.descriptorFlow.runtimeInputs) {
@@ -161,3 +163,4 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls, callbackObservation }) + "\n"); }
 }
+} finally { pluginLockSession.close(); }

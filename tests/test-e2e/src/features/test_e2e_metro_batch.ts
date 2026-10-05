@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { spawnGoTool as actualSpawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool";
 import { createLoaderPoolWorker, type LoaderPoolOutcome } from "../batch/LoaderPoolWorker";
+import { observePluginLockGraph } from "../batch/PluginLockGraph";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -2005,6 +2006,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const runtimeInputConfig = path.join(descriptorRuntimeRoot, "tsconfig.json");
   fs.writeFileSync(runtimeInputConfig, JSON.stringify({ compilerOptions: { plugins: [{ transform: runtimeDescriptorEntry }] } }));
   const runtimeDescriptorConfigHash = crypto.createHash("sha256").update(fs.readFileSync(runtimeDescriptorConfig)).digest("hex");
+  const pluginLockRoot = path.join(workspace.cache, "resident-plugin-lock-graph", path.basename(workspace.root));
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session, traceRoot,
     metro: pathToFileURL(path.join(lib, "transformer.js")).href,
@@ -2013,6 +2015,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
   let finalRecord: string | undefined;
   let bodyFailure: unknown;
   try {
+  await observePluginLockGraph({
+    root: pluginLockRoot,
+    fixture: path.join(workspace.root, "plugin-lock-session.cjs"),
+    api: path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/lib/plugin/internal/source"),
+    workers,
+  });
   const descriptorReply = await workers[0]!.request("", undefined, {
     root: descriptorFailureRoot,
     api: path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js"),
@@ -2406,6 +2414,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
     const failures: unknown[] = [...publicApiFailures, ...failedCloses.map((entry) => entry.reason)];
     if (failedCloses.length === 0) {
+      if (bodyFailure === undefined) fs.rmSync(pluginLockRoot, { recursive: true });
       try {
         assert.match(workers[0]!.diagnostics(), /DESCRIPTOR_STDOUT_MARKER loaded/);
         assert.equal(/factory-env:ambient|absent-ambient/.test(workers[0]!.diagnostics()), false);
