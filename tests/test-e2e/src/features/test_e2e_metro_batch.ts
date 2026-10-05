@@ -2033,6 +2033,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.ok(appearedConfig, JSON.stringify(runtimeInputs));
   assert.equal(Object.hasOwn(runtimeInputs.hostInputHashes, appearedConfig), false, "a config created during evaluation remains unproved");
   assert.equal(Object.entries(runtimeInputs.hostInputHashes).some(([input, hash]) => hash === runtimeDescriptorConfigHash && sameRuntimeFile(input, runtimeDescriptorConfig)), true);
+  // This existing pool owns a reached declaration outside src. Its actual
+  // diagnostics must be checked as well as the runtime source population.
+  poolConfig.compilerOptions.skipLibCheck = false;
   fs.writeFileSync(configPath, JSON.stringify(poolConfig));
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
   const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
@@ -2208,17 +2211,22 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const failureTraceOffsets = Object.fromEntries(Object.entries(failureTrace()).map(([name, rows]) => [name, rows.length]));
   // These state transitions keep the same two actual adapter/cache owners.
   fs.appendFileSync(contractPath, "\nexport type PooledBroken = NotARealExternalType;\nexport const pooledAliasInvalid: import(\"@typed/foo\").Foo = { id: \"wrong\", name: 42 };\n");
+  const healthyDeclaration = fs.readFileSync(declaration);
+  fs.appendFileSync(declaration, "export type PooledExternalBroken = NotARealExternalType;\n");
   const failed = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of failed) {
     assert.match(reply.error ?? "", /NotARealExternalType/);
     assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
     assert.match(reply.error ?? "", /contract\.ts/, "the public diagnostic must name its actual failed source");
+    assert.match(reply.error ?? "", /index\.d\.ts/, "the real declaration outside project discovery must also reach the diagnostic");
     assert.doesNotMatch(reply.error ?? "", /\x1b\[/, "the adapter exception must remain a plain host diagnostic");
     assert.equal(reply.adapterCalls?.[0]?.outcome, "threw");
     assert.equal(typeof reply.adapterCalls?.[0]?.finishedAt, "string");
   }
   assert.equal(failed[1]!.callbackObservation?.completions, 1,
     "the same failed native delivery must settle the actual Turbopack callback once");
+  assert.ok(Object.hasOwn(JSON.parse(signal()).inputs, declaration),
+    "the actual record channel retains the reached declaration whose repair changes this failure");
   const failedPublications = publications();
   assert.equal(failedPublications.filter((publication) => publication.type === "failure").length, 1,
     "one reusable failed publication must serve the two existing callers; actual failed epoch: " + JSON.stringify({
@@ -2234,10 +2242,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }
   assert.deepEqual(publications(), failedPublications, "both residents reuse the failed publication without publishing another compile");
   fs.writeFileSync(contractPath, originalContract);
+  fs.writeFileSync(declaration, healthyDeclaration);
   const repaired = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of repaired) { assert.equal(reply.error, undefined); assert.ok(reply.value); }
-  assert.equal(repaired[0]!.value.ast.source, metro.ast.source, "repair restores the actual Metro native output");
-  assert.equal(repaired[1]!.value.content, turbopack.content, "repair restores the actual Turbopack native output");
+  assert.equal(repaired[0]!.value.ast.source, metadataDelivery[0]!.value.ast.source, "repair restores the actual pre-failure Metro native output of this input epoch");
+  assert.equal(repaired[1]!.value.content, metadataDelivery[1]!.value.content, "repair restores the actual pre-failure Turbopack native output of this input epoch");
   assert.ok(publications().some((publication) => publication.type === "success"), "repair observes an actual successful publication");
   fs.writeFileSync(bannerPath, JSON.stringify({ text: "Pooled second banner\nIndependent external-config state" }));
   // Disk-source and external configuration changes coexist in this already
@@ -2251,6 +2260,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const reply of external) { assert.equal(reply.error, undefined); assert.ok(reply.value); }
   assert.match(external[0]!.value.ast.source, /Pooled second banner/);
   assert.doesNotMatch(external[0]!.value.ast.source, /Shared boundary corpus/);
+  assert.doesNotMatch(external[0]!.value.ast.source, /Shared metadata external-input banner/);
   assert.match(external[0]!.value.ast.source, /"disk-drifted-marker"/);
   assert.doesNotMatch(external[0]!.value.ast.source, /"authored-marker"/);
   assert.equal(external[1]!.value.value, "disk-drifted-marker", "native output must use disk bytes rather than stale delivered text");
