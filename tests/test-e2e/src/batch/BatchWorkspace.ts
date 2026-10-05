@@ -351,7 +351,20 @@ export namespace BatchWorkspace {
       const from = path.join(owningLint, entry);
       if (fs.existsSync(from)) fs.cpSync(from, path.join(mutableLint, entry), { recursive: true });
     }
-    fs.symlinkSync(path.join(owningLint, "node_modules"), path.join(mutableLint, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+    const mutableModules = path.join(mutableLint, "node_modules");
+    const owningModules = path.join(owningLint, "node_modules");
+    fs.mkdirSync(mutableModules, { recursive: true });
+    for (const name of fs.readdirSync(owningModules)) {
+      if (!fs.statSync(path.join(owningModules, name)).isDirectory()) continue;
+      if (name.startsWith("@")) {
+        fs.mkdirSync(path.join(mutableModules, name));
+        for (const dependency of fs.readdirSync(path.join(owningModules, name)))
+          fs.symlinkSync(path.join(owningModules, name, dependency), path.join(mutableModules, name, dependency), process.platform === "win32" ? "junction" : "dir");
+      } else fs.symlinkSync(path.join(owningModules, name), path.join(mutableModules, name), process.platform === "win32" ? "junction" : "dir");
+    }
+    const nativeWatchModules = path.join(root, "tools/native-watch/node_modules/@ttsc");
+    fs.mkdirSync(nativeWatchModules, { recursive: true });
+    fs.symlinkSync(mutableLint, path.join(nativeWatchModules, "lint"), process.platform === "win32" ? "junction" : "dir");
     const selectionModules = path.join(root, "tools/lsp-selection/node_modules/@ttsc");
     fs.mkdirSync(selectionModules, { recursive: true });
     fs.symlinkSync(mutableLint, path.join(selectionModules, "lint"), process.platform === "win32" ? "junction" : "dir");

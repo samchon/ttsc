@@ -17,7 +17,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary OS events, Go project-input registration, native resident protocol and fallback argv must agree; source-unit counters cannot prove their connection.
  * @evidence contracts/e2e.md#shared-execution All transitions share one actual watcher and package producer. Duplicate and single config epochs necessarily replace native residents; deliberate death acquires a real fallback. No per-case fixture preparation or plugin-cache deletion occurs.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The upfront nested source/config/Markdown are restored only after nonce-bound actual watcher closure. Failed closure retains the shared root and refuses later mutations; body and shutdown errors are both retained.
- * @evidence contracts/e2e.md#preserved-coverage Restores original valid five-step telemetry, duplicate buffer reuse and dead-host compiler-flag meanings. Counters are native telemetry, not total Program construction proof; plugin source/module reload and full OS topology remain separate unproved coverage.
+ * @evidence contracts/e2e.md#preserved-coverage Restores original valid five-step telemetry, duplicate buffer reuse and dead-host compiler-flag meanings. Counters are native telemetry, not total Program construction proof; Actual edits to the copied selected lint module sibling Go rule and its go.mod require a replacement resident and the edited diagnostic; an owned node_modules Go-byte copy must remain quiet. Full compiler-list/refs/output/case OS topology remains separate unproved coverage. These extra epochs add two actual resident lifetimes and native rebuild work.
  */
 export async function nativeWatchCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -27,8 +27,13 @@ export async function nativeWatchCorpus(
   const config = path.join(root, "tsconfig.json");
   const markdown = path.join(root, "docs/spec.md");
   const json = path.join(root, "api/openapi.json");
+  const producer = path.join(workspace.root, "tools/mutable-lint-producer");
+  const rule = path.join(producer, "linthost/rules_var.go");
+  const module = path.join(producer, "go.mod");
+  const ignoredPackage = path.join(producer, "node_modules/e2e-watch-pruned");
+  assert.equal(fs.existsSync(ignoredPackage), false);
   const originals = new Map(
-    [source, config, markdown].map((file) => [file, fs.readFileSync(file)]),
+    [source, config, markdown, rule, module].map((file) => [file, fs.readFileSync(file)]),
   );
   const lintConfig = path.join(root, "lint.config.cjs");
   assert.equal(fs.existsSync(lintConfig), false);
@@ -143,17 +148,39 @@ export async function nativeWatchCorpus(
     const single = samples(session.transcript().slice(singleBoundary));
     assert.equal(single.length, 1, session.transcript());
     assert.notEqual(single[0]!.pid, duplicate[0]!.pid);
+    const ruleText = originals.get(rule)!.toString();
+    const editedRule = ruleText.replace('"Unexpected var, use let or const instead."', '"Unexpected var, from the watched sibling Go source."');
+    assert.notEqual(editedRule, ruleText);
+    const sourceBoundary = session.transcript().length;
+    fs.writeFileSync(rule, editedRule);
+    await cycle(10);
+    assert.match(session.transcript().slice(sourceBoundary), /Unexpected var, from the watched sibling Go source\./);
+    const sourceEpoch = samples(session.transcript().slice(sourceBoundary));
+    assert.equal(sourceEpoch.length, 1);
+    assert.notEqual(sourceEpoch[0]!.pid, single[0]!.pid);
+    const moduleBoundary = session.transcript().length;
+    fs.appendFileSync(module, "\n// watched owning module metadata\n");
+    await cycle(11);
+    assert.match(session.transcript().slice(moduleBoundary), /Unexpected var, from the watched sibling Go source\./);
+    const moduleEpoch = samples(session.transcript().slice(moduleBoundary));
+    assert.equal(moduleEpoch.length, 1);
+    assert.notEqual(moduleEpoch[0]!.pid, sourceEpoch[0]!.pid);
+    const ignoredBoundary = session.transcript().length;
+    fs.mkdirSync(ignoredPackage);
+    fs.copyFileSync(rule, path.join(ignoredPackage, "ignored.go"));
+    await session.waitForQuiet(3_000);
+    assert.deepEqual(samples(session.transcript().slice(ignoredBoundary)), []);
     const healthy = session.transcript();
     const healthyCount = (healthy.match(/TS7006/g) ?? []).length;
     assert.ok(healthyCount >= 1, healthy);
     assert.ok(
-      Number.isSafeInteger(single[0]!.pid) &&
-        single[0]!.pid > 0 &&
-        single[0]!.pid !== process.pid,
+      Number.isSafeInteger(moduleEpoch[0]!.pid) &&
+        moduleEpoch[0]!.pid > 0 &&
+        moduleEpoch[0]!.pid !== process.pid,
     );
-    process.kill(single[0]!.pid);
+    process.kill(moduleEpoch[0]!.pid);
     fs.appendFileSync(source, "// changed after actual resident death\n");
-    await cycle(10);
+    await cycle(12);
     assert.equal(
       (session.transcript().match(/TS7006/g) ?? []).length,
       healthyCount + 1,
@@ -182,6 +209,7 @@ export async function nativeWatchCorpus(
           if (fs.existsSync(json)) fs.unlinkSync(json);
         },
         () => fs.unlinkSync(lintConfig),
+        () => { if (fs.existsSync(ignoredPackage)) fs.rmSync(ignoredPackage, { recursive: true }); },
       ])
         try {
           restore();
