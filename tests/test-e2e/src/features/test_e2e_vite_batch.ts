@@ -11,8 +11,8 @@ import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
-import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform/test_watch_broker_hears_what_follows_ready";
 import { test_vite_compiler_watch_tracks_subscription_and_alias_boundaries } from "./unplugin/native-plugins/adapters/test_vite_compiler_watch_tracks_subscription_and_alias_boundaries";
+import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform/test_watch_broker_hears_what_follows_ready";
 
 /**
  * Verifies Vite's actual Rollup build consumes one complete transformed graph.
@@ -45,7 +45,14 @@ export async function test_e2e_vite_batch(): Promise<void> {
       combinedFailures.push(error);
     },
   );
-  const nativeInputWatch = test_vite_compiler_watch_tracks_subscription_and_alias_boundaries({root:path.join(workspace.root,"tools/native-vite-watch"),externalRoot:path.join(workspace.root,"tools/native-vite-external"),retain:BatchWorkspace.retain}).catch((error:unknown)=>{combinedFailures.push(error);});
+  const nativeInputWatch =
+    test_vite_compiler_watch_tracks_subscription_and_alias_boundaries({
+      root: path.join(workspace.root, "tools/native-vite-watch"),
+      externalRoot: path.join(workspace.root, "tools/native-vite-external"),
+      retain: BatchWorkspace.retain,
+    }).catch((error: unknown) => {
+      combinedFailures.push(error);
+    });
   try {
     const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
     const pathsReceiptOffset =

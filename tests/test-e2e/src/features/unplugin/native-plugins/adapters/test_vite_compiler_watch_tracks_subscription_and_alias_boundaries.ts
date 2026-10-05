@@ -35,7 +35,11 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct importer identities and invalidation sets distinguish transitions within the shared watcher. watcher.dispose runs in finally; tracked roots end at process exit. Source-unit injected schedulers have their own final-owner close assertions.
  * @evidence contracts/e2e.md#preserved-coverage The actual watcher assertions above remain here. All 22 direct assertions in the five injected race, hardlink-poll, identity-policy and importer-release helpers execute unchanged in test_vite_compiler_watch_preserves_race_and_fallback_lifetimes through authored source APIs; its supported poll collaborators avoid native observers and real interval timers.
  */
-export async function test_vite_compiler_watch_tracks_subscription_and_alias_boundaries(prepared?: {root:string;externalRoot:string;retain(reason:string):void}): Promise<void> {
+export async function test_vite_compiler_watch_tracks_subscription_and_alias_boundaries(prepared?: {
+  root: string;
+  externalRoot: string;
+  retain(reason: string): void;
+}): Promise<void> {
   const root = fs.realpathSync.native(
     prepared?.root ?? TestProject.tmpdir("ttsc-vite-watch-boundary-"),
   );
@@ -141,7 +145,9 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
     }
 
     if (process.platform !== "win32") {
-      const externalRoot = prepared?.externalRoot ?? TestProject.tmpdir("ttsc-vite-watch-external-link-");
+      const externalRoot =
+        prepared?.externalRoot ??
+        TestProject.tmpdir("ttsc-vite-watch-external-link-");
       const external = path.join(externalRoot, "value.txt");
       const linked = path.join(root, "external-value.txt");
       fs.writeFileSync(external, "before");
@@ -209,10 +215,18 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
       () => invalidated.has(importer("file")),
       "file predicate retained after a different predicate changed",
     );
-  } catch(error) { failures.push(error); }
-  finally {
-    try { await watch.dispose(); }
-    catch(error) { prepared?.retain("native Vite input observer disposal was not acknowledged"); failures.push(error); }
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      await watch.dispose();
+    } catch (error) {
+      prepared?.retain(
+        "native Vite input observer disposal was not acknowledged",
+      );
+      failures.push(error);
+    }
   }
-  if(failures.length) throw new AggregateError(failures,"native Vite input watcher and closure");
+  if (failures.length)
+    throw new AggregateError(failures, "native Vite input watcher and closure");
 }

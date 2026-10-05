@@ -352,7 +352,8 @@ export namespace BatchWorkspace {
         ),
       ),
     );
-    for (const name of ["native-vite-watch", "native-vite-external"]) fs.mkdirSync(path.join(root,"tools",name),{recursive:true});
+    for (const name of ["native-vite-watch", "native-vite-external"])
+      fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {
