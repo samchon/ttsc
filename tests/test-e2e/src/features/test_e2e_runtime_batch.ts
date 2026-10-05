@@ -7,6 +7,8 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
+import { denyWrites, runsAsRoot } from "../internal/ttsc/internal/read-only-directory";
+import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 
 /**
  * Verifies one public runtime loads the shared transformed graph.
@@ -26,7 +28,9 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
- * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering and all four child lifetimes (including the detached registered descendant) are explicit costs, not one-process or one-Program claims.
+ * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
+ *
+ * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant) and two readonly entry children are explicit costs, not one-process or one-Program claims.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Default/explicit clean need no separate launcher. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
@@ -63,6 +67,25 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const installedInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(installedPackage);
   const installedDirectory = workspace.installationOnly ? undefined : { names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs };
   let result: ReturnType<typeof TestProject.spawn> | undefined;
+  const readonlyRoot = path.join(workspace.root, "tools/runtime-negative/readonly");
+  const readonlyBoundary = path.join(readonlyRoot, "node_modules");
+  if (!workspace.installationOnly) {
+    assert.equal(fs.existsSync(readonlyBoundary), false);
+    fs.mkdirSync(readonlyBoundary);
+    assert.deepEqual(fs.readdirSync(readonlyBoundary), []);
+  }
+  const readonlyInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(readonlyRoot);
+  const readonlyActive = !workspace.installationOnly && !runsAsRoot();
+  if (readonlyActive)
+    assert.equal(resolveSourceBuildCachePaths(readonlyRoot, undefined, {}).root,
+      path.join(readonlyBoundary, ".cache/ttsc"), "the denied local installation boundary must own the default cache selection before fallback");
+  const readonlyRestorations: (() => void)[] = [];
+  const probe = (directory: string): void => {
+    const file = path.join(directory, "owned-permission-probe");
+    const descriptor = fs.openSync(file, "wx");
+    try { fs.writeSync(descriptor, "restored"); }
+    finally { fs.closeSync(descriptor); fs.unlinkSync(file); }
+  };
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
     "--cwd", workspace.projectAlias,
@@ -79,18 +102,37 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   ];
   if (!workspace.installationOnly) fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
   try {
+    if (readonlyActive) {
+      for (const directory of [readonlyRoot, readonlyBoundary]) {
+        readonlyRestorations.push(denyWrites(directory));
+        assert.throws(() => probe(directory), (error) => ["EACCES", "EPERM", "EROFS"].includes((error as NodeJS.ErrnoException).code ?? ""), "native permissions must reject creating an entry in each owned input boundary");
+      }
+    }
     result = TestProject.spawn(process.execPath, [workspace.installedTtsx, ...selected, workspace.installationOnly ? "src/installation-runtime.ts" : "src/runtime.mts", ...(workspace.installationOnly ? [] : ["--config", "x", "--port", "3", "--help"])], {
       cwd: workspace.root,
       env: { TTSC_CACHE_DIR: workspace.cache, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined,
         TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary, TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
-        TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx, TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias },
+        TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx, TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias,
+        TTSC_E2E_READONLY_ROOT: readonlyActive ? readonlyRoot : undefined },
     });
   } finally {
-    if (result?.stderr.includes("registered descendant closure remained unresolved"))
+    const permissionFailures: unknown[] = [];
+    for (const restore of readonlyRestorations.reverse())
+      try { restore(); } catch (cause) { permissionFailures.push(cause); }
+    for (const directory of readonlyActive ? [readonlyRoot, readonlyBoundary] : [])
+      try { probe(directory); } catch (cause) { permissionFailures.push(cause); }
+    if (permissionFailures.length)
+      BatchWorkspace.retain("readonly input permissions could not be restored and acknowledged by actual writes");
+    if (result?.stderr.includes("rejection actor closure remained unresolved"))
+      BatchWorkspace.retain("the rejection actor has no actual closure acknowledgement; keep its held configuration and refuse later shared consumers");
+    else if (result?.stderr.includes("registered descendant closure remained unresolved"))
       BatchWorkspace.retain("the registered descendant has no actual ESRCH acknowledgement; keep its held configuration and refuse later shared consumers");
     else if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
+    if (permissionFailures.length) throw new AggregateError(permissionFailures, "shared readonly permission restoration failed");
   }
   assert.ok(result);
+  if (readonlyInputs)
+    assert.deepEqual(await FileSystemIterator.read(readonlyRoot), readonlyInputs, "readonly transitions must preserve every authored byte and create no adjacent output");
   assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl").sort(), baseline);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);

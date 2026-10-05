@@ -106,25 +106,39 @@ assert.match(fs.readFileSync(path.join(nativeProject, "dist/package-entry.js"), 
 assert.equal(fs.existsSync(path.join(nativeProject, "src/package-entry.js")), false, "the legal raw package self-reference must publish under dist, not beside its input");
 unchanged();
 const registerBefore = receiptCount();
+const rejectedEnv = { ...process.env };
+for (const name of ["TTSX_RUNTIME_MANIFEST", "TTSX_RUNTIME_CACHE_DIR", "TTSX_RUNTIME_RUN_DIR", "TTSX_RUNTIME_RUNS_DIR"])
+  delete rejectedEnv[name];
 const rejected = spawnSync(process.execPath, [
   "--require", path.join(__dirname, "runtime-negative/preload.cjs"), process.env.TTSC_E2E_INSTALLED_TTSX,
   "--cwd", root, "--strict", "-P", "runtime-owned.json", "--no-plugins", "@tools/runtime-negative/args.txt", "tools/runtime-negative/script.js",
-], { cwd: root, env: process.env, encoding: "utf8", windowsHide: true });
+], { cwd: root, env: rejectedEnv, encoding: "utf8", windowsHide: true });
+if (rejected.error || rejected.signal !== null || rejected.status === null || !(rejected.pid > 0))
+  throw new Error("rejection actor closure remained unresolved", { cause: rejected.error ?? new Error(JSON.stringify({ signal: rejected.signal, status: rejected.status, pid: rejected.pid })) });
 assert.equal(rejected.error, undefined);
 assert.equal(rejected.signal, null);
 assert.equal(rejected.status, 2, rejected.stderr);
 assert.ok(rejected.pid > 0);
-assert.throws(() => process.kill(rejected.pid, 0), (error) => error.code === "ESRCH");
-assert.equal(rejected.stdout, "", "none of the refused preflight inputs may execute the JavaScript ran effect");
+try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure remained unresolved"); }
+catch (error) { if (error.code !== "ESRCH") throw error; }
+const readonlyActive = process.env.TTSC_E2E_READONLY_ROOT !== undefined;
+assert.equal(rejected.stdout.trim(), readonlyActive ? "read-only-ran\nincluded-ran" : "", "only the two included readonly transitions may produce stdout");
+assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)(?:ran|outside-ran)(?:\r?\n|$)/, "neither the refused JavaScript entry nor the excluded typed entry may execute");
 assert.match(rejected.stderr, /-r requires a value/);
 assert.match(rejected.stderr, /ttsx: entry not found:/);
 assert.match(rejected.stderr, /missing-entry\.ts/);
 for (const option of ["--project", "--no-plugins", "--strict", "@tools/runtime-negative/args.txt"])
   assert.ok(rejected.stderr.split(/\r?\n/).some((line) => line.includes("ttsx:") && line.includes(option)), "the actual JavaScript refusal must name " + option);
 assert.match(rejected.stderr, /script\.js is JavaScript/);
+if (readonlyActive) {
+  assert.match(rejected.stderr, /is not writable/);
+  assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
+  assert.match(rejected.stderr, /"include" or "files"/);
+}
 assert.deepEqual(JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8")),
-  { statuses: [2, 2], exitCode: 2, pid: rejected.pid });
-assert.equal(receiptCount(), registerBefore, "these frontend refusals must not reach native preparation");
+  { statuses: [2, 2], exitCode: 2, pid: rejected.pid,
+    readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] } });
+assert.equal(receiptCount(), registerBefore, "frontend refusals and plugin-free readonly calls must not execute a context-reporting fixture contributor; this is not a raw compiler/Program count");
 unchanged();
 const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
 const defaultOrphans = path.join(root, "node_modules/.cache/ttsc/ttsx-orphan");
