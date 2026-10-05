@@ -24,6 +24,8 @@ import { captureFailedGenerationInputStates } from "../../../../../packages/unpl
 import { createUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/generation/createUnstableGenerationError";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
+import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 
 /**
  * Verifies retained failures respect their pass and observed input frontier.
@@ -38,9 +40,13 @@ import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src
  * recorded null and missing publication authority are different inputs.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored bytes produce exact graph/content-changed. Actual universal capture and validation separately admit a dangling native host link as unreadable without a signature, serve four ready deliveries, then reject exposed bytes as host/content-changed under unchanged native metadata and retain the exact formatted Error/Promise across two four-caller waves.
+ *   Actual EIO directory enumeration also supplies a retained failed walk: initial rejected-owner delivery and same-pass terminal replay each automatically register one failed recovery batch. Ordinary source paths omit generation proof while selected config carries its independently observed current bytes; the next pass rejects the old verdict and a supplied repaired ready owner delivers successfully.
  * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle. Null has no readable content to replace with a signature; distinct literal readable bytes must disagree with null or the independently hashed original bytes even while native content metadata is fixed.
+ *   Literal callback counts one/two/three, failed flags, exact source path without evidence, selected config Node SHA/native realpath and the supplied recovered output distinguish rejection, replay and subsequent ready delivery. Actual EIO and the failed directory path define the failed-walk baseline; two formatter records do not assert two captures.
  * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures. A native dangling file link (directory junction on Windows) separately distinguishes retained lexical metadata from absent target/readable content: null matches while unreadable, but literal bytes exposed only through the supported read capability cannot match null. The target stays absent, metadata stays identical, initial deliveries retain their ready owner and later callers retain one terminal error and rejected owner. A declared native config with its own recorded SHA admits normally; omission of that hash key rejects admission as content-proof-missing, distinct from a known null hash.
+ *   The recovery row contrasts inaccessible versus readable enumeration, first rejection versus retained replay, ordinary recovery omission versus current routing proof, and old terminal refusal versus a new supplied ready owner.
  * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. EACCES and alternate bytes belong to the supported cache read capability, not a reproduced native permission failure. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
+ *   A scripted filesystem capability supplies real EIO walk failure to the existing terminal consumer path. Native post-compile acquisition and the next capture are outside this row; the repaired generation is explicitly observed and supplied by the caller before coordinator delivery.
  */
 export async function test_terminal_generation_replay_follows_pass_and_input_frontiers(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
@@ -467,6 +473,94 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
       } finally {
         TRANSFORM_RESULT_FILESYSTEM.delete(result);
       }
+    }
+    const transient = path.join(root, "src", "transient-recovery");
+    fs.mkdirSync(transient);
+    fs.writeFileSync(path.join(transient, "hidden.ts"), "export const hidden = true;\n");
+    let blocked = false;
+    const recoveryCache = createTtscTransformCache({ readdir: (directory) => {
+      if (directory === transient && blocked) {
+        throw Object.assign(new Error("authored directory observation refused"), { code: "EIO" });
+      }
+      return fs.readdirSync(directory, { withFileTypes: true });
+    } });
+    const recoveryView = transformFilesystem(recoveryCache);
+    const recoveryCode = "export const recoveredDelivery = true;\n";
+    const recoveryResult: ITtscCompilerTransformation.ISuccess = {
+      type: "success",
+      typescript: Object.fromEntries(moduleFiles.map((file) => [relative(file), recoveryCode])),
+      hostInputs: [path.join(root, "tsconfig.json")],
+      hostInputHashes: { [path.join(root, "tsconfig.json")]: sha(path.join(root, "tsconfig.json")) },
+      hostInputRealpaths: { [path.join(root, "tsconfig.json")]: fs.realpathSync.native(path.join(root, "tsconfig.json")) },
+    };
+    TRANSFORM_RESULT_FILESYSTEM.set(recoveryResult, recoveryView);
+    try {
+      const failedCached = observeValidationUnitGeneration(root, recoveryResult);
+      blocked = true;
+      const identities = envelopeDerivation(failedCached).identityContext;
+      const failedWalk = collectProjectInputSnapshot(root, identities, recoveryView,
+        undefined, { policy: failedCached.membershipPolicy });
+      assert.equal(failedWalk.complete, false);
+      assert.deepEqual(failedWalk.walkFailures, [{ kind: "directory-read-failed", path: transient }]);
+      failedCached.inputHashes = failedWalk.hashes;
+      failedCached.projectDirectories = failedWalk.projectDirectories;
+      failedCached.projectSnapshotComplete = false;
+      failedCached.deliveryEpoch = 1;
+      const failures = { entries: [{ domain: "project" as const,
+        kind: "directory-read-failed" as const, path: transient }], omitted: 0 };
+      const rejection = createUnstableGenerationError(root, [failures, failures], {
+        cached: failedCached, declaredInputs: undefined,
+        inputStates: captureFailedGenerationInputStates(failedCached, failures),
+        projectInputHashes: failedWalk.hashes,
+        projectWalkComplete: walkSnapshotComplete(failedWalk, undefined),
+        projectWalkFailures: projectWalkFailureFingerprint(failedWalk, undefined, root, identities),
+      });
+      beginTtscTransformBuild(recoveryCache);
+      const rejectedOwner: Promise<TtscCachedProjectTransform> = Promise.reject(rejection);
+      void rejectedOwner.catch(() => undefined);
+      recoveryCache.set(fixture.key, rejectedOwner);
+      const registrations: { inputs: readonly TtscWatchInput[]; failed: boolean | undefined }[] = [];
+      const deliverRecovery = (file: string) => fixture.api.transformTtsc(file,
+        fs.readFileSync(file, "utf8"), fixture.options, undefined, recoveryCache, {
+          addWatchFiles: (inputs, failed) => { registrations.push({ inputs, failed }); },
+        });
+      for (const file of moduleFiles.slice(0, 2)) {
+        const before = registrations.length;
+        await assert.rejects(() => deliverRecovery(file), (error) => error === rejection);
+        assert.equal(registrations.length, before + 1, "initial rejection and terminal replay each hand off once");
+        const registration = registrations.at(-1)!;
+        assert.equal(registration.failed, true);
+        const sourceInput = registration.inputs.find((input) => input.file === file);
+        assert.ok(sourceInput);
+        assert.equal(sourceInput.evidence, undefined, "failed source recovery carries no generation proof");
+        const configInput = registration.inputs.find((input) => input.file === failedCached.tsconfig);
+        assert.ok(configInput?.evidence?.state);
+        assert.equal(configInput.evidence.state.codec, "host");
+        if (configInput.evidence.state.codec !== "host") throw new Error("Expected current config evidence");
+        assert.equal(configInput.evidence.state.hash, sha(failedCached.tsconfig));
+        assert.equal(fs.realpathSync.native(configInput.evidence.identity),
+          fs.realpathSync.native(failedCached.tsconfig));
+        assert.equal(recoveryCache.get(fixture.key), rejectedOwner);
+      }
+      blocked = false;
+      beginTtscTransformBuild(recoveryCache);
+      assert.equal(replaysTerminalGeneration(rejection, 2, {
+        currentFile: moduleFiles[0]!, currentSource: fs.readFileSync(moduleFiles[0]!, "utf8"),
+        filesystem: recoveryView,
+      }), false, "the next pass does not replay the old terminal verdict");
+      // The acquisition owner supplies a fresh ready result. This row owns
+      // subsequent coordinator delivery, not a native retry or capture.
+      const repaired = observeValidationUnitGeneration(root, recoveryResult);
+      const repairedOwner = Promise.resolve(repaired);
+      recoveryCache.set(fixture.key, repairedOwner);
+      assert.equal((await deliverRecovery(moduleFiles[0]!))?.code, recoveryCode);
+      assert.equal(registrations.length, 3);
+      assert.notEqual(registrations.at(-1)!.failed, true);
+      assert.equal(recoveryCache.get(fixture.key), repairedOwner);
+    } finally {
+      resetTtscTransformCache(recoveryCache);
+      TRANSFORM_RESULT_FILESYSTEM.delete(recoveryResult);
+      fs.rmSync(transient, { recursive: true, force: true });
     }
   } finally {
     resetTtscTransformCache(cache);

@@ -19,6 +19,7 @@ import { createHostInputMutationTracker } from "../../../../../packages/unplugin
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 
 /**
  * Verifies concurrent and repeated cached deliveries share one actual owner.
@@ -39,9 +40,13 @@ import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core
  *    with repeat delivery volatility and one actual process warning.
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
+ *   A separate actual coordinator pair opens successive passes around a new empty admitted directory, retains the same Promise and membership digest, registers its added directory and omits membership when not requested.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
+ *   Literal one-carrier counts, unchanged digest, original src directory, new later-reproved directory and an empty opt-out list distinguish directory population from root-file membership; the previous carrier stays unchanged.
  * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with deleting/recreating the same candidate parent and admitting its new source child, then appearance/eviction. Equal native bytes across two external graph targets contrast with a retargeted directory link: actual recorded graph proof must reject changed realpath alone. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
+ *   Same generation across a reproof boundary contrasts with original versus refreshed directory populations and requested versus absent membership handoff.
  * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Two real host tool roots receive distinct readable records with one basename and the same generation Promise; a regular-file records blocker yields no registration, two volatility callbacks and one actual process warning. The warning listener is removed and owned record storage is deleted in finally. These are delivery/record facts, not installed host cache or native capture certification. Finally resets both owning caches and deletes the result filesystem registration.
+ *   The directory row owns actual ready-owner coordinator reproof and callback publication. It does not acquire a native generation or register an OS watcher for the new directory.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
@@ -386,6 +391,52 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
       }
     } finally {
       fs.rmSync(recordHosts, { recursive: true, force: true });
+    }
+
+    const membershipObserved = observeValidationUnitGeneration(root, result);
+    const membershipOwner = Promise.resolve(membershipObserved);
+    fixture.cache.set(fixture.key, membershipOwner);
+    const membershipBatches: TtscWatchInput[][] = [];
+    const deliverMembership = async (membership: boolean): Promise<TtscWatchInput[]> => {
+      let registered: readonly TtscWatchInput[] = [];
+      assert.equal((await fixture.api.transformTtsc(modules[0]!, fixture.source,
+        fixture.options, undefined, fixture.cache, {
+          addWatchFiles: (inputs) => { registered = inputs; }, membership,
+        }))?.code, code);
+      assert.equal(fixture.cache.get(fixture.key), membershipOwner);
+      const inputs = registered.filter((input) => input.evidence?.state?.codec === "membership");
+      membershipBatches.push(inputs);
+      return inputs;
+    };
+    beginTtscTransformBuild(fixture.cache);
+    const firstMembership = await deliverMembership(true);
+    assert.equal(firstMembership.length, 1);
+    assert.equal(firstMembership[0]!.file, root);
+    const firstMembershipState = firstMembership[0]!.evidence!.state;
+    assert.ok(firstMembershipState);
+    assert.equal(firstMembershipState.codec, "membership");
+    if (firstMembershipState.codec !== "membership") throw new Error("Expected membership evidence");
+    assert.ok(firstMembershipState.directories.includes(path.join(root, "src")));
+    const laterDirectory = path.join(root, "src", "later-reproved");
+    fs.mkdirSync(laterDirectory);
+    try {
+      beginTtscTransformBuild(fixture.cache);
+      const nextMembership = await deliverMembership(true);
+      assert.equal(nextMembership.length, 1);
+      const nextMembershipState = nextMembership[0]!.evidence!.state;
+      assert.ok(nextMembershipState);
+      assert.equal(nextMembershipState.codec, "membership");
+      if (nextMembershipState.codec !== "membership") throw new Error("Expected membership evidence");
+      assert.equal(nextMembershipState.digest, firstMembershipState.digest,
+        "an empty admitted directory changes no root-file membership");
+      assert.ok(nextMembershipState.directories.includes(laterDirectory),
+        "coordinator reproof hands off the newly visited directory");
+      assert.equal(firstMembershipState.directories.includes(laterDirectory), false,
+        "the previous delivered carrier keeps its original directory population");
+      assert.deepEqual(await deliverMembership(false), []);
+      assert.equal(membershipBatches.length, 3);
+    } finally {
+      fs.rmdirSync(laterDirectory);
     }
 
     const passObserved = observeValidationUnitGeneration(root, result);
