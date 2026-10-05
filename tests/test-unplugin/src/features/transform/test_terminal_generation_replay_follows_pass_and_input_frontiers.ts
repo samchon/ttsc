@@ -23,6 +23,7 @@ import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/s
 import { captureFailedGenerationInputStates } from "../../../../../packages/unplugin/src/core/transform/generation/captureFailedGenerationInputStates";
 import { createUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/generation/createUnstableGenerationError";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
+import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
 
 /**
  * Verifies retained failures respect their pass and observed input frontier.
@@ -31,10 +32,12 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
  * synthetic compiler attempts. Actual capture retry counts remain E2E.
  * An unreadable null graph baseline also feeds a ready owner: four actual
  * deliveries keep that owner without earning a content reuse signature.
+ * A separate native dangling host link retains null content and no signature;
+ * exposing bytes through its cache read alone must reject that host proof.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored distinct bytes produce exact graph/content-changed and shared terminal replay without changing native content metadata.
+ * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored bytes produce exact graph/content-changed. Actual universal capture and validation separately admit a dangling native host link as unreadable without a signature, serve four ready deliveries, then reject exposed bytes as host/content-changed under unchanged native metadata and retain the exact formatted Error/Promise across two four-caller waves.
  * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle. Null has no readable content to replace with a signature; distinct literal readable bytes must disagree with null or the independently hashed original bytes even while native content metadata is fixed.
- * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures, restored alternate read bytes disagree with either unchanged producer baseline, and repeated callers retain the identical error and Promise.
+ * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures. A native dangling file link (directory junction on Windows) separately distinguishes retained lexical metadata from absent target/readable content: null matches while unreadable, but literal bytes exposed only through the supported read capability cannot match null. The target stays absent, metadata stays identical, initial deliveries retain their ready owner and later callers retain one terminal error and rejected owner.
  * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. EACCES and alternate bytes belong to the supported cache read capability, not a reproduced native permission failure. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
  */
 export async function test_terminal_generation_replay_follows_pass_and_input_frontiers(): Promise<void> {
@@ -235,6 +238,112 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         resetTtscTransformCache(deniedCache);
         TRANSFORM_RESULT_FILESYSTEM.delete(result);
       }
+    }
+    const unreadableHost = path.join(root, "node_modules", "host-input.json");
+    const absentHostTarget = path.join(root, "node_modules", "absent-host-target");
+    fs.symlinkSync(absentHostTarget, unreadableHost, process.platform === "win32" ? "junction" : "file");
+    assert.equal(fs.lstatSync(unreadableHost).isSymbolicLink(), true);
+    assert.equal(fs.existsSync(absentHostTarget), false);
+    assert.equal(fs.existsSync(unreadableHost), false);
+    const hostMetadata = () => {
+      const stat = fs.lstatSync(unreadableHost, { bigint: true });
+      return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs, stat.birthtimeNs];
+    };
+    const hostNativeMetadata = hostMetadata();
+    let hostAppeared = false;
+    const hostCache = createTtscTransformCache({ readFile: (input) =>
+      hostAppeared && path.resolve(input) === unreadableHost
+        ? Buffer.from("{}\n")
+        : fs.readFileSync(input),
+    });
+    const hostView = transformFilesystem(hostCache);
+    const hostConfig = path.join(root, "tsconfig.json");
+    const hostCode = "export const cachedHostDelivery = true;\n";
+    const hostResult: ITtscCompilerTransformation.ISuccess = {
+      type: "success",
+      typescript: Object.fromEntries(moduleNames.map((name) => [name, hostCode])),
+      hostInputs: [hostConfig, unreadableHost],
+      hostInputHashes: { [hostConfig]: sha(hostConfig), [unreadableHost]: null },
+      hostInputRealpaths: { [hostConfig]: fs.realpathSync.native(hostConfig), [unreadableHost]: null },
+    };
+    const hostCached: TtscCachedProjectTransform = {
+      result: hostResult, projectRoot: root, tsconfig: hostConfig,
+      membershipPolicy: fixture.good.membershipPolicy, inputHashes: {},
+    };
+    TRANSFORM_RESULT_FILESYSTEM.set(hostResult, hostView);
+    try {
+      const identities = envelopeDerivation(hostCached).identityContext;
+      const snapshot = collectProjectInputSnapshot(root, identities, hostView, undefined, { policy: hostCached.membershipPolicy });
+      assert.equal(snapshot.complete, true);
+      hostCached.inputHashes = snapshot.hashes;
+      hostCached.projectDirectories = snapshot.projectDirectories;
+      hostCached.projectSnapshotComplete = true;
+      const selected = [hostConfig, unreadableHost];
+      const external = captureExternalInputSnapshot(hostCached, selected, undefined);
+      assert.equal(external.complete, true);
+      hostCached.externalInputPaths = selected;
+      hostCached.externalInputHashes = external.hashes;
+      hostCached.externalInputRealpaths = external.realpaths;
+      const admitted = captureUniversalHostInputValidation(hostCached, moduleFiles[0]!);
+      assert.deepEqual(admitted.failures.entries, []);
+      assert.ok(admitted.validation);
+      hostCached.hostInputValidation = admitted.validation;
+      assert.equal(admitted.validation.entries.get(unreadableHost)?.readable, false);
+      assert.equal(admitted.validation.entries.get(unreadableHost)?.signature, undefined);
+      assert.equal(matchesUniversalHostInputs(hostCached, admitted.validation), true);
+      const ready = Promise.resolve(hostCached);
+      hostCache.set(fixture.key, ready);
+      for (const input of moduleFiles) {
+        assert.equal((await fixture.api.transformTtsc(input, fs.readFileSync(input, "utf8"),
+          fixture.options, undefined, hostCache))?.code, hostCode);
+        assert.equal(hostCache.get(fixture.key), ready);
+      }
+      assert.equal(admitted.validation.entries.get(unreadableHost)?.signature, undefined);
+      hostCache.delete(fixture.key);
+      hostAppeared = true;
+      assert.deepEqual(hostMetadata(), hostNativeMetadata);
+      assert.equal(fs.existsSync(absentHostTarget), false);
+      assert.equal(fs.existsSync(unreadableHost), false);
+      assert.equal(matchesUniversalHostInputs(hostCached, admitted.validation), false,
+        "unchanged dangling-link metadata cannot replace the host content comparison");
+      const attempts = [captureUniversalHostInputValidation(hostCached, moduleFiles[0]!).failures,
+        captureUniversalHostInputValidation(hostCached, moduleFiles[0]!).failures];
+      for (const attempt of attempts) {
+        assert.deepEqual(attempt.entries, [{ domain: "host", kind: "content-changed", path: unreadableHost }]);
+        assert.equal(attempt.omitted, 0);
+      }
+      const terminal = createUnstableGenerationError(root, attempts, {
+        cached: hostCached, declaredInputs: undefined,
+        inputStates: captureFailedGenerationInputStates(hostCached, attempts[0]!),
+        projectInputHashes: snapshot.hashes,
+        projectWalkComplete: walkSnapshotComplete(snapshot, undefined),
+        projectWalkFailures: projectWalkFailureFingerprint(snapshot, undefined, root, identities),
+      });
+      const line = '    - host/content-changed: ' + JSON.stringify(relative(unreadableHost));
+      assert.equal(terminal.message, [
+        "ttsc: could not capture a reusable transform generation after 2 attempts.",
+        "  project: " + JSON.stringify(root),
+        "  attempt 1:", line, "  attempt 2:", line,
+        "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
+      ].join("\n"));
+      const rejected: Promise<TtscCachedProjectTransform> = Promise.reject(terminal);
+      void rejected.catch(() => undefined);
+      hostCache.set(fixture.key, rejected);
+      for (let wave = 0; wave < 2; wave++) {
+        const settled = await Promise.allSettled(moduleFiles.map((input) =>
+          fixture.api.transformTtsc(input, fs.readFileSync(input, "utf8"), fixture.options, undefined, hostCache)));
+        for (const entry of settled) {
+          assert.equal(entry.status, "rejected");
+          assert.equal((entry as PromiseRejectedResult).reason, terminal);
+        }
+        assert.equal(hostCache.get(fixture.key), rejected);
+      }
+      assert.equal(hostResult.hostInputHashes?.[unreadableHost], null);
+      assert.deepEqual(hostMetadata(), hostNativeMetadata);
+    } finally {
+      resetTtscTransformCache(hostCache);
+      TRANSFORM_RESULT_FILESYSTEM.delete(hostResult);
+      fs.rmSync(unreadableHost, { recursive: true, force: true });
     }
     for (const mode of ["missing-content", "producer-candidate", "external-output"] as const) {
       const result: ITtscCompilerTransformation.ISuccess = {
