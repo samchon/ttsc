@@ -163,13 +163,13 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
 }
 
 // RunBuild uses the linked-program build phases with process output streams.
-// The delegated operation invokes raw emit once on its emission path and
+// The delegated operation dispatches linked emit transforms on its build path and
 // returns without emission for an admitted analysis-only invocation.
 //
 // @evidence contracts/common.md#principled-implementation Process-stream build delegates to the same linked-program emission owner as embedding callers.
 // @evidence contracts/common.md#clear-and-simple-design One delegation supplies the standard streams without duplicating build policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper adds no package-name or fixture-specific build path.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies process streams and distinguishes the delegated single-emit path from analysis-only completion.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies process streams and distinguishes delegated linked emission from analysis-only completion.
 // @evidence contracts/portability.md#os-neutral-implementation Standard streams come from os; the delegated build owns native project paths and writes.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The delegated build owns emit orchestration.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper owns no shared-work coordinator.
@@ -192,11 +192,11 @@ func RunBuild(args []string) int {
 // so a zero status does not certify delivery to the supplied io.Writer values.
 //
 // @evidence contracts/common.md#principled-implementation Completed emission publishes the same generation's successful writer ownership even when another output failed; original emit diagnostics retain status two, failed metadata alone returns three, and successful noEmit publishes an empty map.
-// @evidence contracts/common.md#clear-and-simple-design One loaded program, one raw native emit, and shared diagnostic classification define the build phases.
+// @evidence contracts/common.md#clear-and-simple-design One loaded program delegates linked emission and shared diagnostic classification; successful writer keys supply the verbose count.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
-// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. The emission path invokes raw emit once, including linked hooks, input-dependent native generation and serialized writer/preamble-map work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
+// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one preamble-map correction; the final writer ensures preamble text and records successful output keys. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
 // @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
@@ -234,8 +234,21 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
       return 3
     }
   }
-  res, eDiags, err := prog.EmitAllRaw(writeFile)
-  if err != nil {
+  emittedFiles := map[string]struct{}{}
+  finalWriteFile := writeFile
+  eDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName, text string, data *shimcompiler.WriteFileData) error {
+    var err error
+    if finalWriteFile != nil {
+      err = finalWriteFile(fileName, text, data)
+    } else {
+      err = driver.DefaultWriteFile(fileName, text)
+    }
+    if err == nil && (data == nil || !data.SkippedDtsWrite) {
+      emittedFiles[fileName] = struct{}{}
+    }
+    return err
+  })
+  if err != nil && driver.CountErrors(eDiags) == 0 {
     fmt.Fprintf(opts.stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
   }
@@ -254,8 +267,8 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   if provenanceErr != nil {
     return 3
   }
-  if res != nil && !opts.quiet {
-    fmt.Fprintf(opts.stdout, "// ttsc utility: emitted=%d files\n", len(res.EmittedFiles))
+  if !opts.quiet {
+    fmt.Fprintf(opts.stdout, "// ttsc utility: emitted=%d files\n", len(emittedFiles))
   }
   return 0
 }
@@ -624,19 +637,10 @@ func setLinkedPluginManifest(input string) func() {
 // preamble (e.g. @ttsc/banner's copyright block) consistent in the output.
 //
 // The preamble is injected at the SOURCE level (sourcePreambleFS prepends it
-// before TypeScript-Go parses), which has two output consequences this callback
-// reconciles:
-//
-//   - The preamble changes parsed source coordinates and embedded source text,
-//     so external `.js.map` / `.d.ts.map` and inline maps need the Program's
-//     exact authored-region correction. It must run
-//     even when RemoveComments strips the banner text from the JS/d.ts, because
-//     the source is preamble-injected regardless of RemoveComments.
-//   - The banner text itself is ensured in the `.js` / `.d.ts` output, only when
-//     comments are kept; RemoveComments deliberately drops it. (For a banner
-//     build the banner is already source-injected, so this is a no-op safety net;
-//     it never runs on an inline map's JS that the line above already corrected,
-//     because the banner is present there.)
+// before TypeScript-Go parses). EmitWithPluginTransformers already corrects
+// external and inline source maps against authored source coordinates, so this
+// writer must not correct them a second time. It only ensures preamble text in
+// `.js` / `.d.ts` when comments are kept; RemoveComments drops that text.
 //
 // Returns nil only when there is no preamble at all (nil program or empty
 // preamble), telling the caller to use the default writer.
@@ -645,14 +649,8 @@ func makeSourcePreambleWriteFile(prog *driver.Program) shimcompiler.WriteFile {
     return nil
   }
   preamble := prog.SourcePreamble
-  correctSourceMap := prog.NewSourceMapCorrector()
   injectBanner := !shouldRemoveComments(prog)
   return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    corrected, err := correctSourceMap(fileName, text)
-    if err != nil {
-      return err
-    }
-    text = corrected
     if injectBanner && shouldEnsureSourcePreamble(fileName, text, preamble) {
       text = driver.ApplySourcePreamble(text, preamble)
     }

@@ -186,6 +186,10 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // EmitTransformPlugins are chained after the caller's transforms in
 // registration order.
 //
+// With no effective transform, ordinary native emission owns bundled output,
+// declarations and build information. This entry still corrects source maps
+// for the source preamble before delivering them to its writer.
+//
 // Because the JavaScript side bypasses tsgo's own emitter, it reproduces that
 // emitter's whole printSourceFile step via PrintFileWithSourceMap: a
 // `sourceMap` build can emit an external `.js.map` and trailer, while
@@ -201,7 +205,7 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported factories, original-node ownership, and compiler transformers replace hardcoded import aliases or patched checker functions; noEmitOnError withholds writes until both phases succeed.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain ordering, context integration, maps/BOM, and declaration delegation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler output paths and native containment checks govern writes; no shell or OS-specific output directory is assumed.
-// @evidence contracts/performance.md#efficient-algorithms One original-tree member index precedes the eligible-file loop; each file runs the ordered callback chain and builtin transforms, followed by printing/maps and any native declaration pass. AST size, callback count/work, output bytes, native path checks and declaration work govern cost; callbacks may perform additional traversals.
+// @evidence contracts/performance.md#efficient-algorithms Without effective transforms, native whole-program emission and authored source-map correction own output work. Otherwise one original-tree member index precedes the eligible-file loop; each file runs the ordered callback chain and builtin transforms, followed by printing/maps and any native declaration pass. AST size, callback count/work, output bytes, native path checks and declaration work govern cost; callbacks may perform additional traversals.
 // @evidence contracts/performance.md#reuse-equivalent-work Linked program hooks are latched per generation, and the existing checker/resolver serves all per-file transforms instead of constructing independent compiler programs.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The invocation retains original-member references and, under noEmitOnError, all pending output text without a byte cap. Success flushes once; return ends this local ownership, not caller-held output or Program/checker lifetimes. Write failure can leave an already-written prefix; no rollback is promised.
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
@@ -237,6 +241,34 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   }
   if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
     return p.pluginEmitDiagnostics("pre-emit checking", result.Diagnostics)
+  }
+  hasTransform := false
+  for _, transform := range transforms {
+    if transform != nil {
+      hasTransform = true
+      break
+    }
+  }
+  if !hasTransform {
+    correctSourceMap := p.NewSourceMapCorrector()
+    result, diagnostics, err := p.EmitAllRaw(func(fileName, text string, data *shimcompiler.WriteFileData) error {
+      corrected, err := correctSourceMap(fileName, text)
+      if err != nil {
+        return err
+      }
+      if writeFile != nil {
+        return writeFile(fileName, corrected, data)
+      }
+      return DefaultWriteFile(fileName, corrected)
+    })
+    if err != nil || result == nil {
+      return diagnostics, err
+    }
+    phase := "JavaScript emit"
+    if options.GetEmitDeclarations() {
+      phase = "declaration emit"
+    }
+    return p.pluginEmitDiagnostics(phase, result.Diagnostics)
   }
   // Snapshot ownership before any transformer runs, including transforms that
   // mutate their input in place or reuse a member from another source file.
