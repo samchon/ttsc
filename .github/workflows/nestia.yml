@@ -45,11 +45,12 @@ jobs:
           --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/nestia
-      - name: Cache Compiler Artifacts
-        uses: actions/cache@v4
+      - name: Restore Compiler Artifacts
+        id: compiler-cache
+        uses: actions/cache/restore@v4
         with:
           path: node_modules/.cache/ttsc
-          key: ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*') }}
+          key: ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
           restore-keys: |
             ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
       - run: node .github/workflows/scripts/nestia-source-admission.cjs admit experimental/nestia
@@ -70,6 +71,12 @@ jobs:
         working-directory: experimental/nestia
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+      - name: Save Verified Compiler Artifacts
+        if: steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: node_modules/.cache/ttsc
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
       - run: pnpm test:e2e
         working-directory: experimental/nestia
         env:
