@@ -91,8 +91,10 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  *   context/output transfer and session serialization retain payload costs.
  *   Both snapshots, proof maps, unions and enumerated-directory set are
  *   population-sized, independent of the eight retained diagnostic witnesses.
- *   Enabled private tracing appends actual adoption/invocation/outcome fields;
- *   it does not turn one host request into an inferred native child count.
+ *   Enabled private tracing serializes actual invocation, proof premises,
+ *   bounded failure witnesses and publication admission through the existing
+ *   trace sink. Key lists and retained witness text contribute payload cost;
+ *   a publication attempt does not establish that its store write completed.
  * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Snapshot and result storage grow with observed inputs/output bytes; native
@@ -707,6 +709,37 @@ export async function captureTransformGeneration(props: {
         state,
       });
     }
+    // Trace the already evaluated admission premises, not a second proof pass.
+    compileTrace?.("bridge-generation-proof", {
+      pid: process.pid,
+      cwd: projectRoot,
+      data: {
+        tsconfig: props.tsconfig,
+        currentFile: props.currentFile,
+        temporaryTsconfig: cached.temporaryTsconfig,
+        scratchDirectory: cached.scratchDirectory,
+        claimKind: claim?.kind ?? null,
+        sharedClaimHeld: sharedClaim !== undefined,
+        state: state ?? null,
+        configStateComplete: cached.configStateComplete,
+        projectHeldStill: cached.projectHeldStill,
+        walkStable,
+        dependenciesProven: externalInputSnapshot.dependenciesProven,
+        externalSnapshotComplete: externalInputSnapshot.complete,
+        adoptionFailure: adoptionFailure ?? null,
+        graphProofs,
+        universalInputs,
+        stableProjectSnapshot,
+        resultType: result.type,
+        producerObservationsComplete:
+          result.type === "exception" ? null : result.observationsComplete ?? null,
+        hostInputProofFailureKeys:
+          result.type === "exception"
+            ? null
+            : Object.keys(result.hostInputProofFailures ?? {}),
+        failures: { entries: failures.entries, omitted: failures.omitted },
+      },
+    });
     // Publish only a compile that is reusable as captured, so the state it is
     // published under is the state it read and proved: for a success, the
     // whole reusable snapshot, the graph's own proofs among them, since an
@@ -734,12 +767,23 @@ export async function captureTransformGeneration(props: {
           ? stableProjectSnapshot
           : walkStable && externalInputSnapshot.dependenciesProven)
       ) {
+        compileTrace?.("bridge-publication", {
+          pid: process.pid,
+          cwd: projectRoot,
+          data: { action: "publish-attempt", state, resultType: result.type },
+        });
         await sharedClaim.publish({
           externalInputHashes: externalInputSnapshot.hashes,
           externalInputRealpaths: externalInputSnapshot.realpaths,
           result,
           scratchDirectory,
           ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
+        });
+      } else {
+        compileTrace?.("bridge-publication", {
+          pid: process.pid,
+          cwd: projectRoot,
+          data: { action: "withheld", state, resultType: result.type },
         });
       }
       sharedClaim.release();

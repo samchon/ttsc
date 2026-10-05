@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
+import { traceInvocation } from "../../tracing/traceInvocation";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { disposeCachedTransform } from "../cache/disposeCachedTransform";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -69,12 +70,15 @@ import { selectTransformAttemptDisposition } from "./selectTransformAttemptDispo
  * persistent caching. Actual changes, conflicts and unexplained missing proof
  * retain the stabilization gate.
  *
+ * Enabled private tracing records each computed disposition before its state
+ * is applied. It does not supply proof when capture throws or tracing fails.
+ *
  * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
  * @evidence contracts/common.md#clear-and-simple-design The pure attempt policy selects acceptance and retry budgets; this loop owns mutable learned facts and resource handoff, capture owns proof construction, and the shared error builder owns terminal rendering and final disposal.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
- * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt copies the cumulative witnessed Set and scans its external dependencies into that copy; the next capture receives a separate array of its names; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work.
+ * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt copies the cumulative witnessed Set and scans its external dependencies into that copy; the next capture receives a separate array of its names; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work. Enabled tracing serializes disposition scalars and path text through the existing bounded append sink; disabled tracing skips that payload construction.
  * @evidence contracts/performance.md#reuse-equivalent-work Learned dependency names and reported compiler case policy carry into the next capture, which takes new observations; previous witness bytes are not reused as fresh proof. Refuted publication state bypasses its next lookup while a changed state may adopt a separately proven publication. This loop shares no cache entry itself; its caller owns generation/terminal Promise sharing and current-environment replay admission.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each nonterminal rejected capture is detached through the shared disposer before retry; terminal error construction does the same for the final failed capture, while diagnostic/success/fresh-only return transfers the generation to its caller. Cleanup failures do not certify native release. Up to four attempt aggregates remain, but their path/detail bytes and cumulative witnessed dependency names have no byte cap; the terminal error retains comparison data under cache-owner lifetime. Capture owns its own acquisition-failure cleanup and escaped errors.
  */
@@ -139,6 +143,7 @@ export async function transformProject(props: {
    */
   useCaseSensitiveFileNames?: boolean;
 }): Promise<TtscCachedProjectTransform> {
+  const attemptTrace = traceInvocation();
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
   let moved = 0;
@@ -169,6 +174,24 @@ export async function transformProject(props: {
       attempt,
       moved,
       rejected,
+    });
+    attemptTrace?.("bridge-attempt-disposition", {
+      pid: process.pid,
+      cwd: cached.projectRoot,
+      data: {
+        tsconfig: props.tsconfig,
+        currentFile: props.currentFile,
+        temporaryTsconfig: cached.temporaryTsconfig,
+        scratchDirectory: cached.scratchDirectory,
+        attempt,
+        movedBefore: moved,
+        rejectedBefore: rejected ?? null,
+        kind: disposition.kind,
+        freshDeliveryOnly: disposition.freshDeliveryOnly,
+        movedAfter: "moved" in disposition ? disposition.moved : null,
+        rejectedAfter:
+          "rejected" in disposition ? disposition.rejected ?? null : null,
+      },
     });
     if (disposition.freshDeliveryOnly) {
       // Neither incomplete diagnostic observations nor a permitted local fresh
