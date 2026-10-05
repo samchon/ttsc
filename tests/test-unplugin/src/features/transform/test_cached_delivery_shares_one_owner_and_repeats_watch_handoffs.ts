@@ -40,7 +40,7 @@ import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
- * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with appearance/eviction. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
+ * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with deleting/recreating the same candidate parent and admitting its new source child, then appearance/eviction. Equal native bytes across two external graph targets contrast with a retargeted directory link: actual recorded graph proof must reject changed realpath alone. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
  * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Two real host tool roots receive distinct readable records with one basename and the same generation Promise; a regular-file records blocker yields no registration, two volatility callbacks and one actual process warning. The warning listener is removed and owned record storage is deleted in finally. These are delivery/record facts, not installed host cache or native capture certification. Finally resets both owning caches and deletes the result filesystem registration.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
@@ -129,6 +129,8 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     assert.deepEqual(ledgers[0]!.sort(), expected);
 
     const candidates = [0, 1, 2].map((index) => path.join(root, "node_modules", "candidate-" + index, "index.ts"));
+    for (const candidate of candidates) fs.mkdirSync(path.dirname(candidate), { recursive: true });
+    assert.equal(fs.existsSync(candidates[0]!), false);
     const candidateNames = candidates.map((file) => path.relative(root, file).split(path.sep).join("/"));
     let probes = 0;
     let reads = 0;
@@ -195,6 +197,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         assert.ok(probes > 0, "actual coordinator fallback replays absent candidates");
         assert.equal(reads, 0, "existence-only candidate proof reads no candidate content");
       }
+      fs.rmSync(path.dirname(candidates[0]!), { recursive: true, force: true });
       fs.mkdirSync(path.dirname(candidates[0]!), { recursive: true });
       fs.writeFileSync(candidates[0]!, "export {};\n");
       assert.equal(selectCachedGenerationAction({ cache: unavailableCache, cached: candidateOwner,
@@ -289,6 +292,43 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         assert.equal(fixture.cache.get(fixture.key), freshOwner);
       }
     }
+    const edgeDirectories = ["edge-first", "edge-second"].map((name) => path.join(root, "node_modules", name));
+    const edgeBytes = "export declare const linked: number;\n";
+    for (const directory of edgeDirectories) {
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, "index.d.ts"), edgeBytes);
+    }
+    const edgeLink = path.join(root, "node_modules", "edge-link");
+    const edgeFile = path.join(edgeLink, "index.d.ts");
+    const linkKind = process.platform === "win32" ? "junction" : "dir";
+    fs.symlinkSync(edgeDirectories[0]!, edgeLink, linkKind);
+    const edgeHash = createHash("sha256").update(edgeBytes).digest("hex");
+    const originalTarget = fs.realpathSync.native(edgeFile);
+    const edgeResult = {
+      ...result,
+      graph: {
+        edges: Object.fromEntries(modules.map((file) => ["src/" + path.basename(file), ["node_modules/edge-link/index.d.ts"]])),
+        globals: [], configs: [],
+        inputHashes: { "node_modules/edge-link/index.d.ts": edgeHash },
+        inputRealpaths: { "node_modules/edge-link/index.d.ts": originalTarget },
+      },
+    };
+    try {
+      const linked = observeValidationUnitGeneration(root, edgeResult);
+      assert.equal(captureExternalInputSnapshot(linked, [edgeFile], undefined).complete, true);
+      fs.rmSync(edgeLink, { recursive: true, force: true });
+      fs.symlinkSync(edgeDirectories[1]!, edgeLink, linkKind);
+      assert.notEqual(fs.realpathSync.native(edgeFile), originalTarget);
+      assert.equal(createHash("sha256").update(fs.readFileSync(edgeFile)).digest("hex"), edgeHash);
+      const retargeted = captureExternalInputSnapshot(linked, [edgeFile], undefined);
+      assert.equal(retargeted.complete, false, "same content cannot replace the recorded physical graph target");
+      assert.deepEqual(retargeted.failures.entries.map(({ domain, kind, path: file }) => ({ domain, kind, path: file })),
+        [{ domain: "external", kind: "graph-realpath-changed", path: edgeFile }]);
+    } finally {
+      fs.rmSync(edgeLink, { recursive: true, force: true });
+      for (const directory of edgeDirectories) fs.rmSync(directory, { recursive: true, force: true });
+    }
+
     const recordObserved = observeValidationUnitGeneration(root, result);
     const recordOwner = Promise.resolve(recordObserved);
     fixture.cache.set(fixture.key, recordOwner);

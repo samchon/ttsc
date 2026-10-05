@@ -8,6 +8,10 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
+import { notifyFailedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyFailedGenerationInputs";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { createViteServeWatchHooks } from "../../../../../packages/unplugin/src/core/vite/createViteServeWatchHooks";
+import type { ViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/ViteServeInputWatch";
 
 /**
  * Verifies graph reach, reported dependencies and lexical module exclusions
@@ -24,10 +28,10 @@ import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/tra
  *    spelling while excluding only the delivered one.
  * 3. Collect every independent list failure before reporting the matrix.
  *
- * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file. Two direct calls with Bun's callback-absent hook shape must return undefined without invoking markVolatile or altering the observed consumer baseline.
+ * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs and notifyFailedGenerationInputs preserve configured/physical project spellings, while createViteServeWatchHooks forwards the exact compiler batch and mode discriminator. Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file. Two direct calls with Bun's callback-absent hook shape must return undefined without invoking markVolatile or altering the observed consumer baseline.
  * @evidence contracts/testing.md#independent-expectations Literal graph edges and dependencies reproduce the original E2E inputs; enumerated expected paths reproduce their five watch-list assertions. Real links establish equal physical files independently. Expected lists do not call the selector, traversal or normalization under test. Without a consuming module/project channel no handoff or refused-record volatility is owed; independent copies and native bytes check that both calls preserve their input.
  * @evidence contracts/testing.md#distinguishing-cases Transitive reach, a cycle back to the delivered module, an unreachable edge, overlapping globals/configs, graph/dependency overlap and exclusive inputs, duplicate relative and absolute dependencies, and aliased versus canonical deliveries retain their contrasting lists. Every graph/dependency envelope is independent; Repeated deliveries of one immutable dependency envelope each receive the exact universal and nearer-config/source watch tail. Alias deliveries share one immutable envelope to exercise its lexical memo keys. Callback-absent first/repeat calls contrast those consuming hosts while retaining relative/absolute/duplicate/self dependency metadata.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls notifyWatchInputs through createWatchInputUnitFixture and directly with an actual native-observed consumer baseline. It executes no native producer or process. test_transformttsc_composes_a_mixed_completeness_envelope_per_file retains actual native output, dependency/graph transport and one-capture assertions; test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook retains native alias delivery. Prepared unit envelopes establish only the watch-input selection and optional-channel rules, not Bun onLoad/parser, private cache lifetime or native capture.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls notifyWatchInputs through createWatchInputUnitFixture and directly with an actual native-observed consumer baseline. It executes no native producer or process. test_transformttsc_composes_a_mixed_completeness_envelope_per_file retains actual native output, dependency/graph transport and one-capture assertions; test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook retains native alias delivery. Prepared unit envelopes establish only watch-input selection and optional-channel rules, not Bun onLoad/parser, private cache lifetime or native capture. A native project directory link contrasts configured and physical callback spellings in healthy and failed handoffs. Actual createViteServeWatchHooks forwards a readonly compiler batch/token with the observer receiver, selects an empty watcherless shape or non-serve undefined, and propagates the exact callback failure without adding runtime or project channels. These factory facts do not certify installed Vite runtime imports or observer acquisition.
  */
 export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): void {
   const fixture = createWatchInputUnitFixture();
@@ -199,6 +203,68 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
         ].sort(),
       ),
     );
+  });
+  check("configured project spelling in healthy and failed handoffs", () => {
+    const linkedRoot = root + "-configured-project";
+    fs.mkdirSync(path.dirname(linkedRoot), { recursive: true });
+    fs.symlinkSync(root, linkedRoot, process.platform === "win32" ? "junction" : "dir");
+    fs.writeFileSync(path.join(root, "src", "types.d.ts"), "export declare const typed: number;\n");
+    const tsconfig = path.join(linkedRoot, "tsconfig.json");
+    const result: ITtscCompilerTransformation.ISuccess = {
+      type: "success", typescript: { "src/main.ts": "export const value = 1;\n" },
+      hostInputs: ["package.json", "plugin.cjs", "tsconfig.json"],
+      dependencies: { "src/main.ts": ["src/types.d.ts"] },
+    };
+    const cached = {
+      projectRoot: linkedRoot, tsconfig, result,
+      membershipPolicy: readProjectMembershipPolicy(tsconfig),
+      inputHashes: Object.fromEntries(["src/main.ts", "src/types.d.ts"].map((name) =>
+        [name, createHash("sha256").update(fs.readFileSync(path.join(root, name))).digest("hex")])),
+    };
+    const selection = { consulted: [], tsconfig, filesystem: DEFAULT_FILESYSTEM_OPERATIONS };
+    try {
+      assert.equal(fs.realpathSync.native(linkedRoot), fs.realpathSync.native(root));
+      for (const spelling of [linkedRoot, fs.realpathSync.native(root)]) {
+        const delivered = path.join(spelling, "src", "main.ts");
+        const healthy: string[] = [];
+        notifyWatchInputs({ addWatchFile: (input) => { healthy.push(input); } }, cached, delivered, selection);
+        assert.deepEqual(healthy.sort(), ["package.json", "plugin.cjs", "tsconfig.json", "src/types.d.ts"].map((name) => path.join(spelling, name)).sort());
+        const failed: string[] = [];
+        notifyFailedGenerationInputs({ addWatchFiles: (inputs, failure) => {
+          assert.equal(failure, true);
+          failed.push(...inputs.map((input) => input.file));
+        } }, cached, delivered, selection);
+        assert.deepEqual(failed.sort(), ["src/main.ts", "src/types.d.ts", "tsconfig.json"].map((name) => path.join(spelling, name)).sort());
+      }
+    } finally {
+      fs.rmSync(linkedRoot, { recursive: true, force: true });
+    }
+  });
+  check("Vite compiler input channel stays separate from runtime hooks", () => {
+    const calls: Parameters<ViteServeInputWatch["replace"]>[] = [];
+    const serveInputs: Pick<ViteServeInputWatch, "replace"> = {
+      replace(...args) {
+        assert.equal(this, serveInputs);
+        calls.push(args);
+      },
+    };
+    const inputs = Object.freeze([Object.freeze({ file })]);
+    const hooks = createViteServeWatchHooks("serve", true, serveInputs, file, 17)!;
+    assert.deepEqual(Object.keys(hooks).sort(), ["addWatchFiles", "membership"]);
+    assert.equal(hooks.membership, true);
+    hooks.addWatchFiles!(inputs, true);
+    hooks.addWatchFiles!(inputs, undefined);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0], [file, inputs, true, 17]);
+    assert.deepEqual(calls[1], [file, inputs, undefined, 17]);
+    assert.equal(calls[0]![1], inputs, "the readonly batch is forwarded without copying or rewriting");
+    assert.deepEqual(createViteServeWatchHooks("serve", false, serveInputs, file, undefined), {});
+    assert.equal(createViteServeWatchHooks("build", true, serveInputs, file, undefined), undefined);
+    assert.equal(createViteServeWatchHooks(undefined, true, serveInputs, file, undefined), undefined);
+    const failure = new Error("authored compiler-input channel failure");
+    serveInputs.replace = function () { assert.equal(this, serveInputs); throw failure; };
+    assert.throws(() => hooks.addWatchFiles!(inputs, false), (error) => error === failure);
+    assert.equal(calls.length, 2);
   });
   if (errors.length !== 0)
     throw new AggregateError(errors, "watch-input graph/dependency matrix");
