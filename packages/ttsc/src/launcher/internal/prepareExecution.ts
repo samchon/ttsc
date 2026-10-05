@@ -437,15 +437,15 @@ function discoverOwningProject(
  * TsgoArguments and dependency serving use the same private layout selection.
  *
  * Resolving the selected root in the context is the other half of
- * `resolveEntrySpelling`, and skipping it
- * leaves the comparison mixed rather than merely imprecise. `project.root`
- * arrives through plain `fs.realpathSync`, which resolves reparse points but
- * leaves a Windows 8.3 component alone, while the entry arrives through
- * `fs.realpathSync.native`, which expands it — and `path.relative` folds case
- * but not 8.3. A declared `rootDir` is worse still: it is joined verbatim, so a
- * `rootDir` that is itself a symlinked directory never resolves at all. Either
- * way the gate reads an in-project entry as outside its own root, pays a second
- * whole build for it, and publishes a wider root than the project has.
+ * `resolveEntrySpelling`, and skipping it leaves the comparison mixed rather
+ * than merely imprecise. `project.root` arrives through plain
+ * `fs.realpathSync`, which resolves reparse points but leaves a Windows 8.3
+ * component alone, while the entry arrives through `fs.realpathSync.native`,
+ * which expands it — and `path.relative` folds case but not 8.3. A declared
+ * `rootDir` is worse still: it is joined verbatim, so a `rootDir` that is
+ * itself a symlinked directory never resolves at all. Either way the gate reads
+ * an in-project entry as outside its own root, pays a second whole build for
+ * it, and publishes a wider root than the project has.
  *
  * The pass costs nothing in agreement with the root tsgo was pinned to, which
  * stays unresolved on purpose so it matches the spelling tsgo gives the input

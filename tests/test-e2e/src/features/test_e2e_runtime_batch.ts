@@ -582,7 +582,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           declarationObservation.driverEmitBefore,
           declarationObservation.driverEmitAfter,
         ),
-        [{ name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null }],
+        [
+          {
+            name: "native-auto-discovery",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
+        ],
         "the failed raw driver owns its automatic native entry admission, not the preceding successful emit's receipt epoch",
       );
       assert.equal(

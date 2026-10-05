@@ -23,7 +23,9 @@ import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this matching unit feature and Evidence selects its named exported function. The authored source resolver reads call-owned fixture manifests in process, without native builds, descriptor evaluation, product hosts or reference subprocesses; finally removes the temporary tree. Throwing runtime bytes are resolution inputs only: neither their evaluation nor descriptor execution/native transform delivery is certified.
  */
 export async function test_plugin_export_targets_preserve_selection_and_rejection(): Promise<void> {
-  const lexicalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-export-targets-"));
+  const lexicalRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-plugin-export-targets-"),
+  );
   const root = fs.realpathSync.native(lexicalRoot);
   try {
     await FileSystemIterator.write(root, {
@@ -82,17 +84,33 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
     }
     const descriptor = path.join(root, "node_modules/pkg-valid/descriptor.cjs");
     const physicalDescriptor = fs.realpathSync.native(descriptor);
-    assert.equal(PluginPackageResolution.resolvePluginRequest(
-      path.join(lexicalRoot, "node_modules/pkg-valid/descriptor.cjs"), lexicalRoot,
-    ), physicalDescriptor);
-    assert.equal(PluginPackageResolution.resolvePluginRequest(
-      "./node_modules/pkg-valid/descriptor.cjs", lexicalRoot,
-    ), physicalDescriptor);
+    assert.equal(
+      PluginPackageResolution.resolvePluginRequest(
+        path.join(lexicalRoot, "node_modules/pkg-valid/descriptor.cjs"),
+        lexicalRoot,
+      ),
+      physicalDescriptor,
+    );
+    assert.equal(
+      PluginPackageResolution.resolvePluginRequest(
+        "./node_modules/pkg-valid/descriptor.cjs",
+        lexicalRoot,
+      ),
+      physicalDescriptor,
+    );
     const alias = path.join(root, "descriptor-directory-alias");
-    fs.symlinkSync(path.dirname(descriptor), alias, process.platform === "win32" ? "junction" : "dir");
-    assert.equal(PluginPackageResolution.resolvePluginRequest(
-      path.join(alias, "descriptor.cjs"), lexicalRoot,
-    ), physicalDescriptor);
+    fs.symlinkSync(
+      path.dirname(descriptor),
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      PluginPackageResolution.resolvePluginRequest(
+        path.join(alias, "descriptor.cjs"),
+        lexicalRoot,
+      ),
+      physicalDescriptor,
+    );
     const missing = path.join(lexicalRoot, "missing-descriptor.cjs");
     assert.equal(PluginPackageResolution.resolveRealPath(missing), missing);
     const outcomes = Object.fromEntries(

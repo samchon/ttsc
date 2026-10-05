@@ -54,26 +54,52 @@ export async function runtimeFrontdoorsCorpus(
   ])
     delete env[name];
   const failures: unknown[] = [];
-  let ownershipUnresolved=false;
-  const orphanRoot=path.join(root,"node_modules/runtime-cache-control");
-  const orphanEntry=path.join(orphanRoot,"src/index.ts");
-  const orphanEnum=path.join(orphanRoot,"src/enum.ts");
-  const orphanManifest=path.join(orphanRoot,"package.json");
-  const orphanEntryBytes=fs.readFileSync(orphanEntry);
-  const orphanEnumBytes=fs.readFileSync(orphanEnum);
-  const orphanManifestBytes=fs.readFileSync(orphanManifest);
-  const orphanPreload=path.join(root,"orphan-preload.cjs");
-  const stageOrphan=(type:string,answer:number)=>{
-    if(ownershipUnresolved)throw new Error("orphan inputs remain owned by an unresolved runtime actor");
-    fs.writeFileSync(orphanManifest,JSON.stringify({name:"runtime-cache-control",type,exports:"./src/index.ts"}));
-    fs.writeFileSync(orphanEnum,`export const enum Value { Entry = ${answer} }\n`);
+  let ownershipUnresolved = false;
+  const orphanRoot = path.join(root, "node_modules/runtime-cache-control");
+  const orphanEntry = path.join(orphanRoot, "src/index.ts");
+  const orphanEnum = path.join(orphanRoot, "src/enum.ts");
+  const orphanManifest = path.join(orphanRoot, "package.json");
+  const orphanEntryBytes = fs.readFileSync(orphanEntry);
+  const orphanEnumBytes = fs.readFileSync(orphanEnum);
+  const orphanManifestBytes = fs.readFileSync(orphanManifest);
+  const orphanPreload = path.join(root, "orphan-preload.cjs");
+  const stageOrphan = (type: string, answer: number) => {
+    if (ownershipUnresolved)
+      throw new Error(
+        "orphan inputs remain owned by an unresolved runtime actor",
+      );
+    fs.writeFileSync(
+      orphanManifest,
+      JSON.stringify({
+        name: "runtime-cache-control",
+        type,
+        exports: "./src/index.ts",
+      }),
+    );
+    fs.writeFileSync(
+      orphanEnum,
+      `export const enum Value { Entry = ${answer} }\n`,
+    );
   };
-  const assertOrphan=(stdout:string,answer:number,tail:readonly string[])=>{
-    assert.deepEqual(stdout.trim().split(/\r?\n/),[...STANDARD_DECORATOR_OUTPUT.split(/\r?\n/),"TTSC_ORPHAN_ANSWER:"+answer,...tail]);
-    assert.deepEqual(fs.readFileSync(orphanEntry),orphanEntryBytes,"decorated source must stay byte-identical across imported values and package formats");
+  const assertOrphan = (
+    stdout: string,
+    answer: number,
+    tail: readonly string[],
+  ) => {
+    assert.deepEqual(stdout.trim().split(/\r?\n/), [
+      ...STANDARD_DECORATOR_OUTPUT.split(/\r?\n/),
+      "TTSC_ORPHAN_ANSWER:" + answer,
+      ...tail,
+    ]);
+    assert.deepEqual(
+      fs.readFileSync(orphanEntry),
+      orphanEntryBytes,
+      "decorated source must stay byte-identical across imported values and package formats",
+    );
   };
   const run = (args: string[]) => {
-    if(ownershipUnresolved)throw new Error("runtime actor cannot reuse unresolved input ownership");
+    if (ownershipUnresolved)
+      throw new Error("runtime actor cannot reuse unresolved input ownership");
     const result = E2eProcessTrace.spawnSync(process.execPath, args, {
       cwd: root,
       env,
@@ -81,7 +107,7 @@ export async function runtimeFrontdoorsCorpus(
       windowsHide: true,
     });
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
-      ownershipUnresolved=true;
+      ownershipUnresolved = true;
       BatchWorkspace.retain(
         "native runtime frontdoor closure remained unresolved",
       );
@@ -106,13 +132,13 @@ export async function runtimeFrontdoorsCorpus(
       BatchWorkspace.retain(
         "runtime frontdoor PID closure could not be observed",
       );
-      ownershipUnresolved=true;
+      ownershipUnresolved = true;
       throw error;
     }
     BatchWorkspace.retain(
       "runtime frontdoor PID remained live after synchronous return",
     );
-    ownershipUnresolved=true;
+    ownershipUnresolved = true;
     throw new Error(
       "runtime frontdoor PID remained live after synchronous return",
     );
@@ -174,38 +200,60 @@ export async function runtimeFrontdoorsCorpus(
     });
   });
   capture("handled uncaught exception", () => {
-    stageOrphan("module",1);
+    stageOrphan("module", 1);
     const result = run([
       workspace.installedTtsx,
       "--no-plugins",
-      "-r",orphanPreload,
+      "-r",
+      orphanPreload,
       "src/handled.ts",
     ]);
-    capture("handled actor status",()=>assert.equal(result.status,0,result.stderr));
-    capture("handled actor orphan and continuation",()=>assertOrphan(result.stdout,1,[
-      "handled: boom",
-      "still alive",
-    ]));
+    capture("handled actor status", () =>
+      assert.equal(result.status, 0, result.stderr),
+    );
+    capture("handled actor orphan and continuation", () =>
+      assertOrphan(result.stdout, 1, ["handled: boom", "still alive"]),
+    );
   });
-  for (const [name, status, message,type,answer] of [
-    ["exit.ts", 7, undefined,"module",2],
-    ["throws.ts", 1, /unhandled runtime frontdoor/,"commonjs",3],
-    ["rejects.mts", 1, /rejected runtime frontdoor/,"commonjs",4],
+  for (const [name, status, message, type, answer] of [
+    ["exit.ts", 7, undefined, "module", 2],
+    ["throws.ts", 1, /unhandled runtime frontdoor/, "commonjs", 3],
+    ["rejects.mts", 1, /rejected runtime frontdoor/, "commonjs", 4],
   ] as const)
     capture(name, () => {
-      stageOrphan(type,answer);
+      stageOrphan(type, answer);
       const result = run([
         workspace.installedTtsx,
         "--no-plugins",
-        "-r",orphanPreload,
+        "-r",
+        orphanPreload,
         "src/" + name,
       ]);
-      capture(name+" status",()=>assert.equal(result.status,status,result.stderr));
-      if (message !== undefined) capture(name+" stderr",()=>assert.match(result.stderr,message));
-      capture(name+" orphan cache",()=>assertOrphan(result.stdout,answer,[]));
+      capture(name + " status", () =>
+        assert.equal(result.status, status, result.stderr),
+      );
+      if (message !== undefined)
+        capture(name + " stderr", () => assert.match(result.stderr, message));
+      capture(name + " orphan cache", () =>
+        assertOrphan(result.stdout, answer, []),
+      );
     });
-  if(!ownershipUnresolved) for(const[file,bytes]of [[orphanEnum,orphanEnumBytes],[orphanManifest,orphanManifestBytes]]as const)
-    capture("restore orphan input "+file,()=>{try{fs.writeFileSync(file,bytes);}catch(error){ownershipUnresolved=true;BatchWorkspace.retain("orphan input restoration failed after actual closures");throw error;}});
+  if (!ownershipUnresolved)
+    for (const [file, bytes] of [
+      [orphanEnum, orphanEnumBytes],
+      [orphanManifest, orphanManifestBytes],
+    ] as const)
+      capture("restore orphan input " + file, () => {
+        try {
+          fs.writeFileSync(file, bytes);
+        } catch (error) {
+          ownershipUnresolved = true;
+          BatchWorkspace.retain(
+            "orphan input restoration failed after actual closures",
+          );
+          throw error;
+        }
+      });
   for (let index = 0; index < sources.length; index++)
     capture("immutable " + sources[index], () =>
       assert.deepEqual(fs.readFileSync(sources[index]!), original[index]),

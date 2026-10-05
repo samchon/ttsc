@@ -395,10 +395,31 @@ export namespace BatchWorkspace {
       path.join(root, "tools/vite-serve/external.d.ts"),
       path.join(serveDeclarations, "index.d.ts"),
     );
-    const orphanPackage=path.join(root,"tools/runtime-frontdoors/node_modules/runtime-cache-control");
-    await FileSystemIterator.write(orphanPackage,await FileSystemIterator.read(path.join(root,"tools/runtime-frontdoors/orphan-template")));
-    const decoratorFixture=JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname,"../internal/ttsc/internal/runtime-decorator-fixture.json"),"utf8"));
-    await FileSystemIterator.write(orphanPackage,{"src/index.ts":'import { Value } from "./enum";\n'+decoratorFixture.source+'\nexport const answer = Value.Entry;\n'});
+    const orphanPackage = path.join(
+      root,
+      "tools/runtime-frontdoors/node_modules/runtime-cache-control",
+    );
+    await FileSystemIterator.write(
+      orphanPackage,
+      await FileSystemIterator.read(
+        path.join(root, "tools/runtime-frontdoors/orphan-template"),
+      ),
+    );
+    const decoratorFixture = JSON.parse(
+      fs.readFileSync(
+        path.resolve(
+          import.meta.dirname,
+          "../internal/ttsc/internal/runtime-decorator-fixture.json",
+        ),
+        "utf8",
+      ),
+    );
+    await FileSystemIterator.write(orphanPackage, {
+      "src/index.ts":
+        'import { Value } from "./enum";\n' +
+        decoratorFixture.source +
+        "\nexport const answer = Value.Entry;\n",
+    });
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {

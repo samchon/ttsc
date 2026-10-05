@@ -293,15 +293,23 @@ export function test_plugin_free_build_arguments_preserve_configured_emit_and_fi
           ],
         );
         const suppliedRoot = path.join(root, "supplied private root");
-        const lexicalAliasRoot = process.platform === "win32"
-          ? "C:\\Users\\RUNNER~1\\project\\src"
-          : "/tmp/lexical-root-alias/project/src";
+        const lexicalAliasRoot =
+          process.platform === "win32"
+            ? "C:\\Users\\RUNNER~1\\project\\src"
+            : "/tmp/lexical-root-alias/project/src";
         const lexicalArgs = TsgoArguments.createTsgoBuildArgs(
           actual,
-          { emit: true, pinInferredRootDir: true, privateEmitRootDir: lexicalAliasRoot },
+          {
+            emit: true,
+            pinInferredRootDir: true,
+            privateEmitRootDir: lexicalAliasRoot,
+          },
           { listEmittedFiles: false },
         );
-        assert.equal(lexicalArgs[lexicalArgs.indexOf("--rootDir") + 1], lexicalAliasRoot);
+        assert.equal(
+          lexicalArgs[lexicalArgs.indexOf("--rootDir") + 1],
+          lexicalAliasRoot,
+        );
         assert.deepEqual(
           TsgoArguments.createTsgoBuildArgs(
             actual,
@@ -371,10 +379,14 @@ export function test_plugin_free_build_arguments_preserve_configured_emit_and_fi
           : "/fixture/project/src",
       );
       assert.equal(privateRuntimeRootDir(project, explicit, false), explicit);
-      const lexicalAliasRoot = process.platform === "win32"
-        ? "C:\\Users\\RUNNER~1\\project\\src"
-        : "/tmp/lexical-root-alias/project/src";
-      assert.equal(privateRuntimeRootDir(project, lexicalAliasRoot, true), lexicalAliasRoot);
+      const lexicalAliasRoot =
+        process.platform === "win32"
+          ? "C:\\Users\\RUNNER~1\\project\\src"
+          : "/tmp/lexical-root-alias/project/src";
+      assert.equal(
+        privateRuntimeRootDir(project, lexicalAliasRoot, true),
+        lexicalAliasRoot,
+      );
       if (process.platform === "win32")
         assert.equal(
           privateRuntimeRootDir("\\\\server\\share\\project", undefined, false),
