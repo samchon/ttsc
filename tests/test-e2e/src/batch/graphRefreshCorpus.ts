@@ -54,20 +54,34 @@ namespace DocumentArtifactRefresh {
     const response = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
-        question: "What heading does the selected Markdown artifact currently publish?",
-        draft: { reason: "Read the fixed document address in the existing session.", type: "details" },
-        review: "Use the actual native artifact, not a synthetic document node.",
+        question:
+          "What heading does the selected Markdown artifact currently publish?",
+        draft: {
+          reason: "Read the fixed document address in the existing session.",
+          type: "details",
+        },
+        review:
+          "Use the actual native artifact, not a synthetic document node.",
         request: { type: "details", handles: [address] },
       },
     })) as {
       isError?: boolean;
       structuredContent?: {
-        result?: { type?: string; nodes?: { id: string; name: string; kind: string; file: string }[] };
+        result?: {
+          type?: string;
+          nodes?: { id: string; name: string; kind: string; file: string }[];
+        };
       };
     };
     assert.equal(response.isError, undefined, JSON.stringify(response));
-    assert.equal(response.structuredContent?.result?.type, "details", JSON.stringify(response));
-    return response.structuredContent?.result?.nodes?.map(({ id, name, kind, file }) => ({ id, name, kind, file }));
+    assert.equal(
+      response.structuredContent?.result?.type,
+      "details",
+      JSON.stringify(response),
+    );
+    return response.structuredContent?.result?.nodes?.map(
+      ({ id, name, kind, file }) => ({ id, name, kind, file }),
+    );
   }
 
   /** Keep source and anchor fixed across one document-only mutation and reset. */
@@ -78,12 +92,19 @@ namespace DocumentArtifactRefresh {
     const originalSource = fs.readFileSync(source);
     const marker = `## ${before} {#accepted-value}`;
     assert.equal(original.toString("utf8").split(marker).length, 2);
-    const expected = (name: string) => [{ id: address, name, kind: "markdown_section", file: "docs/contract.md" }];
+    const expected = (name: string) => [
+      { id: address, name, kind: "markdown_section", file: "docs/contract.md" },
+    ];
     const failures: unknown[] = [];
     try {
       assert.deepEqual(await section(client), expected(before));
       client.assertInputMutationAllowed();
-      fs.writeFileSync(document, original.toString("utf8").replace(marker, `## ${after} {#accepted-value}`));
+      fs.writeFileSync(
+        document,
+        original
+          .toString("utf8")
+          .replace(marker, `## ${after} {#accepted-value}`),
+      );
       assert.deepEqual(await section(client), expected(after));
       assert.deepEqual(fs.readFileSync(source), originalSource);
     } catch (error) {
@@ -99,7 +120,11 @@ namespace DocumentArtifactRefresh {
       }
     }
     if (failures.length === 1) throw failures[0];
-    if (failures.length > 1) throw new AggregateError(failures, "Document artifact refresh and restoration failed");
+    if (failures.length > 1)
+      throw new AggregateError(
+        failures,
+        "Document artifact refresh and restoration failed",
+      );
   }
 }
 namespace SourceRefresh {
