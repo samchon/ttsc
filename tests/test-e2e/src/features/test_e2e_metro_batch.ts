@@ -458,6 +458,81 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.writeFileSync(capabilityProducer, originalCapabilityProducer);
     fs.writeFileSync(contractPath, originalContract);
   }
+  const proofDependency = path.join(workspace.root, "descriptors/observation-dependency.cjs");
+  const oldProofTarget = path.join(workspace.root, "descriptors/observation-old");
+  const newProofTarget = path.join(workspace.root, "descriptors/observation-new");
+  const proofLink = path.join(workspace.root, "descriptors/observation-link");
+  const proofCounter = path.join(traceRoot, "moving-input-evaluations.log");
+  for (const owned of [proofDependency, oldProofTarget, newProofTarget, proofLink])
+    assert.equal(fs.existsSync(owned), false);
+  try {
+    const before = 'module.exports = { name: "before" };\n';
+    fs.writeFileSync(proofDependency, before);
+    const loadedAba = loadProjectPlugins({
+      binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+      cacheDir: path.join(workspace.cache, "moving-input-descriptors"), env: descriptorEnv,
+      entries: [{ ...publicNativeProbe, cacheObservation: "descriptor-aba", evaluationCounter: proofCounter, observationDependency: proofDependency }],
+    });
+    assert.equal(loadedAba.nativePlugins[0]?.name, "during");
+    assert.equal(fs.readFileSync(proofDependency, "utf8"), before);
+    assert.equal(loadedAba.hostInputs.includes(proofDependency), true);
+    assert.equal(Object.hasOwn(loadedAba.hostInputHashes, proofDependency), false,
+      "ABA bytes must remain watched without claiming that the during value came from restored bytes");
+
+    const selectionSource = 'module.exports = require("./value.cjs");\n';
+    for (const [directory, name] of [[oldProofTarget, "old"], [newProofTarget, "new"]]) {
+      fs.mkdirSync(directory!);
+      fs.writeFileSync(path.join(directory!, "selection.cjs"), selectionSource);
+      fs.writeFileSync(path.join(directory!, "value.cjs"), 'module.exports = { name: ' + JSON.stringify(name) + ' };\n');
+    }
+    fs.symlinkSync(oldProofTarget, proofLink, process.platform === "win32" ? "junction" : "dir");
+    const linkedSelection = path.join(proofLink, "selection.cjs");
+    assert.equal(fs.realpathSync.native(linkedSelection), fs.realpathSync.native(path.join(oldProofTarget, "selection.cjs")));
+    const loadedRetarget = loadProjectPlugins({
+      binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+      cacheDir: path.join(workspace.cache, "moving-input-descriptors"), env: descriptorEnv,
+      entries: [{ ...publicNativeProbe, cacheObservation: "descriptor-retarget", evaluationCounter: proofCounter, observationLink: proofLink, observationTarget: newProofTarget }],
+    });
+    assert.equal(fs.readFileSync(path.join(oldProofTarget, "selection.cjs"), "utf8"), selectionSource);
+    assert.equal(fs.readFileSync(path.join(newProofTarget, "selection.cjs"), "utf8"), selectionSource);
+    assert.equal(loadedRetarget.nativePlugins[0]?.name, "old");
+    assert.equal(fs.realpathSync.native(linkedSelection), fs.realpathSync.native(path.join(newProofTarget, "selection.cjs")));
+    assert.equal(loadedRetarget.hostInputs.includes(linkedSelection), true);
+    assert.equal(Object.hasOwn(loadedRetarget.hostInputHashes, linkedSelection), false);
+    assert.equal(Object.hasOwn(loadedRetarget.hostInputRealpaths, linkedSelection), false);
+  } catch (error) {
+    publicApiFailures.push(new Error("descriptor ABA/retarget input proof", { cause: error }));
+  } finally {
+    if (fs.existsSync(proofLink)) {
+      assert.equal(fs.lstatSync(proofLink).isSymbolicLink(), true);
+      fs.unlinkSync(proofLink);
+    }
+    fs.rmSync(proofDependency, { force: true });
+    for (const owned of [oldProofTarget, newProofTarget]) {
+      assert.equal(path.relative(workspace.root, owned).startsWith(".."), false);
+      fs.rmSync(owned, { recursive: true, force: true });
+    }
+  }
+  for (const stage of ["transform", "check"] as const) {
+    try {
+      fs.writeFileSync(descriptorSettings, "old\n");
+      const raceAttempt = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+      const result = new TtscCompiler({
+        binary: TestProject.TSGO_BINARY, cwd: workspace.root,
+        plugins: [{ ...publicNativeProbe, cacheObservation: "native-proof", evaluationCounter: proofCounter,
+          stage, raceAttempt, raceFile: descriptorSettings, raceContent: "new\n",
+          ...(stage === "check" ? { reportedFiles: ["src/missing-proof-control.ts"] } : {}) }],
+        env: { TTSC_CACHE_DIR: path.join(workspace.cache, "moving-native-inputs"), GOFLAGS: baselineBuildEnv.GOFLAGS },
+      }).transform();
+      assert.equal(result.type, stage === "transform" ? "success" : "failure");
+      assert.equal(result.hostInputs?.includes(descriptorSettings), true);
+      assert.equal(Object.hasOwn(result.hostInputHashes ?? {}, descriptorSettings), false,
+        stage + " must not retain the hash read before actual native execution");
+      assert.equal(fs.readFileSync(descriptorSettings, "utf8"), "new\n");
+    } catch (error) {
+      publicApiFailures.push(new Error(stage + " after-native host proof invalidation", { cause: error }));
+    } finally { fs.writeFileSync(descriptorSettings, originalSettings); }
+  }
   baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
   receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;

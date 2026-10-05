@@ -22,6 +22,32 @@ exports.default = (context) => {
   const fs = require("node:fs");
   const settings = require("node:path").join(context.dirname, "cache-settings.json");
   fs.appendFileSync(context.plugin.evaluationCounter, "x");
+  if (observation === "native-proof") {
+    const bytes = fs.readFileSync(settings);
+    return { name: "native-input-mutator", source: context.plugin.fixtureSource, stage: context.plugin.stage,
+      hostInputs: [settings], hostInputHashes: { [settings]: require("node:crypto").createHash("sha256").update(bytes).digest("hex") } };
+  }
+  if (observation === "descriptor-aba") {
+    const dependency = context.plugin.observationDependency;
+    const before = fs.readFileSync(dependency, "utf8");
+    const during = 'module.exports = { name: "during" };\n';
+    const { registerHooks } = require("node:module");
+    const href = require("node:url").pathToFileURL(dependency).href;
+    registerHooks({ load(url, loadContext, nextLoad) {
+      if (url !== href) return nextLoad(url, loadContext);
+      fs.writeFileSync(dependency, during);
+      try { return nextLoad(url, loadContext); }
+      finally { fs.writeFileSync(dependency, before); }
+    } });
+    const selected = require(dependency);
+    return { name: selected.name, source: context.plugin.fixtureSource };
+  }
+  if (observation === "descriptor-retarget") {
+    const selected = require(require("node:path").join(context.plugin.observationLink, "selection.cjs"));
+    fs.unlinkSync(context.plugin.observationLink);
+    fs.symlinkSync(context.plugin.observationTarget, context.plugin.observationLink, process.platform === "win32" ? "junction" : "dir");
+    return { name: selected.name, source: context.plugin.fixtureSource };
+  }
   if (observation === "capability-module")
     return { name: "capability-probe", source: context.plugin.fixtureSource, capabilities: { probe: true }, hostInputHashes: {} };
   if (observation === "capability-undeclared")
