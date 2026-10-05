@@ -36,8 +36,9 @@ jobs:
           printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
           printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
           printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
-      - name: Cache Go modules and objects
-        uses: actions/cache@v4
+      - name: Restore Go modules and objects
+        id: go-objects
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
@@ -52,4 +53,12 @@ jobs:
       - run: npm install --global yarn
       - run: pnpm run build
         id: build
+      - name: Save Built Go Modules and Objects
+        if: steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ${{ steps.go-objects.outputs.cache-primary-key }}
       - run: pnpm test:e2e
