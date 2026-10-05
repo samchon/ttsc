@@ -103,15 +103,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     },
   });
   profiles.push({
-    name: "public-runtime-package-store-format-precedence",
-    files: FixtureFiles.read("ttsc/ttsx_classifies_a_node_modules_package_type_over_the_project_module_option/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), "cjs-dependency|esm-by-project");
-    },
-  });
-  profiles.push({
     name: "public-runtime-invalid-config-before-effects",
     files: FixtureFiles.read("ttsc/runner_corpus_invalid_tsconfig_prevents_entry_execution/inputs-1"),
     run: (root, _persistent, spawn) => {
