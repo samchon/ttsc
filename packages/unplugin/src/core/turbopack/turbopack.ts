@@ -12,6 +12,7 @@ import { shareTtscTransformCache } from "../transform/session/shareTtscTransform
 import { transformTtsc } from "../transform/transformTtsc";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
+import { createTurbopackLoaderBindings } from "./createTurbopackLoaderBindings";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
 import { failedModuleSource } from "./failedModuleSource";
 
@@ -142,13 +143,12 @@ export function turbopack(
   // (samchon/ttsc#1423); the bridge observes every input from the compile on
   // and moves the record again until a registration proves a delivery read
   // the changed state.
-  const addDependency = this.addDependency?.bind(this);
-  const cacheable = this.cacheable?.bind(this);
-  const emitError = this.emitError?.bind(this);
+  const bindings = createTurbopackLoaderBindings(this);
+  const { addDependency, emitError } = bindings;
   const watching = process.env.NODE_ENV !== "production";
   const projectRoot = this.rootContext ?? process.cwd();
   const toolDirectory = hostToolDirectory(projectRoot);
-  const loaderOptions = this.getOptions?.() ?? {};
+  const loaderOptions = bindings.readOptions();
   // Turbopack gives a loader no build start, so the records are proven at the
   // process's first delivery. A watching worker's bridge takes every record as
   // it opens, proving them as it does, and observes the projects the worker
@@ -189,9 +189,9 @@ export function turbopack(
             watching: bridge !== undefined,
           },
         }),
-    ...(cacheable === undefined
+    ...(bindings.markVolatile === undefined
       ? {}
-      : { markVolatile: () => cacheable(false) }),
+      : { markVolatile: bindings.markVolatile }),
   };
   transformTtsc(
     file,
