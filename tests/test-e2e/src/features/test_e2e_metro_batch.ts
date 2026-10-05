@@ -64,6 +64,31 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(fs.existsSync(optionalDescriptor), false);
   for (const owned of [candidate, unrelatedPackageFile, addedRoot]) assert.equal(fs.existsSync(owned), false);
   const originalDeclaration = fs.readFileSync(declaration);
+  const descriptorInputs = [
+    "package.json",
+    "descriptors/default.cjs",
+    "descriptors/input.cjs",
+    "packages/batch-descriptor-input/package.json",
+    "packages/batch-descriptor-input/index.cjs",
+  ].map((name) => fs.realpathSync.native(path.join(workspace.root, name)));
+  const descriptorBytes = new Map(descriptorInputs.map((input) => [input, fs.readFileSync(input)]));
+  const assertDescriptorBytes = (input: string, evidence: { missing?: boolean; state?: { codec: string; hash?: string; observation?: { readFile?: { ok: boolean; hash?: string } } } } | undefined, authored: Buffer | string): void => {
+    const expectedHash = crypto.createHash("sha256").update(authored).digest("hex");
+    const state = evidence?.state;
+    const diagnostic = "descriptor byte proof: " + JSON.stringify({ input, state, expectedHash });
+    assert.ok(evidence, diagnostic);
+    assert.equal(evidence.missing, false, diagnostic);
+    assert.ok(state, diagnostic);
+    assert.ok(state.codec === "host" || state.codec === "graph" || state.codec === "predicates", diagnostic);
+    if (state.codec === "predicates") {
+      // These authored UTF-8 inputs contain no BOM. A successful compiler
+      // ReadFile therefore hashes the same bytes; existence alone is no proof.
+      assert.deepEqual(state.observation?.readFile, { ok: true, hash: expectedHash }, diagnostic);
+    } else {
+      assert.equal(state.hash, expectedHash, diagnostic);
+    }
+    assert.deepEqual(fs.readFileSync(input), Buffer.from(authored), "the native producer must not mutate the independently captured descriptor input: " + input);
+  };
   const rootCase = compilerUsesCaseSensitiveFileNames({ cacheDir: workspace.cache, projectRoot: workspace.root });
   const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
   let siblingCase: boolean;
@@ -127,19 +152,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "config/strip.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
   assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, path.join(workspace.root, "src/pool-routing/tsconfig.json")), "the implicit loader selection must retain the files-empty solution that routed to the native root project");
-  const descriptorInputs = [
-    "package.json",
-    "descriptors/default.cjs",
-    "descriptors/input.cjs",
-    "packages/batch-descriptor-input/package.json",
-    "packages/batch-descriptor-input/index.cjs",
-  ].map((name) => fs.realpathSync.native(path.join(workspace.root, name)));
   for (const input of descriptorInputs) {
     const evidence = record.inputs[input];
-    assert.ok(evidence, `the real descriptor evaluation must hand over ${input}`);
-    assert.equal(evidence.missing, false);
-    assert.equal(evidence.state?.codec, "host");
-    assert.equal(evidence.state.hash, crypto.createHash("sha256").update(fs.readFileSync(input)).digest("hex"), "the persisted descriptor proof must match independent actual input bytes");
+    assertDescriptorBytes(input, evidence, descriptorBytes.get(input)!);
   }
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "#local-descriptor")) || input.includes(path.join("node_modules", "#installed-descriptor"))), [], "package imports must not invent bare-package search paths for the internal import names");
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "batch-descriptor-input")) && !input.startsWith(workspace.root + path.sep)), [], "the successful mapped package must not retain candidates beyond its selected root");
@@ -211,11 +226,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     [optionalDescriptor, optionalSource],
   ]) {
     const evidence = acknowledged.inputs[input!];
-    assert.ok(evidence, "the same native delivery must acknowledge the changed or appeared descriptor input: " + input);
-    assert.equal(evidence.missing, false);
-    assert.equal(evidence.state?.codec, "host");
-    assert.equal(evidence.state.hash, crypto.createHash("sha256").update(authored!).digest("hex"));
-    assert.equal(fs.readFileSync(input!, "utf8"), authored);
+    assertDescriptorBytes(input!, evidence, authored!);
   }
   assert.equal(fs.readFileSync(declaration, "utf8"), originalDeclaration.toString("utf8") + "export declare const retainedMetadata: 1;\n");
   assert.equal(fs.readFileSync(candidate, "utf8"), candidateSource);

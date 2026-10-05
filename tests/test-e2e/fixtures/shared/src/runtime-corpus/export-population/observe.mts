@@ -21,7 +21,10 @@ export async function observeExportPopulation(): Promise<Record<string, unknown>
   const before = [inert.nested, inert.default.nested];
   inert.change();
   return {
-    inert: { actual: [inert.actual, inert.default.actual], before, after: inert.default.nested, inlineText: inert.inlineText, memberText: inert.memberText, hidden: "hidden" in inert || "hidden" in inert.default, ghost: "ghost" in inert || "ghost" in inert.default, arithmetic: inert.inertArithmetic, decorators: inert.observed },
+    inert: { actual: [inert.actual, inert.default.actual], before, after: inert.default.nested, inlineText: inert.inlineText, memberText: inert.memberText,
+      hidden: { namespaceOwn: Object.hasOwn(inert, "hidden"), namespaceValueType: typeof inert.hidden, defaultOwn: Object.hasOwn(inert.default, "hidden"), defaultValueType: typeof inert.default.hidden },
+      ghost: { namespaceOwn: Object.hasOwn(inert, "ghost"), namespaceValueType: typeof inert.ghost, defaultOwn: Object.hasOwn(inert.default, "ghost"), defaultValueType: typeof inert.default.ghost },
+      arithmetic: inert.inertArithmetic, decorators: inert.observed },
     dynamic: { actual: [dynamic.actual, dynamic.default.actual], computed: dynamic.default.dynamic, decorators: dynamic.observed },
     collision: projectOnly + ":" + packageValue,
     lowering: [lowering.default.answer, lowering.default.shout("ok"), lowering.default.namespaceBox.value].join(":"),

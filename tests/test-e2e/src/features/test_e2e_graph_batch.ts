@@ -679,7 +679,7 @@ interface ToolResult {
 
 interface LookupResult {
   type: "lookup";
-  hits: { name: string }[];
+  hits: { name: string; docTags?: { name: string; text?: string }[] }[];
   truncated?: boolean;
 }
 
@@ -723,7 +723,9 @@ const lookupOf = (result: ToolResult): LookupResult => {
           })) as ToolResult,
         );
 
-      const all = await lookup("docs/roster.md#fulfillment");
+      // The default-limit completeness control carries no lexical terms.
+      // The original .md citation remains in the capped request below.
+      const all = await lookup("인용명세/수행명단#이행");
       assert.deepStrictEqual(
         all.hits.map((hit) => hit.name).sort(),
         ["rosterCarrier1", "rosterCarrier2", "rosterCarrier3", "rosterCarrier4", "rosterCarrier5"],
@@ -734,6 +736,8 @@ const lookupOf = (result: ToolResult): LookupResult => {
         undefined,
         "nothing was left out, so nothing may claim it was",
       );
+      for (const hit of all.hits)
+        assert.deepStrictEqual(hit.docTags, [{ name: "evidence", text: `인용명세/수행명단#이행 Implements part ${hit.name.slice(-1)}.` }]);
 
       // The negative twin: the per-file cap still governs a name query, which is
       // what it exists for. `rosterCarrier` matches all five by subword.
@@ -747,6 +751,10 @@ const lookupOf = (result: ToolResult): LookupResult => {
       // presenting three of five as the answer.
       const capped = await lookup("docs/roster.md#fulfillment", 3);
       assert.strictEqual(capped.hits.length, 3);
+      for (const hit of capped.hits) {
+        assert.ok(["rosterCarrier1", "rosterCarrier2", "rosterCarrier3", "rosterCarrier4", "rosterCarrier5"].includes(hit.name));
+        assert.deepStrictEqual(hit.docTags, [{ name: "evidence", text: `docs/roster.md#fulfillment Implements part ${hit.name.slice(-1)}.` }]);
+      }
       assert.strictEqual(
         capped.truncated,
         true,
