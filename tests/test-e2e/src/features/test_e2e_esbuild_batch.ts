@@ -6,10 +6,10 @@ import path from "node:path";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
-import { test_lint_write_commands_share_one_consumer } from "./lint/native-plugins/fix/case_lint_write_commands_share_one_consumer";
 import { serviceCorpus } from "../batch/serviceCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
+import { test_lint_write_commands_share_one_consumer } from "./lint/native-plugins/fix/case_lint_write_commands_share_one_consumer";
 
 /**
  * Verifies one real esbuild graph and its actual disposal carry all source
@@ -34,8 +34,15 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
 export async function test_e2e_esbuild_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const combinedFailures: unknown[] = [];
-  try { await test_lint_write_commands_share_one_consumer({root:path.join(workspace.root,"tools/public-lint"),cache:workspace.cache,retain:BatchWorkspace.retain}); }
-  catch(error) { combinedFailures.push(error); }
+  try {
+    await test_lint_write_commands_share_one_consumer({
+      root: path.join(workspace.root, "tools/public-lint"),
+      cache: workspace.cache,
+      retain: BatchWorkspace.retain,
+    });
+  } catch (error) {
+    combinedFailures.push(error);
+  }
   await BatchWorkspace.open();
   const service = serviceCorpus(workspace).catch((error: unknown) => {
     combinedFailures.push(error);

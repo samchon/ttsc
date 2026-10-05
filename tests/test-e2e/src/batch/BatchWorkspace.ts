@@ -337,7 +337,12 @@ export namespace BatchWorkspace {
       path.resolve(import.meta.dirname, "../../fixtures/shared"),
     );
     await FileSystemIterator.write(root, inputs);
-    await FileSystemIterator.write(path.join(root, "tools/public-lint"), await FileSystemIterator.read(path.resolve(import.meta.dirname, "../../fixtures/lint/write-boundary")));
+    await FileSystemIterator.write(
+      path.join(root, "tools/public-lint"),
+      await FileSystemIterator.read(
+        path.resolve(import.meta.dirname, "../../fixtures/lint/write-boundary"),
+      ),
+    );
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {

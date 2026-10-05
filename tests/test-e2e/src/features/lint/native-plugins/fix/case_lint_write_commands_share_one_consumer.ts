@@ -44,14 +44,19 @@ const FORMAT_FILE = "format/semi.ts";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both phases use one isolated writable island with actual workspace-linked producer paths. After-phase snapshots assert selected and untouched sources. Sync closure metadata is required before another command or restoration; unknown closure retains inputs and blocks shared reuse. Successful direct returns do not certify arbitrary descendant joins. Shared inputs restore after both commands and retain restoration failures; legacy disposable input cleanup remains separate.
  * @evidence contracts/e2e.md#preserved-coverage Original success exits, remaining eqeqeq warning, exact whole-file edits, generic compiler acceptance and absence of format diagnostic banners survive in named checks, alongside every source fixture immutability check. The exact TestFormatFixtureCorpus address owns the fifteen canonical controls and ten historical positives using independently authored bytes. The direct Prettier owner packages/lint/linthost/format_prettier_conformance_e2e_test.go::TestFormatPrettierConformance retains all61 target-rule inputs and pinned independent oracle, now untagged by bd7fef1e5; neither current survival is certified here.
  */
-export async function test_lint_write_commands_share_one_consumer(prepared?: {root: string; cache: string; retain(reason: string): void}): Promise<void> {
+export async function test_lint_write_commands_share_one_consumer(prepared?: {
+  root: string;
+  cache: string;
+  retain(reason: string): void;
+}): Promise<void> {
   const fixture = path.join(
     process.cwd(),
     "fixtures",
     "lint",
     "write-boundary",
   );
-  const root = prepared?.root ?? LintWorkspace.caseRoot("write-command-matrix", true);
+  const root =
+    prepared?.root ?? LintWorkspace.caseRoot("write-command-matrix", true);
   const sourceFiles = [...FIX_FILES, FORMAT_FILE];
   const originalFiles = [
     "package.json",
@@ -78,7 +83,10 @@ export async function test_lint_write_commands_share_one_consumer(prepared?: {ro
     );
   const failures: unknown[] = [];
   let returned = true;
-  const retain = (reason: string) => prepared === undefined ? TestProject.retainTemporaryDirectory(root, reason) : prepared.retain(reason);
+  const retain = (reason: string) =>
+    prepared === undefined
+      ? TestProject.retainTemporaryDirectory(root, reason)
+      : prepared.retain(reason);
   try {
     if (prepared === undefined) fs.cpSync(fixture, root, { recursive: true });
     for (const [name, location] of [
@@ -109,7 +117,13 @@ export async function test_lint_write_commands_share_one_consumer(prepared?: {ro
       ["fix", "--cwd", root],
       { cwd: root, env },
     );
-    if (fix.error || fix.signal !== null || fix.status === null) { returned = false; retain("public lint fix has no actual process closure acknowledgement"); throw new Error("public lint fix closure remained unresolved", {cause:fix.error}); }
+    if (fix.error || fix.signal !== null || fix.status === null) {
+      returned = false;
+      retain("public lint fix has no actual process closure acknowledgement");
+      throw new Error("public lint fix closure remained unresolved", {
+        cause: fix.error,
+      });
+    }
     const afterFix = snapshot();
     fs.writeFileSync(
       path.join(root, "lint.config.json"),
@@ -128,7 +142,15 @@ export async function test_lint_write_commands_share_one_consumer(prepared?: {ro
       ["format", "--cwd", root],
       { cwd: root, env },
     );
-    if (format.error || format.signal !== null || format.status === null) { returned = false; retain("public lint format has no actual process closure acknowledgement"); throw new Error("public lint format closure remained unresolved", {cause:format.error}); }
+    if (format.error || format.signal !== null || format.status === null) {
+      returned = false;
+      retain(
+        "public lint format has no actual process closure acknowledgement",
+      );
+      throw new Error("public lint format closure remained unresolved", {
+        cause: format.error,
+      });
+    }
     const afterFormat = snapshot();
     await Scenarios.collect("Lint shared write commands", [
       [
@@ -191,25 +213,31 @@ export async function test_lint_write_commands_share_one_consumer(prepared?: {ro
   } catch (error) {
     failures.push(error);
   } finally {
-    if (prepared !== undefined && returned) for (const file of originalFiles) {
-      try { fs.writeFileSync(path.join(root,file),original.get(file)!); }
-      catch(error) { prepared.retain("public lint authored input restoration failed"); failures.push(error); }
-    }
-    else if (prepared === undefined && returned) try {
-      fs.rmSync(root, {
-        recursive: true,
-        force: true,
-        maxRetries: 3,
-        retryDelay: 100,
-      });
-      assert.equal(
-        fs.existsSync(root),
-        false,
-        "Write command consumer remained after cleanup",
-      );
-    } catch (error) {
-      failures.push(error);
-    }
+    if (prepared !== undefined && returned)
+      for (const file of originalFiles) {
+        try {
+          fs.writeFileSync(path.join(root, file), original.get(file)!);
+        } catch (error) {
+          prepared.retain("public lint authored input restoration failed");
+          failures.push(error);
+        }
+      }
+    else if (prepared === undefined && returned)
+      try {
+        fs.rmSync(root, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
+        assert.equal(
+          fs.existsSync(root),
+          false,
+          "Write command consumer remained after cleanup",
+        );
+      } catch (error) {
+        failures.push(error);
+      }
   }
   if (failures.length)
     throw new AggregateError(
