@@ -34,10 +34,12 @@ import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src
  * deliveries keep that owner without earning a content reuse signature.
  * A separate native dangling host link retains null content and no signature;
  * exposing bytes through its cache read alone must reject that host proof.
+ * Its valid native config proof separately contrasts with an omitted hash key:
+ * recorded null and missing publication authority are different inputs.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual retainPassVerdict and replaysTerminalGeneration retain one current failed promise, reject successful/no-pass/replaced retention, replay only its epoch, and share one stable environment confirmation across forty deliveries before observing an actual next-turn edit. Actual graph proof and external capture validators classify missing content authority and producer candidate failure; actual error rendering preserves two supplied attempt records, eight retained witnesses and omission. Four coordinator callers and a later wave receive that same terminal error from its retained promise. EACCES graph reads match recorded null without gaining a signature, while recorded SHA remains a content contradiction; restored bytes produce exact graph/content-changed. Actual universal capture and validation separately admit a dangling native host link as unreadable without a signature, serve four ready deliveries, then reject exposed bytes as host/content-changed under unchanged native metadata and retain the exact formatted Error/Promise across two four-caller waves.
  * @evidence contracts/testing.md#independent-expectations Literal true/false replay results, exact retained error identity and equal read counts after the first confirmation express ownership and turn sharing. Actual source bytes change independently; the real walk supplies comparison inputs rather than the expected verdict. Twelve authored missing-proof paths fix eight printable witnesses and four omitted occurrences; graph-free output paths and the candidate's explicit producer reason fix exact native-relative diagnostic lines. Node SHA records actual source bytes, not a generated output oracle. Null has no readable content to replace with a signature; distinct literal readable bytes must disagree with null or the independently hashed original bytes even while native content metadata is fixed.
- * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures. A native dangling file link (directory junction on Windows) separately distinguishes retained lexical metadata from absent target/readable content: null matches while unreadable, but literal bytes exposed only through the supported read capability cannot match null. The target stays absent, metadata stays identical, initial deliveries retain their ready owner and later callers retain one terminal error and rejected owner.
+ * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures. A native dangling file link (directory junction on Windows) separately distinguishes retained lexical metadata from absent target/readable content: null matches while unreadable, but literal bytes exposed only through the supported read capability cannot match null. The target stays absent, metadata stays identical, initial deliveries retain their ready owner and later callers retain one terminal error and rejected owner. A declared native config with its own recorded SHA admits normally; omission of that hash key rejects admission as content-proof-missing, distinct from a known null hash.
  * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. EACCES and alternate bytes belong to the supported cache read capability, not a reproduced native permission failure. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
  */
 export async function test_terminal_generation_replay_follows_pass_and_input_frontiers(): Promise<void> {
@@ -291,6 +293,21 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
       assert.equal(admitted.validation.entries.get(unreadableHost)?.readable, false);
       assert.equal(admitted.validation.entries.get(unreadableHost)?.signature, undefined);
       assert.equal(matchesUniversalHostInputs(hostCached, admitted.validation), true);
+      const missingConfigResult: ITtscCompilerTransformation.ISuccess = {
+        ...hostResult,
+        hostInputHashes: { [unreadableHost]: null },
+      };
+      TRANSFORM_RESULT_FILESYSTEM.set(missingConfigResult, hostView);
+      try {
+        assert.equal(Object.hasOwn(missingConfigResult.hostInputHashes!, hostConfig), false);
+        assert.equal(hostResult.hostInputHashes?.[hostConfig], sha(hostConfig));
+        const missing = captureUniversalHostInputValidation({ ...hostCached, result: missingConfigResult }, moduleFiles[0]!);
+        assert.equal(missing.validation, undefined);
+        assert.deepEqual(missing.failures.entries, [{ domain: "host", kind: "content-proof-missing", path: hostConfig }]);
+        assert.equal(missing.failures.omitted, 0);
+      } finally {
+        TRANSFORM_RESULT_FILESYSTEM.delete(missingConfigResult);
+      }
       const ready = Promise.resolve(hostCached);
       hostCache.set(fixture.key, ready);
       for (const input of moduleFiles) {
