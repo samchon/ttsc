@@ -71,7 +71,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. Dead-owner shared compile claim takeover and a live external bundler watcher remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -4871,6 +4871,45 @@ export async function test_e2e_metro_batch(): Promise<void> {
           failures.push(error);
         }
       }
+    if (bodyFailure === undefined && failures.length === 0) {
+      // Reuse the retained publication without any live former adapter owner.
+      // An offline edit must defeat its stale content in a genuinely fresh
+      // Metro worker, not merely the old worker's in-memory revalidation.
+      const source = deliveredPaths[0]!;
+      const original = originalDelivered[0]!;
+      assert.match(original, /"authored-marker"/);
+      const ticksBeforeRestart = fs.statSync(workspace.programRunLog).size;
+      fs.writeFileSync(source, original.replace('"authored-marker"', '"offline-restart-marker"'));
+      fs.mkdirSync(traceRoot, { recursive: true });
+      let restarted: ReturnType<typeof createLoaderPoolWorker> | undefined;
+      let restartJoined = false;
+      try {
+        restarted = createLoaderPoolWorker({
+          mode: "metro", root: workspace.root, cache: workspace.cache,
+          session: session + "-offline-restart", traceRoot,
+          metro: pathToFileURL(path.join(lib, "transformer.js")).href,
+          turbopack: TestUnpluginRuntime.libUrl("turbopack"),
+        });
+        const reply = await restarted.request();
+        assert.equal(reply.ok, true, reply.error);
+        assert.match(reply.value.ast.source, /offline-restart-marker/);
+        assert.doesNotMatch(reply.value.ast.source, /["']authored-marker["']/);
+        assert.equal(fs.statSync(workspace.programRunLog).size, ticksBeforeRestart + 1,
+          "one fresh native probe invocation must validate the offline-edited generation");
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        try { if (restarted !== undefined) { await restarted.close(); restartJoined = true; } }
+        catch (error) { failures.push(error); }
+        if (restartJoined) {
+          try {
+            fs.writeFileSync(source, original);
+            for (const name of fs.readdirSync(traceRoot)) fs.unlinkSync(path.join(traceRoot, name));
+            fs.rmdirSync(traceRoot);
+          } catch (error) { failures.push(error); BatchWorkspace.retain("fresh Metro restoration failed after closure"); }
+        } else BatchWorkspace.retain("fresh Metro adapter closure unresolved; offline input retained");
+      }
+    }
     if (bodyFailure !== undefined) failures.unshift(bodyFailure);
     if (failures.length)
       throw new AggregateError(
