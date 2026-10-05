@@ -196,9 +196,9 @@ func RunBuild(args []string) int {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
-// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one preamble-map correction; the final writer ensures preamble text and records successful output keys. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
+// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one authored-coordinate correction. The final writer indexes compiler carrier/map paths and shifts generated map coordinates only when it inserts missing preamble text, including JSON/base64/VLQ and output-byte work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
 // @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. The final writer retains output-path decisions and maps awaiting their carrier without a byte cap, releases pending map entries as their carrier arrives, and reports unfinished pairs at emit completion. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
@@ -224,7 +224,7 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   if !opts.quiet {
     fmt.Fprintf(opts.stdout, "// ttsc utility: plugins=%d emit=%v\n", len(entries), !opts.noEmit)
   }
-  writeFile := makeSourcePreambleWriteFile(prog)
+  writeFile, finishPreamble := makeSourcePreambleWriteFile(prog)
   var snapshot func() map[string][]string
   if opts.provenanceJSON != "" {
     var err error
@@ -248,6 +248,9 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
     }
     return err
   })
+  if finishErr := finishPreamble(); err == nil {
+    err = finishErr
+  }
   if err != nil && driver.CountErrors(eDiags) == 0 {
     fmt.Fprintf(opts.stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
@@ -639,23 +642,19 @@ func setLinkedPluginManifest(input string) func() {
 // The preamble is injected at the SOURCE level (sourcePreambleFS prepends it
 // before TypeScript-Go parses). EmitWithPluginTransformers already corrects
 // external and inline source maps against authored source coordinates, so this
-// writer must not correct them a second time. It only ensures preamble text in
-// `.js` / `.d.ts` when comments are kept; RemoveComments drops that text.
+// writer must not correct original coordinates a second time. When it restores
+// missing preamble text, it moves generated coordinates by that exact insertion.
+// External maps are paired through compiler output paths, not guessed siblings.
+// A map arriving before its carrier waits for that carrier's insertion decision.
+// RemoveComments leaves text and generated coordinates unchanged.
 //
-// Returns nil only when there is no preamble at all (nil program or empty
-// preamble), telling the caller to use the default writer.
-func makeSourcePreambleWriteFile(prog *driver.Program) shimcompiler.WriteFile {
+// The writer is nil only when there is no preamble (nil program or empty
+// preamble); the always-present finish operation then does nothing.
+func makeSourcePreambleWriteFile(prog *driver.Program) (shimcompiler.WriteFile, func() error) {
   if prog == nil || prog.SourcePreamble == "" {
-    return nil
+    return nil, func() error { return nil }
   }
-  preamble := prog.SourcePreamble
-  injectBanner := !shouldRemoveComments(prog)
-  return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    if injectBanner && shouldEnsureSourcePreamble(fileName, text, preamble) {
-      text = driver.ApplySourcePreamble(text, preamble)
-    }
-    return driver.DefaultWriteFile(fileName, text)
-  }
+  return newPreambleOutputWriter(prog)
 }
 
 // shouldRemoveComments reports whether the compiler options ask tsgo to strip

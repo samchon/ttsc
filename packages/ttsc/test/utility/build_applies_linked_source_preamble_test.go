@@ -1,6 +1,7 @@
 package ttsc_test
 
 import (
+  "encoding/json"
   "os"
   "path/filepath"
   "strings"
@@ -22,6 +23,8 @@ import (
 // 3. Assert the generated JavaScript and declaration file contain the preamble text.
 //
 // @evidence contracts/testing.md#behavioral-verification RunBuild with a linked source-preamble plugin writes both the JavaScript and the declaration output, and the assertions require the preamble text in each emitted file kind.
+// The same build also runs a numeric emit hook and joins each external map's
+// generated value token to the independently authored source coordinate 0:13.
 // @evidence contracts/testing.md#independent-expectations The expected preamble text is the literal string the test's own plugin injects, not text derived from the emitted files.
 // @evidence contracts/testing.md#distinguishing-cases Declaration output is the neighbor that would miss the preamble if only the parsed-source path applied it; both file kinds are checked.
 // @evidence contracts/testing.md#execution-ownership TestUtilityBuildAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
@@ -29,12 +32,17 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(utilityPreamblePlugin{})
+  calls := 0
+  driver.RegisterPlugin(utilityOrderedEmitPlugin{from: "1", to: "2", calls: &calls})
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
     "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true,
     "outDir": "bin"
   },
   "files": ["index.ts"]
@@ -47,7 +55,7 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
     return utility.RunBuild([]string{
       "--cwd", root,
       "--emit",
-      "--plugins-json", `[{"name":"pre","stage":"transform","config":{}}]`,
+      "--plugins-json", `[{"name":"pre","stage":"transform","config":{}},{"name":"emit","stage":"transform","config":{}}]`,
     })
   })
   if code != 0 || errOut != "" {
@@ -66,5 +74,28 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   }
   if !strings.Contains(string(declaration), "utility linked preamble") {
     t.Fatalf("preamble missing from declaration file:\n%s", declaration)
+  }
+  if calls != 1 || !strings.Contains(string(js), "exports.value = 2") {
+    t.Fatalf("linked emit did not rewrite once: calls=%d js=%q", calls, js)
+  }
+  for _, artifact := range []string{"index.js", "index.d.ts"} {
+    output, err := os.ReadFile(filepath.Join(root, "bin", artifact))
+    if err != nil { t.Fatal(err) }
+    mapBytes, err := os.ReadFile(filepath.Join(root, "bin", artifact + ".map"))
+    if err != nil { t.Fatal(err) }
+    var mapping utilitySourceMap
+    if err := json.Unmarshal(mapBytes, &mapping); err != nil { t.Fatal(err) }
+    found := false
+    lines := strings.Split(string(output), "\n")
+    for _, segment := range decodeSourceMapMappings(t, mapping.Mappings) {
+      if segment.SourceLine == 0 && segment.SourceColumn == 13 {
+        if segment.GeneratedLine >= len(lines) || segment.GeneratedColumn > len(lines[segment.GeneratedLine]) ||
+          !strings.HasPrefix(lines[segment.GeneratedLine][segment.GeneratedColumn:], "value") {
+          t.Fatalf("%s generated value coordinate misses output: %#v output=%q", artifact, segment, output)
+        }
+        found = true
+      }
+    }
+    if !found { t.Fatalf("%s has no mapping to authored value 0:13: %q", artifact, mapping.Mappings) }
   }
 }
