@@ -26,7 +26,7 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
  * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn exactly once. Every remaining operation reads bytes or compares literal values; it invokes no legacy test or profile launcher.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
- * @evidence contracts/e2e.md#shared-execution One consumer and one runtime process carry the value graph and two source-race loads. The common preparation publishes one actual Go executable with cold/default-cache and warm relocated-source controls; the installed runtime borrows it only during the orphan loads and restores compiler authority before the ordinary entry. Actual Go metadata/build/smoke and isolated emit children are disclosed internal costs, not extra standalone source projects or per-case runtime launchers.
+ * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, two source-race loads and installed clean dispatch. One actual exited lock-holder child transfers the dead-owner connection; default and explicit clean run in this same runtime without another CLI launcher. Common preparation's real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
  * @evidence contracts/e2e.md#preserved-coverage Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The standard class/method warning-removal composition and original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population.
  */
@@ -53,13 +53,15 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "--sourceMap", "false", "--inlineSourceMap",
     "-r", "./runtime-map-diagnostics.cjs",
     "-r", "./tools/native-source-borrower.cjs",
+    "-r", "./tools/runtime-clean-flow.cjs",
   ];
   if (!workspace.installationOnly) fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
   try {
     result = TestProject.spawn(process.execPath, [workspace.installedTtsx, ...selected, workspace.installationOnly ? "src/installation-runtime.ts" : "src/runtime.mts", ...(workspace.installationOnly ? [] : ["--config", "x", "--port", "3", "--help"])], {
       cwd: workspace.root,
       env: { TTSC_CACHE_DIR: workspace.cache, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined,
-        TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary, TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY },
+        TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary, TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
+        TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx },
     });
   } finally {
     if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
@@ -92,6 +94,17 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     ambientFilename: "undefined", ambientDirname: "undefined",
   });
   assertRuntimeCliCorpus((payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime);
+  const cleanObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-clean-flow/observed.json"), "utf8"));
+  assert.deepEqual({ ...cleanObservation, seed: undefined }, {
+    defaultStatus: 0, explicitStatus: 0, deadHolderRecovered: true, legacyKept: true, malformedKept: true,
+    explicitRemoved: true, seed: undefined,
+  });
+  assert.equal(cleanObservation.seed.status, 0);
+  assert.equal(cleanObservation.seed.signal, null);
+  assert.ok(cleanObservation.seed.pid > 0);
+  assert.match(result.stdout, /ttsc: kept [^\r\n]*legacy: a run that may still be in progress owns it/);
+  assert.match(result.stdout, /ttsc: kept [^\r\n]*unknown: a run that may still be in progress owns it/);
+  assert.doesNotMatch(result.stdout, /no cache directories found/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/source-publication/runtime-borrower.json"), "utf8")),
     { first: "two", second: "one", nativeMutation: true }, "the actual published default-cache executable is consumed within this runtime and cannot poison the restored source key");
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
