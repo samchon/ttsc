@@ -24,6 +24,7 @@ func main() {
     if len(os.Args) > 1 && os.Args[1] == "panic" {
       panic("source-build-panic")
     }
+    fmt.Fprintln(os.Stderr, dependency.Value())
     _, file, _, _ := runtime.Caller(0)
     // Quoting retains the asset's LF byte in one observable output line.
     fmt.Printf("%s|%q|%s\n", dependency.Value(), asset, file)
