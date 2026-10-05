@@ -18,9 +18,29 @@ jobs:
         with:
           node-version: 24.x
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
+        run: |
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules and objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', '.github/workflows/typia.yml') }}
+          restore-keys: |
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
