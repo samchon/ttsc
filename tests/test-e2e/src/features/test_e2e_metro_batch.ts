@@ -937,6 +937,45 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.writeFileSync(capabilityProducer, originalCapabilityProducer);
     fs.writeFileSync(contractPath, originalContract);
   }
+  // Actual compiled fixture stderr/status goes through the public launcher
+  // and its real TypeScript fallback in this same project state flow.
+  const diagnosticMain = path.join(workspace.root, "src/main.ts");
+  const diagnosticMainBefore = fs.existsSync(diagnosticMain) ? fs.readFileSync(diagnosticMain) : undefined;
+  const nativeFailureCache = path.join(workspace.cache, "public-native-failure-lanes");
+  const diagnosticLane = (mode: string, stage: "check" | "transform", noEmit: boolean): void => {
+    try {
+      const configured = JSON.parse(originalConfig.toString("utf8"));
+      configured.compilerOptions.plugins = [{ ...publicNativeProbe, stage }];
+      fs.writeFileSync(configPath, JSON.stringify(configured));
+      const result = TestProject.spawn(TestProject.TTSC_BIN, ["--cwd", workspace.root, ...(noEmit ? ["--noEmit"] : [])], {
+        cwd: workspace.root,
+        env: { ...baselineBuildEnv, TTSC_CACHE_DIR: nativeFailureCache, TTSC_E2E_PUBLIC_PROBE_MODE: mode },
+      });
+      assert.ifError(result.error);
+      assert.equal(result.signal, null);
+      assert.equal(typeof result.status, "number");
+      if (mode === "check-warning") {
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /TS9001: check warning/);
+      } else {
+        assert.equal(result.status, 3, result.stderr);
+        assert.match(result.stderr, stage === "check" ? /check plugin crashed/ : /transform plugin crashed/);
+      }
+      assert.equal(result.stderr.match(/TS2322/g)?.length, 2,
+        "the actual fallback must preserve both independent assignments exactly once: " + result.stderr);
+    } catch (error) { publicApiFailures.push(new Error(`actual native ${mode}/${noEmit ? "noEmit" : "emit"} diagnostic lane`, { cause: error })); }
+  };
+  try {
+    fs.writeFileSync(diagnosticMain, 'const first: number = "first-error";\nconst second: number = "second-error";\nconsole.log(first, second);\nexport {};\n');
+    diagnosticLane("check-warning", "check", true);
+    diagnosticLane("check-failure", "check", true);
+    diagnosticLane("transform-failure", "transform", false);
+    diagnosticLane("transform-failure", "transform", true);
+  } finally {
+    fs.writeFileSync(configPath, originalConfig);
+    if (diagnosticMainBefore === undefined) fs.unlinkSync(diagnosticMain);
+    else fs.writeFileSync(diagnosticMain, diagnosticMainBefore);
+  }
   const proofDependency = path.join(workspace.root, "descriptors/observation-dependency.cjs");
   const oldProofTarget = path.join(workspace.root, "descriptors/observation-old");
   const newProofTarget = path.join(workspace.root, "descriptors/observation-new");

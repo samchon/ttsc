@@ -28,7 +28,7 @@ exports.default = (context) => {
     return { name: selected, source: context.plugin.fixtureSource, capabilities: { projectContextArgs: true } };
   }
   if (observation === undefined)
-    return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {}, ...(context.plugin.publicCommand ? { capabilities: { projectContextArgs: true } } : {}) };
+    return { name: context.plugin.name, source: context.plugin.fixtureSource, stage: context.plugin.stage, hostInputHashes: {}, ...(context.plugin.publicCommand ? { capabilities: { projectContextArgs: true } } : {}) };
   const fs = require("node:fs");
   const settings = require("node:path").join(context.dirname, "cache-settings.json");
   fs.appendFileSync(context.plugin.evaluationCounter, "x");
