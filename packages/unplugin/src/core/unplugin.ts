@@ -37,8 +37,10 @@ import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stripQuery } from "./transform/utils/stripQuery";
+import type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegistration";
 import { createViteBuildLifecycle } from "./vite/createViteBuildLifecycle";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
+import { createViteServeWatchHooks } from "./vite/createViteServeWatchHooks";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
 import { reportCompiledProjectRecords } from "./webpack/reportCompiledProjectRecords";
@@ -527,42 +529,40 @@ const unpluginFactory: UnpluginFactory<
           // A dev server keys each importer on its own inputs through its
           // module graph; a watcherless one has no invalidation channel and
           // needs no derivation.
-          ...(viteLifecycle.command === "serve"
-            ? viteLifecycle.watching
-              ? {
-                  addWatchFiles: (inputs, failed) =>
-                    serveInputs.replace(file, inputs, failed, serveStartedAt),
-                  membership: true,
-                }
-              : {}
-            : {
-                project: {
-                  register: (registration) => {
-                    registerProjectRecord({
-                      addWatchFile,
-                      ...(bridge !== undefined && bridgeStartedAt !== undefined
-                        ? {
-                            bridge: {
-                              instance: bridge,
-                              startedAt: bridgeStartedAt,
-                            },
-                          }
-                        : {}),
-                      registration,
-                    });
-                    if (registration.digest === undefined)
-                      handed.unprovable = true;
-                    else
-                      handed.record = {
-                        digest: registration.digest,
-                        file: registration.record,
-                      };
-                  },
-                  toolDirectory: hostToolDirectory(hostRoot()),
-                  ...recordFallback(),
-                  watching: bridge !== undefined,
-                },
-              }),
+          ...(createViteServeWatchHooks(
+            viteLifecycle.command,
+            viteLifecycle.watching,
+            serveInputs,
+            file,
+            serveStartedAt,
+          ) ?? {
+            project: {
+              register: (registration: TtscProjectRegistration) => {
+                registerProjectRecord({
+                  addWatchFile,
+                  ...(bridge !== undefined && bridgeStartedAt !== undefined
+                    ? {
+                        bridge: {
+                          instance: bridge,
+                          startedAt: bridgeStartedAt,
+                        },
+                      }
+                    : {}),
+                  registration,
+                });
+                if (registration.digest === undefined)
+                  handed.unprovable = true;
+                else
+                  handed.record = {
+                    digest: registration.digest,
+                    file: registration.record,
+                  };
+              },
+              toolDirectory: hostToolDirectory(hostRoot()),
+              ...recordFallback(),
+              watching: bridge !== undefined,
+            },
+          }),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.
