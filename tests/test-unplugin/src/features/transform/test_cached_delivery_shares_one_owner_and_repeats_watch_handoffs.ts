@@ -10,6 +10,7 @@ import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/co
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
+import { TtscProjectRecordUnwritableError } from "../../../../../packages/unplugin/src/core/transform/errors/TtscProjectRecordUnwritableError";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
@@ -38,10 +39,11 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * 5. Begin an explicit pass, change the descriptor after its first delivery,
  *    preserve later first deliveries, then require repeated-delivery capture.
  * 6. Write one generation below two host roots; contrast a blocked record with
- *    repeat delivery volatility and one actual process warning.
+ *    repeat delivery volatility and one actual process warning; a watching
+ *    delivery refuses that same missing record, then succeeds after repair.
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
- *   A separate actual coordinator pair opens successive passes around a new empty admitted directory, retains the same Promise and membership digest, registers its added directory and omits membership when not requested.
+ *   A separate actual coordinator pair opens successive passes around a new empty admitted directory, retains the same Promise and membership digest, registers its added directory and omits membership when not requested. The same blocked record rejects a watching delivery with its typed path/cause, keeps its owner without registering or marking volatile, and hands over the repaired record on the next delivery.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
  *   Literal one-carrier counts, unchanged digest, original src directory, new later-reproved directory and an empty opt-out list distinguish directory population from root-file membership; the previous carrier stays unchanged.
  * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with deleting/recreating the same candidate parent and admitting its new source child, then appearance/eviction. Equal native bytes across two external graph targets contrast with a retargeted directory link: actual recorded graph proof must reject changed realpath alone. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
@@ -749,6 +751,43 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
           "the same unwritable record path reports one warning",
         );
         assert.equal(fs.existsSync(blockedRecord), false);
+        const deliverWatching = () =>
+          fixture.api.transformTtsc(
+            modules[0]!,
+            fixture.source,
+            fixture.options,
+            undefined,
+            fixture.cache,
+            {
+              project: {
+                toolDirectory: blockedTool,
+                watching: true,
+                register: ({ record }) => registered.push(record),
+              },
+              markVolatile: () => {
+                ++volatileCalls;
+              },
+            },
+          );
+        await assert.rejects(deliverWatching(), (error: unknown) => {
+          assert.ok(error instanceof TtscProjectRecordUnwritableError);
+          assert.equal(error.record, blockedRecord);
+          assert.ok(error.cause instanceof Error);
+          return true;
+        });
+        assert.equal(fixture.cache.get(fixture.key), recordOwner);
+        assert.deepEqual(registered, []);
+        assert.equal(volatileCalls, 2, "watch refusal cannot become volatile success");
+        assert.equal(fs.existsSync(blockedRecord), false);
+        fs.unlinkSync(path.join(blockedTool, "records"));
+        fs.mkdirSync(path.join(blockedTool, "records"));
+        assert.equal((await deliverWatching())?.code, code);
+        assert.equal(fixture.cache.get(fixture.key), recordOwner);
+        assert.deepEqual(registered, [blockedRecord]);
+        assert.equal(readProjectRecordFile(blockedRecord)?.root, root);
+        assert.equal(volatileCalls, 2);
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.equal(warnings.length, 1, "watch refusal and repair add no warning");
       } finally {
         process.off("warning", onWarning);
       }
