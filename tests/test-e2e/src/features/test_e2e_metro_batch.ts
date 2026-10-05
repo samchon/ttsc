@@ -18,6 +18,7 @@ import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/interna
 import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
 import { resolveCapabilityPlugins, resolveCapabilityPluginResolution } from "../../../../packages/ttsc/lib/plugin/resolveCapabilityPlugins";
 import { CapabilityResolutionFormat } from "../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat";
+import { buildSourcePlugin, computeCacheKey, createFakeGoBinary, ensureExecutableGoToolchain } from "../internal/ttsc/internal/source-build";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
@@ -513,6 +514,140 @@ export async function test_e2e_metro_batch(): Promise<void> {
       assert.equal(path.relative(workspace.root, owned).startsWith(".."), false);
       fs.rmSync(owned, { recursive: true, force: true });
     }
+  }
+  // The same module also supplies the controlled Go process protocol. Its
+  // scripted child is an orchestration oracle, never a native compiler claim.
+  const toolProtocol = path.join(workspace.root, "source-tool-protocol");
+  const toolCache = path.join(toolProtocol, "cache");
+  const toolEnvRecord = path.join(toolProtocol, "go-env.json");
+  const toolInvocationLog = path.join(toolProtocol, "go-invocations.log");
+  const copiedToolInputs = ["vendor/local/value.go", "lib/helper.go", "dist/generated.go", "build/generated.go"];
+  assert.equal(fs.existsSync(toolProtocol), false);
+  const ownedToolDirectories = ["vendor", "lib", "dist", "build"];
+  let toolInputsOwned = false;
+  try {
+    for (const relative of ownedToolDirectories)
+      assert.equal(fs.existsSync(path.join(replacementModule, relative)), false);
+    toolInputsOwned = true;
+    fs.mkdirSync(toolProtocol);
+    const tool = createFakeGoBinary(toolProtocol);
+    for (const relative of copiedToolInputs) {
+      const target = path.join(replacementModule, relative);
+      assert.equal(fs.existsSync(target), false);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(replacementFixture, "dep.go"), target);
+    }
+    const env: NodeJS.ProcessEnv = { ...baselineBuildEnv, GOCACHE: "", TTSC_GO_BINARY: tool, TTSC_GO_CACHE_DIR: path.join(toolProtocol, "instance-go-cache"),
+      FAKE_GO_CAPTURE_ENV_FILE: toolEnvRecord, FAKE_GO_INVOCATION_LOG: toolInvocationLog,
+      FAKE_GO_BUILD_EXIT_CODE: undefined, FAKE_GO_BUILD_BARRIER_FILE: undefined, FAKE_GO_BUILD_RELEASE_FILE: undefined,
+      FAKE_GO_BUILD_CACHE_OBJECT_COUNT: undefined, FAKE_GO_BUILD_CACHE_MARKER_VALUE: undefined };
+    const request = (effectiveEnv: NodeJS.ProcessEnv = env): string => buildSourcePlugin({
+      baseDir: workspace.root, cacheDir: toolCache, env: effectiveEnv, overlayDirs: [], pluginName: "source-tool-protocol",
+      source: publicNativeProbe.fixtureSource, quiet: true, ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
+    });
+    const priorToolEnv = Object.fromEntries(["TTSC_GO_BINARY", "TTSC_GO_CACHE_DIR", "GOCACHE", "FAKE_GO_CAPTURE_ENV_FILE"]
+      .map((key) => [key, process.env[key]]));
+    try {
+      const missingAmbientTool = path.join(toolProtocol, "missing-ambient-go");
+      assert.equal(fs.existsSync(missingAmbientTool), false);
+      process.env.TTSC_GO_BINARY = missingAmbientTool;
+      process.env.TTSC_GO_CACHE_DIR = path.join(toolProtocol, "contradictory-go-cache");
+      delete process.env.GOCACHE;
+      delete process.env.FAKE_GO_CAPTURE_ENV_FILE;
+      assert.equal(fs.existsSync(request()), true, "call-local tool must build despite an independently absent ambient tool");
+      assert.equal(JSON.parse(fs.readFileSync(toolEnvRecord, "utf8")).GOCACHE, env.TTSC_GO_CACHE_DIR);
+    } finally {
+      for (const [key, value] of Object.entries(priorToolEnv)) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
+    const key = (binary: string, effectiveEnv: NodeJS.ProcessEnv = env): string => computeCacheKey({
+      dir: replacementModule, entry: "./cmd/public-probe", env: effectiveEnv, goBinary: binary,
+      ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
+    });
+    const toolBytes = fs.readFileSync(tool);
+    const relocatedTool = path.join(toolProtocol, process.platform === "win32" ? "relocated-go.cmd" : "relocated-go");
+    fs.copyFileSync(tool, relocatedTool);
+    assert.equal(key(relocatedTool), key(tool), "equal executable bytes at another path retain compiler identity");
+    fs.appendFileSync(tool, process.platform === "win32" ? "\r\nrem a\r\n" : "\n# a\n");
+    const fixedToolTime = new Date(Math.floor(Date.now() / 1_000) * 1_000);
+    fs.utimesSync(tool, fixedToolTime, fixedToolTime);
+    const originalToolStat = fs.statSync(tool, { bigint: true });
+    const originalToolKey = key(tool);
+    fs.writeFileSync(tool, fs.readFileSync(tool, "utf8").replace(/a(\r?\n)$/, "b$1"));
+    fs.utimesSync(tool, fixedToolTime, fixedToolTime);
+    assert.equal(fs.statSync(tool, { bigint: true }).size, originalToolStat.size);
+    assert.equal(fs.statSync(tool, { bigint: true }).mtimeNs, originalToolStat.mtimeNs);
+    assert.notEqual(key(tool), originalToolKey, "same-size same-mtime compiler replacement changes identity");
+    fs.writeFileSync(tool, toolBytes);
+    if (process.platform !== "win32") {
+      const cwdCommand = path.join(replacementModule, "go");
+      const cwdScript = path.join(replacementModule, "fake-go.cjs");
+      assert.equal(fs.existsSync(cwdCommand), false);
+      assert.equal(fs.existsSync(cwdScript), false);
+      const cwdCreatedCommand = createFakeGoBinary(replacementModule);
+      try {
+        fs.renameSync(cwdCreatedCommand, cwdCommand);
+        const pathToolchain = path.join(toolProtocol, "path-toolchain");
+        fs.mkdirSync(pathToolchain);
+        fs.renameSync(createFakeGoBinary(pathToolchain), path.join(pathToolchain, "go"));
+        assert.notEqual(key("go", { ...env, PATH: `${path.delimiter}${pathToolchain}` }),
+          key("go", { ...env, PATH: pathToolchain }), "empty leading PATH admits the module-local tool before the PATH-only tool");
+      } finally {
+        fs.rmSync(cwdCommand, { force: true });
+        fs.rmSync(cwdCreatedCommand, { force: true });
+        fs.rmSync(cwdScript, { force: true });
+      }
+    }
+    const firstEnvironmentKey = key(tool, { ...env, FAKE_GO_ENV_GOARM64: "v8.0" });
+    assert.notEqual(key(tool, { ...env, FAKE_GO_ENV_GOARM64: "v9.0" }), firstEnvironmentKey, "child-reported Go target environment joins identity");
+    const linkedInput = path.join(replacementModule, "tool-owned-linked-source");
+    const excludedLink = path.join(replacementModule, "node_modules/tool-owned-linked-source");
+    const linkedTarget = path.join(toolProtocol, "linked-source");
+    assert.equal(fs.existsSync(linkedInput), false);
+    assert.equal(fs.existsSync(excludedLink), false);
+    fs.mkdirSync(linkedTarget);
+    fs.copyFileSync(path.join(replacementFixture, "dep.go"), path.join(linkedTarget, "shared.go"));
+    const buildInvocations = () => fs.readFileSync(toolInvocationLog, "utf8").split(/\r?\n/).filter((line) => line.startsWith("build"));
+    const beforeLinkBuilds = buildInvocations();
+    try {
+      fs.symlinkSync(linkedTarget, linkedInput, process.platform === "win32" ? "junction" : "dir");
+      fs.mkdirSync(path.dirname(excludedLink), { recursive: true });
+      fs.symlinkSync(linkedTarget, excludedLink, process.platform === "win32" ? "junction" : "dir");
+      assert.throws(() => request(), (error: unknown) => error instanceof Error && error.message.includes("contains a link at") && error.message.includes(linkedInput));
+      assert.deepEqual(buildInvocations(), beforeLinkBuilds, "refusing the included link must issue no additional go build");
+      fs.unlinkSync(linkedInput);
+      fs.cpSync(linkedTarget, linkedInput, { recursive: true });
+      assert.equal(fs.existsSync(request()), true, "owned source files recover while the excluded link remains");
+    } finally {
+      if (fs.existsSync(linkedInput)) {
+        if (fs.lstatSync(linkedInput).isSymbolicLink()) fs.unlinkSync(linkedInput);
+        else fs.rmSync(linkedInput, { recursive: true });
+      }
+      if (fs.existsSync(excludedLink)) fs.unlinkSync(excludedLink);
+    }
+    if (process.platform !== "win32") {
+      fs.chmodSync(tool, 0o666);
+      ensureExecutableGoToolchain(tool, true);
+      assert.equal(fs.statSync(tool).mode & 0o7777, 0o755);
+      fs.chmodSync(tool, 0o666);
+      assert.equal(fs.existsSync(request()), true);
+      assert.equal(fs.statSync(tool).mode & 0o7777, 0o766, "external tool gains only required owner execute before metadata");
+      fs.chmodSync(tool, 0o700);
+      request();
+      assert.equal(fs.statSync(tool).mode & 0o7777, 0o700, "already-executable external permissions remain restrictive");
+    }
+  } catch (error) { publicApiFailures.push(new Error("shared source tool environment and permission protocol", { cause: error })); }
+  finally {
+    // Parent absence was established before taking ownership; never delete a
+    // pre-existing module directory after a failed setup assertion.
+    for (const directory of toolInputsOwned ? ownedToolDirectories : []) {
+      const target = path.join(replacementModule, directory);
+      assert.ok(path.resolve(target).startsWith(path.resolve(replacementModule) + path.sep));
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+    assert.ok(path.resolve(toolProtocol).startsWith(path.resolve(workspace.root) + path.sep));
+    fs.rmSync(toolProtocol, { recursive: true, force: true });
   }
   const capabilityCache = path.join(workspace.cache, "capability-source-flow");
   const capabilityCounter = path.join(traceRoot, "capability-evaluations.log");
