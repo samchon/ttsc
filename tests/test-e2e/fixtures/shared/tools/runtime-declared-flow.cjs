@@ -163,7 +163,27 @@ try {
 }
 assert.equal(lowerings(explicitOrphans).filter((name) => !explicitBefore.has(name)).length, 1, "the explicit runtime cache must receive this one actual orphan lowering");
 const defaultBefore = new Set(lowerings(defaultOrphans));
-fs.copyFileSync(path.join(root, "runtime-base.json"), configuration);
+const registerBaseFile = path.join(root, "runtime-base.json");
+const registerBaseBytes = fs.readFileSync(registerBaseFile);
+const registerOptions = JSON.parse(registerBaseBytes);
+// The register loads the whole project and isolated requested roots. Each
+// reporting entry obtains sources from that actual Program, rather than
+// claiming that the root bundle/map population belongs to every requested root.
+const registerReports = (entry) => {
+  if (!Object.hasOwn(entry, "reportedFiles")) return entry;
+  const { reportedFiles, reportedDependencies, ...options } = entry;
+  return { ...options, reportedProgramSources: true, reportedDependencies: [] };
+};
+registerOptions.compilerOptions.plugins = registerOptions.compilerOptions.plugins.map(registerReports);
+const registerAutomatic = JSON.parse(automaticManifestBytes);
+registerAutomatic.ttsc.plugin = registerReports(registerAutomatic.ttsc.plugin);
+let childReport;
+let childIsRunning;
+const descendant = path.join(__dirname, "runtime-descendant");
+try {
+fs.writeFileSync(registerBaseFile, JSON.stringify(registerOptions));
+fs.writeFileSync(automaticManifestFile, JSON.stringify(registerAutomatic));
+fs.copyFileSync(registerBaseFile, configuration);
 try {
   const env = { ...process.env };
   delete env.TTSX_RUNTIME_MANIFEST;
@@ -178,9 +198,8 @@ try {
 } finally {
   fs.unlinkSync(configuration);
 }
-const descendant = path.join(__dirname, "runtime-descendant");
-const childReport = fs.existsSync(path.join(descendant, "parent.json")) ? JSON.parse(fs.readFileSync(path.join(descendant, "parent.json"), "utf8")) : undefined;
-const childIsRunning = () => {
+childReport = fs.existsSync(path.join(descendant, "parent.json")) ? JSON.parse(fs.readFileSync(path.join(descendant, "parent.json"), "utf8")) : undefined;
+childIsRunning = () => {
   if (childReport === undefined) return false;
   assert.ok(Number.isSafeInteger(childReport.child) && childReport.child > 0);
   try { process.kill(childReport.child, 0); return true; }
@@ -231,5 +250,12 @@ finally {
   } catch (error) { descendantFailures.push(new Error("registered descendant closure remained unresolved", { cause: error })); }
 }
 if (descendantFailures.length) throw new AggregateError(descendantFailures, "registered descendant live/lazy/finished cleanup");
+} finally {
+  if (childIsRunning !== undefined && childIsRunning())
+    throw new Error("register reporting epoch retained because its descendant closure is unresolved");
+  try { fs.writeFileSync(registerBaseFile, registerBaseBytes); }
+  finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
+}
+assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
 fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
