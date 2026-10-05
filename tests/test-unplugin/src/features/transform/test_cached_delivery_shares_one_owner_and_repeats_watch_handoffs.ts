@@ -10,10 +10,10 @@ import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/co
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
-import { TtscProjectRecordUnwritableError } from "../../../../../packages/unplugin/src/core/transform/errors/TtscProjectRecordUnwritableError";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
+import { TtscProjectRecordUnwritableError } from "../../../../../packages/unplugin/src/core/transform/errors/TtscProjectRecordUnwritableError";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
@@ -777,7 +777,11 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         });
         assert.equal(fixture.cache.get(fixture.key), recordOwner);
         assert.deepEqual(registered, []);
-        assert.equal(volatileCalls, 2, "watch refusal cannot become volatile success");
+        assert.equal(
+          volatileCalls,
+          2,
+          "watch refusal cannot become volatile success",
+        );
         assert.equal(fs.existsSync(blockedRecord), false);
         fs.unlinkSync(path.join(blockedTool, "records"));
         fs.mkdirSync(path.join(blockedTool, "records"));
@@ -787,7 +791,11 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         assert.equal(readProjectRecordFile(blockedRecord)?.root, root);
         assert.equal(volatileCalls, 2);
         await new Promise<void>((resolve) => setImmediate(resolve));
-        assert.equal(warnings.length, 1, "watch refusal and repair add no warning");
+        assert.equal(
+          warnings.length,
+          1,
+          "watch refusal and repair add no warning",
+        );
       } finally {
         process.off("warning", onWarning);
       }
