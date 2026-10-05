@@ -759,6 +759,37 @@ export async function test_e2e_metro_batch(): Promise<void> {
       fs.writeFileSync(overlayFile, overlayFirst);
       assert.equal(overlayRequest(), overlayBinary, "restoring the overlay selects the already compiled copied state");
     } finally { fs.writeFileSync(scriptFile, stableScript); }
+    const workspaceOverlayFixture = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/source-workspace-overlays");
+    const spacedWorkspaceOverlay = path.join(toolProtocol, "space dir/ttsc");
+    const bareWorkspaceOverlay = path.join(toolProtocol, "nospace/shim");
+    const commentWorkspaceBase = path.join(toolProtocol, "comment-prefix/shim");
+    for (const [input, destination] of [["ttsc", spacedWorkspaceOverlay], ["shim", bareWorkspaceOverlay], ["comment-prefix", commentWorkspaceBase]] as const)
+      fs.cpSync(path.join(workspaceOverlayFixture, input), destination, { recursive: true });
+    const commentWorkspaceOverlay = process.platform === "win32" ? path.toNamespacedPath(commentWorkspaceBase) : "/" + commentWorkspaceBase;
+    const capturedWorkspace = path.join(toolProtocol, "quoted-workspace.work");
+    const captureWorkspace = `fs.copyFileSync("go.work", ${JSON.stringify(capturedWorkspace)});\n`;
+    try {
+      fs.writeFileSync(scriptFile, stableScript.replace('fs.writeFileSync(out, "fake plugin binary\\n", "utf8");', captureWorkspace + 'fs.writeFileSync(out, "fake plugin binary\\n", "utf8");'));
+      buildSourcePlugin({ baseDir: workspace.root, cacheDir: toolCache,
+        env: { ...env, GOFLAGS: "-tags=ttsc_workspace_quote_epoch" },
+        overlayDirs: [spacedWorkspaceOverlay, bareWorkspaceOverlay, commentWorkspaceOverlay],
+        pluginName: "source-tool-protocol", source: publicNativeProbe.fixtureSource, quiet: true, ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev" });
+      const text = fs.readFileSync(capturedWorkspace, "utf8");
+      const uses = text.split(/\r?\n/).filter((line) => /^\t/.test(line)).map((line) => line.trim());
+      const spacedUse = uses.find((line) => line.endsWith('space dir/ttsc"'));
+      const bareUse = uses.find((line) => line.endsWith("nospace/shim"));
+      const commentUse = uses.find((line) => line.replace(/^"|"$/g, "").endsWith("comment-prefix/shim"));
+      assert.ok(spacedUse?.startsWith('"'), text);
+      assert.ok(bareUse && !bareUse.startsWith('"'), text);
+      assert.ok(commentUse, text);
+      assert.equal(text.includes(`replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${spacedUse}`), true, text);
+      const parsed = TestProject.spawn("go", ["work", "edit", "-json"], { cwd: toolProtocol, env: { GOWORK: capturedWorkspace } });
+      if (parsed.error) throw parsed.error;
+      assert.equal(parsed.signal, null);
+      assert.equal(parsed.status, 0, parsed.stderr || parsed.stdout);
+      const parsedWorkspace = JSON.parse(parsed.stdout) as { Use?: { DiskPath?: string }[] };
+      assert.equal(parsedWorkspace.Use?.some((entry) => entry.DiskPath === commentUse.replace(/^"|"$/g, "")), true, parsed.stdout);
+    } finally { fs.writeFileSync(scriptFile, stableScript); }
     const keyRaceManifest = path.join(replacementModule, "go.mod");
     const keyRaceProducer = path.join(nativeProbe.fixtureSource, "probe.go");
     const keyRaceManifestBytes = fs.readFileSync(keyRaceManifest);
