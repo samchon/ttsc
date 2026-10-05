@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import { E2ETrace } from "../internal/E2ETrace";
 import { javascriptRuntimeCapabilities } from "../internal/javascriptRuntimeCapabilities";
 import type {
   ITtscCapabilityPlugin,
@@ -75,6 +76,8 @@ export function resolveCapabilityPlugins(options: {
  * runtime authority and failed persistence can leave a successful lookup
  * without reusable proof. Its query then returns false; successful discovery is
  * distinct from permission to reuse.
+ * The private opt-in trace reports computed eligibility and publication
+ * branches; it adds no authority probe and is not itself a freshness proof.
  *
  * @evidence contracts/common.md#principled-implementation Successful selection preserves the complete configured manifest and opt-in context; missing tools and caught load/publication failures produce degraded results. Dependent reuse requires the recorded input/build projections and authority checks, subject to producer declarations and sequential observation limits.
  * @evidence contracts/common.md#clear-and-simple-design One owner combines discovery and cache acceptance, exposing only selected plugins, outcome and an opaque validity query to downstream consumers.
@@ -107,6 +110,10 @@ export function resolveCapabilityPluginResolution(options: {
   const cached = runtimeProved
     ? readCapabilityResolution({ cwd, tsconfig, version })
     : null;
+  E2ETrace.capabilityResolution("lookup", {
+    cwd, tsconfig, capability: options.capability,
+    runtimeProved, authority, cacheHit: cached !== null,
+  });
   if (cached !== null)
     return resolved(cached, options.capability, cwd, tsconfig, authority);
 
@@ -162,11 +169,13 @@ export function resolveCapabilityPluginResolution(options: {
     };
     // A descriptor that did not declare what it read computed an answer no
     // recorded input can prove to a later call.
+    let authorityUnchanged: boolean | undefined;
     const recorded =
       runtimeProved &&
       authority !== null &&
-      CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) ===
-        authority &&
+      (authorityUnchanged =
+        CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) ===
+        authority) &&
       loaded.descriptorReadsDeclared &&
       loaded.discoveryInputsComplete
         ? writeCapabilityResolution(
@@ -174,6 +183,19 @@ export function resolveCapabilityPluginResolution(options: {
             answer,
           )
         : null;
+    E2ETrace.capabilityResolution("answer", {
+      cwd, tsconfig, capability: options.capability,
+      runtimeProved, authority, authorityUnchanged,
+      descriptorReadsDeclared: loaded.descriptorReadsDeclared,
+      discoveryInputsComplete: loaded.discoveryInputsComplete,
+      observationsComplete: loaded.observationsComplete,
+      retainedHostInputs: answer.hostInputs.length,
+      deferredHostInputs: loaded.deferredHostInputs.length,
+      writeAttempted: runtimeProved && authority !== null &&
+        authorityUnchanged === true && loaded.descriptorReadsDeclared &&
+        loaded.discoveryInputsComplete,
+      recorded: recorded !== null,
+    });
     return recorded === null
       ? {
           isCurrent: () => false,
@@ -190,25 +212,41 @@ export function resolveCapabilityPluginResolution(options: {
  * A direct hook-capable Node executable selects itself for both direct and ttsx
  * evaluation. Bun, wrappers and startup preloads introduce additional
  * authorities that this cache format does not observe, so they are not reused.
+ * Private tracing reports this operation's existing decision and preserves
+ * short-circuited comparisons as unobserved, without repeating native queries.
  */
 function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
-  if (process.env.NODE_OPTIONS?.trim()) return false;
+  if (process.env.NODE_OPTIONS?.trim()) {
+    E2ETrace.capabilityResolution("runtime-authority", { cwd, proved: false, reason: "node-options" });
+    return false;
+  }
   const runtime = process.env.TTSC_NODE_BINARY ?? process.execPath;
-  if (!path.isAbsolute(runtime)) return false;
+  if (!path.isAbsolute(runtime)) {
+    E2ETrace.capabilityResolution("runtime-authority", { cwd, runtime, proved: false, reason: "relative-runtime" });
+    return false;
+  }
   try {
     const capabilities = javascriptRuntimeCapabilities(
       runtime,
       process.env,
       cwd,
     );
-    return (
+    let executableMatches: boolean | undefined;
+    const proved = (
       !capabilities.bun &&
       capabilities.registerHooks &&
       capabilities.executable !== undefined &&
-      fs.realpathSync.native(capabilities.executable) ===
-        fs.realpathSync.native(runtime)
+      (executableMatches = fs.realpathSync.native(capabilities.executable) ===
+        fs.realpathSync.native(runtime))
     );
+    E2ETrace.capabilityResolution("runtime-authority", {
+      cwd, runtime, bun: capabilities.bun,
+      registerHooks: capabilities.registerHooks,
+      executable: capabilities.executable, executableMatches, proved,
+    });
+    return proved;
   } catch {
+    E2ETrace.capabilityResolution("runtime-authority", { cwd, runtime, proved: false, reason: "authority-exception" });
     return false;
   }
 }

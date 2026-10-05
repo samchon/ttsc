@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { E2ETrace } from "../../internal/E2ETrace";
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
@@ -34,6 +35,9 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * Returns the published entry, or null when no complete entry was written.
  * Publication is not a freshness assertion: the reader must still prove its
  * recorded observations before dependent results can reuse it.
+ * Private opt-in tracing records the reached refusal branch or successful
+ * rename. It neither retries persistence nor observes an unexecuted proof
+ * comparison; failures inside the trace writer cannot replace this result.
  *
  * Default workspace storage is marked before even the clock probe is written,
  * so a first answer cannot make a later root search choose a different
@@ -101,12 +105,17 @@ export function writeCapabilityResolution(
   },
 ): ITtscCapabilityResolutionEntry | null {
   let file = CapabilityResolutionFormat.resolutionFile(options);
-  if (file === null) return null;
+  if (file === null) {
+    E2ETrace.capabilityResolution("write-refused", { reason: "storage-authority-unavailable" });
+    return null;
+  }
   if (
     options.expectedAuthority !== undefined &&
     options.expectedAuthority !== file
-  )
+  ) {
+    E2ETrace.capabilityResolution("write-refused", { file, reason: "authority-changed" });
     return null;
+  }
   const hostInputs = [
     ...new Set(
       answer.hostInputs
@@ -114,15 +123,25 @@ export function writeCapabilityResolution(
         .map((input) => path.resolve(input)),
     ),
   ].sort();
-  if (hostInputs.length === 0) return null;
+  if (hostInputs.length === 0) {
+    E2ETrace.capabilityResolution("write-refused", { file, reason: "empty-host-inputs" });
+    return null;
+  }
   const hostInputHashes: Record<string, string | null> = {};
   const hostInputRealpaths: Record<string, string | null> = {};
   for (const input of hostInputs) {
+    const hashPresent = Object.prototype.hasOwnProperty.call(answer.hostInputHashes, input);
+    let realpathPresent: boolean | undefined;
     if (
-      !Object.prototype.hasOwnProperty.call(answer.hostInputHashes, input) ||
-      !Object.prototype.hasOwnProperty.call(answer.hostInputRealpaths, input)
-    )
+      !hashPresent ||
+      !(realpathPresent = Object.prototype.hasOwnProperty.call(answer.hostInputRealpaths, input))
+    ) {
+      E2ETrace.capabilityResolution("write-refused", {
+        file, input, reason: "host-proof-missing",
+        hashPresent, realpathPresent,
+      });
       return null;
+    }
     hostInputHashes[input] = answer.hostInputHashes[input]!;
     hostInputRealpaths[input] = answer.hostInputRealpaths[input]!;
   }
@@ -137,6 +156,7 @@ export function writeCapabilityResolution(
         path.basename(file),
       );
     } catch {
+      E2ETrace.capabilityResolution("write-refused", { file, reason: "default-root-unavailable" });
       return null;
     }
   }
@@ -169,8 +189,10 @@ export function writeCapabilityResolution(
     // partially written one could parse and be believed.
     fs.writeFileSync(staging, JSON.stringify(entry), "utf8");
     fs.renameSync(staging, file);
+    E2ETrace.capabilityResolution("write-published", { file, hostInputs: hostInputs.length });
     return entry;
   } catch {
+    E2ETrace.capabilityResolution("write-refused", { file, reason: "publication-exception" });
     return null;
   } finally {
     try {

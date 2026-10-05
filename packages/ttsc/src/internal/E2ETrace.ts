@@ -6,7 +6,8 @@ import path from "node:path";
 
 /**
  * Private opt-in observations of maintained process primitives and separately
- * classified runtime source preparation inputs and watch-shutdown phases.
+ * classified runtime source preparation inputs, watch-shutdown phases and
+ * computed capability cache gates.
  *
  * TTSC_E2E_TRACE selects coordinator-owned scratch. Each writer owns one JSONL
  * and its raw returned-buffer payloads. Returned strings are recorded as text,
@@ -26,6 +27,43 @@ import path from "node:path";
  * @evidence contracts/performance.md#bound-retention-and-release-resources One writer retains root/nonce/counters until process exit. Each sink write closes in finally; payloads are capped at 64MiB each and writer output at 256MiB including reserved integrity metadata. Coordinator owns scratch reclamation and writer/child settlement; IO failure can leave partial files and missing evidence.
  */
 export namespace E2ETrace {
+  /**
+   * Record already-computed capability cache gates as non-process observations.
+   * Disabled tracing performs no sink IO. Writer admission, budgets and failed
+   * sink handling are shared with the other private observations; no gate is
+   * recomputed and no product result is replaced by an observer failure.
+   *
+   * @evidence contracts/common.md#principled-implementation Caller-supplied gate values and actual publication branches are observations, not fabricated producer proof or process outcomes.
+   * @evidence contracts/common.md#clear-and-simple-design One capability event uses the existing private writer and schema without changing capability response fields.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No process, hash probe, public API or environment selector is added; observer failure remains inside the trace owner.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes computed gates from product evidence and states disabled and failed-sink behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation Actual Node argv, cwd and writer identity retain their native representations under the existing absolute scratch admission.
+   * @evidence contracts/performance.md#efficient-algorithms Enabled metadata copying, serialization and synchronous sink IO scale with actual text sizes; disabled mode returns before those operations.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each occurrence reports its own decision and cannot substitute an earlier gate outcome.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This call retains no history or resource; the existing bounded writer owns append-close IO and coordinator-owned scratch lifetime.
+   */
+  export function capabilityResolution(
+    phase: string,
+    data: Readonly<Record<string, string | number | boolean | null | undefined>>,
+  ): void {
+    const selected = process.env.TTSC_E2E_TRACE;
+    if (!selected) return;
+    try {
+      if (!admit(selected)) return;
+      const token: Token = {
+        invocation: String(++ordinal),
+        argv: [...process.argv],
+        cwd: process.cwd(),
+        lower: new Date().toISOString(),
+        origin: "ttsc-capability-resolution",
+        argv0: null,
+      };
+      event(token, "capability-resolution", process.pid, {
+        ...data, phase, origin: token.origin,
+      });
+    } catch { failed = true; }
+  }
+
   /**
    * Record a watch-shutdown phase as a non-process observation.
    * Callers report actual promise/callback outcomes and the received stop ID;
