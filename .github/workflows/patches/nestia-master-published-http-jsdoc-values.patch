@@ -1,0 +1,175 @@
+diff --git a/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_absent_schema_fields.ts b/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_absent_schema_fields.ts
+index 882308e5a..162481cb4 100644
+--- a/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_absent_schema_fields.ts
++++ b/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_absent_schema_fields.ts
+@@ -13,41 +13,56 @@ import { RichSwaggerParameterReader } from "./internal/RichSwaggerParameterReade
+  * inside instance data or a vendor extension is the negative twin: it is the
+  * value the user declared, so it must stay. `tags.Example<null>` is one; the
+  * typia linked before #1646 dropped it entirely. A JSDoc `@x-nothing null` is
+- * another, and typia still writes that one as a bare nil. So is an `@x-` value
+- * that reads as a non-finite number, which JSON can only write as null
+- * (#1655).
++ * another, and typia still writes that one as a bare nil. Published typia
++ * 15.0.1 keeps non-finite and Go-only numeric JSDoc text as strings instead of
++ * converting it to a JSON number. Those declared strings must remain strings.
+  *
+  * 1. Read the generated Swagger document.
+  * 2. Walk every member and collect the ones that are null.
+  * 3. Assert the only nulls are the declared `example`, `examples`, `x-empty`, and
+- *    `x-nothing` values, and the non-finite `x-level` ones.
++ *    `x-nothing` values, and check all eight authored vendor-text locations.
+  * 4. Assert `any` becomes an empty schema, in the component and in a decomposed
+  *    parameter.
+  *
+- * @evidence contracts/testing.md#behavioral-verification The complete scenario schema/path projection permits only the original literal null members, while both component and decomposed any schemas remain empty objects.
++ * @evidence contracts/testing.md#behavioral-verification The complete scenario projection preserves the four authored null members and independently checks all eight component/decomposed vendor-text literals; both any schemas remain empty objects.
+  * @evidence contracts/testing.md#independent-expectations The original authored DTO/decorator input and literal schema/example values establish expected constraints. Existing component-to-parameter comparisons retain their original relationship oracle and literal cells rather than treating compile success as correctness.
+- * @evidence contracts/testing.md#distinguishing-cases The complete scenario schema/path projection permits only the original literal null members, while both component and decomposed any schemas remain empty objects.
++ * @evidence contracts/testing.md#distinguishing-cases Authored null differs from NaN/Infinity/negative/Go-only text at eight fixed locations; missing text, numeric/null coercion and unexpected null members fail independently.
+  * @evidence contracts/testing.md#execution-ownership The shared public HTTP entry compiles one authored producer and one generated consumer, and discovers this matching case through DynamicExecutor. It reads the actual generated Swagger document; no independent feature compiler or host is started.
+  * @evidence contracts/e2e.md#necessary-boundary Ordinary installed public compiler, Nest application and SDK generation produce the document under test; no resolver hook or patched emitted output supplies it.
+  * @evidence contracts/e2e.md#shared-execution One installed producer and generated consumer supply this case's document together with every compatible rich case; the shared entry retains its individual failure.
+  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The reader scopes actual paths and schemas to this unchanged authored scenario, keeping unrelated shared scenarios out of its whole-document null oracle. Assertions do not mutate the shared file; each read owns its parsed document, and the runner owns fixture teardown.
+- * @evidence contracts/e2e.md#preserved-coverage The complete scenario schema/path projection permits only the original literal null members, while both component and decomposed any schemas remain empty objects. Original document-only preparation remains generated and compiled without adding random transport requests. The three authored-metadata isolation/fallback cases now have direct unit owners.
++ * @evidence contracts/e2e.md#preserved-coverage All four authored null paths and both any-schema contrasts remain; the published cast's eight exact text locations are checked independently. Original document-only preparation and execution boundaries remain unchanged. The three authored-metadata isolation/fallback cases retain direct unit owners.
+  */
+ export const test_rich_swagger_parameters_absent_schema_fields =
+   async (): Promise<void> => {
+     const document: OpenApi.IDocument =
+       await RichSwaggerParameterReader.document();
++    const expectedText = {
++      "$.components.schemas.INonFiniteExtensions.properties.nan.x-level": "NaN",
++      "$.components.schemas.INonFiniteExtensions.properties.infinity.x-level": "Infinity",
++      "$.components.schemas.INonFiniteExtensions.properties.negative.x-level": "-Infinity",
++      "$.components.schemas.INonFiniteExtensions.properties.short.x-level": "inf",
++      "$.paths./http_rich/swagger_parameters/extension/non-finite.get.parameters[0].schema.x-level": "NaN",
++      "$.paths./http_rich/swagger_parameters/extension/non-finite.get.parameters[1].schema.x-level": "Infinity",
++      "$.paths./http_rich/swagger_parameters/extension/non-finite.get.parameters[2].schema.x-level": "-Infinity",
++      "$.paths./http_rich/swagger_parameters/extension/non-finite.get.parameters[3].schema.x-level": "inf",
++    };
++    const observedText: Record<string, unknown> = {};
+     const nulls: string[] = [];
+     const visit = (value: unknown, path: string): void => {
+       if (Array.isArray(value))
+         value.forEach((element, i) => visit(element, `${path}[${i}]`));
+       else if (typeof value === "object" && value !== null)
+-        for (const [key, member] of Object.entries(value))
++        for (const [key, member] of Object.entries(value)) {
++          const memberPath = `${path}.${key}`;
++          if (Object.hasOwn(expectedText, memberPath))
++            observedText[memberPath] = member;
+           if (member === null) nulls.push(`${path}.${key}`);
+           else visit(member, `${path}.${key}`);
++        }
+     };
+     visit(document, "$");
+-    const nonFinite: string[] = ["nan", "infinity", "negative", "short"];
++    TestValidator.equals("vendor text members", observedText, expectedText);
+     TestValidator.equals(
+       "null members",
+       nulls.sort(),
+@@ -56,14 +71,6 @@ export const test_rich_swagger_parameters_absent_schema_fields =
+         "$.components.schemas.IAbsentFields.properties.named.examples.none",
+         "$.components.schemas.IAbsentFields.properties.plugin.x-empty",
+         "$.components.schemas.IAbsentFields.properties.single.example",
+-        ...nonFinite.map(
+-          (key) =>
+-            `$.components.schemas.INonFiniteExtensions.properties.${key}.x-level`,
+-        ),
+-        ...nonFinite.map(
+-          (_key, i) =>
+-            `$.paths./http_rich/swagger_parameters/extension/non-finite.get.parameters[${i}].schema.x-level`,
+-        ),
+       ].sort(),
+     );
+ 
+diff --git a/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_non_finite_extensions.ts b/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_non_finite_extensions.ts
+index a594be2bc..923741120 100644
+--- a/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_non_finite_extensions.ts
++++ b/tests/test-sdk/features/http-rich/src/test/features/test_rich_swagger_parameters_non_finite_extensions.ts
+@@ -4,30 +4,25 @@ import { OpenApi } from "typia";
+ import { RichSwaggerParameterReader } from "./internal/RichSwaggerParameterReader";
+ 
+ /**
+- * Verifies a JSDoc `@x-` extension whose text reads as a non-finite number is
+- * documented as null instead of aborting generation.
++ * Verifies published typia's JSDoc `@x-` cast preserves non-finite text.
+  *
+- * Typia reads `NaN`, `Infinity`, `-Infinity`, and `inf` as floats, and the SDK
+- * serialized its metadata with a JSON encoder that refuses them, so one such
+- * tag failed `nestia sdk` and `nestia swagger` for the whole project (#1655).
+- * The value is written as `JSON.stringify` writes it, null, both in the
+- * component and in the decomposed parameters; a finite extension stays a
+- * number.
++ * Published typia 15.0.1 reads only finite JavaScript numbers numerically.
++ * `NaN`, `Infinity`, `-Infinity`, and Go-only `inf` stay authored strings in
++ * both component and decomposed schemas; the finite extension stays a number.
+  *
+  * 1. Read the generated Swagger document.
+- * 2. Assert the component writes each non-finite `x-level` as null and the finite
+- *    one as 2.
++ * 2. Assert the component writes each authored `x-level` string and finite 2.
+  * 3. Assert every decomposed query parameter carries the component's schema of its
+  *    property, extension included.
+  *
+- * @evidence contracts/testing.md#behavioral-verification NaN/Infinity/negative/short vendor values remain literal null while finite remains two; every decomposed parameter retains its component schema and order.
++ * @evidence contracts/testing.md#behavioral-verification Four authored vendor strings and finite two retain exact values in both component and decomposed schemas; complete schemas and parameter order also agree.
+  * @evidence contracts/testing.md#independent-expectations The original authored DTO/decorator input and literal schema/example values establish expected constraints. Existing component-to-parameter comparisons retain their original relationship oracle and literal cells rather than treating compile success as correctness.
+- * @evidence contracts/testing.md#distinguishing-cases NaN/Infinity/negative/short vendor values remain literal null while finite remains two; every decomposed parameter retains its component schema and order.
++ * @evidence contracts/testing.md#distinguishing-cases NaN/Infinity/negative/Go-only text differs from finite two; independent literal checks detect missing values, null coercion and indiscriminate stringification in both views.
+  * @evidence contracts/testing.md#execution-ownership The shared public HTTP entry compiles one authored producer and one generated consumer, and discovers this matching case through DynamicExecutor. It reads the actual generated Swagger document; no independent feature compiler or host is started.
+  * @evidence contracts/e2e.md#necessary-boundary Ordinary installed public compiler, Nest application and SDK generation produce the document under test; no resolver hook or patched emitted output supplies it.
+  * @evidence contracts/e2e.md#shared-execution One installed producer and generated consumer supply this case's document together with every compatible rich case; the shared entry retains its individual failure.
+  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The reader scopes actual paths and schemas to this unchanged authored scenario, keeping unrelated shared scenarios out of its whole-document null oracle. Assertions do not mutate the shared file; each read owns its parsed document, and the runner owns fixture teardown.
+- * @evidence contracts/e2e.md#preserved-coverage NaN/Infinity/negative/short vendor values remain literal null while finite remains two; every decomposed parameter retains its component schema and order. Original document-only preparation remains generated and compiled without adding random transport requests. The three authored-metadata isolation/fallback cases now have direct unit owners.
++ * @evidence contracts/e2e.md#preserved-coverage The published cast's four authored strings and finite two are checked in both views; every complete parameter schema and its order remain checked. Original document-only preparation and execution boundaries remain unchanged. The three authored-metadata isolation/fallback cases retain direct unit owners.
+  */
+ export const test_rich_swagger_parameters_non_finite_extensions =
+   async (): Promise<void> => {
+@@ -36,6 +31,13 @@ export const test_rich_swagger_parameters_non_finite_extensions =
+     const component = document.components.schemas![
+       "INonFiniteExtensions"
+     ] as OpenApi.IJsonSchema.IObject;
++    const extensions: Record<string, string | number> = {
++      nan: "NaN",
++      infinity: "Infinity",
++      negative: "-Infinity",
++      short: "inf",
++      finite: 2,
++    };
+     TestValidator.equals(
+       "component extensions",
+       Object.fromEntries(
+@@ -44,13 +46,7 @@ export const test_rich_swagger_parameters_non_finite_extensions =
+           (value as Record<string, unknown>)["x-level"],
+         ]),
+       ),
+-      {
+-        nan: null,
+-        infinity: null,
+-        negative: null,
+-        short: null,
+-        finite: 2,
+-      },
++      extensions,
+     );
+ 
+     const expected: Record<string, OpenApi.IJsonSchema> =
+@@ -68,10 +64,16 @@ export const test_rich_swagger_parameters_non_finite_extensions =
+       parameters.map((p) => p.name),
+       Object.keys(expected),
+     );
+-    for (const p of parameters)
++    for (const p of parameters) {
++      TestValidator.equals(
++        `${p.name} extension`,
++        (p.schema as Record<string, unknown>)["x-level"],
++        extensions[p.name!],
++      );
+       TestValidator.equals(
+         `${p.name} schema`,
+         RichSwaggerParameterReader.canonical(p.schema),
+         RichSwaggerParameterReader.canonical(expected[p.name!]),
+       );
++    }
+   };

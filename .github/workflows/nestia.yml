@@ -39,6 +39,7 @@ jobs:
           node .github/workflows/scripts/consumer.cjs experimental/nestia
           --patch=.github/workflows/patches/nestia-master-emit-provenance.patch
           --patch=.github/workflows/patches/nestia-master-published-jsdoc-values.patch
+          --patch=.github/workflows/patches/nestia-master-published-http-jsdoc-values.patch
           --patch=.github/workflows/patches/nestia-master-published-clone-type-tags.patch
           --patch=.github/workflows/patches/nestia-master-public-consumer-file-paths.patch
           --package-patch=typia@15.0.1=.github/workflows/patches/typia-15.0.1-emit-provenance.patch
