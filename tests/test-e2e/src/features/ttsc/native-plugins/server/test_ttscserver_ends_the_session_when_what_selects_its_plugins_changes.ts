@@ -44,18 +44,20 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/testing.md#behavioral-verification Actual sessions must announce pluginSelectionChanged when tsconfig adds or removes the plugin and when a previously plugin-free manifest adds its dependency; the intervening session must publish no-var.
  * @evidence contracts/testing.md#independent-expectations Original configured and unconfigured tsconfig bytes, package dependency insertion, literal notification method and no-var publication independently prescribe the selection transitions.
  * @evidence contracts/testing.md#distinguishing-cases Exercises plugin addition and removal through compilerOptions and addition through package discovery, including a plugin-free initial state and a positive next-session diagnostic.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named server export in the generic E2E population; three startup selections and authored editor-style watched-file protocol messages belong to this body. These are not kernel-watch events, packed installation or a count of every child/Program; source fingerprint units do not establish the real notification/close connection.
+ * @evidence contracts/testing.md#execution-ownership Selected LSP calls this body through lspSelectionCorpus on one upfront island; three actual startup selections and authored editor-style watched-file protocol messages belong to this body. These are not kernel-watch events, packed installation or a count of every child/Program; source fingerprint units do not establish the real notification/close connection.
  * @evidence contracts/e2e.md#necessary-boundary The launcher selection snapshot and live native watched-file handling must agree on restart inputs, including inputs absent from a plugin-free initial selection.
  * @evidence contracts/e2e.md#shared-execution One consumer, unchanged workspace lint producer and explicit suite cache carry the three original sessions. Restart selections cannot collapse to an unchanged host. Shared preparation is available, without cache-hit/build-Program-process total/binary-byte/minimum-cost certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked private config/manifest change. Every client is owned before initialize; selection waiters precede writes and positive no-var readiness is armed before didOpen. Each intentional native selection-error close/status1 is joined before the next session or mutation. Failure retains consumer/already-owned cache before bounded shutdown, preserving original and cleanup errors; no unresolved reset/removal, forced success, arbitrary descendant or loaded-image proof is claimed.
  * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
-export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes() {
-  const project = TestLint.createProject({
+export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes(
+  prepared?: { root: string; cache: string; retain: (reason: string) => void; closed: () => void },
+) {
+  const project = prepared === undefined ? TestLint.createProject({
     name: "ttscserver-plugin-selection-config",
     rules: { "no-var": "error" },
     source: SOURCE,
-  });
+  }) : { tmpdir: prepared.root, cleanup: () => undefined };
   const tsconfig = path.join(project.tmpdir, "tsconfig.json");
   const manifest = path.join(project.tmpdir, "package.json");
   const configured = fs.readFileSync(tsconfig, "utf8");
@@ -71,7 +73,7 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
   /** Start a session and open the file. */
   const start = async (): Promise<TtscserverClient> => {
     const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      env: { TTSC_CACHE_DIR: prepared?.cache ?? SHARED_PLUGIN_CACHE_DIR },
     });
     activeClient = client;
     await client.request("initialize", {
@@ -177,6 +179,7 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
   } catch (error) {
     const failures: unknown[] = [error];
     const reason = "plugin-selector session startup, body or close failed";
+    if (prepared !== undefined) prepared.retain(reason);
     try {
       TestProject.retainTemporaryDirectory(project.tmpdir, reason);
     } catch (retentionError) {
@@ -194,11 +197,14 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
           SELECTION_TIMEOUT,
           "failed selector session shutdown was not joined",
         );
+        activeClient = undefined;
       } catch (shutdownError) {
         failures.push(shutdownError);
       }
     }
+    if (activeClient === undefined) prepared?.closed();
     throw new AggregateError(failures, reason);
   }
   project.cleanup();
+  prepared?.closed();
 }

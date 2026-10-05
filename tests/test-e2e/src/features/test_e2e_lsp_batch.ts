@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { lspSelectionCorpus } from "../batch/lspSelectionCorpus";
 import {
   PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
@@ -125,7 +126,7 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one.
  */
-export async function test_e2e_lsp_batch() {
+async function runEditorCorpus() {
   const workspace = await BatchWorkspace.open();
   const project = { tmpdir: workspace.root };
   const configPath = path.join(workspace.root, "tsconfig.json");
@@ -1276,6 +1277,25 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     }
     throw new AggregateError(failures, reason);
   }
+}
+
+/**
+ * Join ordinary editor behavior and independent terminal selections.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
+ * @evidence contracts/testing.md#independent-expectations Each owning body supplies authored diagnostics, source coordinates and literal native outcomes; this collector does not reinterpret failure as acceptance.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary supported shutdown and three intentionally terminal selection changes are different lifetimes, all required to settle.
+ * @evidence contracts/testing.md#execution-ownership This is the single selected LSP entry. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
+ * @evidence contracts/e2e.md#necessary-boundary Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls.
+ * @evidence contracts/e2e.md#shared-execution Both bodies borrow the same single preparation and shared source producer/cache, with disjoint upfront source/config islands and independent actual lifetimes.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs.
+ * @evidence contracts/e2e.md#preserved-coverage Retains the complete ordinary editor body and original config/dependency selection terminal assertions. Actual extra launcher sessions number three; native/descendant totals remain unmeasured, and source/descriptor terminal changes remain unproved.
+ */
+export async function test_e2e_lsp_batch(): Promise<void> {
+  const workspace = await BatchWorkspace.open();
+  const outcomes = await Promise.allSettled([runEditorCorpus(), lspSelectionCorpus(workspace)]);
+  const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected").map((outcome) => outcome.reason);
+  if (failures.length) throw new AggregateError(failures, "ordinary editor and terminal selection boundaries");
 }
 
 /**
