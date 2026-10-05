@@ -122,6 +122,44 @@ export async function test_e2e_lsp_batch() {
     };
     const lintEntry = config.compilerOptions.plugins.find((entry: { transform?: string }) => entry.transform === "@ttsc/lint");
     assert.ok(lintEntry, "the actual lint contributor must remain selected");
+    const languageRoot = path.join(workspace.root, "tools/lint-language");
+    fs.cpSync(path.resolve(import.meta.dirname, "../../fixtures/lint/workspace/config-language"), languageRoot, { recursive: true });
+    fs.writeFileSync(path.join(languageRoot, "package.json"), JSON.stringify({ name: "config-language-boundary-batch", private: true }));
+    fs.mkdirSync(path.join(languageRoot, "src"));
+    fs.copyFileSync(path.resolve(import.meta.dirname, "../../fixtures/lint/workspace/config-language-source.ts"), path.join(languageRoot, "src/main.ts"));
+    // The typed evaluator's Node globals belong only to its original local
+    // owner. They must not enter the consumer's types:[] compilation surface.
+    const languageTypes = path.join(languageRoot, "node_modules/@types");
+    fs.mkdirSync(languageTypes, { recursive: true });
+    fs.symlinkSync(path.join(TestProject.WORKSPACE_ROOT, "node_modules/@types/node"), path.join(languageTypes, "node"), "junction");
+    const languageConfigPath = path.join(languageRoot, "tsconfig.json");
+    const languageConfig = JSON.parse(fs.readFileSync(languageConfigPath, "utf8"));
+    languageConfig.compilerOptions.types = ["node"];
+    languageConfig.compilerOptions.plugins = [];
+    fs.writeFileSync(languageConfigPath, JSON.stringify(languageConfig));
+    const languageCases = [
+      { name: "commonjs-globals", line: 1, rule: "no-console" },
+      { name: "cts", line: 1, rule: "no-console" },
+      { name: "exported-types", line: 0, rule: "no-var" },
+      { name: "js-sibling", line: 1, rule: "no-console" },
+      { name: "json", line: 0, rule: "no-var" },
+      { name: "mjs", line: 0, rule: "no-var" },
+      { name: "module-meta", line: 1, rule: "no-console" },
+      { name: "mts", line: 0, rule: "no-var" },
+      { name: "plain-ts", line: 0, rule: "no-var" },
+    ];
+    const languageFiles = languageCases.map(({ name }) => path.join(languageRoot, "configs", name, name + ".ts"));
+    config.include.push(...languageFiles);
+    const jsonLanguageConfig = path.join(languageRoot, "configs/json/ttsc-lint.config.json");
+    const languageTerminal = JSON.parse(fs.readFileSync(jsonLanguageConfig, "utf8"));
+    languageTerminal.extends = "../../language-base.cjs";
+    fs.writeFileSync(jsonLanguageConfig, JSON.stringify(languageTerminal));
+    fs.writeFileSync(path.join(languageRoot, "language-base.cjs"), `module.exports = {
+  extends: "../../lint.lsp.base.config.cjs",
+  files: ["configs/**/*.ts"],
+  rules: { "no-var": "off", "no-console": "off" },
+};
+`);
     lintEntry.configFile = "./lint.lsp.config.cjs";
     fs.renameSync(path.join(workspace.root, "lint.config.cjs"), path.join(workspace.root, "lint-shared-base.cjs"));
     fs.writeFileSync(path.join(workspace.root, "lint.lsp.base.config.cjs"), `const base = require("./lint-shared-base.cjs");
@@ -129,7 +167,7 @@ const graph = base.rules["evidence/graph"][1];
 module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
 `);
     fs.writeFileSync(path.join(workspace.root, "lint.lsp.cascade.config.cjs"), `module.exports = {
-  extends: "./lint.lsp.base.config.cjs",
+  extends: "./tools/lint-language/ttsc-lint.config.json",
   files: ["src/editor-cascade.ts"],
   rules: { "prefer-const": "error", "eqeqeq": "error" },
 };
@@ -157,7 +195,17 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         implicitCwd: true,
       });
       let latestPublication: PublishDiagnosticsParams | undefined;
-      client.on("textDocument/publishDiagnostics", (params: PublishDiagnosticsParams) => { latestPublication = params; });
+      const languagePublications = new Map<string, PublishDiagnosticsParams>();
+      const languageUris = new Set(languageFiles.map((file) => pathToFileURL(file).href));
+      client.on("textDocument/publishDiagnostics", (params: PublishDiagnosticsParams) => {
+        latestPublication = params;
+        if (languageUris.has(params.uri) && params.diagnostics?.some((diagnostic) => diagnostic.source === "@ttsc/lint"))
+          languagePublications.set(params.uri, params);
+      });
+      const languageReady = client.waitForNotification<PublishDiagnosticsParams>(
+        "textDocument/publishDiagnostics", () => languagePublications.size === languageCases.length, PLUGIN_BUILD_TIMEOUT,
+      );
+      void languageReady.catch(() => {});
       const unmatchedClose = client.waitForNotification<unknown>("textDocument/publishDiagnostics", () => false, PLUGIN_BUILD_TIMEOUT).then(
         () => ({ error: undefined }), (error: unknown) => ({ error }),
       );
@@ -551,6 +599,15 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           },
         });
         const openedPublication = await opened;
+        await step("native config-language graph publishes nine independently scoped documents", languageReady);
+        const languageFindings = languageCases.flatMap((row, index) => {
+          const params = languagePublications.get(pathToFileURL(languageFiles[index]!).href)!;
+          return (params.diagnostics ?? []).filter((diagnostic) => diagnostic.source === "@ttsc/lint")
+            .map((diagnostic) => ({ name: row.name, line: diagnostic.range?.start?.line, rule: diagnostic.code, severity: diagnostic.severity }));
+        });
+        assert.deepEqual(languageFindings, languageCases.map((row) => ({ ...row, severity: 1 })),
+          "one actual evaluator/selector graph must publish exactly the original nine findings, without global-rule leakage");
+
         const openedLint = findLint(openedPublication)!;
         const selectedCodes = new Set((openedPublication.diagnostics ?? [])
           .filter((diagnostic) => diagnostic.source === "@ttsc/lint")
