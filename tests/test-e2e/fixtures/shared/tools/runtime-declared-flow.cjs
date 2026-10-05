@@ -16,6 +16,7 @@ const inputs = new Map([
   "tools/native-emission/tsconfig.json", "tools/native-emission/banner.config.json",
   "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
   "src/native-public-dependency/index.ts",
+  "tools/runtime-negative/args.txt", "tools/runtime-negative/script.js", "tools/runtime-negative/preload.cjs",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 assert.equal(fs.existsSync(artifacts), false);
 const missingDescriptor = path.join(root, "missing-plugin.cjs");
@@ -85,6 +86,26 @@ assert.match(emittedMain, /confined/);
 assert.deepEqual(fs.readdirSync(path.join(root, "src/native-public-dependency"), { recursive: true }).filter((file) => String(file).endsWith(".js")), [], "forced emission must not publish into the raw self-referenced dependency source tree");
 unchanged();
 const registerBefore = receiptCount();
+const rejected = spawnSync(process.execPath, [
+  "--require", path.join(__dirname, "runtime-negative/preload.cjs"), process.env.TTSC_E2E_INSTALLED_TTSX,
+  "--cwd", root, "--strict", "-P", "runtime-owned.json", "--no-plugins", "@tools/runtime-negative/args.txt", "tools/runtime-negative/script.js",
+], { cwd: root, env: process.env, encoding: "utf8", windowsHide: true });
+assert.equal(rejected.error, undefined);
+assert.equal(rejected.signal, null);
+assert.equal(rejected.status, 2, rejected.stderr);
+assert.ok(rejected.pid > 0);
+assert.throws(() => process.kill(rejected.pid, 0), (error) => error.code === "ESRCH");
+assert.equal(rejected.stdout, "", "none of the refused preflight inputs may execute the JavaScript ran effect");
+assert.match(rejected.stderr, /-r requires a value/);
+assert.match(rejected.stderr, /ttsx: entry not found:/);
+assert.match(rejected.stderr, /missing-entry\.ts/);
+for (const option of ["--project", "--no-plugins", "--strict", "@tools/runtime-negative/args.txt"])
+  assert.ok(rejected.stderr.split(/\r?\n/).some((line) => line.includes("ttsx:") && line.includes(option)), "the actual JavaScript refusal must name " + option);
+assert.match(rejected.stderr, /script\.js is JavaScript/);
+assert.deepEqual(JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8")),
+  { statuses: [2, 2], exitCode: 2, pid: rejected.pid });
+assert.equal(receiptCount(), registerBefore, "these frontend refusals must not reach native preparation");
+unchanged();
 const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
 const defaultOrphans = path.join(root, "node_modules/.cache/ttsc/ttsx-orphan");
 const temporary = path.join(__dirname, "runtime-placement-temp");
