@@ -98,6 +98,10 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  *    ttsc-owned `ttsc.lint.fixAll` action comes back.
  * 4. Execute that command and assert the returned WorkspaceEdit fixes the
  *    violation without writing the file, then shut the server down cleanly.
+ * Startup failure additionally retains the same launcher's existing private
+ * runtime preparation trace, including actual filename/module options and the
+ * first eight consumed source lines. It creates no replacement server or
+ * compiler request and does not infer the nested cause from a package marker.
  *
  * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. Disjoint configured documents additionally require actual cascade const/equality fixed-point edits with UTF-16 end coordinates and format-only semicolon edits that retain var and disk bytes.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
@@ -189,9 +193,11 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     fs.writeFileSync(path.join(project.tmpdir, "src/editor-format.ts"), FORMAT_SOURCE);
     const file = path.join(project.tmpdir, "src", "editor.ts");
     const uri = pathToFileURL(file).href;
+    const runtimeTraceRoot = path.join(workspace.cache, "lsp-runtime-observations");
+    fs.mkdirSync(runtimeTraceRoot, { recursive: true });
     try {
       const client = TtscserverClient.startLauncher(project.tmpdir, {
-        env: { TTSC_CACHE_DIR: workspace.cache },
+        env: { TTSC_CACHE_DIR: workspace.cache, TTSC_E2E_TRACE: runtimeTraceRoot },
         implicitCwd: true,
       });
       let latestPublication: PublishDiagnosticsParams | undefined;
@@ -829,6 +835,19 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     } catch (error) {
       const failures: unknown[] = [error];
       const reason = "editor session startup, body or shutdown failed";
+      try {
+        const preparations = fs.readdirSync(runtimeTraceRoot).filter((name) => name.endsWith(".jsonl")).flatMap((name) =>
+          fs.readFileSync(path.join(runtimeTraceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+        ).filter((row) => row.event === "runtime-source-preparation" || row.event === "integrity-failure").map((row) => {
+          const sourcePath = row.data?.source?.path;
+          if (row.event !== "runtime-source-preparation" || typeof sourcePath !== "string") return row;
+          const payloadPath = path.resolve(runtimeTraceRoot, sourcePath);
+          if (path.dirname(payloadPath) !== runtimeTraceRoot) throw new Error("runtime trace payload is outside its owned root");
+          const source = fs.readFileSync(payloadPath).toString("utf16le");
+          return { ...row, consumedHead: source.split(/\r?\n/).slice(0, 8), containsImportMeta: source.includes("import.meta") };
+        });
+        failures.push(new Error("same-session runtime preparation observations: " + JSON.stringify(preparations)));
+      } catch (traceError) { failures.push(traceError); }
       try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
       catch (retentionError) { failures.push(retentionError); }
       try { retainNativeLintProducer(reason); }
