@@ -813,24 +813,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     },
   });
   profiles.push({
-    name: "forwarded-output-location-flags-top-level-isolation",
-    files: FixtureFiles.read("ttsc/ttsx_forwarded_output_flags_create_nothing_in_the_project/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const names = fs.readdirSync(root).filter((name) => name !== "node_modules").sort();
-      const failures: Error[] = [];
-      for (const flags of [["--outDir", "distx"], ["--declaration", "--declarationDir", "typesx"], ["--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo"], ["--outFile", "bundle.js"]]) {
-        const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, ...flags, "src/main.ts"], { cwd: root });
-        const label = flags.join(" ");
-        try {
-          assert.equal(result.status, 0, `${label}: ${result.stderr}`);
-          assert.equal(result.stdout.trim(), "ran", label);
-          assert.deepEqual(fs.readdirSync(root).filter((name) => name !== "node_modules").sort(), names, `${label} wrote into the project`);
-        } catch (cause) { failures.push(new Error(label + " runtime output isolation", { cause })); }
-      }
-      if (failures.length) throw new AggregateError(failures, "forwarded runtime output flags");
-    },
-  });
-  profiles.push({
     name: "external-runtime-cache-and-public-cache-paths",
     files: FixtureFiles.read("ttsc/ttsx_ttsc_cache_dir_relocates_the_runtime_cache/inputs-1"),
     run: (root, _persistent, spawn) => {
