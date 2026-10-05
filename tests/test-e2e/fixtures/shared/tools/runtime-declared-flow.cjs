@@ -107,6 +107,49 @@ assert.match(emittedMain, /confined/);
 assert.match(fs.readFileSync(path.join(nativeProject, "dist/package-entry.js"), "utf8"), /dep = 1/);
 assert.equal(fs.existsSync(path.join(nativeProject, "src/package-entry.js")), false, "the legal raw package self-reference must publish under dist, not beside its input");
 unchanged();
+// The same producer and source owner now exercise the pending-output publisher's
+// failure boundary. Direct Go emit tests own both noEmitOnError callback lanes;
+// this actual public request uses false, where pending JavaScript can exist.
+const nativeMain = path.join(nativeProject, "src/main.ts");
+const nativeMainBytes = fs.readFileSync(nativeMain);
+const rejectedOutput = path.join(nativeProject, "rejected-output");
+const emitManifest = path.join(nativeProject, "manifest.json");
+assert.equal(fs.existsSync(rejectedOutput), false);
+assert.equal(fs.existsSync(emitManifest), false);
+const directDriverEntry = rootEntries.find((entry) => entry.name === "shared-real-program-probe");
+assert.ok(directDriverEntry);
+const failedNativeOptions = JSON.parse(nativeConfiguration);
+Object.assign(failedNativeOptions.compilerOptions, {
+  declaration: true, declarationMap: true, noEmitOnError: false,
+  outDir: "rejected-output", declarationDir: "rejected-output",
+  plugins: [{ name: "go-driver-emit-plugin", transform: path.join(root, "descriptors/default.cjs"),
+    fixtureSource: path.join(path.dirname(directDriverEntry.fixtureSource), "cmd/public-probe"), publicCommand: true }],
+});
+const previousDriverMode = process.env.TTSC_E2E_PUBLIC_PROBE_MODE;
+const stderrDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+let driverEmitStderr = "";
+let driverEmitStatus;
+try {
+  fs.writeFileSync(nativeMain, "export const value = class { private hidden = 1; };\n");
+  fs.writeFileSync(nativeConfigFile, JSON.stringify(failedNativeOptions));
+  process.env.TTSC_E2E_PUBLIC_PROBE_MODE = "driver-emit";
+  process.stderr.write = (chunk) => { driverEmitStderr += String(chunk); return true; };
+  driverEmitStatus = runTtsc(["--cwd", nativeProject, "--emit"]);
+  assert.equal(typeof driverEmitStatus, "number");
+  assert.notEqual(driverEmitStatus, 0, driverEmitStderr);
+  for (const expression of [/go-driver-emit-plugin: emit failed/, /native plugin .* failed/, /error/, /TS4094/, /declaration output is incomplete or skipped/])
+    assert.match(driverEmitStderr, expression);
+  assert.equal(fs.existsSync(rejectedOutput), false, "a Go emit error must discard pending JS before filesystem publication");
+  assert.equal(fs.existsSync(emitManifest), false, "a failed emit must never reach the native host's manifest writer");
+} finally {
+  if (stderrDescriptor === undefined) delete process.stderr.write;
+  else Object.defineProperty(process.stderr, "write", stderrDescriptor);
+  if (previousDriverMode === undefined) delete process.env.TTSC_E2E_PUBLIC_PROBE_MODE;
+  else process.env.TTSC_E2E_PUBLIC_PROBE_MODE = previousDriverMode;
+  try { fs.writeFileSync(nativeMain, nativeMainBytes); }
+  finally { fs.writeFileSync(nativeConfigFile, nativeConfiguration); }
+}
+unchanged();
 const registerBefore = receiptCount();
 const rejectedEnv = { ...process.env };
 for (const name of ["TTSX_RUNTIME_MANIFEST", "TTSX_RUNTIME_CACHE_DIR", "TTSX_RUNTIME_RUN_DIR", "TTSX_RUNTIME_RUNS_DIR"])
@@ -258,4 +301,4 @@ if (descendantFailures.length) throw new AggregateError(descendantFailures, "reg
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));

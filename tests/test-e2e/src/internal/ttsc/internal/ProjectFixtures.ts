@@ -12,7 +12,6 @@ import path from "node:path";
 export namespace ProjectFixtures {
   const PACKAGE_OWNED = new Set([
     "go-source-plugin",
-    "go-driver-emit-plugin",
   ]);
 
   /**

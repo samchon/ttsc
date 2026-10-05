@@ -52,7 +52,7 @@ function pluginProject(
 }
 
 /** Absolute identity of an immutable native producer shared by CLI consumers. */
-function nativePluginSource(fixture: "transformer" | "driver-emit" | "simple-source" | "runtime-source" | "raw-linked-host" | "own-linked-host" = "transformer"): string {
+function nativePluginSource(fixture: "transformer" | "simple-source" | "runtime-source" | "raw-linked-host" | "own-linked-host" = "transformer"): string {
   if (fixture === "raw-linked-host" || fixture === "own-linked-host") {
     return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "go-linked-driver-host", "cmd",
       fixture === "raw-linked-host" ? "driver-host" : "emit-host");
@@ -64,7 +64,7 @@ function nativePluginSource(fixture: "transformer" | "driver-emit" | "simple-sou
     return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "go-transformer", "cmd", "ttsc-go-transformer");
   }
   return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test",
-    fixture === "driver-emit" ? "go-driver-emit-plugin" : "go-source-plugin", "go-plugin");
+    "go-source-plugin", "go-plugin");
 }
 
 function nativePlugin(): string {

@@ -12,6 +12,7 @@ import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plug
 
 /**
  * Verifies one public runtime loads the shared transformed graph.
+ * The existing nested emission owner also selects the maintained driver-emit fixture: one public TS4094 failure must preserve its actual diagnostics and discard pending outputs before the host publishes files or a manifest. Direct Go emit tests own both noEmitOnError callback lanes; this one false-lane public request owns the publisher connection, not two CLI executions or a Program-count certificate.
  *
  * Native string decoding, resolved JSON and unchanged neighboring values reach
  * one real ttsx entry. Unremoved configured discard calls throw, so successful
@@ -162,8 +163,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.doesNotMatch(result.stdout, /dependency-secret-should-be-stripped/);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "entry:dependency-value").length, 1);
   const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
-    produced: string[]; nativeEmitBefore: number; nativeEmitAfter: number; registerStatus: number; registerPid: number; descendantPid: number; descendantResult: string; descendantClosed: boolean; registerBefore: number; registerAfter: number;
+    produced: string[]; nativeEmitBefore: number; nativeEmitAfter: number; driverEmitStatus: number; driverEmitStderr: string; rejectedOutputAbsent: boolean; emitManifestAbsent: boolean; registerStatus: number; registerPid: number; descendantPid: number; descendantResult: string; descendantClosed: boolean; registerBefore: number; registerAfter: number;
   };
+  assert.equal(typeof declarationObservation.driverEmitStatus, "number");
+  assert.notEqual(declarationObservation.driverEmitStatus, 0, declarationObservation.driverEmitStderr);
+  assert.match(declarationObservation.driverEmitStderr, /TS4094/);
+  assert.equal(declarationObservation.rejectedOutputAbsent, true);
+  assert.equal(declarationObservation.emitManifestAbsent, true);
   assert.equal(declarationObservation.registerStatus, 0);
   assert.ok(declarationObservation.registerPid > 0);
   assert.ok(Number.isSafeInteger(declarationObservation.descendantPid) && declarationObservation.descendantPid > 0);
