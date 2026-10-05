@@ -8,6 +8,7 @@ import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/intern
 import { NativePluginArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/NativePluginArguments";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildOptions } from "../../../../../packages/ttsc/src/structures/internal/TtscBuildOptions";
+import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
 
 /**
  * Verifies optional native threading arguments require declared host support.
@@ -20,11 +21,13 @@ import type { TtscBuildOptions } from "../../../../../packages/ttsc/src/structur
  * 1. Resolve an actual config without loading plugins or invoking a compiler.
  * 2. Compose check/fix/format argv under true, false and absent capabilities.
  * 3. Check full core payload, optional knobs, command precedence and immutability.
+ * 4. Compose transform-host build/check commands, including build-only verbosity,
+ *    output coordinates, selected-host context and provenance admission.
  *
- * @evidence contracts/testing.md#behavioral-verification Reads the real authored lint factory declaration, then calls actual createNativeCheckArgs for capability/name/option controls and asserts exact command/threading rows, full baseline argv and unchanged input options/plugin records.
- * @evidence contracts/testing.md#independent-expectations The native protocol requires --singleThreaded and --checkers=2 only when threadingArgs is true, and format precedes fix. Literal projected plugin JSON and explicit fixture paths independently establish the baseline payload.
- * @evidence contracts/testing.md#distinguishing-cases Rows cover threadingArgs true, true under a renamed plugin, false under the built-in-looking name @ttsc/lint, an empty capability record and an absent record; singleThreaded alone, checkers alone, both, explicit false and neither; check, fix and format commands, and format winning when fix and format are both set. Whether a real host accepts the flags is not exercised.
- * @evidence contracts/testing.md#execution-ownership A unit test: it builds a throwaway config project, resolves the execution context with plugins disabled and process.execPath as an unused binary path, loads the lint package's descriptor factory to read its declared capabilities, and calls NativePluginArguments.createNativeCheckArgs; no compiler or native host is started.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records.
+ * @evidence contracts/testing.md#independent-expectations The native protocol gates check-stage threading, gives format precedence over fix, and omits transform check-lane emit/verbosity modifiers. Authored complete plugin JSON, output/context coordinates, build/check arrays and provenance error literals specify the contract independently of the composers.
+ * @evidence contracts/testing.md#distinguishing-cases Existing check-stage capability/name/threading/command controls remain. Transform rows distinguish absent/true/false emit, quiet/verbose/omission, relative output, selected executable versus earlier linked capability, absent/false context support, and provenance absolute versus relative/URL/unsupported refusal. Input and option nonmutation remain asserted; native strict-host acceptance is not exercised.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry obtains its execution context without plugins or compiler invocation, reads the actual lint factory capabilities and directly calls both composers with full ordinary DTOs. No host, child, Program or evaluator is introduced; actual argv transport/native acceptance is separate.
  */
 export function test_native_check_arguments_gate_threading_without_name_shortcuts(): void {
   const root = TestProject.physicalPath(TestProject.createProject({
@@ -89,4 +92,68 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
   assert.deepEqual(actual, rows.map(([id, , , command, threading]) => ({ id, command, threading })));
   assert.deepEqual(baseline, expectedBaseline);
   assert.deepEqual({ plugin, options }, before);
+  const transform: ITtscLoadedNativePlugin = {
+    ...plugin, stage: "transform", capabilities: {},
+  };
+  const linked: ITtscLoadedNativePlugin = {
+    ...transform, name: "linked-before", kind: "linked",
+    config: { transform: "@unit/linked", enabled: true },
+    capabilities: { projectContextArgs: true, emitProvenance: true },
+  };
+  const plugins = [linked, transform];
+  const projected = '--plugins-json=[{"config":{"transform":"@unit/linked","enabled":true},"name":"linked-before","stage":"transform"},{"config":{"transform":"@unit/host","configFile":"native.config.json"},"name":"owner","stage":"transform"}]';
+  const core = [
+    "--tsconfig=" + path.join(root, "tsconfig.json"),
+    projected, "--cwd=" + root,
+  ];
+  const output = path.join(root, "private output");
+  const buildRows: readonly [string, RunBuildOptions, string[]][] = [
+    ["default-build", {}, ["build", ...core]],
+    ["emit-without-verbosity", { emit: true }, ["build", ...core, "--emit"]],
+    ["emit-quiet", { emit: true, quiet: true, outDir: "private output" }, ["build", ...core, "--emit", "--outDir=" + output, "--quiet"]],
+    ["build-verbose", { quiet: false }, ["build", ...core, "--verbose"]],
+    ["check-quiet-threading-omitted", { emit: false, quiet: true, singleThreaded: true, checkers: 2 }, ["check", ...core]],
+    ["check-verbose-threading-omitted", { emit: false, quiet: false, singleThreaded: true, checkers: 2 }, ["check", ...core]],
+    ["check-verbose-omitted", { emit: false, quiet: false, outDir: "private output" }, ["check", ...core, "--outDir=" + output]],
+    ["build-threading-not-forwarded", { singleThreaded: true, checkers: 2 }, ["build", ...core]],
+  ];
+  const buildBefore = structuredClone({ plugins, buildRows });
+  const executionBefore = JSON.stringify(selected);
+  const failures: Error[] = [];
+  const verify = (name: string, run: () => void): void => {
+    try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
+  };
+  for (const [name, input, expected] of buildRows) verify(name, () => {
+    assert.deepEqual(NativePluginArguments.createNativeBuildArgs(selected, input, plugins), expected);
+  });
+  for (const [name, capabilities] of [
+    ["selected-context-opt-in", { projectContextArgs: true }],
+    ["selected-context-false", { projectContextArgs: false }],
+    ["selected-context-absent", undefined],
+  ] as const) verify(name, () => {
+    const selectedHost = { ...transform, capabilities };
+    assert.deepEqual(
+      NativePluginArguments.createNativeBuildArgs(selected, {}, [linked, selectedHost]),
+      capabilities?.projectContextArgs === true
+        ? ["build", ...core, expectedBaseline[4]!]
+        : ["build", ...core],
+    );
+  });
+  const provenance = path.join(root, "proof.json");
+  const supported = { ...transform, capabilities: { emitProvenance: true, projectContextArgs: true } };
+  verify("absolute provenance and context", () => assert.deepEqual(
+    NativePluginArguments.createNativeBuildArgs(selected, { emit: true }, [linked, supported], provenance),
+    ["build", ...core, "--emit-provenance-json=" + provenance, expectedBaseline[4]!, "--emit"],
+  ));
+  for (const invalid of ["relative-proof.json", "file:///proof.json", "https://example.com/proof.json"]) verify(`invalid provenance ${invalid}`, () => assert.throws(
+    () => NativePluginArguments.createNativeBuildArgs(selected, {}, [linked, supported], invalid),
+    { message: "ttsc: emit provenance destination must be an absolute native path" },
+  ));
+  for (const capabilities of [undefined, { emitProvenance: false }] as const) verify("unsupported selected provenance", () => assert.throws(
+    () => NativePluginArguments.createNativeBuildArgs(selected, {}, [linked, { ...transform, capabilities }], provenance),
+    { message: "ttsc: native compiler host does not support emit provenance" },
+  ));
+  verify("build inputs unchanged", () => assert.deepEqual({ plugins, buildRows }, buildBefore));
+  verify("execution unchanged", () => assert.equal(JSON.stringify(selected), executionBefore));
+  if (failures.length !== 0) throw new AggregateError(failures, "Native build argument policy failures");
 }
