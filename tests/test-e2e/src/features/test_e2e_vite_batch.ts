@@ -397,7 +397,11 @@ export async function test_e2e_vite_batch(): Promise<void> {
     await nativeInputWatch;
   }
   await BatchWorkspace.open();
-  try { await viteServeCorpus(workspace); } catch(error) {combinedFailures.push(error);}
+  try {
+    await viteServeCorpus(workspace);
+  } catch (error) {
+    combinedFailures.push(error);
+  }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)
     throw new AggregateError(

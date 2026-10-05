@@ -386,9 +386,15 @@ export namespace BatchWorkspace {
     );
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
-    const serveDeclarations=path.join(root,"tools/vite-serve/node_modules/types-only");
-    fs.mkdirSync(serveDeclarations,{recursive:true});
-    fs.copyFileSync(path.join(root,"tools/vite-serve/external.d.ts"),path.join(serveDeclarations,"index.d.ts"));
+    const serveDeclarations = path.join(
+      root,
+      "tools/vite-serve/node_modules/types-only",
+    );
+    fs.mkdirSync(serveDeclarations, { recursive: true });
+    fs.copyFileSync(
+      path.join(root, "tools/vite-serve/external.d.ts"),
+      path.join(serveDeclarations, "index.d.ts"),
+    );
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {

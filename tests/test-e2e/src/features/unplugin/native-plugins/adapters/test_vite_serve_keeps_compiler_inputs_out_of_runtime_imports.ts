@@ -32,32 +32,36 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(preparedRoot?:string,onServerClosed?:()=>void): Promise<void> {
+export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(
+  preparedRoot?: string,
+  onServerClosed?: () => void,
+): Promise<void> {
   const { createServer } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite");
   const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   const root = fs.realpathSync.native(
-    preparedRoot ?? TestUnpluginProject.createProject({
-      source:
-        'import type { Secret } from "./secret.server";\nexport const value: string = goUpper("plugin");\n',
-      plugins: [
-        {
-          transform: "./plugin.cjs",
-          name: "reader",
-          operation: "read-configured-helper",
-          path: "src/secret.server.ts",
-        },
-        {
-          transform: "./plugin.cjs",
-          name: "dependencies",
-          operation: "emit-dependencies",
-          dependencies: [
-            "src/secret.server.ts",
-            "rules.txt",
-            "node_modules/types-only/index.d.ts",
-          ],
-        },
-      ],
-    }),
+    preparedRoot ??
+      TestUnpluginProject.createProject({
+        source:
+          'import type { Secret } from "./secret.server";\nexport const value: string = goUpper("plugin");\n',
+        plugins: [
+          {
+            transform: "./plugin.cjs",
+            name: "reader",
+            operation: "read-configured-helper",
+            path: "src/secret.server.ts",
+          },
+          {
+            transform: "./plugin.cjs",
+            name: "dependencies",
+            operation: "emit-dependencies",
+            dependencies: [
+              "src/secret.server.ts",
+              "rules.txt",
+              "node_modules/types-only/index.d.ts",
+            ],
+          },
+        ],
+      }),
   );
   const dependency = path.join(root, "src", "secret.server.ts");
   const declaration = path.join(
@@ -66,12 +70,13 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     "types-only",
     "index.d.ts",
   );
-  if(preparedRoot === undefined) TestProject.writeFiles(
-    root,
-    FixtureFiles.read(
-      "unplugin/vite_serve_keeps_compiler_inputs_out_of_runtime_imports/inputs-1",
-    ),
-  );
+  if (preparedRoot === undefined)
+    TestProject.writeFiles(
+      root,
+      FixtureFiles.read(
+        "unplugin/vite_serve_keeps_compiler_inputs_out_of_runtime_imports/inputs-1",
+      ),
+    );
   let compilerResolutions = 0;
   const server = await createServer({
     appType: "custom",
@@ -104,9 +109,9 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
         server.environments[name].moduleGraph.getModuleByUrl("/src/main.ts"),
       ),
     );
-  const failures:unknown[]=[];
-  let clientJoined=true;
-  let events:Awaited<ReturnType<typeof observeReloadEvents>>|undefined;
+  const failures: unknown[] = [];
+  let clientJoined = true;
+  let events: Awaited<ReturnType<typeof observeReloadEvents>> | undefined;
   try {
     await server.listen();
     events = await observeReloadEvents(server);
@@ -165,10 +170,30 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     );
     assert.match((await request()).code, /RESTARTED/);
     assert.equal(compilerResolutions, 0);
-  } catch(error) {if(error instanceof AggregateError && error.message === "HMR startup and closure")clientJoined=false;failures.push(error);}
-  finally {
-    try{await events?.close();}catch(error){clientJoined=false;failures.push(error);}
-    try{await server.close();if(clientJoined)onServerClosed?.();}catch(error){failures.push(error);}
+  } catch (error) {
+    if (
+      error instanceof AggregateError &&
+      error.message === "HMR startup and closure"
+    )
+      clientJoined = false;
+    failures.push(error);
+  } finally {
+    try {
+      await events?.close();
+    } catch (error) {
+      clientJoined = false;
+      failures.push(error);
+    }
+    try {
+      await server.close();
+      if (clientJoined) onServerClosed?.();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if(failures.length)throw new AggregateError(failures,"watching Vite serve and owned client/server closure");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "watching Vite serve and owned client/server closure",
+    );
 }
