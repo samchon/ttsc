@@ -15,10 +15,10 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification Real installed public register and CLI children preserve CommonJS main/native cache/prefix-only builtins/typed dependency, ESM SQLite, JavaScript main under import preload with exact tail argv, handled exception survival and actual exit7/throw1/rejection1 statuses.
  * @evidence contracts/testing.md#independent-expectations Authored dep+leaf, main/cache booleans, UUID36, SQLite-close completion, exact forwarded tokens and literal OS statuses are independent of product outputs. Original input bytes and actual synchronous child closure are checked.
- * @evidence contracts/testing.md#distinguishing-cases Import-register and import-preload plus require-register are distinct startup modes. Typed CommonJS and ESM entry ownership differ from JavaScript main requiring TypeScript; handled continuation contrasts with three terminal outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Import-register and import-preload plus require-register are distinct startup modes. Typed CommonJS and ESM entry ownership differ from JavaScript main requiring TypeScript; handled continuation contrasts with three terminal outcomes. Installed owner preload separately distinguishes an existing inherited run, a removed inherited run and manifestless independent startup.
  * @evidence contracts/testing.md#execution-ownership One Runtime DAG body owns eight additional real launcher lifetimes: four direct Node/register startup modes, one handled-exception CLI and three terminal CLIs. The four CLI launchers also start their actual entry children, so these are at least twelve Node lifetimes, with further native preparation work still delegated and uncounted here. Fatal exits and preload selection require separate lifetimes; no child is created per source or builtin. No one-Program or zero-cost claim is made.
- * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units.
- * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate.
+ * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units. A static first-user program requires its actual hostname/PID owner record before writing the marker; removed-run startup must fail without that marker, whereas the empty-manifest child must execute independently.
+ * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate. The three owner-preload environment transitions add three actual Node lifetimes using the same installed SDK and project; they neither install another fixture nor build another native contributor.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
  * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. The same handled CLI carries all four require spellings, scoped/subpath preloads, typed TS/TSX outside include, exact preload order and post-entry option tokens. A separate mistyped preload must reject before main; that irreducible failed-startup actor adds at least one launcher and potentially an entry child, with native costs unmeasured. Existing fatal actors also carry constant-source orphan enum/package-format transitions. Separately seeded stale generations use the preceding actually joined actor PID and a fresh ESRCH/hostname proof; real register startup and real ttsx startup must each sweep their own seed. No extra PID-establishing child is added. An overall single-digit process budget remains uncertified.
  */
@@ -110,12 +110,12 @@ export async function runtimeFrontdoorsCorpus(
       "decorated source must stay byte-identical across imported values and package formats",
     );
   };
-  const run = (args: string[]) => {
+  const run = (args: string[], actorEnv: NodeJS.ProcessEnv = env) => {
     if (ownershipUnresolved)
       throw new Error("runtime actor cannot reuse unresolved input ownership");
     const result = E2eProcessTrace.spawnSync(process.execPath, args, {
       cwd: root,
-      env,
+      env: actorEnv,
       encoding: "utf8",
       windowsHide: true,
     });
@@ -272,6 +272,52 @@ export async function runtimeFrontdoorsCorpus(
     assert.match(result.stderr, /root check failed for .*invalid-preload\.ts/);
     assert.match(result.stderr, /Type 'string' is not assignable to type 'number'/);
     assert.doesNotMatch(result.stdout, /TTSC_HANDLED_PRELOADS|handled: boom|still alive|INVALID_PRELOAD_RAN/);
+  });
+  // Startup admission must precede user code; its three environment states
+  // require separate Node lifetimes but reuse this staged project and SDK.
+  const ownerRun = path.join(workspace.cache, "ttsx/project/owner-preload-contract");
+  const ownerMarker = path.join(root, "owner-preload-marker");
+  const ownerPreload = path.join(path.dirname(workspace.installedTtsx), "internal/runtimeOwnerPreload.js");
+  const ownerEnv = {
+    ...env,
+    NODE_OPTIONS: "",
+    TTSC_OWNER_PRELOAD_MARKER: ownerMarker,
+    TTSX_RUNTIME_MANIFEST: path.join(ownerRun, "runtime-manifest.json"),
+    TTSX_RUNTIME_CACHE_DIR: path.join(workspace.cache, "ttsx"),
+    TTSX_RUNTIME_RUNS_DIR: path.dirname(ownerRun),
+    TTSX_RUNTIME_RUN_DIR: ownerRun,
+  };
+  let ownerRunRemoved = false;
+  capture("owner preload admission is visible before user code", () => {
+    assert.equal(fs.existsSync(ownerRun), false);
+    assert.equal(fs.existsSync(ownerMarker), false);
+    fs.mkdirSync(ownerRun, { recursive: true });
+    fs.writeFileSync(ownerEnv.TTSX_RUNTIME_MANIFEST, "{}");
+    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], ownerEnv);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "TTSC_OWNER_PRELOAD:claimed-before-user");
+    assert.equal(fs.readFileSync(ownerMarker, "utf8"), "claimed-before-user");
+  });
+  capture("owner preload removed-run startup fails before user code", () => {
+    if (ownershipUnresolved) throw new Error("owner preload run remains owned by an unresolved child");
+    assert.equal(path.dirname(ownerRun), path.join(workspace.cache, "ttsx/project"));
+    fs.rmSync(ownerRun, { recursive: true, force: true });
+    fs.rmSync(ownerMarker, { force: true });
+    ownerRunRemoved = true;
+    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], ownerEnv);
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.equal(fs.existsSync(ownerMarker), false, result.stderr);
+    assert.doesNotMatch(result.stdout, /TTSC_OWNER_PRELOAD:/);
+  });
+  capture("owner preload manifestless startup is independent of the removed run", () => {
+    assert.equal(ownerRunRemoved, true, "the missing-run transition must have completed");
+    assert.equal(fs.existsSync(ownerRun), false);
+    assert.equal(fs.existsSync(ownerMarker), false);
+    const result = run(["-r", ownerPreload, "owner-preload-program.cjs"], { ...ownerEnv, TTSX_RUNTIME_MANIFEST: "" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "TTSC_OWNER_PRELOAD:independent");
+    assert.equal(fs.readFileSync(ownerMarker, "utf8"), "independent");
+    assert.equal(fs.existsSync(ownerRun), false);
   });
   if (!ownershipUnresolved)
     for (const [file, bytes] of [
