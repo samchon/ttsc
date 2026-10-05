@@ -119,7 +119,16 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "config/strip.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
   assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, path.join(workspace.root, "src/pool-routing/tsconfig.json")), "the implicit loader selection must retain the files-empty solution that routed to the native root project");
-  assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native ApplyProgram invocation serves the two-worker pool");
+  const initialNativeCalls = fs.statSync(workspace.programRunLog).size - baseline;
+  assert.equal(initialNativeCalls, 1, "one actual native ApplyProgram invocation serves the two-worker pool; actual initial capture observations: " + JSON.stringify({
+    nativeCalls: initialNativeCalls,
+    callerOptions: [metro.requestedOptions, turbopack.requestedOptions],
+    contextReceipts: BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset),
+    configPathReceipts: fs.readFileSync(workspace.configPathReceipt, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+    casePolicyReceipts: fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).slice(caseOffset).map((line) => JSON.parse(line)),
+    recordConfig: record.tsconfig,
+    declaredInputs: Object.keys(record.inputs).sort(),
+  }));
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");
   BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));

@@ -24,7 +24,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
       outsideProgram = { filename: outside.ast.filename, source: outside.ast.source };
       outsideProgramObserved = true;
     }
-    return { mode, ast: result.ast, outsideProgram };
+    return { mode, ast: result.ast, outsideProgram, requestedOptions: { project, compilerOptions } };
   }
   const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
@@ -38,7 +38,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
     emitError(error) { errors.push(String(error)); },
   }, (deliveredSource ?? fs.readFileSync(resourcePath, "utf8")) + sourceSuffix));
   const observed = await import(`data:text/javascript;base64,${Buffer.from(delivery.content).toString("base64")}`);
-  return { mode, ...delivery, dependencies, contextDependencies, cacheability, errors, completions, value: observed.value };
+  return { mode, ...delivery, dependencies, contextDependencies, cacheability, errors, completions, value: observed.value, requestedOptions: { compilerOptions } };
 }
 // Bounded requests share these exact adapter/module/cache owners and session.
 // A line is an observation/state transition, never another worker or fixture.
