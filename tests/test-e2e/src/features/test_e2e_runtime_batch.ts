@@ -110,6 +110,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.doesNotMatch(result.stdout, /no cache directories found/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/source-publication/runtime-borrower.json"), "utf8")),
     { first: "two", second: "one", nativeMutation: true }, "the actual published default-cache executable is consumed within this runtime and cannot poison the restored source key");
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/source-publication/runtime-identity.json"), "utf8")),
+    { first: "lowered", warm: "lowered", warmMarker: true, rewritten: "lowered", rewrittenMarker: false });
   assertRuntimeNodeCorpus((payload as { nodeCompatible: unknown }).nodeCompatible);
   assertRuntimeNormalPopulation((payload as { normalPopulation: unknown }).normalPopulation);
   assert.deepEqual(await FileSystemIterator.read(normalRoot), normalInputs, "all seven normal value/edge contributions must keep their source tree unchanged and contain no adjacent emitted files");

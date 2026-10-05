@@ -1,4 +1,4 @@
-﻿import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -622,7 +622,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         ...canonicalCommonJsOrphanProfiles(
           {
             placement: readProfile("orphan-placement"),
-            identity: readProfile("orphan-compiler-identity"),
           },
         ),
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),

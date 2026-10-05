@@ -466,6 +466,7 @@ export namespace BatchWorkspace {
       assert.equal(fs.existsSync(runtimeRace), false);
       fs.mkdirSync(runtimeRace);
       fs.copyFileSync(path.join(root, "tools/native-source-race/index.ts"), path.join(runtimeRace, "index.ts"));
+      fs.copyFileSync(path.join(root, "tools/native-source-race/identity.ts"), path.join(runtimeRace, "identity.ts"));
       fs.copyFileSync(path.join(root, "tools/native-source-race/package.json"), path.join(runtimeRace, "package.json"));
     }
     return { root, expected, installedTtsx, installationOnly, sourcePublication, programRunLog, contextReceipt, factoryContextProbe, factoryEsmContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };

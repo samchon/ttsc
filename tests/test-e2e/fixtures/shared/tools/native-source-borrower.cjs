@@ -37,3 +37,50 @@ try {
     else process.env[name] = previous[name];
   }
 }
+
+// The same runtime now advances compiler identity while this excluded module
+// and its manifest remain fixed. Reading the registry does not install or
+// mutate a manifest, and the cache artifact comes from actual native lowering.
+const launcher = path.dirname(process.env.TTSC_E2E_INSTALLED_TTSX);
+const { RuntimeManifestRegistry } = require(path.join(launcher, "internal/runtime/RuntimeManifestRegistry.js"));
+const manifest = RuntimeManifestRegistry.runtimeManifests().find((owner) => typeof owner.orphanCacheDir === "string" && owner.orphanCacheDir.length > 0);
+assert.ok(manifest, "the actual runtime owner must name its orphan cache");
+const orphanCache = manifest.orphanCacheDir;
+const identitySource = path.join(path.dirname(source), "identity.ts");
+const compilerRoot = path.join(root, "tools/source-publication/identity-compiler");
+assert.equal(fs.existsSync(compilerRoot), false);
+fs.cpSync(path.dirname(process.env.TTSC_E2E_ORPHAN_COMPILER), compilerRoot, { recursive: true });
+const compiler = path.join(compilerRoot, path.basename(process.env.TTSC_E2E_ORPHAN_COMPILER));
+fs.chmodSync(compiler, 0o755);
+const stamp = 1700000000;
+fs.utimesSync(compiler, stamp, stamp);
+const compilerBytes = fs.readFileSync(compiler);
+const priorCompiler = process.env.TTSC_TSGO_BINARY;
+try {
+  process.env.TTSC_TSGO_BINARY = compiler;
+  const beforeEntries = new Set(fs.existsSync(orphanCache) ? fs.readdirSync(orphanCache) : []);
+  const initial = require(identitySource);
+  assert.equal(initial.value, "lowered");
+  const published = fs.readdirSync(orphanCache).filter((name) => name.endsWith(".js") && !beforeEntries.has(name));
+  assert.equal(published.length, 1, "one actual orphan lowering must publish its cache artifact");
+  fs.appendFileSync(path.join(orphanCache, published[0]), '\nexports.cachedMarker = true;\n');
+  delete require.cache[require.resolve(identitySource)];
+  const warm = require(identitySource);
+  assert.equal(warm.value, "lowered");
+  assert.equal(warm.cachedMarker, true, "the unchanged executable must deliver the actual marked artifact");
+  const before = fs.statSync(compiler, { bigint: true });
+  fs.writeFileSync(compiler, compilerBytes);
+  fs.utimesSync(compiler, stamp, stamp);
+  const after = fs.statSync(compiler, { bigint: true });
+  assert.equal(after.mtimeNs, before.mtimeNs);
+  assert.equal(after.size, before.size);
+  assert.deepEqual(fs.readFileSync(compiler), compilerBytes);
+  delete require.cache[require.resolve(identitySource)];
+  const rewritten = require(identitySource);
+  assert.equal(rewritten.value, "lowered");
+  assert.equal(rewritten.cachedMarker, undefined, "a real same-byte executable rewrite must not borrow the marked old artifact");
+  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true }));
+} finally {
+  if (priorCompiler === undefined) delete process.env.TTSC_TSGO_BINARY;
+  else process.env.TTSC_TSGO_BINARY = priorCompiler;
+}
