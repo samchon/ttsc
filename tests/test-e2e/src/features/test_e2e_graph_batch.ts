@@ -170,10 +170,10 @@ export async function test_e2e_graph_batch(): Promise<void> {
       return response.structuredContent.result;
     };
     type CitationHit = { name: string; docTags?: { name: string; text?: string }[] };
-    const markdown = await call({ type: "lookup", query: "docs/discount.md#coupon-stacking" }) as { hits: CitationHit[] };
+    const markdown = await call({ type: "lookup", query: "인용명세/할인정책#쿠폰중첩" }) as { hits: CitationHit[] };
     assert.deepEqual(markdown.hits.map((hit) => hit.name).sort(), ["applyCoupons", "renderNotice"]);
     for (const hit of markdown.hits)
-      assert.deepEqual((hit.docTags ?? []).map((tag) => (tag.text ?? "").split(" ")[0]), ["docs/discount.md#coupon-stacking"]);
+      assert.deepEqual((hit.docTags ?? []).map((tag) => (tag.text ?? "").split(" ")[0]), hit.name === "renderNotice" ? ["docs/discount.md#coupon-stacking", "인용명세/할인정책#쿠폰중첩", "POST:/orders/{orderId}/coupons"] : ["docs/discount.md#coupon-stacking", "인용명세/할인정책#쿠폰중첩"]);
     const operation = await call({ type: "lookup", query: "POST:/orders/{orderId}/coupons" }) as { hits: CitationHit[] };
     assert.equal(operation.hits[0]?.name, "renderNotice");
     assert.deepEqual(operation.hits.filter((hit) => hit.docTags !== undefined).map((hit) => hit.name), ["renderNotice"]);
@@ -181,6 +181,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     const notice = citationDetails.nodes.find((value) => value.name === "renderNotice");
     assert.deepEqual(notice?.docTags, [
       { name: "evidence", text: "docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines." },
+      { name: "evidence", text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population." },
       { name: "evidence", text: "POST:/orders/{orderId}/coupons Explains the rejection." },
     ]);
     assert.equal(notice?.doc, "Renders the stacking notice.");

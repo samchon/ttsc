@@ -34,7 +34,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const config = fs.readFileSync(path.join(workspace.root, "tsconfig.json"));
   const source = fs.readFileSync(path.join(workspace.root, "src/runtime.mts"));
-  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort();
+  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const configuredRoot = path.join(workspace.root, "tools/configured-owners");
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
@@ -61,7 +61,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   } finally {
     if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
   }
-  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort(), baseline);
+  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort(), baseline);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);

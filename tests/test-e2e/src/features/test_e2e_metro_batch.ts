@@ -88,8 +88,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.doesNotMatch(metro.ast.source, /WRONG ROOT BANNER DECOY/, "explicit nested configFile must win over discovered root config");
   assert.match(metro.ast.source, /Authored source positions remain observable/);
   assert.notEqual(metro.ast.source, fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"));
-  assert.ok(metro.ast.source.includes("STRIPPED_DEBUG_RAN"), "API source text retains the authored effect; only actual runtime emit invokes the stripped function");
-  assert.ok(metro.ast.source.includes('logger.trace("drop")'), "the source lane retains the configured trace call that the runtime emit lane must remove");
+  assert.doesNotMatch(metro.ast.source, /STRIPPED_DEBUG_RAN|discard\.call\(\s*\)/, "the linked utility host must print the AST after configured stripping");
+  assert.doesNotMatch(metro.ast.source, /logger\.trace\(\s*["']drop["']\s*\)/, "the configured custom call must be absent from the linked host printed TypeScript");
+  assert.match(metro.ast.source, /console\.log\(\s*["']DEFAULT_ONLY_RETAINED["']\s*\)/, "the configured custom rule must retain the contrary default-only call");
   assert.ok(metro.ast.source.includes("TTSC_BATCH_RESULT"));
   assert.equal(metro.outsideProgram.filename, "passthrough/tool.ts");
   assert.equal(metro.outsideProgram.source.replace(/\r\n/g, "\n"), "export const outsideProgram: number = 1;\n", "the actual built adapter must forward an excluded source unchanged without substituting the program's output");

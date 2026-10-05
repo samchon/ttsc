@@ -4,6 +4,10 @@ const result = await Bun.build({ entrypoints: ["./src/bundle.ts"], plugins: [tts
 assert.equal(result.success, true, result.logs.join("\n"));
 assert.equal(result.outputs.length, 1);
 const code = await result.outputs[0].text();
-new Function("exports", "module", code)({}, { exports: {} });
-console.info("TTSC_BATCH:" + JSON.stringify(globalThis.TTSC_BATCH_RESULT));
+const module = { exports: {} };
+new Function("exports", "module", code)(module.exports, module);
+const payload = module.exports.result;
+assert.ok(payload !== null && typeof payload === "object", "the actual CommonJS entry must publish its exported result");
+assert.equal(globalThis.TTSC_BATCH_RESULT, payload, "the authored global assignment and exported result must refer to the same delivered object");
+console.info("TTSC_BATCH:" + JSON.stringify(payload));
 
