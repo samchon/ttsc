@@ -37,6 +37,7 @@ export async function test_project_record_tracks_plugin_source_and_environment()
   );
   const tsconfig = path.join(root, "tsconfig.json");
   const source = path.join(root, "plugin");
+  const sourceBytes = fs.readFileSync(path.join(source, "main.go"));
   const tool = path.join(root, ".ttsc");
   const file = projectRecordFile(tool, tsconfig);
   const previous = process.env.GOFLAGS;
@@ -58,11 +59,11 @@ export async function test_project_record_tracks_plugin_source_and_environment()
     assert.equal(signal(), 0, "unchanged source and native environment");
     for (const pruned of ["node_modules", ".git"]) {
       fs.mkdirSync(path.join(source, pruned), { recursive: true });
-      fs.writeFileSync(path.join(source, pruned, "ignored.go"), "package x\n");
+      fs.writeFileSync(path.join(source, pruned, "ignored.go"), sourceBytes);
       refresh();
       assert.equal(signal(), 0, `${pruned}: ignored source write`);
     }
-    fs.writeFileSync(path.join(source, "extra.go"), "package main\n");
+    fs.writeFileSync(path.join(source, "extra.go"), sourceBytes);
     refresh();
     assert.equal(signal(), 1, "new Go source invalidates the delivered baseline");
     deliver();
