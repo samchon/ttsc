@@ -3,6 +3,9 @@ import { createRequire } from "node:module";
 import { foo, bar, qux, grouped } from "./node-compatible/star/index.js";
 import * as star from "./node-compatible/star/index.js";
 
+// This is an imported node of the same native ESM lifetime, never its entry.
+export const helperMain = "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null;
+
 /**
  * Observe real module edges in the single shared runtime, without child hosts.
  *

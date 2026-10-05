@@ -157,7 +157,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
   });
   for (const [name, fixtureIdentity, expected] of [
     ["public-runtime-installed-root-no-emit-on-error", "ttsc/ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error/inputs-1", "arguments=3"],
-    ["public-runtime-dependency-no-emit-on-error", "ttsc/ttsx_builds_a_dependency_whose_config_sets_no_emit_on_error/inputs-1", "wrapped-7 project-built=true"],
   ] as const) {
     profiles.push({
       name,
@@ -233,18 +232,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
         const reported = JSON.parse(cjs.stdout.trim()) as { main: boolean; argv1: string };
         assert.equal(reported.main, true);
         assert.equal(fs.realpathSync.native(reported.argv1), fs.realpathSync.native(path.join(root, "src", "cjs.ts")));
-      } catch (error) { failures.push(error); }
-      try {
-        const esm = run("src/esm.mts");
-        assert.equal(esm.status, 0, esm.stderr);
-        const meta = JSON.parse(esm.stdout.trim()) as { main?: unknown; helperMain?: unknown };
-        if ("main" in import.meta) {
-          assert.equal(meta.main, true);
-          assert.equal(meta.helperMain, false);
-        } else {
-          assert.equal(meta.main, undefined);
-          assert.equal(meta.helperMain, undefined);
-        }
       } catch (error) { failures.push(error); }
       try {
         const handled = run("src/handled.ts");

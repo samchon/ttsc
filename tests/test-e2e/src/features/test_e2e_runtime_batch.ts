@@ -29,6 +29,12 @@ import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plug
  * 3. Require source/config preservation and absent adjacent JavaScript output.
  *
  * The existing configured ESNext owner also supplies a preserve-mode JSX component, while the existing CommonJS owner requires the configless pragma-selected orphan. Their complete HTML values and unchanged custom runtime/source bytes share the same Runtime payload; neither adds another owner or launcher.
+ * The same native ESM entry now distinguishes its own supported main identity
+ * from an imported helper and names its physical authored source URL. This
+ * removes the old ESM-main request without claiming the remaining CJS or fatal
+ * process lifetimes. The configured noEmitOnError owner already carries an
+ * unimported type error, wrapped7 and its real otherwise-unrequested output
+ * receipt, so its former independent dependency request also retires.
  *
  * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. The ESNext dependency now selects its own linked strip plugin: its authored secret call must disappear while dependency-value reaches the parent. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
  *
@@ -177,6 +183,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     BatchWorkspace.assertValues((payload as { values: unknown }).values, workspace.expected);
   } else {
   BatchWorkspace.assertResult(payload, workspace.expected, true);
+  const entryPolicy = (payload as { entryPolicy: { main: unknown; helperMain: unknown; url: unknown } }).entryPolicy;
+  assert.equal(entryPolicy.main, "main" in import.meta ? true : null,
+    "the actual native ESM entry must retain the host's independently supported main identity");
+  assert.equal(entryPolicy.helperMain, "main" in import.meta ? false : null,
+    "an imported helper in that same host must remain distinct from its entry");
+  assert.equal(typeof entryPolicy.url, "string");
+  assert.equal(fs.realpathSync.native(new URL(entryPolicy.url as string)), fs.realpathSync.native(path.join(workspace.root, "src/runtime.mts")),
+    "the entry URL must identify its authored physical source");
   assert.deepEqual(await FileSystemIterator.read(installedPackage), installedInputs, "installed typed package inputs and stale JavaScript must remain unchanged");
   for (const input of excludedInputs) assert.deepEqual(fs.readFileSync(input.file), input.bytes, "excluded alias delivery must preserve both authored sources");
   assert.deepEqual({ names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs }, installedDirectory);

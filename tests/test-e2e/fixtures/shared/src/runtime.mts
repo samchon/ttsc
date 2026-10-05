@@ -6,7 +6,7 @@ import { createMemFS, parseResult } from "@ttsc/wasm";
 import { packageNameFromSpecifier } from "@ttsc/playground";
 import { result, observeEmittedEffects } from "./bundle.js";
 import { cliPolicyRuntime } from "./runtime-corpus/cli-policy.mjs";
-import { observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
+import { helperMain, observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
 import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
 import { observed as nativeFactory } from "./runtime-corpus/native-factory.js";
 import "./runtime-corpus/declared-entry.js";
@@ -52,7 +52,7 @@ const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
 console.info("relative-runner-cache");
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, helperMain, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),
