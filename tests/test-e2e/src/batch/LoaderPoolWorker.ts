@@ -58,7 +58,7 @@ export function createLoaderPoolWorker(props: {
   }));
   void closed.catch(() => undefined);
   return {
-    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
+    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string; runtimeInputs?: { config: string; cache: string; nodePath: string } }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
       const id = ++next;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: delivery remains unresolved: ${stderr}`)); }, 120_000);
       pending.set(id, { resolve, reject, timer });

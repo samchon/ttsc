@@ -76,6 +76,12 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (command.descriptorFlow) {
       const scope = command.descriptorFlow.root;
       const { loadProjectPlugins } = createRequire(import.meta.url)(command.descriptorFlow.api);
+      if (command.descriptorFlow.runtimeInputs) {
+        const inputs = command.descriptorFlow.runtimeInputs;
+        const loaded = loadProjectPlugins({ binary: "", cacheDir: inputs.cache, tsconfig: inputs.config,
+          env: { ...process.env, TTSC_BINARY: command.descriptorFlow.binary, TTSC_TSGO_BINARY: command.descriptorFlow.tsgo, NODE_PATH: inputs.nodePath } });
+        value = { hostInputs: loaded.hostInputs, hostInputHashes: loaded.hostInputHashes, hostInputRealpaths: loaded.hostInputRealpaths };
+      } else {
       const cases = [
         ["factory", "factory.cts"], ["module", "module.cts"],
         ["counterfeit", "counterfeit.cts", true], ["counterfeit-missing", "counterfeit-missing.cts", true],
@@ -105,6 +111,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         else process.env.TTSC_DESC_MARKER = previousMarker;
       }
       value = results;
+      }
     } else value = await deliver(command.sourceSuffix, command.deliveredSource);
     process.stdout.write(JSON.stringify({ id: command.id, value }) + "\n");
   }

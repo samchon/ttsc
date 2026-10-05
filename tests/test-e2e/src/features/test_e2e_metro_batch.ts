@@ -27,6 +27,10 @@ import { buildSourcePlugin, computeCacheKey, createFakeGoBinary, ensureExecutabl
  * returns before its first existing delivery. That delivery's authored upstream
  * also returns one identifier location from transformed text; the parent checks
  * the banner shift and the adapter's restoration against the original source.
+ * Before admission, that same caller evaluates the descriptor failure and
+ * runtime-input population. One source graph retains extension substitution,
+ * package search, config absence and evaluation-time config appearance without
+ * creating another worker or authored Go input.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -1123,6 +1127,46 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const descriptorFailureRoot = path.join(workspace.root, "descriptor-process-flow");
   assert.equal(fs.existsSync(descriptorFailureRoot), false);
   fs.cpSync(path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/ttsc/descriptor-process-corpus"), descriptorFailureRoot, { recursive: true });
+  const descriptorRuntimeRoot = path.join(descriptorFailureRoot, "runtime-inputs");
+  const runtimeDescriptor = path.join(descriptorRuntimeRoot, "descriptor");
+  const runtimeDescriptorConfig = path.join(runtimeDescriptor, "tsconfig.json");
+  const runtimeSelection = path.join(runtimeDescriptor, "selection.mjs");
+  const runtimeNear = path.join(descriptorRuntimeRoot, "near/node_modules");
+  const runtimeFar = path.join(descriptorRuntimeRoot, "far/node_modules");
+  const runtimeProbe = path.join(runtimeFar, "descriptor-probe");
+  const runtimeOrphan = path.join(descriptorRuntimeRoot, "orphan/node_modules/orphan-source");
+  const runtimeRefresh = path.join(descriptorRuntimeRoot, "refresh/node_modules/config-refresh");
+  for (const directory of [runtimeDescriptor, path.join(runtimeNear, "descriptor-probe"), runtimeProbe, runtimeOrphan, runtimeRefresh])
+    fs.mkdirSync(directory, { recursive: true });
+  for (const directory of [runtimeDescriptor, runtimeOrphan, runtimeRefresh])
+    fs.writeFileSync(path.join(directory, "package.json"), '{"private":true,"type":"module"}\n');
+  fs.writeFileSync(runtimeDescriptorConfig, JSON.stringify({ compilerOptions: { allowJs: true, module: "nodenext", moduleResolution: "nodenext", skipLibCheck: true, target: "es2022" }, include: ["*.ts", "*.mjs"] }));
+  fs.writeFileSync(runtimeSelection, `export const source = ${JSON.stringify(publicNativeProbe.fixtureSource)};\n`);
+  fs.writeFileSync(path.join(runtimeDescriptor, "explicit.tsx"), 'export const explicit = "explicit";\n');
+  fs.writeFileSync(path.join(runtimeProbe, "package.json"), '{"main":"entry"}\n');
+  fs.writeFileSync(path.join(runtimeProbe, "entry.json"), '"probe"\n');
+  fs.writeFileSync(path.join(runtimeOrphan, "selection.ts"), 'export const orphan = "orphan";\n');
+  const runtimeRefreshConfig = path.join(runtimeRefresh, "tsconfig.json");
+  fs.writeFileSync(path.join(runtimeRefresh, "selection.tsx"), 'function factory() { return "configured"; }\nexport const value = <probe />;\n');
+  fs.writeFileSync(path.join(runtimeRefresh, "seed.ts"), [
+    'import { writeFileSync } from "node:fs";', 'import { createRequire } from "node:module";',
+    `writeFileSync(${JSON.stringify(runtimeRefreshConfig)}, ${JSON.stringify(JSON.stringify({ compilerOptions: { jsx: "react", jsxFactory: "factory", module: "nodenext", moduleResolution: "nodenext", target: "es2022" }, include: ["*.ts", "*.tsx"] }))});`,
+    'export const seed = "seed";', 'export const { value } = createRequire(import.meta.url)("./selection.tsx");', "",
+  ].join("\n"));
+  const runtimeDescriptorEntry = path.join(runtimeDescriptor, "index.ts");
+  fs.writeFileSync(runtimeDescriptorEntry, [
+    'import { createRequire } from "node:module";', 'import { source } from "./selection";',
+    'import { explicit } from "./explicit.js?descriptor-input";',
+    `import { orphan } from ${JSON.stringify(pathToFileURL(path.join(runtimeOrphan, "selection.ts")).href)};`,
+    `import { seed, value } from ${JSON.stringify(pathToFileURL(path.join(runtimeRefresh, "seed.ts")).href)};`,
+    'const require = createRequire(import.meta.url);',
+    'if (require("descriptor-probe") !== "probe" || orphan !== "orphan" || explicit !== "explicit") throw new Error("descriptor probe failed");',
+    'if (seed !== "seed" || value !== "configured") throw new Error("descriptor config refresh failed");',
+    'export default () => ({ name: "ttsx-inputs", source, capabilities: { projectContextArgs: true } });', "",
+  ].join("\n"));
+  const runtimeInputConfig = path.join(descriptorRuntimeRoot, "tsconfig.json");
+  fs.writeFileSync(runtimeInputConfig, JSON.stringify({ compilerOptions: { plugins: [{ transform: runtimeDescriptorEntry }] } }));
+  const runtimeDescriptorConfigHash = crypto.createHash("sha256").update(fs.readFileSync(runtimeDescriptorConfig)).digest("hex");
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session, traceRoot,
     metro: pathToFileURL(path.join(lib, "transformer.js")).href,
@@ -1158,6 +1202,35 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }
   assert.equal(fs.readFileSync(path.join(descriptorFailureRoot, "late-candidate.ts"), "utf8"), "export const value = 1;\n");
   assert.equal(fs.statSync(path.join(descriptorFailureRoot, "directory-candidate.ts")).isDirectory(), true);
+  const runtimeInputReply = await workers[0]!.request("", undefined, {
+    root: descriptorFailureRoot, api: path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js"),
+    binary: TestProject.NATIVE_BINARY, tsgo: TestProject.TSGO_BINARY,
+    runtimeInputs: { config: runtimeInputConfig, cache: path.join(workspace.cache, "descriptor-runtime-inputs"), nodePath: [runtimeNear, runtimeFar].join(path.delimiter) },
+  });
+  assert.equal(runtimeInputReply.error, undefined);
+  const runtimeInputs = runtimeInputReply.value as { hostInputs: string[]; hostInputHashes: Record<string, string | null> };
+  const canonicalRuntimeSelection = fs.realpathSync(runtimeSelection);
+  assert.equal(runtimeInputs.hostInputs.includes(canonicalRuntimeSelection), true);
+  const sameRuntimeFile = (left: string, right: string): boolean => {
+    try {
+      const a = fs.statSync(left), b = fs.statSync(right);
+      return a.ino === 0 || b.ino === 0 ? fs.realpathSync(left) === fs.realpathSync(right) : a.dev === b.dev && a.ino === b.ino;
+    } catch { return false; }
+  };
+  assert.equal(runtimeInputs.hostInputs.some((input) => sameRuntimeFile(input, runtimeDescriptorConfig)), true);
+  for (const absent of [canonicalRuntimeSelection.slice(0, -path.extname(canonicalRuntimeSelection).length) + ".mts", path.join(runtimeDescriptor, "explicit.ts")]) {
+    assert.equal(runtimeInputs.hostInputs.includes(absent), true, JSON.stringify(runtimeInputs));
+    assert.equal(runtimeInputs.hostInputHashes[absent], null);
+  }
+  for (const [directory, basename] of [[runtimeProbe, "entry.js"], [runtimeOrphan, "tsconfig.json"]] as const) {
+    const absent = runtimeInputs.hostInputs.find((input) => path.basename(input) === basename && sameRuntimeFile(path.dirname(input), directory));
+    assert.ok(absent, JSON.stringify(runtimeInputs));
+    assert.equal(runtimeInputs.hostInputHashes[absent], null);
+  }
+  const appearedConfig = runtimeInputs.hostInputs.find((input) => sameRuntimeFile(input, runtimeRefreshConfig));
+  assert.ok(appearedConfig, JSON.stringify(runtimeInputs));
+  assert.equal(Object.hasOwn(runtimeInputs.hostInputHashes, appearedConfig), false, "a config created during evaluation remains unproved");
+  assert.equal(Object.entries(runtimeInputs.hostInputHashes).some(([input, hash]) => hash === runtimeDescriptorConfigHash && sameRuntimeFile(input, runtimeDescriptorConfig)), true);
   fs.writeFileSync(configPath, JSON.stringify(poolConfig));
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
   const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
