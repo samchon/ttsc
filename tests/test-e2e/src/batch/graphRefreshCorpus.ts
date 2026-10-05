@@ -11,7 +11,7 @@ type Client = {
  * Exercises distinct invalidation triggers through the existing native graph
  * session.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual source rename changes positive/negative names, comment-only bytes move citation hits, root additions/deletions change membership, and invalid/restored config refuses stale facts and recovers.
+ * @evidence contracts/testing.md#behavioral-verification Actual source rename changes positive/negative names, comment-only bytes move citation hits, root additions/deletions change membership, and invalid/restored config refuses stale facts and recovers. A Markdown-only heading edit changes the actual Evidence-published artifact at its unchanged address, while its citing TypeScript stays byte-identical.
  * @evidence contracts/testing.md#independent-expectations BeforeEdit/AfterEdit, OriginalRoot/AddedRoot, literal citation addresses and malformed JSON prescribe expected generations independently of extraction.
  * @evidence contracts/testing.md#distinguishing-cases Code, comment-only, root-add/delete and invalid/restored configuration remain separate triggers; combining them could mask the trigger-specific defect.
  * @evidence contracts/testing.md#execution-ownership Called once by the selected graph entry with its actual initialized client/root. Groups create no project, profile or launcher and execute no legacy function.
@@ -30,6 +30,7 @@ export async function assertGraphRefreshCorpus(
     ["tag-only-refresh", TagRefresh.verify],
     ["root-membership-refresh", RootRefresh.verify],
     ["invalid-config-recovery", ConfigRefresh.verify],
+    ["document-artifact-refresh", DocumentArtifactRefresh.verify],
   ] as const) {
     try {
       await operation(client, root);
@@ -42,6 +43,64 @@ export async function assertGraphRefreshCorpus(
       failures,
       "Native resident refresh population failed",
     );
+}
+namespace DocumentArtifactRefresh {
+  const address = "docs/contract.md#accepted-value";
+  const before = "Accepted value";
+  const after = "Accepted value after document refresh";
+
+  /** Read the actual published artifact, rather than a TypeScript citation hit. */
+  async function section(client: Client): Promise<unknown> {
+    const response = (await client.request("tools/call", {
+      name: "inspect_typescript_graph",
+      arguments: {
+        question: "What heading does the selected Markdown artifact currently publish?",
+        draft: { reason: "Read the fixed document address in the existing session.", type: "details" },
+        review: "Use the actual native artifact, not a synthetic document node.",
+        request: { type: "details", handles: [address] },
+      },
+    })) as {
+      isError?: boolean;
+      structuredContent?: {
+        result?: { type?: string; nodes?: { id: string; name: string; kind: string; file: string }[] };
+      };
+    };
+    assert.equal(response.isError, undefined, JSON.stringify(response));
+    assert.equal(response.structuredContent?.result?.type, "details", JSON.stringify(response));
+    return response.structuredContent?.result?.nodes?.map(({ id, name, kind, file }) => ({ id, name, kind, file }));
+  }
+
+  /** Keep source and anchor fixed across one document-only mutation and reset. */
+  export async function verify(client: Client, root: string): Promise<void> {
+    const document = path.join(root, "docs/contract.md");
+    const source = path.join(root, "src/contract.ts");
+    const original = fs.readFileSync(document);
+    const originalSource = fs.readFileSync(source);
+    const marker = `## ${before} {#accepted-value}`;
+    assert.equal(original.toString("utf8").split(marker).length, 2);
+    const expected = (name: string) => [{ id: address, name, kind: "markdown_section", file: "docs/contract.md" }];
+    const failures: unknown[] = [];
+    try {
+      assert.deepEqual(await section(client), expected(before));
+      client.assertInputMutationAllowed();
+      fs.writeFileSync(document, original.toString("utf8").replace(marker, `## ${after} {#accepted-value}`));
+      assert.deepEqual(await section(client), expected(after));
+      assert.deepEqual(fs.readFileSync(source), originalSource);
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try {
+        client.assertInputMutationAllowed();
+        fs.writeFileSync(document, original);
+        assert.deepEqual(fs.readFileSync(source), originalSource);
+      } catch (error) {
+        client.preventInputReuse("Document artifact restoration failed");
+        failures.push(error);
+      }
+    }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) throw new AggregateError(failures, "Document artifact refresh and restoration failed");
+  }
 }
 namespace SourceRefresh {
   interface ToolResult {
