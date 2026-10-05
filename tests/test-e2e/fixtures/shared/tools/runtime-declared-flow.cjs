@@ -13,6 +13,9 @@ const inputs = new Map([
   "src/runtime-corpus/native-factory.ts", "src/runtime-corpus/excluded-owner.ts",
   "src/runtime-corpus/declared-owned.cts", "src/runtime-corpus/declaration-entry.cts",
   "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
+  "tools/native-emission/tsconfig.json", "tools/native-emission/banner.config.json",
+  "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
+  "src/native-public-dependency/index.ts",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 assert.equal(fs.existsSync(artifacts), false);
 const missingDescriptor = path.join(root, "missing-plugin.cjs");
@@ -53,10 +56,34 @@ assert.equal(require(path.join(root, "tools/runtime-declared-script.ts")).value,
 unchanged();
 const configuration = path.join(root, "tsconfig.json");
 assert.equal(fs.existsSync(configuration), false, "the parent holds this existing compiler input as runtime-base.json");
-fs.copyFileSync(path.join(root, "runtime-base.json"), configuration);
 let registered;
 const contextFile = path.join(root, "native-context.jsonl");
 const receiptCount = () => fs.readFileSync(contextFile, "utf8").trim().split(/\r?\n/).length;
+const nativeProject = path.join(__dirname, "native-emission");
+const nativeConfigFile = path.join(nativeProject, "tsconfig.json");
+const nativeConfiguration = fs.readFileSync(nativeConfigFile);
+const nativeOptions = JSON.parse(nativeConfiguration);
+const rootEntries = JSON.parse(fs.readFileSync(path.join(root, "runtime-base.json"), "utf8")).compilerOptions.plugins;
+nativeOptions.compilerOptions.plugins = rootEntries.map((entry) => ({
+  ...entry,
+  transform: typeof entry.transform === "string" && entry.transform.startsWith(".") ? path.resolve(root, entry.transform) : entry.transform,
+  ...(typeof entry.configFile === "string" ? { configFile: entry.transform === "@ttsc/banner" ? path.join(nativeProject, "banner.config.json") : path.resolve(root, entry.configFile) } : {}),
+}));
+const nativeEmitBefore = receiptCount();
+try {
+  fs.writeFileSync(nativeConfigFile, JSON.stringify(nativeOptions));
+  const { runTtsc } = require(path.join(launcher, "internal/runTtsc.js"));
+  assert.equal(runTtsc(["--cwd", nativeProject, "--emit"]), 0, "the actual public forced-emit dispatch must complete");
+} finally {
+  fs.writeFileSync(nativeConfigFile, nativeConfiguration);
+}
+const nativeEmitAfter = receiptCount();
+const emittedMain = fs.readFileSync(path.join(nativeProject, "dist/main.js"), "utf8");
+assert.match(emittedMain, /from "\.\/lib\/value\.js"/);
+assert.match(emittedMain, /marker = 100/);
+assert.match(emittedMain, /confined/);
+assert.deepEqual(fs.readdirSync(path.join(root, "src/native-public-dependency"), { recursive: true }).filter((file) => String(file).endsWith(".js")), [], "forced emission must not publish into the raw self-referenced dependency source tree");
+unchanged();
 const registerBefore = receiptCount();
 const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
 const defaultOrphans = path.join(root, "node_modules/.cache/ttsc/ttsx-orphan");
@@ -77,6 +104,7 @@ try {
 }
 assert.equal(lowerings(explicitOrphans).filter((name) => !explicitBefore.has(name)).length, 1, "the explicit runtime cache must receive this one actual orphan lowering");
 const defaultBefore = new Set(lowerings(defaultOrphans));
+fs.copyFileSync(path.join(root, "runtime-base.json"), configuration);
 try {
   const env = { ...process.env };
   delete env.TTSX_RUNTIME_MANIFEST;
@@ -100,4 +128,4 @@ assert.equal(registered.stdout.trim(), 'lowered\nentry\nTTSC_DECLARED_REGISTER:{
 assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
 assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), registerStatus: registered.status, registerPid: registered.pid, registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, registerStatus: registered.status, registerPid: registered.pid, registerBefore, registerAfter: receiptCount() }));

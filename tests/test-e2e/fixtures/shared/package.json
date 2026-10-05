@@ -2,6 +2,7 @@
   "name": "ttsc-shared-boundary-corpus",
   "private": true,
   "type": "commonjs",
+  "exports": { ".": "./src/native-public-dependency/index.ts" },
   "imports": {
     "#local-descriptor": "./descriptors/input.cjs",
     "#installed-descriptor": "batch-descriptor-input",
