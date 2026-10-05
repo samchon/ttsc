@@ -562,7 +562,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
       }
     }
     const key = (binary: string, effectiveEnv: NodeJS.ProcessEnv = env): string => computeCacheKey({
-      dir: replacementModule, entry: "./cmd/public-probe", env: effectiveEnv, goBinary: binary,
+      dir: replacementModule, entry: "./cmd/public-probe", env: effectiveEnv, goBinary: binary, overlayDirs: [],
       ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
     });
     const toolBytes = fs.readFileSync(tool);
@@ -601,6 +601,180 @@ export async function test_e2e_metro_batch(): Promise<void> {
     }
     const firstEnvironmentKey = key(tool, { ...env, FAKE_GO_ENV_GOARM64: "v8.0" });
     assert.notEqual(key(tool, { ...env, FAKE_GO_ENV_GOARM64: "v9.0" }), firstEnvironmentKey, "child-reported Go target environment joins identity");
+    // Default cache maintenance shares this source and executable. Only its
+    // publication state advances; no case-local module is prepared.
+    const ownedGoEnv: NodeJS.ProcessEnv = { ...env, TTSC_CACHE_DIR: "", TTSC_GO_CACHE_DIR: "", GOCACHE: "", GOFLAGS: "-tags=ttsc_owned_go_cache_epoch" };
+    assert.equal(fs.existsSync(request(ownedGoEnv)), true);
+    assert.equal(JSON.parse(fs.readFileSync(toolEnvRecord, "utf8")).GOCACHE, path.join(toolCache, "go-build"), "explicit plugin-cache ownership derives its Go cache beside it");
+    const managedEnv: NodeJS.ProcessEnv = { ...ownedGoEnv, GOFLAGS: "-tags=ttsc_managed_go_cache_epoch" };
+    const managedCache = path.join(workspace.root, "node_modules/.cache/ttsc");
+    const managedMarker = path.join(managedCache, "go-build/.ttsc-gc");
+    const managedRequest = (effectiveEnv: NodeJS.ProcessEnv): string => buildSourcePlugin({
+      baseDir: workspace.root, env: effectiveEnv, overlayDirs: [], pluginName: "source-tool-protocol",
+      source: publicNativeProbe.fixtureSource, quiet: true, ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
+    });
+    const managedProducer = path.join(nativeProbe.fixtureSource, "probe.go");
+    const managedProducerBytes = fs.readFileSync(managedProducer);
+    try {
+      const successMarker = String(Date.now() + 24 * 60 * 60 * 1000);
+      const successful = managedRequest({ ...managedEnv, FAKE_GO_BUILD_CACHE_OBJECT_COUNT: "3", FAKE_GO_BUILD_CACHE_MARKER_VALUE: successMarker });
+      assert.equal(successful.startsWith(path.join(managedCache, "plugins") + path.sep), true);
+      assert.equal(JSON.parse(fs.readFileSync(toolEnvRecord, "utf8")).GOCACHE, path.join(managedCache, "go-build"));
+      assert.equal(fs.existsSync(managedMarker), true);
+      assert.notEqual(fs.readFileSync(managedMarker, "utf8").trim(), successMarker, "managed success enforces maintenance after the build replaces the marker");
+      fs.appendFileSync(managedProducer, "\n// managed failure epoch\n");
+      const failureMarker = String(Date.now() + 48 * 60 * 60 * 1000);
+      assert.throws(() => managedRequest({ ...managedEnv, FAKE_GO_BUILD_EXIT_CODE: "17", FAKE_GO_BUILD_CACHE_MARKER_VALUE: failureMarker }),
+        /source-tool-protocol[\s\S]*fake go: build failed as directed/);
+      assert.notEqual(fs.readFileSync(managedMarker, "utf8").trim(), failureMarker, "failed build retains its error while enforcing post-build maintenance");
+    } finally { fs.writeFileSync(managedProducer, managedProducerBytes); }
+    const managedPluginRoot = path.join(managedCache, "plugins");
+    const managedRootBackup = path.join(toolProtocol, "managed-plugin-root-backup");
+    const outsideCache = path.join(toolProtocol, "outside-cache");
+    fs.mkdirSync(outsideCache);
+    fs.writeFileSync(path.join(outsideCache, "keep.txt"), "keep\n");
+    // Move and restore the existing owner rather than constructing another
+    // module/project for each cache alias.
+    assert.ok(path.resolve(managedPluginRoot).startsWith(path.resolve(workspace.root) + path.sep));
+    assert.ok(path.resolve(managedRootBackup).startsWith(path.resolve(workspace.root) + path.sep));
+    fs.renameSync(managedPluginRoot, managedRootBackup);
+    try {
+      fs.symlinkSync(outsideCache, managedPluginRoot, process.platform === "win32" ? "junction" : "dir");
+      assert.throws(() => managedRequest(managedEnv), /unsafe plugin cache root/);
+      assert.equal(fs.readFileSync(path.join(outsideCache, "keep.txt"), "utf8"), "keep\n");
+    } finally {
+      if (fs.existsSync(managedPluginRoot)) fs.unlinkSync(managedPluginRoot);
+      fs.renameSync(managedRootBackup, managedPluginRoot);
+    }
+    const managedEntry = path.join(managedPluginRoot, key(tool, managedEnv));
+    const managedEntryBackup = path.join(toolProtocol, "managed-entry-backup");
+    assert.ok(path.resolve(managedEntry).startsWith(path.resolve(managedPluginRoot) + path.sep));
+    assert.ok(path.resolve(managedEntryBackup).startsWith(path.resolve(workspace.root) + path.sep));
+    assert.equal(fs.existsSync(managedEntry), true);
+    fs.renameSync(managedEntry, managedEntryBackup);
+    try {
+      fs.symlinkSync(outsideCache, managedEntry, process.platform === "win32" ? "junction" : "dir");
+      assert.throws(() => managedRequest(managedEnv), /unsafe plugin cache entry/);
+      assert.equal(fs.readFileSync(path.join(outsideCache, "keep.txt"), "utf8"), "keep\n");
+    } finally {
+      if (fs.existsSync(managedEntry)) fs.unlinkSync(managedEntry);
+    }
+    try {
+      for (const protocol of ["legacy", "v2", "v3"] as const) {
+        const outsideLock = path.join(toolProtocol, `outside-${protocol}-lock`);
+        const lock = managedEntry + ".lock" + (protocol === "legacy" ? "" : `.${protocol}`);
+        fs.mkdirSync(outsideLock);
+        fs.writeFileSync(path.join(outsideLock, "keep.txt"), "keep\n");
+        if (protocol === "legacy") {
+          const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+          fs.utimesSync(outsideLock, old, old);
+        } else {
+          fs.mkdirSync(path.join(outsideLock, "retired"));
+          fs.writeFileSync(path.join(outsideLock, `protocol-${protocol}`), `ttsc-plugin-build-lock-${protocol}\n`);
+        }
+        const outsideEntries = fs.readdirSync(outsideLock).sort();
+        try {
+          fs.symlinkSync(outsideLock, lock, process.platform === "win32" ? "junction" : "dir");
+          if (protocol === "v2") assert.equal(fs.existsSync(managedRequest(managedEnv)), true);
+          else assert.throws(() => managedRequest(managedEnv));
+          assert.deepEqual(fs.readdirSync(outsideLock).sort(), outsideEntries, `${protocol} lock cannot mutate its external target`);
+          if (protocol !== "legacy") assert.deepEqual(fs.readdirSync(path.join(outsideLock, "retired")), []);
+        } finally {
+          assert.ok(path.resolve(lock).startsWith(path.resolve(managedPluginRoot) + path.sep));
+          if (fs.existsSync(lock)) {
+            if (fs.lstatSync(lock).isSymbolicLink()) fs.unlinkSync(lock);
+            else fs.rmSync(lock, { recursive: true });
+          }
+          if (fs.existsSync(managedEntry)) fs.rmSync(managedEntry, { recursive: true });
+        }
+      }
+    } finally { fs.renameSync(managedEntryBackup, managedEntry); }
+    // The already executing scripted compiler changes/restores its selected
+    // executable during this build. No separate editor process is required.
+    const scriptFile = path.join(toolProtocol, "fake-go.cjs");
+    const stableScript = fs.readFileSync(scriptFile, "utf8");
+    const raceToolBytes = fs.readFileSync(tool);
+    const raceToolTime = fs.statSync(tool).mtimeMs;
+    const raceEnv = { ...env, GOFLAGS: "-tags=ttsc_toolchain_witness_epoch" };
+    const raceEntry = path.join(toolCache, "plugins", key(tool, raceEnv));
+    const cachedRaceBinaries = () => fs.existsSync(raceEntry)
+      ? fs.readdirSync(raceEntry, { recursive: true }).map(String).filter((name) => /plugin(\.exe)?$/.test(name)) : [];
+    assert.deepEqual(cachedRaceBinaries(), []);
+    const raceBody = [
+      `const selectedTool = ${JSON.stringify(tool)};`,
+      "const selectedBytes = fs.readFileSync(selectedTool);",
+      'fs.writeFileSync(selectedTool, Buffer.concat([selectedBytes, Buffer.from("\\n")]));',
+      "fs.writeFileSync(selectedTool, selectedBytes);",
+      `fs.utimesSync(selectedTool, new Date(${raceToolTime + 1000}), new Date(${raceToolTime + 1000}));`,
+    ].join("\n");
+    try {
+      assert.equal(stableScript.includes("if (process.env.FAKE_GO_BUILD_BARRIER_FILE) {"), true);
+      fs.writeFileSync(scriptFile, stableScript.replace("if (process.env.FAKE_GO_BUILD_BARRIER_FILE) {", raceBody + "\nif (process.env.FAKE_GO_BUILD_BARRIER_FILE) {"));
+      assert.throws(() => request(raceEnv), /Go toolchain of plugin "source-tool-protocol" changed while it was being built/);
+      assert.deepEqual(fs.readFileSync(tool), raceToolBytes, "restoring bytes cannot retrospectively authorize the changed tool witness");
+      assert.deepEqual(cachedRaceBinaries(), [], "the raced build must not publish a binary");
+    } finally {
+      fs.writeFileSync(scriptFile, stableScript);
+      fs.writeFileSync(tool, raceToolBytes);
+    }
+    assert.equal(fs.existsSync(request(raceEnv)), true, "an unchanged subsequent build publishes the same epoch");
+    const overlay = path.join(toolProtocol, "overlay");
+    fs.cpSync(replacementFixture, overlay, { recursive: true });
+    const overlayFile = path.join(overlay, "dep.go");
+    const overlayOriginal = fs.readFileSync(overlayFile, "utf8");
+    const overlayFirst = overlayOriginal + "// FIRST\n";
+    const overlaySecond = overlayOriginal + "// SECOND\n";
+    fs.writeFileSync(overlayFile, overlayFirst);
+    const overlayEnv = { ...env, GOFLAGS: "-tags=ttsc_overlay_witness_epoch" };
+    const overlayRequest = () => buildSourcePlugin({
+      baseDir: workspace.root, cacheDir: toolCache, env: overlayEnv, overlayDirs: [overlay], pluginName: "source-tool-protocol",
+      source: publicNativeProbe.fixtureSource, quiet: true, ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
+    });
+    const overlayOutput = [
+      'const usedOverlay = fs.readFileSync("go.work", "utf8").split(/\\r?\\n/).map((line) => line.trim().replace(/^"|"$/g, "")).find((entry) => path.basename(entry) === "overlay");',
+      `fs.writeFileSync(${JSON.stringify(overlayFile)}, ${JSON.stringify(overlaySecond)});`,
+      'fs.writeFileSync(out, fs.readFileSync(path.join(usedOverlay, "dep.go"), "utf8"));',
+    ].join("\n");
+    let overlayBinary: string;
+    try {
+      fs.writeFileSync(scriptFile, stableScript.replace('fs.writeFileSync(out, "fake plugin binary\\n", "utf8");', overlayOutput));
+      overlayBinary = overlayRequest();
+      assert.equal(fs.readFileSync(overlayBinary, "utf8"), overlayFirst, "actual go.work selects the proven copied overlay despite original mutation during build");
+      assert.equal(fs.readFileSync(overlayFile, "utf8"), overlaySecond);
+      assert.equal(fs.readdirSync(path.dirname(overlayBinary), { recursive: true }).map(String).filter((name) => /plugin(\.exe)?$/.test(name)).length, 1,
+        "the overlay state publishes one copied artifact alongside the distinct preceding epochs");
+      fs.writeFileSync(overlayFile, overlayFirst);
+      assert.equal(overlayRequest(), overlayBinary, "restoring the overlay selects the already compiled copied state");
+    } finally { fs.writeFileSync(scriptFile, stableScript); }
+    const keyRaceManifest = path.join(replacementModule, "go.mod");
+    const keyRaceProducer = path.join(nativeProbe.fixtureSource, "probe.go");
+    const keyRaceManifestBytes = fs.readFileSync(keyRaceManifest);
+    const keyRaceProducerBytes = fs.readFileSync(keyRaceProducer);
+    const keyRaceMarker = path.join(toolProtocol, "source-key-edit.marker");
+    const keyEdit = [
+      'if (args[0] === "mod" && args[1] === "edit" && args[2] === "-json") {',
+      `  if (!fs.existsSync(${JSON.stringify(keyRaceMarker)})) {`,
+      `    fs.appendFileSync(${JSON.stringify(keyRaceProducer)}, "\\n// edited after keyed digest\\n");`,
+      `    fs.writeFileSync(${JSON.stringify(keyRaceMarker)}, "edited\\n");`,
+      "  }",
+      "}",
+    ].join("\n");
+    try {
+      // This comment exercises the actual Go reader after the source digest;
+      // it supplies no replacement directive or new authored module.
+      fs.appendFileSync(keyRaceManifest, "\n// replace nothing\n");
+      fs.appendFileSync(keyRaceProducer, "\n// source key race epoch\n");
+      const modRead = 'if (args[0] === "mod" && args[1] === "edit" && args[2] === "-json") {';
+      assert.equal(stableScript.includes(modRead), true);
+      fs.writeFileSync(scriptFile, stableScript.replace(modRead, keyEdit + "\n" + modRead));
+      assert.throws(() => overlayRequest(), (error: unknown) => error instanceof Error &&
+        error.message.includes(`source ${replacementModule} changed while it was being built`));
+      assert.equal(fs.readFileSync(keyRaceMarker, "utf8"), "edited\n");
+    } finally {
+      fs.writeFileSync(scriptFile, stableScript);
+      fs.writeFileSync(keyRaceManifest, keyRaceManifestBytes);
+      fs.writeFileSync(keyRaceProducer, keyRaceProducerBytes);
+    }
     const linkedInput = path.join(replacementModule, "tool-owned-linked-source");
     const excludedLink = path.join(replacementModule, "node_modules/tool-owned-linked-source");
     const linkedTarget = path.join(toolProtocol, "linked-source");
