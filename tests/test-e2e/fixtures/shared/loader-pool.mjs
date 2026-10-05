@@ -6,6 +6,7 @@ const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
 const compilerOptions = { paths: Object.fromEntries(Object.entries(rootPaths).map(([key, targets]) => [key, targets.map((target) => path.resolve(root, target))])) };
 let transformer, loader;
+let outsideProgramObserved = false;
 if (mode === "metro") {
   const options = await import(optionsUrl);
   process.env[options.ENV_KEY] = options.serializeOptions({ project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
@@ -15,7 +16,15 @@ async function deliver(sourceSuffix = "", deliveredSource) {
   if (mode === "metro") {
     const filename = "src/bundle.ts";
     const result = await transformer.transform({ src: (deliveredSource ?? fs.readFileSync(path.join(root, filename), "utf8")) + sourceSuffix, filename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
-    return { mode, ast: result.ast };
+    let outsideProgram;
+    if (!outsideProgramObserved && !sourceSuffix && deliveredSource === undefined) {
+      const outsideFilename = "passthrough/tool.ts";
+      const outsideSource = fs.readFileSync(path.join(root, outsideFilename), "utf8");
+      const outside = await transformer.transform({ src: outsideSource, filename: outsideFilename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
+      outsideProgram = { filename: outside.ast.filename, source: outside.ast.source };
+      outsideProgramObserved = true;
+    }
+    return { mode, ast: result.ast, outsideProgram };
   }
   const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
