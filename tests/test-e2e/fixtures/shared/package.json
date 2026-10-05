@@ -1,5 +1,11 @@
-﻿{
+{
   "name": "ttsc-shared-boundary-corpus",
   "private": true,
-  "type": "commonjs"
+  "type": "commonjs",
+  "imports": {
+    "#local-descriptor": "./descriptors/input.cjs",
+    "#installed-descriptor": "batch-descriptor-input",
+    "#missing-local-descriptor": "./descriptors/optional.cjs",
+    "#missing-package-descriptor": "batch-absent-descriptor-input"
+  }
 }

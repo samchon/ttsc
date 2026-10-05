@@ -233,6 +233,7 @@ export namespace BatchWorkspace {
       automaticManifest.ttsc.plugin.reportedDependencies = reportedDependencies;
       fs.writeFileSync(automaticManifestFile, JSON.stringify(automaticManifest));
       fs.symlinkSync(automaticPackage, path.join(modules, "batch-auto-discovery"), "junction");
+      fs.symlinkSync(path.join(root, "packages/batch-descriptor-input"), path.join(modules, "batch-descriptor-input"), "junction");
       const consumerManifestFile = path.join(root, "package.json");
       const consumerManifest = JSON.parse(fs.readFileSync(consumerManifestFile, "utf8"));
       consumerManifest.devDependencies = { ...consumerManifest.devDependencies, "batch-auto-discovery": "file:./packages/batch-auto-discovery" };

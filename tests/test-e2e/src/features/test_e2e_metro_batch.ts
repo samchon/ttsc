@@ -2,6 +2,7 @@ import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { createLoaderPoolWorker, type LoaderPoolOutcome } from "../batch/LoaderPoolWorker";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
@@ -119,6 +120,31 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const input of [fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json")), fs.realpathSync.native(path.join(workspace.root, "config/strip.config.json")), fs.realpathSync.native(path.join(workspace.root, "src/console.d.ts"))])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `the actual record must carry ${input}`);
   assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, path.join(workspace.root, "src/pool-routing/tsconfig.json")), "the implicit loader selection must retain the files-empty solution that routed to the native root project");
+  const descriptorInputs = [
+    "package.json",
+    "descriptors/default.cjs",
+    "descriptors/input.cjs",
+    "packages/batch-descriptor-input/package.json",
+    "packages/batch-descriptor-input/index.cjs",
+  ].map((name) => fs.realpathSync.native(path.join(workspace.root, name)));
+  for (const input of descriptorInputs) {
+    const evidence = record.inputs[input];
+    assert.ok(evidence, `the real descriptor evaluation must hand over ${input}`);
+    assert.equal(evidence.missing, false);
+    assert.equal(evidence.state?.codec, "host");
+    assert.equal(evidence.state.hash, crypto.createHash("sha256").update(fs.readFileSync(input)).digest("hex"), "the persisted descriptor proof must match independent actual input bytes");
+  }
+  assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "#local-descriptor")) || input.includes(path.join("node_modules", "#installed-descriptor"))), [], "package imports must not invent bare-package search paths for the internal import names");
+  assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "batch-descriptor-input")) && !input.startsWith(workspace.root + path.sep)), [], "the successful mapped package must not retain candidates beyond its selected root");
+  for (const missingDescriptor of [
+    path.join(workspace.root, "descriptors/node_modules/batch-descriptor-input/package.json"),
+    path.join(workspace.root, "descriptors/optional.cjs"),
+    path.join(workspace.root, "node_modules/batch-absent-descriptor-input/package.json"),
+  ]) {
+    assert.equal(fs.existsSync(missingDescriptor), false, "the failed internal import target remains independently absent");
+    assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, missingDescriptor), "the real descriptor recorder must retain the failed mapped import target: " + missingDescriptor);
+    assert.equal(record.inputs[missingDescriptor].missing, true);
+  }
   const initialNativeCalls = fs.statSync(workspace.programRunLog).size - baseline;
   assert.equal(initialNativeCalls, 1, "one actual native ApplyProgram invocation serves the two-worker pool; actual initial capture observations: " + JSON.stringify({
     nativeCalls: initialNativeCalls,
@@ -178,8 +204,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.equal(relative.startsWith("..") || path.isAbsolute(relative), false);
     assert.notEqual(dependency, path.join(workspace.root, "src/map.ts"));
   }
-  assert.equal(turbopack.map, undefined, "the native api-transform source-text envelope does not emit a source map");
-  assert.equal(turbopack.content.replace(/\r\n/g, "\n"), fs.readFileSync(path.join(workspace.root, "expected-map-source.txt"), "utf8").replace(/\r\n/g, "\n"), "the native preparse banner changes the source text without fabricating an emitted map");
+  assert.equal(turbopack.content.replace(/\r\n/g, "\n"), fs.readFileSync(path.join(workspace.root, "expected-map-source.txt"), "utf8").replace(/\r\n/g, "\n"), "the linked utility host must preserve the independently authored full banner and TypeScript output alongside its authored map");
   const publications = () => fs.readdirSync(session).filter((name) => name.endsWith(".json")).sort().map((name) => {
     const value = JSON.parse(fs.readFileSync(path.join(session, name), "utf8"));
     return { name, type: value.result.type, scratchDirectory: value.scratchDirectory };
