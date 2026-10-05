@@ -28,6 +28,7 @@ export namespace BatchWorkspace {
     programRunLog: string;
     contextReceipt: string;
     factoryContextProbe: string;
+    factoryEsmContextProbe: string;
     configPathReceipt: string;
     pathsReceipt: string;
     casePolicyReceipt: string;
@@ -208,7 +209,6 @@ export namespace BatchWorkspace {
     }
     const programRunLog = path.join(root, "program-runs.bin");
     const contextReceipt = path.join(root, "native-context.jsonl");
-    const factoryContextProbe = path.join(root, "factory-context.json");
     const configPathReceipt = path.join(root, "native-config-paths.jsonl");
     const pathsReceipt = path.join(root, "native-program-paths.jsonl");
     const casePolicyReceipt = path.join(root, "native-case-policy.jsonl");
@@ -219,6 +219,10 @@ export namespace BatchWorkspace {
       projectAlias = path.join(aliasParent, "project");
       fs.symlinkSync(fs.realpathSync.native(root), projectAlias, "junction");
     }
+    // Factory identity receipts are observation outputs, not compiler inputs.
+    const factoryReceiptRoot = installationOnly ? root : path.dirname(projectAlias);
+    const factoryContextProbe = path.join(factoryReceiptRoot, "factory-context.json");
+    const factoryEsmContextProbe = path.join(factoryReceiptRoot, "factory-esm-context.json");
     if (!installationOnly)
       for (const name of ["cjs-dep", "esm-dep"])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
@@ -269,7 +273,7 @@ export namespace BatchWorkspace {
         { name: "native-order-prefix", transform: "batch-auto-discovery/plugins/ordered.js", fixtureSource, operation: "prefix", prefix: "a:" },
         { name: "native-order-disabled", transform: "./compile-probe.cjs", fixtureSource, enabled: false, operation: "prefix", prefix: ":NO" },
         { name: "native-order-identity", transform: "./descriptors/context.cjs", fixtureSource, operation: "identity", contextProbe: factoryContextProbe },
-        { name: "native-order-upper", transform: "./descriptors/esm/src/index.ts", fixtureSource, operation: "upper", esmContextProbe: path.join(root, "factory-esm-context.json") },
+        { name: "native-order-upper", transform: "./descriptors/esm/src/index.ts", fixtureSource, operation: "upper", esmContextProbe: factoryEsmContextProbe },
         { name: "native-order-suffix", transform: "./compile-probe.cjs", fixtureSource, operation: "suffix", suffix: ":z" },
       );
       for (const entry of config.compilerOptions.plugins)
@@ -464,7 +468,7 @@ export namespace BatchWorkspace {
       fs.copyFileSync(path.join(root, "tools/native-source-race/index.ts"), path.join(runtimeRace, "index.ts"));
       fs.copyFileSync(path.join(root, "tools/native-source-race/package.json"), path.join(runtimeRace, "package.json"));
     }
-    return { root, expected, installedTtsx, installationOnly, sourcePublication, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
+    return { root, expected, installedTtsx, installationOnly, sourcePublication, programRunLog, contextReceipt, factoryContextProbe, factoryEsmContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */

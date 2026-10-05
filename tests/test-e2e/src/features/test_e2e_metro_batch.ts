@@ -196,15 +196,43 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.rmSync(backupGo, { force: true });
     fs.rmSync(excludedGit, { force: true });
   }
-  const explicitCleaner = new TtscCompiler({ cwd: workspace.root, cacheDir: apiRootA });
-  assert.deepEqual(explicitCleaner.clean(), [apiRootA]);
-  assert.equal(fs.existsSync(apiRootA), false);
-  const goCacheB = path.join(apiRootB, "go-build");
-  fs.mkdirSync(goCacheB, { recursive: true });
-  fs.writeFileSync(path.join(goCacheB, "seed"), "go object\n");
-  assert.deepEqual(compilerB.clean(), [path.join(apiRootB, "plugins"), goCacheB]);
-  assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
-  assert.equal(fs.existsSync(goCacheB), false);
+  const legacyTargets = [path.join(workspace.root, "node_modules/.ttsc"), path.join(workspace.root, ".ttsc")];
+  const preservedLegacy = path.join(workspace.root, "tools/public-clean-preserved");
+  assert.equal(fs.existsSync(preservedLegacy), false);
+  fs.mkdirSync(preservedLegacy);
+  const heldLegacy: { target: string; saved: string }[] = [];
+  const ownedLegacy: string[] = [];
+  try {
+    for (const [index, target] of legacyTargets.entries()) {
+      assert.equal(path.relative(workspace.root, target).startsWith(".."), false);
+      if (fs.existsSync(target)) {
+        const saved = path.join(preservedLegacy, String(index));
+        fs.renameSync(target, saved);
+        heldLegacy.push({ target, saved });
+      }
+      fs.mkdirSync(target);
+      ownedLegacy.push(target);
+      fs.writeFileSync(path.join(target, "public-clean-owned"), "legacy cleanup input\n");
+    }
+    const explicitCleaner = new TtscCompiler({ cwd: workspace.root, cacheDir: apiRootA });
+    assert.deepEqual(explicitCleaner.clean(), [apiRootA, ...legacyTargets], "explicit clean also owns the two existing project legacy targets");
+    assert.equal(fs.existsSync(apiRootA), false);
+    for (const target of legacyTargets) assert.equal(fs.existsSync(target), false);
+    const goCacheB = path.join(apiRootB, "go-build");
+    fs.mkdirSync(goCacheB, { recursive: true });
+    fs.writeFileSync(path.join(goCacheB, "seed"), "go object\n");
+    assert.deepEqual(compilerB.clean(), [path.join(apiRootB, "plugins"), goCacheB]);
+    assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
+    assert.equal(fs.existsSync(goCacheB), false);
+  } finally {
+    for (const target of ownedLegacy) {
+      const sentinel = path.join(target, "public-clean-owned");
+      if (fs.existsSync(sentinel)) fs.unlinkSync(sentinel);
+      if (fs.existsSync(target)) fs.rmdirSync(target);
+    }
+    for (const { target, saved } of heldLegacy) fs.renameSync(saved, target);
+    fs.rmdirSync(preservedLegacy);
+  }
   assert.deepEqual(fs.readFileSync(configPath), originalConfig, "public prepare/clean must not rewrite the shared compiler input");
   assert.deepEqual(fs.readFileSync(path.join(workspace.root, "package.json")), apiManifestBytes);
   assert.deepEqual(fs.readFileSync(path.join(workspace.root, "descriptors/default.cjs")), apiDescriptorBytes);

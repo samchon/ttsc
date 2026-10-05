@@ -32,9 +32,12 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  */
 export async function test_e2e_runtime_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  if (!workspace.installationOnly)
+    for (const receipt of [workspace.factoryContextProbe, workspace.factoryEsmContextProbe])
+      assert.ok(path.relative(workspace.root, receipt).startsWith(".." + path.sep), "factory observation outputs must stay outside compiler input membership");
   const config = fs.readFileSync(path.join(workspace.root, "tsconfig.json"));
   const source = fs.readFileSync(path.join(workspace.root, "src/runtime.mts"));
-  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort();
+  const baseline = fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl").sort();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const configuredRoot = path.join(workspace.root, "tools/configured-owners");
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
@@ -66,7 +69,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   } finally {
     if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
   }
-  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl" && name !== "factory-context.json" && name !== "factory-esm-context.json").sort(), baseline);
+  assert.deepEqual(fs.readdirSync(workspace.root).filter((name) => name !== "node_modules" && name !== "program-runs.bin" && name !== "native-context.jsonl" && name !== "native-config-paths.jsonl" && name !== "native-program-paths.jsonl" && name !== "native-case-policy.jsonl").sort(), baseline);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
@@ -89,7 +92,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     ambientFilename: descriptorFilename, ambientDirname: path.dirname(descriptorFilename),
   });
   const esmDescriptorFilename = fs.realpathSync.native(path.join(workspace.root, "descriptors/esm/src/index.ts"));
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspace.root, "factory-esm-context.json"), "utf8")), {
+  assert.deepEqual(JSON.parse(fs.readFileSync(workspace.factoryEsmContextProbe, "utf8")), {
     filename: esmDescriptorFilename, dirname: path.dirname(esmDescriptorFilename),
     ambientFilename: "undefined", ambientDirname: "undefined",
   });
