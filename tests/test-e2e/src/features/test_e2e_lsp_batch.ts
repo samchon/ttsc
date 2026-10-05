@@ -137,15 +137,17 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         env: { TTSC_CACHE_DIR: workspace.cache },
         implicitCwd: true,
       });
+      let latestPublication: PublishDiagnosticsParams | undefined;
+      client.on("textDocument/publishDiagnostics", (params: PublishDiagnosticsParams) => { latestPublication = params; });
       const unmatchedClose = client.waitForNotification<unknown>("textDocument/publishDiagnostics", () => false, PLUGIN_BUILD_TIMEOUT).then(
         () => ({ error: undefined }), (error: unknown) => ({ error }),
       );
       await runTtscserverSession(client, async () => {
-        const evidenceInitial = client.waitForNotification<PublishDiagnosticsParams>(
+        const evidenceInitial = step("initial external Evidence publication", client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
           (params) => (params.diagnostics ?? []).some((diagnostic) => diagnostic.message?.includes("Missing TypeScript evidence export")),
           PLUGIN_BUILD_TIMEOUT,
-        ).then((value) => ({ value }), (error: unknown) => ({ error }));
+        )).then((value) => ({ value }), (error: unknown) => ({ error }));
         // 1. Handshake. The editor builds its command palette and lightbulb menu
         // from this response, so the advertised ids are editor-visible behavior.
         const initialized = await step(
@@ -484,6 +486,11 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           }
         } catch (error) {
           populationFailures.push(new Error(name + ": LSP newline corpus", { cause: error }));
+        } finally {
+          // This corpus owns unsaved editor buffers, not a persistent dirty
+          // editor. Closing preserves saved bytes and releases the proxy's
+          // project-publication suppression before the external Evidence flow.
+          client.notify("textDocument/didClose", { textDocument: { uri } });
         }
       }
 
@@ -509,7 +516,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         // 2. didOpen. Register the waiter first: publishDiagnostics is
         // server-initiated and races the notification that triggers it.
         const opened = step(
-          "didOpen publishDiagnostics",
+          "didOpen publishDiagnostics uri=" + uri + " version=1",
           client.waitForNotification<PublishDiagnosticsParams>(
             "textDocument/publishDiagnostics",
             (params) => params.uri === uri && findLint(params) !== undefined,
@@ -535,24 +542,24 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         const evidenceObservation = await evidenceInitial;
         if ("error" in evidenceObservation) throw evidenceObservation.error;
         const evidenceFirst = evidenceObservation.value;
-        const awaitEvidenceClear = () => client.waitForNotification<PublishDiagnosticsParams>(
+        const awaitEvidenceClear = (phase: string) => step(phase + " uri=" + evidenceFirst.uri, client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
           (params) => params.uri === evidenceFirst.uri && !(params.diagnostics ?? []).some((diagnostic) => diagnostic.code === "evidence/graph"),
           PLUGIN_BUILD_TIMEOUT,
-        );
-        const evidenceCleared = awaitEvidenceClear();
+        ));
+        const evidenceCleared = awaitEvidenceClear("external Evidence repair publication");
         fs.writeFileSync(evidenceTarget, "export const value = 1;\n");
         client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 2 }] });
         await evidenceCleared;
-        const evidenceDeleted = client.waitForNotification<PublishDiagnosticsParams>(
+        const evidenceDeleted = step("external Evidence deletion publication uri=" + evidenceFirst.uri, client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
           (params) => (params.diagnostics ?? []).some((diagnostic) => diagnostic.message?.includes("Missing TypeScript evidence file")),
           PLUGIN_BUILD_TIMEOUT,
-        );
+        ));
         fs.unlinkSync(evidenceTarget);
         client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 3 }] });
         assert.ok((await evidenceDeleted).diagnostics?.length, "the same editor must observe external Evidence deletion");
-        const evidenceRestored = awaitEvidenceClear();
+        const evidenceRestored = awaitEvidenceClear("external Evidence restoration publication");
         fs.writeFileSync(evidenceTarget, "export const value = 1;\n");
         client.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(evidenceTarget).href, type: 1 }] });
         await evidenceRestored;
@@ -580,7 +587,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           "the edit must keep the finding",
         );
         const dirty = step(
-          "didChange publishDiagnostics",
+          "didChange publishDiagnostics uri=" + uri + " version=2",
           client.waitForNotification<PublishDiagnosticsParams>(
             "textDocument/publishDiagnostics",
             (params) =>
@@ -606,7 +613,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         // 4. didSave. The editor writes the buffer, then notifies; the sidecar
         // re-reads disk and the findings come back.
         const saved = step(
-          "didSave publishDiagnostics",
+          "didSave publishDiagnostics uri=" + uri + " saved-version=2",
           client.waitForNotification<PublishDiagnosticsParams>(
             "textDocument/publishDiagnostics",
             (params) => params.uri === uri && findLint(params) !== undefined,
@@ -694,7 +701,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           "LSP executeCommand should return edits, not write the file",
         );
         } catch (error) {
-          populationFailures.push(new Error("native diagnostics and editor state population", { cause: error }));
+          populationFailures.push(new Error("native diagnostics and editor state population " + JSON.stringify({ editorUri: uri, latestPublication }), { cause: error }));
         }
         if (populationFailures.length) throw new AggregateError(populationFailures, "Shared LSP language and newline corpus failures");
       }, REQUEST_TIMEOUT);
