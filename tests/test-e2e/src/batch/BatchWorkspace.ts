@@ -923,9 +923,15 @@ export namespace BatchWorkspace {
         );
       };
       const first = request(source);
+      const physicalPlugins = fs.realpathSync.native(path.join(expected, "plugins"));
+      const physicalFirst = fs.realpathSync.native(first);
+      const pluginRelative = path.relative(physicalPlugins, physicalFirst);
       assert.ok(
-        first.startsWith(path.join(expected, "plugins") + path.sep),
-        first,
+        pluginRelative.length > 0 &&
+          !path.isAbsolute(pluginRelative) &&
+          pluginRelative !== ".." &&
+          !pluginRelative.startsWith(".." + path.sep),
+        JSON.stringify({ expected, first, physicalPlugins, physicalFirst, pluginRelative }),
       );
       assert.ok(fs.existsSync(first));
       assert.equal(
@@ -1023,6 +1029,7 @@ export namespace BatchWorkspace {
       );
       assert.equal(countBuilds(), 2);
       objectOutput(rebuilt, "first");
+      const rebuiltBytes = fs.readFileSync(rebuilt);
       const initialActions = buildActions();
       assert.equal(initialActions.length, 2);
       assert.notEqual(initialActions[0]!.cwd, initialActions[1]!.cwd);
@@ -1245,7 +1252,11 @@ export namespace BatchWorkspace {
         "restored dependency bytes must reuse the original publication",
       );
       assert.equal(countBuilds(), 6);
-      assert.deepEqual(fs.readFileSync(first), firstBytes);
+      assert.deepEqual(
+        fs.readFileSync(first),
+        rebuiltBytes,
+        "restored warm reuse must preserve the independently captured rebuilt publication; the deleted first publication is a different artifact lifetime",
+      );
       sourcePublication = { binary: first, root };
       const runtimeRace = path.join(
         root,
