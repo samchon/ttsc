@@ -9,15 +9,27 @@ let prepared: ReturnType<typeof prepare> | undefined;
 let unavailable: Error | undefined;
 
 /** Share the real installed binary's cold first dump and permission receipt. */
-export function installedTargetBoundary(coordinates?: {root:string;empty:string;elsewhere:string;retain(reason:string):void}): ReturnType<typeof prepare> {
+export function installedTargetBoundary(coordinates?: {
+  root: string;
+  empty: string;
+  elsewhere: string;
+  retain(reason: string): void;
+}): ReturnType<typeof prepare> {
   if (unavailable !== undefined) throw unavailable;
   return (prepared ??= prepare(coordinates));
 }
 
-function prepare(coordinates?: {root:string;empty:string;elsewhere:string;retain(reason:string):void}) {
-  const root = coordinates?.root ?? TestProject.createProject(
-    FixtureFiles.read("graph/installedTargetBoundary/inputs-1"),
-  );
+function prepare(coordinates?: {
+  root: string;
+  empty: string;
+  elsewhere: string;
+  retain(reason: string): void;
+}) {
+  const root =
+    coordinates?.root ??
+    TestProject.createProject(
+      FixtureFiles.read("graph/installedTargetBoundary/inputs-1"),
+    );
   // Keep the resident lifetime's original authored declaration in this same
   // installed project; it does not conflict with the target-resolution witness.
   fs.writeFileSync(
@@ -26,10 +38,14 @@ function prepare(coordinates?: {root:string;empty:string;elsewhere:string;retain
       "graph/ttscgraph_resident_adapter_owns_real_native_lifetime/inputs-1",
     )["src/app.ts"]!,
   );
-  const empty = coordinates?.empty ?? TestProject.createProject(
-    FixtureFiles.read("graph/installedTargetBoundary/inputs-2"),
-  );
-  const elsewhere = coordinates?.elsewhere ?? TestProject.tmpdir("ttscgraph-uninstalled-launcher-");
+  const empty =
+    coordinates?.empty ??
+    TestProject.createProject(
+      FixtureFiles.read("graph/installedTargetBoundary/inputs-2"),
+    );
+  const elsewhere =
+    coordinates?.elsewhere ??
+    TestProject.tmpdir("ttscgraph-uninstalled-launcher-");
   const platform = `${process.platform}-${process.arch}`;
   const platformDir = path.join(root, "node_modules", "@ttsc", platform);
   const binary = path.join(
@@ -55,9 +71,10 @@ function prepare(coordinates?: {root:string;empty:string;elsewhere:string;retain
     cwd: elsewhere,
     graphBinary: "",
     retainUnjoined: (reason) => {
-      if(coordinates === undefined) TestProject.retainTemporaryDirectory(root,reason);
+      if (coordinates === undefined)
+        TestProject.retainTemporaryDirectory(root, reason);
       else coordinates.retain(reason);
-      TestProject.retainTemporaryDirectory(empty,reason);
+      TestProject.retainTemporaryDirectory(empty, reason);
     },
   });
   const afterMode = fs.statSync(binary).mode;
@@ -70,8 +87,12 @@ function prepare(coordinates?: {root:string;empty:string;elsewhere:string;retain
   };
   const retainUnjoined = (reason: string): void => {
     preventReuse(reason);
-    if(coordinates === undefined) TestProject.retainTemporaryDirectory(root, reason);
-    else {coordinates.retain(reason); TestProject.retainTemporaryDirectory(empty,reason);}
+    if (coordinates === undefined)
+      TestProject.retainTemporaryDirectory(root, reason);
+    else {
+      coordinates.retain(reason);
+      TestProject.retainTemporaryDirectory(empty, reason);
+    }
   };
   return {
     root,
@@ -89,9 +110,13 @@ function prepare(coordinates?: {root:string;empty:string;elsewhere:string;retain
 /** Drive an installed facade with explicit cwd and override ownership. */
 export function launch(
   args: string[],
-  options: { cwd: string; graphBinary: string; retainUnjoined?(reason:string):void },
+  options: {
+    cwd: string;
+    graphBinary: string;
+    retainUnjoined?(reason: string): void;
+  },
 ) {
-  if(unavailable !== undefined) throw unavailable;
+  if (unavailable !== undefined) throw unavailable;
   const result = TestProject.spawn(
     process.execPath,
     [resolveGraphLauncher(), ...args],
@@ -101,9 +126,13 @@ export function launch(
       timeout: 60_000,
     },
   );
-  if(result.error || result.signal !== null || result.status === null) {
-    (options.retainUnjoined ?? prepared?.retainUnjoined)?.("target graph facade closure remained unresolved");
-    throw new Error("target graph facade closure remained unresolved",{cause:result.error});
+  if (result.error || result.signal !== null || result.status === null) {
+    (options.retainUnjoined ?? prepared?.retainUnjoined)?.(
+      "target graph facade closure remained unresolved",
+    );
+    throw new Error("target graph facade closure remained unresolved", {
+      cause: result.error,
+    });
   }
   return result;
 }

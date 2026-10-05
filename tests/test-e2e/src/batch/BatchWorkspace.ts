@@ -324,7 +324,12 @@ export namespace BatchWorkspace {
       maxRetries: 3,
       retryDelay: 100,
     });
-    fs.rmSync(graphNegativeRoot,{recursive:true,force:true,maxRetries:3,retryDelay:100});
+    fs.rmSync(graphNegativeRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
   }
 
   async function prepare(): Promise<Workspace> {
@@ -339,10 +344,31 @@ export namespace BatchWorkspace {
       path.resolve(import.meta.dirname, "../../fixtures/shared"),
     );
     await FileSystemIterator.write(root, inputs);
-    const graphNegativeRoot = TestProject.tmpdir("ttsc-shared-graph-uninstalled-");
-    TestProject.retainTemporaryDirectory(graphNegativeRoot,"Graph negative resolution readers have not completed");
-    await FileSystemIterator.write(path.join(root,"tools/graph-native"),await FileSystemIterator.read(path.resolve(import.meta.dirname,"../../fixtures/graph/installedTargetBoundary/inputs-1")));
-    await FileSystemIterator.write(graphNegativeRoot,await FileSystemIterator.read(path.resolve(import.meta.dirname,"../../fixtures/graph/installedTargetBoundary/inputs-2")));
+    const graphNegativeRoot = TestProject.tmpdir(
+      "ttsc-shared-graph-uninstalled-",
+    );
+    TestProject.retainTemporaryDirectory(
+      graphNegativeRoot,
+      "Graph negative resolution readers have not completed",
+    );
+    await FileSystemIterator.write(
+      path.join(root, "tools/graph-native"),
+      await FileSystemIterator.read(
+        path.resolve(
+          import.meta.dirname,
+          "../../fixtures/graph/installedTargetBoundary/inputs-1",
+        ),
+      ),
+    );
+    await FileSystemIterator.write(
+      graphNegativeRoot,
+      await FileSystemIterator.read(
+        path.resolve(
+          import.meta.dirname,
+          "../../fixtures/graph/installedTargetBoundary/inputs-2",
+        ),
+      ),
+    );
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
       await FileSystemIterator.read(
