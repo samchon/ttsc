@@ -5,8 +5,8 @@ import path from "node:path";
 
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
-import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
+import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
 import {
@@ -331,538 +331,579 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   }
   const combinedFailures: unknown[] = [];
   if (!workspace.installationOnly) {
-    try { await BatchWorkspace.open(); runtimeFrontdoorsCorpus(workspace); }
-    catch (error) { combinedFailures.push(error); }
+    try {
+      await BatchWorkspace.open();
+      runtimeFrontdoorsCorpus(workspace);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
   }
   try {
-  assert.ok(result);
-  if (readonlyInputs)
-    assert.deepEqual(
-      await FileSystemIterator.read(readonlyRoot),
-      readonlyInputs,
-      "readonly transitions must preserve every authored byte and create no adjacent output",
-    );
-  assert.deepEqual(
-    fs
-      .readdirSync(workspace.root)
-      .filter(
-        (name) =>
-          name !== "node_modules" &&
-          name !== "program-runs.bin" &&
-          name !== "native-context.jsonl" &&
-          name !== "native-config-paths.jsonl" &&
-          name !== "native-program-paths.jsonl" &&
-          name !== "native-case-policy.jsonl",
-      )
-      .sort(),
-    baseline,
-  );
-  assert.equal(result.error, undefined);
-  assert.equal(result.signal, null);
-  assert.equal(result.status, 0, result.stderr);
-  if (!workspace.installationOnly) {
-    assert.equal(
-      result.stdout
-        .split(/\r?\n/)
-        .filter((line) => line === "relative-runner-cache").length,
-      1,
-    );
-    assert.equal(fs.existsSync(path.join(wrongCallerCache, "project")), false);
-    assert.equal(fs.existsSync(path.join(wrongCallerCache, "plugins")), false);
-    assert.equal(fs.existsSync(path.join(workspace.cache, "plugins")), true);
-    assert.equal(fs.existsSync(path.join(workspace.cache, "project")), true);
-    assert.deepEqual(fs.readdirSync(path.join(workspace.cache, "project")), []);
-    fs.rmdirSync(callerDirectory);
-    fs.rmdirSync(callerParent);
-  }
-  assert.doesNotMatch(
-    result.stderr,
-    /TTSC_TEST_RUNTIME_BARREL_LOADED|TTSC_TEST_PATTERN_RUNTIME_LOADED/,
-    "both bare and wildcard ttsc export conditions must avoid the throwing runtime entries",
-  );
-  assert.doesNotMatch(
-    result.stderr,
-    /must-be-stripped/,
-    "strip must compose with both native standard-decorator modules",
-  );
-  const payload = BatchWorkspace.readPayload(result.stdout);
-  // The full suite retains the packed installation oracle in this same run.
-  assert.equal((payload as { answer: unknown }).answer, 42);
-  BatchWorkspace.assertValues(
-    (payload as { values: unknown }).values,
-    workspace.expected,
-  );
-  if (!workspace.installationOnly) {
-    BatchWorkspace.assertResult(payload, workspace.expected, true);
-    const entryPolicy = (
-      payload as {
-        entryPolicy: { main: unknown; helperMain: unknown; url: unknown };
-      }
-    ).entryPolicy;
-    assert.equal(
-      entryPolicy.main,
-      "main" in import.meta ? true : null,
-      "the actual native ESM entry must retain the host's independently supported main identity",
-    );
-    assert.equal(
-      entryPolicy.helperMain,
-      "main" in import.meta ? false : null,
-      "an imported helper in that same host must remain distinct from its entry",
-    );
-    assert.equal(typeof entryPolicy.url, "string");
-    assert.equal(
-      fs.realpathSync.native(new URL(entryPolicy.url as string)),
-      fs.realpathSync.native(path.join(workspace.root, "src/runtime.mts")),
-      "the entry URL must identify its authored physical source",
-    );
-    assert.deepEqual(
-      await FileSystemIterator.read(installedPackage),
-      installedInputs,
-      "installed typed package inputs and stale JavaScript must remain unchanged",
-    );
-    for (const input of excludedInputs)
+    assert.ok(result);
+    if (readonlyInputs)
       assert.deepEqual(
-        fs.readFileSync(input.file),
-        input.bytes,
-        "excluded alias delivery must preserve both authored sources",
+        await FileSystemIterator.read(readonlyRoot),
+        readonlyInputs,
+        "readonly transitions must preserve every authored byte and create no adjacent output",
       );
     assert.deepEqual(
-      {
-        names: fs.readdirSync(installedPackage).sort(),
-        mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs,
-      },
-      installedDirectory,
+      fs
+        .readdirSync(workspace.root)
+        .filter(
+          (name) =>
+            name !== "node_modules" &&
+            name !== "program-runs.bin" &&
+            name !== "native-context.jsonl" &&
+            name !== "native-config-paths.jsonl" &&
+            name !== "native-program-paths.jsonl" &&
+            name !== "native-case-policy.jsonl",
+        )
+        .sort(),
+      baseline,
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 0, result.stderr);
+    if (!workspace.installationOnly) {
+      assert.equal(
+        result.stdout
+          .split(/\r?\n/)
+          .filter((line) => line === "relative-runner-cache").length,
+        1,
+      );
+      assert.equal(
+        fs.existsSync(path.join(wrongCallerCache, "project")),
+        false,
+      );
+      assert.equal(
+        fs.existsSync(path.join(wrongCallerCache, "plugins")),
+        false,
+      );
+      assert.equal(fs.existsSync(path.join(workspace.cache, "plugins")), true);
+      assert.equal(fs.existsSync(path.join(workspace.cache, "project")), true);
+      assert.deepEqual(
+        fs.readdirSync(path.join(workspace.cache, "project")),
+        [],
+      );
+      fs.rmdirSync(callerDirectory);
+      fs.rmdirSync(callerParent);
+    }
+    assert.doesNotMatch(
+      result.stderr,
+      /TTSC_TEST_RUNTIME_BARREL_LOADED|TTSC_TEST_PATTERN_RUNTIME_LOADED/,
+      "both bare and wildcard ttsc export conditions must avoid the throwing runtime entries",
+    );
+    assert.doesNotMatch(
+      result.stderr,
+      /must-be-stripped/,
+      "strip must compose with both native standard-decorator modules",
+    );
+    const payload = BatchWorkspace.readPayload(result.stdout);
+    // The full suite retains the packed installation oracle in this same run.
+    assert.equal((payload as { answer: unknown }).answer, 42);
+    BatchWorkspace.assertValues(
+      (payload as { values: unknown }).values,
+      workspace.expected,
+    );
+    if (!workspace.installationOnly) {
+      BatchWorkspace.assertResult(payload, workspace.expected, true);
+      const entryPolicy = (
+        payload as {
+          entryPolicy: { main: unknown; helperMain: unknown; url: unknown };
+        }
+      ).entryPolicy;
+      assert.equal(
+        entryPolicy.main,
+        "main" in import.meta ? true : null,
+        "the actual native ESM entry must retain the host's independently supported main identity",
+      );
+      assert.equal(
+        entryPolicy.helperMain,
+        "main" in import.meta ? false : null,
+        "an imported helper in that same host must remain distinct from its entry",
+      );
+      assert.equal(typeof entryPolicy.url, "string");
+      assert.equal(
+        fs.realpathSync.native(new URL(entryPolicy.url as string)),
+        fs.realpathSync.native(path.join(workspace.root, "src/runtime.mts")),
+        "the entry URL must identify its authored physical source",
+      );
+      assert.deepEqual(
+        await FileSystemIterator.read(installedPackage),
+        installedInputs,
+        "installed typed package inputs and stale JavaScript must remain unchanged",
+      );
+      for (const input of excludedInputs)
+        assert.deepEqual(
+          fs.readFileSync(input.file),
+          input.bytes,
+          "excluded alias delivery must preserve both authored sources",
+        );
+      assert.deepEqual(
+        {
+          names: fs.readdirSync(installedPackage).sort(),
+          mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs,
+        },
+        installedDirectory,
+      );
+      assert.equal(
+        result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts")
+          .length,
+        2,
+      );
+      assert.equal(
+        result.stdout.split(/\r?\n/).filter((line) => line === "tool").length,
+        1,
+      );
+      assert.equal(
+        result.stdout.split(/\r?\n/).filter((line) => line === "lowered")
+          .length,
+        1,
+      );
+      assert.equal(
+        result.stdout.split(/\r?\n/).filter((line) => line === "entry ran")
+          .length,
+        1,
+      );
+      assert.equal(
+        fs.existsSync(
+          path.join(workspace.root, "src/runtime-corpus/declared-entry.js"),
+        ),
+        false,
+      );
+      for (const location of [
+        "types",
+        "build",
+        "lib",
+        "typesx",
+        "state",
+        "distx",
+      ])
+        assert.equal(
+          fs.existsSync(path.join(workspace.root, location)),
+          false,
+          "native runtime output resets must protect both authored and explicitly overridden destinations",
+        );
+      assert.doesNotMatch(result.stdout, /STALE tool\.js/);
+      assert.doesNotMatch(
+        result.stdout,
+        /dependency-secret-should-be-stripped/,
+      );
+      assert.equal(
+        result.stdout
+          .split(/\r?\n/)
+          .filter((line) => line === "entry:dependency-value").length,
+        1,
+      );
+      const declarationObservation = JSON.parse(
+        fs.readFileSync(
+          path.join(workspace.root, "tools/runtime-declared-observed.json"),
+          "utf8",
+        ),
+      ) as {
+        produced: string[];
+        nativeEmitBefore: number;
+        nativeEmitAfter: number;
+        driverEmitStatus: number;
+        driverEmitStderr: string;
+        rejectedOutputAbsent: boolean;
+        emitManifestAbsent: boolean;
+        registerStatus: number;
+        registerPid: number;
+        descendantPid: number;
+        descendantResult: string;
+        descendantClosed: boolean;
+        registerBefore: number;
+        registerAfter: number;
+      };
+      assert.equal(typeof declarationObservation.driverEmitStatus, "number");
+      assert.notEqual(
+        declarationObservation.driverEmitStatus,
+        0,
+        declarationObservation.driverEmitStderr,
+      );
+      assert.match(declarationObservation.driverEmitStderr, /TS4094/);
+      assert.equal(declarationObservation.rejectedOutputAbsent, true);
+      assert.equal(declarationObservation.emitManifestAbsent, true);
+      assert.equal(declarationObservation.registerStatus, 0);
+      assert.ok(declarationObservation.registerPid > 0);
+      assert.ok(
+        Number.isSafeInteger(declarationObservation.descendantPid) &&
+          declarationObservation.descendantPid > 0,
+      );
+      assert.equal(declarationObservation.descendantResult, "descendant-ready");
+      assert.equal(declarationObservation.descendantClosed, true);
+      assert.ok(
+        declarationObservation.produced.includes(
+          "types/runtime-corpus/native-factory.d.ts",
+        ),
+      );
+      assert.ok(
+        declarationObservation.produced.includes(
+          "types/runtime-corpus/native-factory.d.ts.map",
+        ),
+      );
+      assert.ok(
+        declarationObservation.produced.includes("state/app.tsbuildinfo"),
+      );
+      const allNativeReceipts = BatchWorkspace.readContextReceipts(workspace);
+      assert.ok(
+        Number.isInteger(declarationObservation.nativeEmitBefore) &&
+          declarationObservation.nativeEmitBefore > receiptOffset,
+      );
+      assert.ok(
+        Number.isInteger(declarationObservation.nativeEmitAfter) &&
+          declarationObservation.nativeEmitAfter >
+            declarationObservation.nativeEmitBefore,
+      );
+      assert.equal(
+        declarationObservation.registerBefore,
+        declarationObservation.nativeEmitAfter,
+      );
+      assert.ok(
+        Number.isInteger(declarationObservation.registerAfter) &&
+          declarationObservation.registerAfter >
+            declarationObservation.registerBefore,
+      );
+      assert.equal(
+        allNativeReceipts.length,
+        declarationObservation.registerAfter,
+        "every later native context must remain accounted for after the register actor closes",
+      );
+      const nativeReceipts = allNativeReceipts.slice(
+        receiptOffset,
+        declarationObservation.nativeEmitBefore,
+      );
+      BatchWorkspace.assertContextReceipts(
+        allNativeReceipts.slice(
+          declarationObservation.nativeEmitBefore,
+          declarationObservation.nativeEmitAfter,
+        ),
+      );
+      BatchWorkspace.assertContextReceipts(
+        allNativeReceipts.slice(
+          declarationObservation.registerBefore,
+          declarationObservation.registerAfter,
+        ),
+      );
+      BatchWorkspace.assertContextReceipts(nativeReceipts);
+      assert.deepEqual(
+        nativeReceipts.filter(
+          (receipt) => receipt.name === "native-auto-discovery",
+        ),
+        [
+          {
+            name: "native-auto-discovery",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
+        ],
+        "the direct-dependency marker must admit its native entry without an explicit configured transform",
+      );
+      const descriptorFilename = fs.realpathSync.native(
+        path.join(workspace.root, "descriptors/context.cjs"),
+      );
+      assert.deepEqual(
+        JSON.parse(fs.readFileSync(workspace.factoryContextProbe, "utf8")),
+        {
+          filename: descriptorFilename,
+          dirname: path.dirname(descriptorFilename),
+          ambientFilename: descriptorFilename,
+          ambientDirname: path.dirname(descriptorFilename),
+        },
+      );
+      const esmDescriptorFilename = fs.realpathSync.native(
+        path.join(workspace.root, "descriptors/esm/src/index.ts"),
+      );
+      assert.deepEqual(
+        JSON.parse(fs.readFileSync(workspace.factoryEsmContextProbe, "utf8")),
+        {
+          filename: esmDescriptorFilename,
+          dirname: path.dirname(esmDescriptorFilename),
+          ambientFilename: "undefined",
+          ambientDirname: "undefined",
+        },
+      );
+      assertRuntimeCliCorpus(
+        (payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime,
+      );
+      const cleanObservation = JSON.parse(
+        fs.readFileSync(
+          path.join(workspace.root, "tools/runtime-clean-flow/observed.json"),
+          "utf8",
+        ),
+      );
+      assert.deepEqual(
+        { ...cleanObservation, seed: undefined },
+        {
+          defaultStatus: 0,
+          explicitStatus: 0,
+          deadHolderRecovered: true,
+          legacyKept: true,
+          malformedKept: true,
+          explicitRemoved: true,
+          seed: undefined,
+        },
+      );
+      assert.equal(cleanObservation.seed.status, 1);
+      assert.equal(cleanObservation.seed.missingOwned, true);
+      assert.equal(cleanObservation.seed.signal, null);
+      assert.ok(cleanObservation.seed.pid > 0);
+      assert.match(
+        result.stdout,
+        /ttsc: kept [^\r\n]*legacy: a run that may still be in progress owns it/,
+      );
+      assert.match(
+        result.stdout,
+        /ttsc: kept [^\r\n]*unknown: a run that may still be in progress owns it/,
+      );
+      assert.doesNotMatch(result.stdout, /no cache directories found/);
+      assert.deepEqual(
+        JSON.parse(
+          fs.readFileSync(
+            path.join(
+              workspace.root,
+              "tools/source-publication/runtime-borrower.json",
+            ),
+            "utf8",
+          ),
+        ),
+        { first: "two", second: "one", nativeMutation: true },
+        "the actual published default-cache executable is consumed within this runtime and cannot poison the restored source key",
+      );
+      assert.deepEqual(
+        JSON.parse(
+          fs.readFileSync(
+            path.join(
+              workspace.root,
+              "tools/source-publication/runtime-identity.json",
+            ),
+            "utf8",
+          ),
+        ),
+        {
+          first: "lowered",
+          warm: "lowered",
+          warmMarker: true,
+          rewritten: "lowered",
+          rewrittenMarker: false,
+        },
+      );
+      assertRuntimeNodeCorpus(
+        (payload as { nodeCompatible: unknown }).nodeCompatible,
+      );
+      assertRuntimeNormalPopulation(
+        (payload as { normalPopulation: unknown }).normalPopulation,
+      );
+      assert.deepEqual(
+        await FileSystemIterator.read(normalRoot),
+        normalInputs,
+        "all seven normal value/edge contributions must keep their source tree unchanged and contain no adjacent emitted files",
+      );
+      assert.deepEqual(
+        await FileSystemIterator.read(standardRoot),
+        standardInputs,
+        "both requested decorated index sources and their same-basename helper must remain unchanged without adjacent emits",
+      );
+      assert.deepEqual(
+        fs.readFileSync(path.join(workspace.root, "runtime-owned.json")),
+        runtimeOwnerConfig,
+      );
+      assert.deepEqual(
+        (payload as { exportPopulation: unknown }).exportPopulation,
+        {
+          inert: {
+            actual: [17, 17],
+            before: [42, 42],
+            after: 43,
+            inlineText: '\n__exportStar(require("./ghost"), exports);\n',
+            memberText:
+              '\ntslib_1.__exportStar(require("./ghost"), exports);\n',
+            hidden: {
+              namespaceOwn: true,
+              namespaceValueType: "undefined",
+              defaultOwn: false,
+              defaultValueType: "undefined",
+            },
+            ghost: {
+              namespaceOwn: false,
+              namespaceValueType: "undefined",
+              defaultOwn: false,
+              defaultValueType: "undefined",
+            },
+            arithmetic: true,
+            decorators: "Hello Class Foo\nHello Function getBar\nabc",
+          },
+          dynamic: {
+            actual: [17, 17],
+            computed: 42,
+            decorators: "Hello Class Foo\nHello Function getBar\nabc",
+          },
+          collision: "project:package",
+          lowering: "42:OK:7",
+          enums: {
+            value: [42, 42],
+            identity: true,
+            typeAbsent: true,
+            actual: [17, 17],
+            before: [42, 42, 42],
+            after: 43,
+            repeated: true,
+            loads: 1,
+            decorators: "Hello Class Foo\nHello Function getBar\nabc",
+          },
+        },
+      );
+      assert.deepEqual(
+        (payload as { configuredOwners: unknown }).configuredOwners,
+        {
+          esnext: [
+            "hello-workspace",
+            "configured-esnext",
+            "derived-from-target",
+          ],
+          legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
+          strippedDependency: "dependency-value",
+          wholeProject: { wrapped: 7, unimportedEmitted: true },
+          declaredOutputs: ["inside", "extra"],
+          classification: "cjs-dependency|esm-by-project",
+          moduleValues: {
+            enumRuntime: "Low-2",
+            namespaceRuntime: "repeated-3",
+          },
+          jsx: {
+            dependency: "<div>hello</div><b>world</b>",
+            orphan: "<i>orphan</i>",
+          },
+        },
+      );
+      assert.deepEqual(
+        await FileSystemIterator.read(configuredRoot),
+        configuredInputs,
+        "both existing native owner paths must keep all source bytes and declared output trees untouched",
+      );
+      if (jsxInputs) {
+        assert.deepEqual(
+          await FileSystemIterator.read(jsxRuntimeRoot),
+          jsxInputs.runtime,
+          "the real custom JSX runtime must remain unchanged",
+        );
+        assert.deepEqual(
+          await FileSystemIterator.read(jsxOrphanRoot),
+          jsxInputs.orphan,
+          "the configless pragma source must remain unchanged without adjacent emission",
+        );
+      }
+      const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
+      assert.ok(Array.isArray(nativeFrames));
+      assert.equal(nativeFrames.length, 2);
+      // The one actual Runtime receives inlineSourceMap after explicitly clearing
+      // the shared external-map setting. These are Node-consumed native frames,
+      // rather than JSON map metadata or a synthetic source API map.
+      const nativeMapLines = result.stdout
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("TTSC_RUNTIME_MAPS:"));
+      assert.equal(
+        nativeMapLines.length,
+        1,
+        "the existing Runtime child must publish its own Node map diagnostics exactly once",
+      );
+      const nativeFrameDiagnostic = JSON.stringify({
+        frames: nativeFrames,
+        maps: JSON.parse(nativeMapLines[0]!.slice("TTSC_RUNTIME_MAPS:".length)),
+      });
+      assert.match(nativeFrames[0], /inside\.cts:5:\d+/, nativeFrameDiagnostic);
+      assert.match(
+        nativeFrames[1],
+        /outside\.cts:5:\d+/,
+        nativeFrameDiagnostic,
+      );
+      assert.deepEqual(
+        (payload as { requireBindings: unknown }).requireBindings,
+        [
+          "@lib/message",
+          "local:@lib/message",
+          "imported:@lib/message",
+          "ok",
+          "ok",
+        ],
+      );
+      const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
+      assert.deepEqual(mixed, {
+        nativeFactory: { generated: 42, neighbor: 43, payload: 42 },
+        contraryCommonjs: "cts-runner-ok",
+        mtsImport: "mts-runner-ok",
+        dual: "42:7:esm-ok",
+        sameNamedOwnership: "a,b,a,b,tools",
+        rawPackageOwnership: "tools",
+        rawLowering: "42:OK:7",
+        standardEsm: "Hello Class Foo\nHello Function getBar\nabc",
+        standardCommonjs: "Hello Class Foo\nHello Function getBar\nabc",
+        memberEsm:
+          "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
+        memberCommonjs:
+          "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
+        adapterFactories: ["function", "function", "function", "function"],
+        answers: [42, 42],
+        requestedSource: [1, 1],
+        proposalValue: 42,
+        startupMarkers: [
+          "ran",
+          "entry-ran",
+          "ENTRY",
+          "explicit-runner-project",
+        ],
+        mainMessage: "main:value",
+        optionalChainPreserved: true,
+      });
+      const locations = (
+        payload as {
+          sourceLocations: {
+            marker: string;
+            template: string;
+            directory: string;
+            classRoot: string;
+          };
+        }
+      ).sourceLocations;
+      assert.equal(locations.marker, "source-relative-dirname");
+      assert.equal(locations.template, "dirname-preserved");
+      assert.equal(
+        fs.realpathSync.native(locations.directory),
+        fs.realpathSync.native(path.join(workspace.root, "src")),
+      );
+      assert.equal(
+        fs.realpathSync.native(locations.classRoot),
+        fs.realpathSync.native(workspace.root),
+      );
+      const helpers = (payload as { publicHelpers: unknown }).publicHelpers;
+      assert.deepEqual(helpers, {
+        memoryFile: "export const value = 1;\n",
+        decoded: { value: 1 },
+        scoped: "@scope/package",
+        builtin: null,
+      });
+    }
+    assert.deepEqual(
+      fs.readFileSync(path.join(workspace.root, "tsconfig.json")),
+      config,
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(workspace.root, "src/runtime.mts")),
+      source,
     );
     assert.equal(
-      result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts")
-        .length,
-      2,
-    );
-    assert.equal(
-      result.stdout.split(/\r?\n/).filter((line) => line === "tool").length,
-      1,
-    );
-    assert.equal(
-      result.stdout.split(/\r?\n/).filter((line) => line === "lowered").length,
-      1,
-    );
-    assert.equal(
-      result.stdout.split(/\r?\n/).filter((line) => line === "entry ran")
-        .length,
-      1,
-    );
-    assert.equal(
-      fs.existsSync(
-        path.join(workspace.root, "src/runtime-corpus/declared-entry.js"),
-      ),
+      fs.existsSync(path.join(workspace.root, "src/runtime.mjs")),
       false,
     );
-    for (const location of [
-      "types",
-      "build",
-      "lib",
-      "typesx",
-      "state",
-      "distx",
-    ])
-      assert.equal(
-        fs.existsSync(path.join(workspace.root, location)),
-        false,
-        "native runtime output resets must protect both authored and explicitly overridden destinations",
-      );
-    assert.doesNotMatch(result.stdout, /STALE tool\.js/);
-    assert.doesNotMatch(result.stdout, /dependency-secret-should-be-stripped/);
-    assert.equal(
-      result.stdout
-        .split(/\r?\n/)
-        .filter((line) => line === "entry:dependency-value").length,
-      1,
-    );
-    const declarationObservation = JSON.parse(
-      fs.readFileSync(
-        path.join(workspace.root, "tools/runtime-declared-observed.json"),
-        "utf8",
-      ),
-    ) as {
-      produced: string[];
-      nativeEmitBefore: number;
-      nativeEmitAfter: number;
-      driverEmitStatus: number;
-      driverEmitStderr: string;
-      rejectedOutputAbsent: boolean;
-      emitManifestAbsent: boolean;
-      registerStatus: number;
-      registerPid: number;
-      descendantPid: number;
-      descendantResult: string;
-      descendantClosed: boolean;
-      registerBefore: number;
-      registerAfter: number;
-    };
-    assert.equal(typeof declarationObservation.driverEmitStatus, "number");
-    assert.notEqual(
-      declarationObservation.driverEmitStatus,
-      0,
-      declarationObservation.driverEmitStderr,
-    );
-    assert.match(declarationObservation.driverEmitStderr, /TS4094/);
-    assert.equal(declarationObservation.rejectedOutputAbsent, true);
-    assert.equal(declarationObservation.emitManifestAbsent, true);
-    assert.equal(declarationObservation.registerStatus, 0);
-    assert.ok(declarationObservation.registerPid > 0);
-    assert.ok(
-      Number.isSafeInteger(declarationObservation.descendantPid) &&
-        declarationObservation.descendantPid > 0,
-    );
-    assert.equal(declarationObservation.descendantResult, "descendant-ready");
-    assert.equal(declarationObservation.descendantClosed, true);
-    assert.ok(
-      declarationObservation.produced.includes(
-        "types/runtime-corpus/native-factory.d.ts",
-      ),
-    );
-    assert.ok(
-      declarationObservation.produced.includes(
-        "types/runtime-corpus/native-factory.d.ts.map",
-      ),
-    );
-    assert.ok(
-      declarationObservation.produced.includes("state/app.tsbuildinfo"),
-    );
-    const allNativeReceipts = BatchWorkspace.readContextReceipts(workspace);
-    assert.ok(
-      Number.isInteger(declarationObservation.nativeEmitBefore) &&
-        declarationObservation.nativeEmitBefore > receiptOffset,
-    );
-    assert.ok(
-      Number.isInteger(declarationObservation.nativeEmitAfter) &&
-        declarationObservation.nativeEmitAfter >
-          declarationObservation.nativeEmitBefore,
-    );
-    assert.equal(
-      declarationObservation.registerBefore,
-      declarationObservation.nativeEmitAfter,
-    );
-    assert.ok(
-      Number.isInteger(declarationObservation.registerAfter) &&
-        declarationObservation.registerAfter >
-          declarationObservation.registerBefore,
-    );
-    assert.equal(
-      allNativeReceipts.length,
-      declarationObservation.registerAfter,
-      "every later native context must remain accounted for after the register actor closes",
-    );
-    const nativeReceipts = allNativeReceipts.slice(
-      receiptOffset,
-      declarationObservation.nativeEmitBefore,
-    );
-    BatchWorkspace.assertContextReceipts(
-      allNativeReceipts.slice(
-        declarationObservation.nativeEmitBefore,
-        declarationObservation.nativeEmitAfter,
-      ),
-    );
-    BatchWorkspace.assertContextReceipts(
-      allNativeReceipts.slice(
-        declarationObservation.registerBefore,
-        declarationObservation.registerAfter,
-      ),
-    );
-    BatchWorkspace.assertContextReceipts(nativeReceipts);
-    assert.deepEqual(
-      nativeReceipts.filter(
-        (receipt) => receipt.name === "native-auto-discovery",
-      ),
-      [
-        {
-          name: "native-auto-discovery",
-          operation: "identity",
-          prefix: null,
-          suffix: null,
-        },
-      ],
-      "the direct-dependency marker must admit its native entry without an explicit configured transform",
-    );
-    const descriptorFilename = fs.realpathSync.native(
-      path.join(workspace.root, "descriptors/context.cjs"),
-    );
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(workspace.factoryContextProbe, "utf8")),
-      {
-        filename: descriptorFilename,
-        dirname: path.dirname(descriptorFilename),
-        ambientFilename: descriptorFilename,
-        ambientDirname: path.dirname(descriptorFilename),
-      },
-    );
-    const esmDescriptorFilename = fs.realpathSync.native(
-      path.join(workspace.root, "descriptors/esm/src/index.ts"),
-    );
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(workspace.factoryEsmContextProbe, "utf8")),
-      {
-        filename: esmDescriptorFilename,
-        dirname: path.dirname(esmDescriptorFilename),
-        ambientFilename: "undefined",
-        ambientDirname: "undefined",
-      },
-    );
-    assertRuntimeCliCorpus(
-      (payload as { cliPolicyRuntime: unknown }).cliPolicyRuntime,
-    );
-    const cleanObservation = JSON.parse(
-      fs.readFileSync(
-        path.join(workspace.root, "tools/runtime-clean-flow/observed.json"),
-        "utf8",
-      ),
-    );
-    assert.deepEqual(
-      { ...cleanObservation, seed: undefined },
-      {
-        defaultStatus: 0,
-        explicitStatus: 0,
-        deadHolderRecovered: true,
-        legacyKept: true,
-        malformedKept: true,
-        explicitRemoved: true,
-        seed: undefined,
-      },
-    );
-    assert.equal(cleanObservation.seed.status, 1);
-    assert.equal(cleanObservation.seed.missingOwned, true);
-    assert.equal(cleanObservation.seed.signal, null);
-    assert.ok(cleanObservation.seed.pid > 0);
-    assert.match(
-      result.stdout,
-      /ttsc: kept [^\r\n]*legacy: a run that may still be in progress owns it/,
-    );
-    assert.match(
-      result.stdout,
-      /ttsc: kept [^\r\n]*unknown: a run that may still be in progress owns it/,
-    );
-    assert.doesNotMatch(result.stdout, /no cache directories found/);
-    assert.deepEqual(
-      JSON.parse(
-        fs.readFileSync(
-          path.join(
-            workspace.root,
-            "tools/source-publication/runtime-borrower.json",
-          ),
-          "utf8",
-        ),
-      ),
-      { first: "two", second: "one", nativeMutation: true },
-      "the actual published default-cache executable is consumed within this runtime and cannot poison the restored source key",
-    );
-    assert.deepEqual(
-      JSON.parse(
-        fs.readFileSync(
-          path.join(
-            workspace.root,
-            "tools/source-publication/runtime-identity.json",
-          ),
-          "utf8",
-        ),
-      ),
-      {
-        first: "lowered",
-        warm: "lowered",
-        warmMarker: true,
-        rewritten: "lowered",
-        rewrittenMarker: false,
-      },
-    );
-    assertRuntimeNodeCorpus(
-      (payload as { nodeCompatible: unknown }).nodeCompatible,
-    );
-    assertRuntimeNormalPopulation(
-      (payload as { normalPopulation: unknown }).normalPopulation,
-    );
-    assert.deepEqual(
-      await FileSystemIterator.read(normalRoot),
-      normalInputs,
-      "all seven normal value/edge contributions must keep their source tree unchanged and contain no adjacent emitted files",
-    );
-    assert.deepEqual(
-      await FileSystemIterator.read(standardRoot),
-      standardInputs,
-      "both requested decorated index sources and their same-basename helper must remain unchanged without adjacent emits",
-    );
-    assert.deepEqual(
-      fs.readFileSync(path.join(workspace.root, "runtime-owned.json")),
-      runtimeOwnerConfig,
-    );
-    assert.deepEqual(
-      (payload as { exportPopulation: unknown }).exportPopulation,
-      {
-        inert: {
-          actual: [17, 17],
-          before: [42, 42],
-          after: 43,
-          inlineText: '\n__exportStar(require("./ghost"), exports);\n',
-          memberText: '\ntslib_1.__exportStar(require("./ghost"), exports);\n',
-          hidden: {
-            namespaceOwn: true,
-            namespaceValueType: "undefined",
-            defaultOwn: false,
-            defaultValueType: "undefined",
-          },
-          ghost: {
-            namespaceOwn: false,
-            namespaceValueType: "undefined",
-            defaultOwn: false,
-            defaultValueType: "undefined",
-          },
-          arithmetic: true,
-          decorators: "Hello Class Foo\nHello Function getBar\nabc",
-        },
-        dynamic: {
-          actual: [17, 17],
-          computed: 42,
-          decorators: "Hello Class Foo\nHello Function getBar\nabc",
-        },
-        collision: "project:package",
-        lowering: "42:OK:7",
-        enums: {
-          value: [42, 42],
-          identity: true,
-          typeAbsent: true,
-          actual: [17, 17],
-          before: [42, 42, 42],
-          after: 43,
-          repeated: true,
-          loads: 1,
-          decorators: "Hello Class Foo\nHello Function getBar\nabc",
-        },
-      },
-    );
-    assert.deepEqual(
-      (payload as { configuredOwners: unknown }).configuredOwners,
-      {
-        esnext: ["hello-workspace", "configured-esnext", "derived-from-target"],
-        legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
-        strippedDependency: "dependency-value",
-        wholeProject: { wrapped: 7, unimportedEmitted: true },
-        declaredOutputs: ["inside", "extra"],
-        classification: "cjs-dependency|esm-by-project",
-        moduleValues: { enumRuntime: "Low-2", namespaceRuntime: "repeated-3" },
-        jsx: {
-          dependency: "<div>hello</div><b>world</b>",
-          orphan: "<i>orphan</i>",
-        },
-      },
-    );
-    assert.deepEqual(
-      await FileSystemIterator.read(configuredRoot),
-      configuredInputs,
-      "both existing native owner paths must keep all source bytes and declared output trees untouched",
-    );
-    if (jsxInputs) {
-      assert.deepEqual(
-        await FileSystemIterator.read(jsxRuntimeRoot),
-        jsxInputs.runtime,
-        "the real custom JSX runtime must remain unchanged",
-      );
-      assert.deepEqual(
-        await FileSystemIterator.read(jsxOrphanRoot),
-        jsxInputs.orphan,
-        "the configless pragma source must remain unchanged without adjacent emission",
-      );
-    }
-    const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
-    assert.ok(Array.isArray(nativeFrames));
-    assert.equal(nativeFrames.length, 2);
-    // The one actual Runtime receives inlineSourceMap after explicitly clearing
-    // the shared external-map setting. These are Node-consumed native frames,
-    // rather than JSON map metadata or a synthetic source API map.
-    const nativeMapLines = result.stdout
-      .split(/\r?\n/)
-      .filter((line) => line.startsWith("TTSC_RUNTIME_MAPS:"));
-    assert.equal(
-      nativeMapLines.length,
-      1,
-      "the existing Runtime child must publish its own Node map diagnostics exactly once",
-    );
-    const nativeFrameDiagnostic = JSON.stringify({
-      frames: nativeFrames,
-      maps: JSON.parse(nativeMapLines[0]!.slice("TTSC_RUNTIME_MAPS:".length)),
-    });
-    assert.match(nativeFrames[0], /inside\.cts:5:\d+/, nativeFrameDiagnostic);
-    assert.match(nativeFrames[1], /outside\.cts:5:\d+/, nativeFrameDiagnostic);
-    assert.deepEqual(
-      (payload as { requireBindings: unknown }).requireBindings,
-      [
-        "@lib/message",
-        "local:@lib/message",
-        "imported:@lib/message",
-        "ok",
-        "ok",
-      ],
-    );
-    const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
-    assert.deepEqual(mixed, {
-      nativeFactory: { generated: 42, neighbor: 43, payload: 42 },
-      contraryCommonjs: "cts-runner-ok",
-      mtsImport: "mts-runner-ok",
-      dual: "42:7:esm-ok",
-      sameNamedOwnership: "a,b,a,b,tools",
-      rawPackageOwnership: "tools",
-      rawLowering: "42:OK:7",
-      standardEsm: "Hello Class Foo\nHello Function getBar\nabc",
-      standardCommonjs: "Hello Class Foo\nHello Function getBar\nabc",
-      memberEsm: "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
-      memberCommonjs:
-        "11 method\nstatic:run,class:Foo,field:#value,accessor:count",
-      adapterFactories: ["function", "function", "function", "function"],
-      answers: [42, 42],
-      requestedSource: [1, 1],
-      proposalValue: 42,
-      startupMarkers: ["ran", "entry-ran", "ENTRY", "explicit-runner-project"],
-      mainMessage: "main:value",
-      optionalChainPreserved: true,
-    });
-    const locations = (
-      payload as {
-        sourceLocations: {
-          marker: string;
-          template: string;
-          directory: string;
-          classRoot: string;
-        };
-      }
-    ).sourceLocations;
-    assert.equal(locations.marker, "source-relative-dirname");
-    assert.equal(locations.template, "dirname-preserved");
-    assert.equal(
-      fs.realpathSync.native(locations.directory),
-      fs.realpathSync.native(path.join(workspace.root, "src")),
-    );
-    assert.equal(
-      fs.realpathSync.native(locations.classRoot),
-      fs.realpathSync.native(workspace.root),
-    );
-    const helpers = (payload as { publicHelpers: unknown }).publicHelpers;
-    assert.deepEqual(helpers, {
-      memoryFile: "export const value = 1;\n",
-      decoded: { value: 1 },
-      scoped: "@scope/package",
-      builtin: null,
-    });
+  } catch (error) {
+    combinedFailures.push(error);
   }
-  assert.deepEqual(
-    fs.readFileSync(path.join(workspace.root, "tsconfig.json")),
-    config,
-  );
-  assert.deepEqual(
-    fs.readFileSync(path.join(workspace.root, "src/runtime.mts")),
-    source,
-  );
-  assert.equal(
-    fs.existsSync(path.join(workspace.root, "src/runtime.mjs")),
-    false,
-  );
-  } catch (error) { combinedFailures.push(error); }
   if (combinedFailures.length === 1) throw combinedFailures[0];
-  if (combinedFailures.length > 1) throw new AggregateError(combinedFailures, "Runtime and native frontdoor boundaries failed");
+  if (combinedFailures.length > 1)
+    throw new AggregateError(
+      combinedFailures,
+      "Runtime and native frontdoor boundaries failed",
+    );
 }

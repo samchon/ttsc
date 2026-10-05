@@ -19,68 +19,169 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
  * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one project instead of per-case fixtures. It does not certify signal forwarding, every require spelling, cold orphan cache coherence or an overall single-digit process budget.
  */
-export function runtimeFrontdoorsCorpus(workspace: BatchWorkspace.Workspace): void {
+export function runtimeFrontdoorsCorpus(
+  workspace: BatchWorkspace.Workspace,
+): void {
   const root = path.join(workspace.root, "tools/runtime-frontdoors");
-  const register = path.resolve(path.dirname(workspace.installedTtsx), "../register.js");
+  const register = path.resolve(
+    path.dirname(workspace.installedTtsx),
+    "../register.js",
+  );
   const preload = pathToFileURL(path.join(root, "preload.mjs")).href;
-  const sources = ["main.cjs", "src/main.ts", "src/dep.ts", "src/leaf.ts", "src/esm.mts", "src/exit.ts", "src/throws.ts", "src/rejects.mts", "src/handled.ts"].map((name) => path.join(root, name));
+  const sources = [
+    "main.cjs",
+    "src/main.ts",
+    "src/dep.ts",
+    "src/leaf.ts",
+    "src/esm.mts",
+    "src/exit.ts",
+    "src/throws.ts",
+    "src/rejects.mts",
+    "src/handled.ts",
+  ].map((name) => path.join(root, name));
   const original = sources.map((file) => fs.readFileSync(file));
-  const env: NodeJS.ProcessEnv = { ...process.env, TTSC_CACHE_DIR: workspace.cache };
-  for (const name of ["TTSX_RUNTIME_MANIFEST", "TTSX_RUNTIME_CACHE_DIR", "TTSX_RUNTIME_RUN_DIR", "TTSX_RUNTIME_RUNS_DIR"]) delete env[name];
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    TTSC_CACHE_DIR: workspace.cache,
+  };
+  for (const name of [
+    "TTSX_RUNTIME_MANIFEST",
+    "TTSX_RUNTIME_CACHE_DIR",
+    "TTSX_RUNTIME_RUN_DIR",
+    "TTSX_RUNTIME_RUNS_DIR",
+  ])
+    delete env[name];
   const failures: unknown[] = [];
   const run = (args: string[]) => {
-    const result = E2eProcessTrace.spawnSync(process.execPath, args, { cwd: root, env, encoding: "utf8", windowsHide: true });
+    const result = E2eProcessTrace.spawnSync(process.execPath, args, {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      windowsHide: true,
+    });
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
-      BatchWorkspace.retain("native runtime frontdoor closure remained unresolved");
-      throw new Error("native runtime frontdoor closure remained unresolved", { cause: result.error ?? new Error(JSON.stringify({ pid: result.pid, status: result.status, signal: result.signal })) });
+      BatchWorkspace.retain(
+        "native runtime frontdoor closure remained unresolved",
+      );
+      throw new Error("native runtime frontdoor closure remained unresolved", {
+        cause:
+          result.error ??
+          new Error(
+            JSON.stringify({
+              pid: result.pid,
+              status: result.status,
+              signal: result.signal,
+            }),
+          ),
+      });
     }
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
-    try { process.kill(result.pid, 0); }
-    catch (error) {
+    try {
+      process.kill(result.pid, 0);
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ESRCH") return result;
-      BatchWorkspace.retain("runtime frontdoor PID closure could not be observed");
+      BatchWorkspace.retain(
+        "runtime frontdoor PID closure could not be observed",
+      );
       throw error;
     }
-    BatchWorkspace.retain("runtime frontdoor PID remained live after synchronous return");
-    throw new Error("runtime frontdoor PID remained live after synchronous return");
+    BatchWorkspace.retain(
+      "runtime frontdoor PID remained live after synchronous return",
+    );
+    throw new Error(
+      "runtime frontdoor PID remained live after synchronous return",
+    );
   };
   const capture = (name: string, body: () => void): void => {
-    try { body(); } catch (error) { failures.push(new Error(name, { cause: error })); }
+    try {
+      body();
+    } catch (error) {
+      failures.push(new Error(name, { cause: error }));
+    }
   };
-  const typed = { main: true, cache: "object", shared: true, dep: "dep+leaf", prefix: true, cryptoLength: 36 };
+  const typed = {
+    main: true,
+    cache: "object",
+    shared: true,
+    dep: "dep+leaf",
+    prefix: true,
+    cryptoLength: 36,
+  };
   for (const [name, args] of [
-    ["import-register typed main", ["--import", pathToFileURL(register).href, "src/main.ts"]],
-    ["import-preload require-register typed main", ["--import", preload, "-r", register, "src/main.ts"]],
-  ] as const) capture(name, () => {
-    const result = run([...args]);
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout.trim()), typed);
-  });
+    [
+      "import-register typed main",
+      ["--import", pathToFileURL(register).href, "src/main.ts"],
+    ],
+    [
+      "import-preload require-register typed main",
+      ["--import", preload, "-r", register, "src/main.ts"],
+    ],
+  ] as const)
+    capture(name, () => {
+      const result = run([...args]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(JSON.parse(result.stdout.trim()), typed);
+    });
   capture("JavaScript main under import preload", () => {
-    const result = run(["--import", preload, "-r", register, "main.cjs", "--config", "x", "--help"]);
+    const result = run([
+      "--import",
+      preload,
+      "-r",
+      register,
+      "main.cjs",
+      "--config",
+      "x",
+      "--help",
+    ]);
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout.trim()), { main: true, value: "dep+leaf", argv: ["--config", "x", "--help"] });
+    assert.deepEqual(JSON.parse(result.stdout.trim()), {
+      main: true,
+      value: "dep+leaf",
+      argv: ["--config", "x", "--help"],
+    });
   });
   capture("ESM register SQLite", () => {
     const result = run(["--require", register, "src/esm.mts"]);
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout.trim()), { kind: "esm", sqlite: "esm-sqlite-ok" });
+    assert.deepEqual(JSON.parse(result.stdout.trim()), {
+      kind: "esm",
+      sqlite: "esm-sqlite-ok",
+    });
   });
   capture("handled uncaught exception", () => {
-    const result = run([workspace.installedTtsx, "--no-plugins", "src/handled.ts"]);
+    const result = run([
+      workspace.installedTtsx,
+      "--no-plugins",
+      "src/handled.ts",
+    ]);
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["handled: boom", "still alive"]);
+    assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
+      "handled: boom",
+      "still alive",
+    ]);
   });
   for (const [name, status, message] of [
     ["exit.ts", 7, undefined],
     ["throws.ts", 1, /unhandled runtime frontdoor/],
     ["rejects.mts", 1, /rejected runtime frontdoor/],
-  ] as const) capture(name, () => {
-    const result = run([workspace.installedTtsx, "--no-plugins", "src/" + name]);
-    assert.equal(result.status, status, result.stderr);
-    if (message !== undefined) assert.match(result.stderr, message);
-  });
-  for (let index = 0; index < sources.length; index++) capture("immutable " + sources[index], () => assert.deepEqual(fs.readFileSync(sources[index]!), original[index]));
-  if (failures.length) throw new AggregateError(failures, "native runtime startup and terminal corpus failed");
+  ] as const)
+    capture(name, () => {
+      const result = run([
+        workspace.installedTtsx,
+        "--no-plugins",
+        "src/" + name,
+      ]);
+      assert.equal(result.status, status, result.stderr);
+      if (message !== undefined) assert.match(result.stderr, message);
+    });
+  for (let index = 0; index < sources.length; index++)
+    capture("immutable " + sources[index], () =>
+      assert.deepEqual(fs.readFileSync(sources[index]!), original[index]),
+    );
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "native runtime startup and terminal corpus failed",
+    );
 }
