@@ -10,22 +10,26 @@ import (
 )
 
 // TestConfigDiscoveryPreservesDirectoryCandidateObservations verifies native
-// banner lookup preserves directory proofs and selects a replacement config.
+// banner lookup preserves candidate proofs and selects appearing/replaced configs.
 //
 // A nearer directory named banner.config.json is not a config file. Its kind
 // digest and physical path must still be reported while the outer JSON config
 // supplies the banner. Replacing that directory by a JSON file changes both
 // selection and observations. This owns the native facts used by the transform
 // cache case, without constructing a cache generation or a host envelope.
+// A separate, initially missing consumer candidate appears as a regular file
+// before the directory transition; these are different filesystem states.
 //
 // 1. Place OUTER BANNER above a nearer config-shaped directory and consumer.
 // 2. Resolve twice and assert outer text, directory proofs and missing proofs.
-// 3. Replace the directory with NEARER BANNER and assert new text and file proofs.
-// 4. Resolve again and assert unchanged replacement observations.
+// 3. Create the same formerly missing consumer config and assert its selection,
+//    content/physical proofs and withdrawal of ancestor observations; repeat.
+// 4. Remove that consumer config, replace the directory with NEARER BANNER and
+//    assert new text/file proofs and unchanged replacement observations.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls the actual native resolveBannerTextWithReporters through the existing shared test bridge. OUTER BANNER must survive a nearer directory candidate with the directory-kind hash and physical target; replacing it with a regular JSON config must return NEARER BANNER and that file's content hash. Repeated calls must report the same facts for unchanged filesystem states.
+// @evidence contracts/testing.md#behavioral-verification Calls the actual native resolveBannerTextWithReporters through the existing shared test bridge. OUTER BANNER survives a nearer directory candidate with its kind/physical proofs. The same initially missing consumer path appearing as a regular JSON config selects NEARER BANNER with exact content/physical proofs and withdraws ancestor observations. After removing that consumer config, replacing the directory also selects NEARER BANNER with file proofs. Unchanged repetitions preserve each state's observations.
 // @evidence contracts/testing.md#independent-expectations Authored OUTER BANNER and NEARER BANNER literals define selection. SHA-256 over the documented ttsc:host-input:directory NUL marker and literal replacement bytes defines hashes independently; filepath.EvalSymlinks observes physical identity. No expected observation comes from the prior product result, except the separate unchanged-state equality assertions.
-// @evidence contracts/testing.md#distinguishing-cases A nearer missing candidate reports nil proofs, a nearer directory reports kind and physical proofs while the outer file wins, and a replacement regular file supersedes the outer config. Repeated unchanged-directory and unchanged-file calls contrast with that state transition. Hash/realpath callback keys identify rejected candidates; the selected-input callback only reports the loaded config, so no synthetic hostInputs envelope is asserted.
+// @evidence contracts/testing.md#distinguishing-cases The same nearer missing path reports nil proofs before appearing as a selected file; this is distinct from the retained directory-to-file transition. Ancestor observations disappear once the nearer file wins. Repeated unchanged-directory and unchanged-file calls contrast with mutations. Hash/realpath callback keys identify rejected candidates; the selected-input callback only reports the loaded config, so no synthetic hostInputs envelope is asserted.
 // @evidence contracts/testing.md#execution-ownership The discoverable Go Test entry lives under test/internal/shared and uses its already existing native bridge in the test process. JSON parsing, native discovery and proof callbacks need no installation, native producer, Program, watcher, IPC or child. t.TempDir owns fixture cleanup and t.Setenv restores the discovery anchor. Transform-cache generation identity and native envelope assembly retain separate owners.
 func TestConfigDiscoveryPreservesDirectoryCandidateObservations(t *testing.T) {
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
@@ -102,10 +106,34 @@ func TestConfigDiscoveryPreservesDirectoryCandidateObservations(t *testing.T) {
   if repeated := resolve(); !reflect.DeepEqual(repeated, first) {
     t.Fatalf("unchanged directory observations differ: %#v != %#v", repeated, first)
   }
+  replacement := `{"text":"NEARER BANNER"}`
+  WriteFile(t, missing, replacement)
+  appeared := resolve()
+  if appeared.text != "NEARER BANNER" || !reflect.DeepEqual(appeared.inputs, []string{missing}) {
+    t.Fatalf("appeared candidate selection = %q, inputs=%v", appeared.text, appeared.inputs)
+  }
+  requireProof(appeared.hashes, missing, fmt.Sprintf("%x", sha256.Sum256([]byte(replacement))))
+  appearedPhysical, err := filepath.EvalSymlinks(missing)
+  if err != nil {
+    t.Fatal(err)
+  }
+  requireProof(appeared.realpaths, missing, filepath.Clean(appearedPhysical))
+  for _, ancestor := range []string{outer, directory} {
+    for _, values := range []map[string]*string{appeared.hashes, appeared.realpaths} {
+      if _, exists := values[ancestor]; exists {
+        t.Fatalf("superseded ancestor %s remained in appeared-file observations", ancestor)
+      }
+    }
+  }
+  if repeated := resolve(); !reflect.DeepEqual(repeated, appeared) {
+    t.Fatalf("unchanged appeared-file observations differ: %#v != %#v", repeated, appeared)
+  }
+  if err := os.Remove(missing); err != nil {
+    t.Fatal(err)
+  }
   if err := os.Remove(directory); err != nil {
     t.Fatal(err)
   }
-  replacement := `{"text":"NEARER BANNER"}`
   WriteFile(t, directory, replacement)
   replaced := resolve()
   if replaced.text != "NEARER BANNER" || !reflect.DeepEqual(replaced.inputs, []string{directory}) {

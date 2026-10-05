@@ -2,10 +2,14 @@ package banner_test
 
 import (
   "bytes"
+  "crypto/sha256"
   "encoding/json"
+  "fmt"
   "io"
+  "os"
   "os/exec"
   "path/filepath"
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/resolutioninputs"
@@ -13,23 +17,40 @@ import (
   shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
-// TestTypeScriptConfigLoaderPrecedence verifies generated loader export precedence.
+// TestTypeScriptConfigLoaderPrecedence verifies export precedence and package proofs.
 //
 // Source-substring ordering cannot establish the loader's behavior. This runs
 // the actual generated TypeScript and embedded recorder in Node, with conflicting
 // exported values making incorrect default selection or unwrapping observable.
+// A fourth compatible loader owns actual package selection and cutoff proofs
+// while the selected module mutates an unrelated directory beside the fixture.
 // The real compiler/launcher transport remains in the other loader boundaries.
 //
-// 1. Generate loaders for ESM named/default and CJS outer/nested conflicts.
+// 1. Generate loaders for export conflicts and a selected package that churns
+//    an unrelated root sibling during evaluation.
 // 2. Execute those loaders in one Node process and decode each actual envelope.
 // 3. Execute an invalid-export control separately and require its error envelope.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual bannerTypeScriptConfigLoaderSource output executes with the actual resolutioninputs.Recorder; decoded envelopes must select default, outer and nested text, while an invalid export must fail with the supported object requirement.
-// @evidence contracts/testing.md#independent-expectations Deliberately conflicting named/default and outer/inner literal texts determine expected precedence independently of generated source; JSON decoding reads real stdout and never derives expected results from loader substrings.
-// @evidence contracts/testing.md#distinguishing-cases ESM default competes with a named text, a CJS banner object competes with its nested default, nested defaults require unwrapping, and an object without text is rejected; this does not independently verify compiler emit or launcher argument transport.
-// @evidence contracts/testing.md#execution-ownership The function generates loader source with bannerTypeScriptConfigLoaderSource in the test process and runs the generated modules with the embedded resolutioninputs recorder in real node children (one for the three positive fixtures, one for the invalid fixture); it builds no native artifact.
+// @evidence contracts/testing.md#behavioral-verification Actual bannerTypeScriptConfigLoaderSource and resolutioninputs.Recorder select the authored default/outer/nested texts and evaluate selection's installed module despite root-sibling mkdir/rmdir churn. Its actual envelope retains selected-module/manifest byte hashes and physical identities, both proof keys for every input and no selection candidate beyond the selected root. The invalid export retains its supported failure requirement.
+// @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored package/module bytes independently define SHA-256, native EvalSymlinks defines physical identity and the known installed root defines the cutoff. Actual stdout is decoded without deriving expected results from loader source or recorder output.
+// @evidence contracts/testing.md#distinguishing-cases Default/outer/nested precedence and invalid export remain; bare package selection contrasts the selected local package with irrelevant higher search roots changed during evaluation. Nil proofs for stable absent candidates are allowed but absent proof keys fail. This does not certify compiler emit, native TypeScript launcher transport or every plugin/config-format combination.
+// @evidence contracts/testing.md#execution-ownership Generated loader modules and the embedded recorder run in the existing two real Node children: one shared positive cohort now contains four loaders, and one invalid control remains. Package selection adds no child, compiler Program, host or native artifact. The positive fixture's sibling is removed by its module and testing cleanup owns any remaining empty sibling.
 func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   root := t.TempDir()
+  shared.WriteFile(t, filepath.Join(root, "package.json"), `{"type":"module"}`)
+  installed := filepath.Join(root, "node_modules", "selection")
+  manifest := filepath.Join(installed, "package.json")
+  manifestText := `{"main":"index.js","name":"selection"}`
+  shared.WriteFile(t, manifest, manifestText)
+  sibling := root + "-sibling"
+  t.Cleanup(func() {
+    if err := os.Remove(sibling); err != nil && !os.IsNotExist(err) {
+      t.Errorf("cleanup sibling: %v", err)
+    }
+  })
+  selectedModule := filepath.Join(installed, "index.js")
+  moduleText := "const fs = require(\"node:fs\");\nfs.mkdirSync(" + mustJSON(t, sibling) + ");\nfs.rmdirSync(" + mustJSON(t, sibling) + ");\nmodule.exports = { text: \"INSTALLED SELECTION\" };\n"
+  shared.WriteFile(t, selectedModule, moduleText)
   recorder := filepath.Join(root, "recorder.cjs")
   shared.WriteFile(t, recorder, resolutioninputs.Recorder)
   fixtures := []struct {
@@ -38,6 +59,7 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
     {"default.mjs", `export const text = "named"; export default { text: "default" };`, "default"},
     {"outer.cjs", `module.exports = { text: "outer", default: { text: "inner" } };`, "outer"},
     {"nested.cjs", `module.exports = { default: { default: { text: "nested" } } };`, "nested"},
+    {"selection.mjs", `import selection from "selection"; export default selection;`, "INSTALLED SELECTION"},
   }
   var loaders []string
   expected := map[string]int{}
@@ -60,6 +82,9 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   actual := map[string]int{}
   for {
     var result struct {
+      Inputs    []string           `json:"inputs"`
+      Hashes    map[string]*string `json:"hashes"`
+      Realpaths map[string]*string `json:"realpaths"`
       Value struct {
         Text string `json:"text"`
       } `json:"value"`
@@ -72,6 +97,48 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
       t.Fatalf("invalid generated envelope: %v", err)
     }
     actual[result.Value.Text]++
+    if result.Value.Text == "INSTALLED SELECTION" {
+      selectedSeen := false
+      for _, input := range result.Inputs {
+        if filepath.Clean(input) == filepath.Clean(selectedModule) {
+          selectedSeen = true
+        }
+        if _, exists := result.Hashes[input]; !exists {
+          t.Errorf("selected-package input %s lost its hash proof", input)
+        }
+        if _, exists := result.Realpaths[input]; !exists {
+          t.Errorf("selected-package input %s lost its physical proof", input)
+        }
+        spelling := filepath.ToSlash(input)
+        if strings.Contains(spelling, "/node_modules/selection/") || strings.HasSuffix(spelling, "/node_modules/selection") {
+          relative, err := filepath.Rel(root, input)
+          if err != nil || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+            t.Errorf("selection candidate lies past the selected root: %s", input)
+          }
+        }
+      }
+      if !selectedSeen {
+        t.Error("actual selected package module is not an input")
+      }
+      for file, text := range map[string]string{selectedModule: moduleText, manifest: manifestText} {
+        hash, exists := result.Hashes[file]
+        expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(text)))
+        if !exists || hash == nil || *hash != expectedHash {
+          t.Errorf("selected file %s hash=%v, want authored byte hash %s", file, hash, expectedHash)
+        }
+        physical, err := filepath.EvalSymlinks(file)
+        if err != nil {
+          t.Fatal(err)
+        }
+        observed, exists := result.Realpaths[file]
+        if !exists || observed == nil || filepath.Clean(*observed) != filepath.Clean(physical) {
+          t.Errorf("selected file %s physical=%v, want %s", file, observed, physical)
+        }
+      }
+      if _, err := os.Stat(sibling); !os.IsNotExist(err) {
+        t.Errorf("selected module did not remove its unrelated sibling: %v", err)
+      }
+    }
   }
   if len(actual) != len(expected) {
     t.Fatalf("generated precedence population: actual=%v expected=%v", actual, expected)
