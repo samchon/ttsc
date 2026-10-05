@@ -62,3 +62,7 @@ benchmarks/evidence/instructions/
 # repository's code, and a sweep over it also walks tens of thousands of files
 # for nothing.
 benchmarks/evidence/output/
+
+# Authored fixture bytes and coordinates are test inputs, including invalid syntax.
+**/fixtures/**
+**/testdata/**
