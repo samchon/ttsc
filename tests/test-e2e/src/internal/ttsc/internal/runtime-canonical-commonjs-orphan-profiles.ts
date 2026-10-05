@@ -18,9 +18,9 @@ type Profile = {
  * The source-race population runs in the existing shared Runtime instead of
  * this profile array; its real executable comes from shared source preparation.
  * The remaining placement recipe still owns two standalone runtime requests and
- * are not counted as consolidated by the shared Runtime outer host.
+ * is not counted as consolidated by the shared Runtime outer host.
  *
- * @evidence contracts/common.md#principled-implementation Actual launcher receipts, selected cache paths and cache paths distinguish remaining placement behavior.
+ * @evidence contracts/common.md#principled-implementation Actual launcher receipts and selected cache paths distinguish remaining placement behavior.
  * @evidence contracts/common.md#clear-and-simple-design The existing placement input retains its own cache authority; source race no longer delegates through this execution array.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Remaining two launches are disclosed independent requests, not renamed shared DAG work.
  * @evidence contracts/common.md#meaningful-documentation States the remaining recipes and the transferred source-race owner without claiming the whole runtime family is consolidated.
@@ -28,8 +28,8 @@ type Profile = {
  * @evidence contracts/performance.md#efficient-algorithms Executable rewrites and reads cost its byte population; cache scans cost its entries, excluding native work.
  * @evidence contracts/performance.md#reuse-equivalent-work Each original recipe keeps its cache warm across its distinguishing requests.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Original returned status/signal guards precede source or executable changes; uncertain closure retains the parent owner.
- * @evidence contracts/testing.md#behavioral-verification Actual lowered and cached-marker outputs distinguish placement and changed executable identity.
- * @evidence contracts/testing.md#independent-expectations Literal lowered/cached-marker outputs and original exact cache-file counts remain independent expectations.
+ * @evidence contracts/testing.md#behavioral-verification Actual lowered output and cache placement distinguish explicit/default delivery; executable identity is now consumed by the selected Runtime.
+ * @evidence contracts/testing.md#independent-expectations Literal lowered output and original exact cache-file counts remain independent expectations.
  * @evidence contracts/testing.md#distinguishing-cases Explicit/default placement and default project cache versus an explicit cache and temporary-directory absence remain.
  * @evidence contracts/testing.md#execution-ownership The existing canonical parent invokes the remaining real callbacks; the selected shared runtime owns the removed source-race recipe.
  * @evidence contracts/e2e.md#necessary-boundary Actual cache delivery and executable movement require their installed runtime boundary.

@@ -227,6 +227,7 @@ export namespace BatchWorkspace {
       for (const name of ["cjs-dep", "esm-dep"])
         fs.symlinkSync(path.join(root, "src/runtime-corpus/dual", name), path.join(modules, name), "junction");
     if (!installationOnly) {
+      await FileSystemIterator.write(path.join(modules, "root-pkg"), await FileSystemIterator.read(path.join(root, "tools/runtime-installed-package")));
       fs.symlinkSync(path.join(root, "tools/ownership"), path.join(modules, "raw-ownership"), "junction");
       const workspaceRequire = createRequire(import.meta.url);
       fs.symlinkSync(path.dirname(workspaceRequire.resolve("tslib/package.json")), path.join(modules, "tslib"), "junction");

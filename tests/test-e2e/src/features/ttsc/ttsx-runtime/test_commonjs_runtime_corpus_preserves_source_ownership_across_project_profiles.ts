@@ -629,10 +629,8 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         ...(includeLanguageProfiles ? canonicalRuntimeLanguageProfiles() : []),
         ...canonicalCheckedOutputProfiles(
           {
-            installed: readProfile("output-installed-package"),
             excluded: readProfile("output-excluded-link"),
             declared: readProfile("output-declared-bytes"),
-            stale: readProfile("output-stale-neighbor"),
           },
           rootAlias,
         ),

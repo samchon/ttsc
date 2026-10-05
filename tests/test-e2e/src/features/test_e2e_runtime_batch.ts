@@ -46,6 +46,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const standardRoot = path.join(workspace.root, "src/runtime-corpus/standard");
   const standardInputs = await FileSystemIterator.read(standardRoot);
   const runtimeOwnerConfig = fs.readFileSync(path.join(workspace.root, "runtime-owned.json"));
+  const installedPackage = path.join(workspace.root, "node_modules/root-pkg");
+  const installedInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(installedPackage);
+  const installedDirectory = workspace.installationOnly ? undefined : { names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs };
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
@@ -81,6 +84,10 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     BatchWorkspace.assertValues((payload as { values: unknown }).values, workspace.expected);
   } else {
   BatchWorkspace.assertResult(payload, workspace.expected, true);
+  assert.deepEqual(await FileSystemIterator.read(installedPackage), installedInputs, "installed typed package inputs and stale JavaScript must remain unchanged");
+  assert.deepEqual({ names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs }, installedDirectory);
+  assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts").length, 2);
+  assert.doesNotMatch(result.stdout, /STALE tool\.js/);
   const nativeReceipts = BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset);
   BatchWorkspace.assertContextReceipts(nativeReceipts);
   assert.deepEqual(nativeReceipts.filter((receipt) => receipt.name === "native-auto-discovery"), [

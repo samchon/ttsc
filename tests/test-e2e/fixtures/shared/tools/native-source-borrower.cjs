@@ -84,3 +84,12 @@ try {
   if (priorCompiler === undefined) delete process.env.TTSC_TSGO_BINARY;
   else process.env.TTSC_TSGO_BINARY = priorCompiler;
 }
+
+// Direct excluded delivery and an owned consumer require share one upfront
+// package. The stale JavaScript stays present; only Node's delivery entry is
+// withdrawn between loads, so the second route must resolve the typed source.
+const staleSource = path.join(root, "node_modules/root-pkg/stale.ts");
+assert.equal(require("root-pkg").value, "root-ran", "the actual installed package entry must execute without publishing into its input tree");
+assert.equal(require(staleSource).tool, "fresh tool.ts");
+delete require.cache[require.resolve(staleSource)];
+assert.equal(require(path.join(root, "src/runtime-corpus/stale-reader.cts")).observed, "fresh tool.ts");
