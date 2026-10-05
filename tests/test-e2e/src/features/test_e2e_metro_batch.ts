@@ -435,6 +435,29 @@ export async function test_e2e_metro_batch(): Promise<void> {
       fs.rmSync(owned, { recursive: true, force: true });
     }
   }
+  try {
+    // Corrupt the existing package bytes rather than authoring another Go
+    // fixture. The executable entry remains classifiable, but its imported
+    // producer cannot build; the independent TS assignment must still surface.
+    const invalidProducer = Buffer.from(originalCapabilityProducer);
+    invalidProducer[0] = 0;
+    fs.writeFileSync(capabilityProducer, invalidProducer);
+    fs.writeFileSync(contractPath, Buffer.concat([originalContract, Buffer.from('\nconst wrong: number = "type-error";\nvoid wrong;\n')]));
+    const failed = new TtscCompiler({
+      binary: TestProject.TSGO_BINARY, cwd: workspace.root, plugins: [publicNativeProbe],
+      env: { TTSC_CACHE_DIR: path.join(workspace.cache, "public-failure-source-flow"), GOFLAGS: baselineBuildEnv.GOFLAGS },
+    }).compile();
+    assert.equal(failed.type, "failure");
+    assert.equal(failed.diagnostics.some((diagnostic) => diagnostic.code === 2322), true,
+      "actual setup failure must not hide the independent TypeScript assignment error");
+    assert.equal(failed.diagnostics.some((diagnostic) => diagnostic.code === "TTSC_PROCESS" && /building plugin/.test(diagnostic.messageText)), true,
+      "the public failure must retain the actual native preparation error");
+  } catch (error) {
+    publicApiFailures.push(new Error("native setup failure followed by TypeScript diagnostic recovery", { cause: error }));
+  } finally {
+    fs.writeFileSync(capabilityProducer, originalCapabilityProducer);
+    fs.writeFileSync(contractPath, originalContract);
+  }
   baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
   receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
