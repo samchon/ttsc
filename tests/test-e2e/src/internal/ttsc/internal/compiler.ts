@@ -242,39 +242,6 @@ function writeProjectDependency(root: string, packageName: string) {
   );
 }
 
-function writeWarningCheckPlugin(root: string) {
-  fs.writeFileSync(
-    path.join(root, "check-plugin.cjs"),
-    'module.exports = { name: "warning-check", source: "./check-go", stage: "check" };\n',
-    "utf8",
-  );
-  fs.mkdirSync(path.join(root, "check-go"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, "check-go", "go.mod"),
-    "module example.com/warningcheck\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(root, "check-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '\t"fmt"',
-      '\t"os"',
-      ")",
-      "",
-      "func main() {",
-      '\tif len(os.Args) > 1 && os.Args[1] == "check" {',
-      '\t\tfmt.Fprintln(os.Stderr, "src/main.ts(1,1): warning TS9001: check warning")',
-      "\t}",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
 function writeMinimalGoPlugin(root: string) {
   fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
   fs.writeFileSync(
@@ -491,5 +458,4 @@ export {
   writePackageSourcePlugin,
   writeProjectDependency,
   writeSourcePlugin,
-  writeWarningCheckPlugin,
 };
