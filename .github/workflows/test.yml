@@ -31,8 +31,9 @@ jobs:
           printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
           printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
           printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
-      - name: Cache Go modules and objects
-        uses: actions/cache@v4
+      - name: Restore Go modules and objects
+        id: go-objects
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
@@ -46,9 +47,19 @@ jobs:
       - run: pnpm --filter @ttsc/lint run build
       - run: pnpm --filter @ttsc/evidence run build
       - name: Prepare generated Graph implementation once
+        id: native-build
         run: |
           pnpm --filter ttsc run build
           pnpm --filter @ttsc/linux-x64 run build
           pnpm --filter @ttsc/graph run build
       - run: pnpm run test:go
+        id: go-tests
       - run: pnpm run test:units
+      - name: Save Completed Native Go Caches
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && steps.go-tests.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ${{ steps.go-objects.outputs.cache-primary-key }}
