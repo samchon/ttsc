@@ -37,6 +37,9 @@ type CodeAction = {
 
 type InitializeResult = {
   capabilities?: {
+    hoverProvider?: unknown;
+    documentSymbolProvider?: unknown;
+    completionProvider?: unknown;
     codeActionProvider?: boolean | { codeActionKinds?: string[] };
     diagnosticProvider?: unknown;
     documentFormattingProvider?: boolean;
@@ -47,6 +50,16 @@ type InitializeResult = {
 type TextEdit = { newText?: string; range?: Range };
 
 type WorkspaceEdit = { changes?: Record<string, TextEdit[]> };
+
+type CompletionItem = { data?: { $ttsc?: string }; detail?: string; filterText?: string; insertText?: string; label?: string; textEdit?: { newText?: string; range?: Range } };
+type CompletionResponse = CompletionItem[] | { isIncomplete?: boolean; items?: CompletionItem[] } | null;
+type DocumentSymbol = { name?: string; children?: DocumentSymbol[] };
+const DOC_PLUGIN_MARKER = "ttsc/completion-hint/v1";
+const DOC_CARET = { character: 7, line: 3 };
+const DOC_OUTSIDE_BLOCK = { character: 0, line: 5 };
+const DOC_TYPED = "par";
+const DOC_CORPUS_TIMEOUT = 300_000;
+const DOC_POLL_INTERVAL = 2_000;
 
 const OPENED = "var legacy = 1;\nconsole.log(legacy);\n";
 
@@ -88,7 +101,7 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge.
  * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. This same launcher inherits the owned workspace as process cwd and omits --cwd, exercising native Getwd admission through its actual initialize, project diagnostics and joined shutdown. Direct runLSP tests own explicit --cwd projection; uninitialized EOF remains a separate unresolved boundary. One extra command request with empty arguments starts the existing lint sidecar once, proving failed stderr adaptation before the already planned successful fix; it adds no server or profile and is not preparation with zero cost. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure.
- * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. The no-var-only editor input is added after immutable consumers complete so its expected let rewrite stays unchanged.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one.
  */
 export async function test_e2e_lsp_batch() {
     const workspace = await BatchWorkspace.open();
@@ -105,10 +118,12 @@ export async function test_e2e_lsp_batch() {
     const lintEntry = config.compilerOptions.plugins.find((entry: { transform?: string }) => entry.transform === "@ttsc/lint");
     assert.ok(lintEntry, "the actual lint contributor must remain selected");
     lintEntry.configFile = "./lint.lsp.config.cjs";
-    fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `const base = require("./lint.config.cjs");
+    fs.renameSync(path.join(workspace.root, "lint.config.cjs"), path.join(workspace.root, "lint-shared-base.cjs"));
+    fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `const base = require("./lint-shared-base.cjs");
 const graph = base.rules["evidence/graph"][1];
-module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
+module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
 `);
+    fs.copyFileSync(path.join(workspace.root, "native-errors/lsp-default-decoy.json"), path.join(workspace.root, "lint.config.json"));
     fs.writeFileSync(path.join(workspace.root, "review.md"), "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n");
     fs.mkdirSync(path.join(workspace.root, "external"), { recursive: true });
     const evidenceTarget = path.join(workspace.root, "external/example.ts");
@@ -138,7 +153,15 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           client.request<InitializeResult>(
             "initialize",
             {
-              capabilities: { workspace: { didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true } } },
+              capabilities: {
+                workspace: { didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true } },
+                textDocument: {
+                  completion: { completionItem: { insertReplaceSupport: true, labelDetailsSupport: true, resolveSupport: { properties: ["detail", "documentation"] }, snippetSupport: false }, contextSupport: true, dynamicRegistration: false },
+                  documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+                  hover: { contentFormat: ["markdown", "plaintext"] },
+                  synchronization: { didSave: true, dynamicRegistration: false },
+                },
+              },
               processId: process.pid,
               rootUri: pathToFileURL(project.tmpdir).href,
             },
@@ -148,6 +171,9 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           ),
         );
         const capabilities = initialized.capabilities ?? {};
+        assert.ok(capabilities.hoverProvider, "the actual upstream hover provider must survive the plugin proxy");
+        assert.ok(capabilities.documentSymbolProvider, "the actual upstream symbol provider must survive the plugin proxy");
+        assert.ok(capabilities.completionProvider, "the actual upstream completion provider must survive the plugin proxy");
         assert.ok(
           capabilities.executeCommandProvider?.commands?.includes(
             "ttsc.lint.fixAll",
@@ -185,6 +211,283 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           `ttsc must not drop tsgo's diagnosticProvider: ${JSON.stringify(capabilities)}`,
         );
         client.notify("initialized", {});
+        const populationFailures: unknown[] = [];
+        const DOC_SAVED = 'var legacy = 1;\nexport function greet(name: string): string {\n  return "Hello, " + name + legacy;\n}\n';
+        const DOC_DIRTY = DOC_SAVED.replace("export function", "/**\n * Greets one user.\n * @par\n */\nexport function");
+        const published = (response: CompletionResponse): CompletionItem[] => (Array.isArray(response) ? response : response?.items ?? []).filter((item) => item.data?.$ttsc === DOC_PLUGIN_MARKER);
+      for (const [name, newline] of [
+        ["LF", "\n"],
+        ["CR", "\r"],
+        ["CRLF", "\r\n"],
+      ] as const) {
+        const saved = DOC_SAVED.replaceAll("\n", newline);
+        const dirty = DOC_DIRTY.replaceAll("\n", newline);
+        const file = path.join(project.tmpdir, "native-errors", "lsp-" + name + ".ts");
+        const uri = pathToFileURL(file).href;
+        const check = (body: () => void): void => {
+          try {
+            body();
+          } catch (error) {
+            populationFailures.push(new Error(name + ": completion assertion", { cause: error }));
+          }
+        };
+        try {
+          // 2. Open what was saved and wait for the saved file's own lint finding.
+          //
+          // An actual finding for this URI establishes diagnostic readiness.
+          // It does not measure build duration or establish readiness of every
+          // later hints request, Program construction or transport step.
+          const ready = client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              params.uri === uri &&
+              (params.diagnostics ?? []).some(
+                (diagnostic) =>
+                  diagnostic.source === "@ttsc/lint" &&
+                  diagnostic.code === "no-var",
+              ),
+            PLUGIN_BUILD_TIMEOUT,
+          );
+          client.notify("textDocument/didOpen", {
+            textDocument: {
+              languageId: "typescript",
+              text: saved,
+              uri,
+              version: 1,
+            },
+          });
+          await ready;
+          if (name === "LF") {
+            try {
+            const hover = await client.request<{ contents?: unknown }>("textDocument/hover", { position: { character: 5, line: 0 }, textDocument: { uri } }, REQUEST_TIMEOUT);
+            assert.match(JSON.stringify(hover?.contents ?? ""), /legacy: number/, "the upstream checker must answer the independently authored numeric binding");
+            assert.ok(client.serverRequestMethods().includes("client/registerCapability"), "the actual upstream registration handshake must be answered");
+            const symbols = await client.request<DocumentSymbol[] | null>("textDocument/documentSymbol", { textDocument: { uri } }, REQUEST_TIMEOUT);
+            const pendingSymbols = [...(symbols ?? [])];
+            const names: string[] = [];
+            while (pendingSymbols.length) {
+              const symbol = pendingSymbols.pop()!;
+              if (symbol.name) names.push(symbol.name);
+              if (symbol.children) pendingSymbols.push(...symbol.children);
+            }
+            assert.ok(names.includes("greet"), "documentSymbol must retain the actual upstream declaration");
+            const completion = await client.request<CompletionResponse>("textDocument/completion", { context: { triggerKind: 1 }, position: { character: 2, line: 2 }, textDocument: { uri } }, REQUEST_TIMEOUT);
+            const upstream = (Array.isArray(completion) ? completion : completion?.items ?? []).filter((item) => item.data?.$ttsc !== DOC_PLUGIN_MARKER).map((item) => item.label);
+            assert.ok(upstream.includes("legacy"), "the plugin merge must preserve the independently named upstream completion");
+            } catch (error) {
+              populationFailures.push(new Error("upstream language request population", { cause: error }));
+            }
+          }
+
+          // Now type the JSDoc block into the buffer only. A rangeless
+          // contentChange is a full-document replacement, which is what an editor
+          // sends when it does not track incremental edits.
+          client.notify("textDocument/didChange", {
+            contentChanges: [{ text: dirty }],
+            textDocument: { uri, version: 2 },
+          });
+
+          // 3. Establish whether this session answers completion at all, before
+          // asking anything about the corpus.
+          //
+          // A completion request the proxy does not enrich is forwarded untouched
+          // and answered by TypeScript-Go, so a caret in ordinary code has to come
+          // back — with items, with null, it does not matter. Without this probe a
+          // silent session and an empty corpus produce the same failure, and the two
+          // have nothing to do with each other.
+          // Ask TypeScript-Go something it alone owns first. A hover reply proves
+          // the upstream server is alive and serving this document, which separates
+          // "completion is not answered" from "nothing upstream is answered".
+          let alive: string;
+          try {
+            await client.request(
+              "textDocument/hover",
+              { position: { character: 4, line: 0 }, textDocument: { uri } },
+              REQUEST_TIMEOUT,
+            );
+            alive = "upstream answered hover";
+          } catch (error) {
+            alive = `upstream never answered hover: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+          }
+
+          const probeStart = Date.now();
+          let probe: string;
+          try {
+            const response = await client.request<CompletionResponse>(
+              "textDocument/completion",
+              {
+                context: { triggerKind: 1 },
+                position: { character: 0, line: 0 },
+                textDocument: { uri },
+              },
+              REQUEST_TIMEOUT,
+            );
+            const shape = Array.isArray(response)
+              ? `${response.length} items`
+              : response === null
+                ? "null"
+                : `list of ${(response.items ?? []).length}`;
+            probe = `upstream answered plain completion in ${Date.now() - probeStart}ms (${shape})`;
+          } catch (error) {
+            probe = `upstream never answered plain completion: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+          }
+
+          // 4. Poll for the authored corpus under the separate outer deadline.
+          // Empty replies and request errors retain context for that deadline;
+          // their cause is not independently classified by this observer.
+          const deadline = Date.now() + DOC_CORPUS_TIMEOUT;
+          let items: CompletionItem[] = [];
+          let attempts = 0;
+          let last = "no attempt completed";
+          while (items.length === 0) {
+            attempts++;
+            try {
+              items = published(
+                await client.request<CompletionResponse>(
+                  "textDocument/completion",
+                  {
+                    context: { triggerKind: 1 },
+                    position: DOC_CARET,
+                    textDocument: { uri },
+                  },
+                  REQUEST_TIMEOUT,
+                ),
+              );
+            } catch (error) {
+              // Preserve the actual request error for the eventual deadline.
+              // Retrying does not diagnose it as a cold build or prove recovery.
+              last = error instanceof Error ? error.message : String(error);
+            }
+            if (items.length > 0) break;
+            if (Date.now() >= deadline) {
+              check(() =>
+                assert.ok(
+                  Date.now() < deadline,
+                  `no rule-published completion after ${attempts} requests in ${DOC_CORPUS_TIMEOUT}ms (last: ${last}) — ${alive}; ${probe}`,
+                ),
+              );
+              break;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, DOC_POLL_INTERVAL));
+          }
+
+          // 4. The item an editor shows for the tag the user is halfway through.
+          const param = items.find((item) => item.insertText === "param");
+          check(() =>
+            assert.ok(
+              param,
+              `expected the validated @param tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
+            ),
+          );
+          check(() =>
+            assert.equal(
+              param?.filterText,
+              "param",
+              "the client filters on the inserted text, so it must match the insertion",
+            ),
+          );
+          check(() =>
+            assert.ok(
+              param?.detail,
+              "each published tag carries its own description",
+            ),
+          );
+          check(() =>
+            assert.deepEqual(
+              param?.textEdit?.range,
+              {
+                end: DOC_CARET,
+                start: {
+                  character: DOC_CARET.character - DOC_TYPED.length,
+                  line: DOC_CARET.line,
+                },
+              },
+              "accepting the item must replace exactly what was typed after the trigger",
+            ),
+          );
+          check(() =>
+            assert.equal(
+              param?.textEdit?.newText,
+              "param",
+              "the edit writes the tag itself, leaving the @ the user already typed",
+            ),
+          );
+          // One tag could be a coincidence. The corpus is the rule's whole
+          // validated vocabulary, so a second, unrelated tag has to be there too.
+          check(() =>
+            assert.ok(
+              items.some((item) => item.insertText === "returns"),
+              `expected the rule's vocabulary, not a single tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
+            ),
+          );
+
+          // 5. The proof that this came from the buffer: disk never had a block.
+          check(() =>
+            assert.equal(
+              fs.readFileSync(file, "utf8"),
+              saved,
+              "the test must not have saved; completion answered from the dirty buffer",
+            ),
+          );
+
+          // 6. The negative twin, asked only now that the corpus is known to be
+          // live. A caret on the declaration below the block is outside any JSDoc
+          // scope, and an unscoped corpus would fire there too.
+          try {
+            const outside = await client.request<CompletionResponse>(
+              "textDocument/completion",
+              {
+                context: { triggerKind: 1 },
+                position: DOC_OUTSIDE_BLOCK,
+                textDocument: { uri },
+              },
+              REQUEST_TIMEOUT,
+            );
+            check(() =>
+              assert.deepEqual(
+                published(outside),
+                [],
+                "the JSDoc corpus must not fire outside a JSDoc block",
+              ),
+            );
+          } catch (error) {
+            populationFailures.push(new Error(name + ": outside-block request", { cause: error }));
+          }
+
+          // 7. Resolve. TypeScript-Go advertises completionItem/resolve for its own
+          // items and expects its own private data on every request, so a plugin
+          // item has to be answered by ttscserver itself.
+          if (param !== undefined) {
+            const resolved = await client.request<CompletionItem>(
+              "completionItem/resolve",
+              param,
+              REQUEST_TIMEOUT,
+            );
+            check(() =>
+              assert.equal(
+                resolved.insertText,
+                "param",
+                `resolve must answer the plugin's own item: ${JSON.stringify(resolved)}`,
+              ),
+            );
+            check(() =>
+              assert.equal(
+                resolved.data?.$ttsc,
+                DOC_PLUGIN_MARKER,
+                "the ownership marker must survive resolve",
+              ),
+            );
+          }
+        } catch (error) {
+          populationFailures.push(new Error(name + ": LSP newline corpus", { cause: error }));
+        }
+      }
+
+        try {
         const negativeFailures: unknown[] = [];
         for (const [name, code] of [["type-error.ts", 2322], ["syntax-error.tsx", 1002], ["alias-lib-error.ts", 2322], ["alias-preset-error.ts", 2322], ["alias-preset-valid.ts", null]] as const) {
           const invalidFile = path.join(workspace.root, "native-errors", name);
@@ -221,7 +524,14 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
             version: 1,
           },
         });
-        const openedLint = findLint(await opened)!;
+        const openedPublication = await opened;
+        const openedLint = findLint(openedPublication)!;
+        const selectedCodes = new Set((openedPublication.diagnostics ?? [])
+          .filter((diagnostic) => diagnostic.source === "@ttsc/lint")
+          .map((diagnostic) => diagnostic.code));
+        assert.ok(selectedCodes.has("no-var"), "the explicit config must reach the native diagnostic producer");
+        assert.ok(!selectedCodes.has("no-console"), "the conflicting discovered config must not contribute its rule");
+        assert.equal(fs.readFileSync(path.join(workspace.root, "lint.config.json"), "utf8"), '{"rules":{"no-console":"error"}}\n');
         const evidenceObservation = await evidenceInitial;
         if ("error" in evidenceObservation) throw evidenceObservation.error;
         const evidenceFirst = evidenceObservation.value;
@@ -383,6 +693,10 @@ module.exports = { ...base, rules: { ...base.rules, "evidence/graph": ["error", 
           SAVED,
           "LSP executeCommand should return edits, not write the file",
         );
+        } catch (error) {
+          populationFailures.push(new Error("native diagnostics and editor state population", { cause: error }));
+        }
+        if (populationFailures.length) throw new AggregateError(populationFailures, "Shared LSP language and newline corpus failures");
       }, REQUEST_TIMEOUT);
       const closedWaiter = await unmatchedClose;
       assert.ok(closedWaiter.error instanceof Error, "actual child close must reject even an unmatched notification wait");
@@ -468,5 +782,3 @@ function offsetAt(source: string, position: Position): number {
   }
   throw new Error(`position outside source: ${JSON.stringify(position)}`);
 }
-
-
