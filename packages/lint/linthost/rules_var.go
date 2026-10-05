@@ -22,13 +22,17 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
   if node.AsVariableDeclarationList() == nil || !shimast.IsVar(node) {
     return
   }
-  if ctx.File != nil && ctx.File.IsDeclarationFile {
+  if node.Flags&shimast.NodeFlagsAmbient != 0 ||
+    (ctx.File != nil && ctx.File.IsDeclarationFile) {
     return
   }
   owner := node.Parent
   ownedByStatement := owner != nil && owner.Kind == shimast.KindVariableStatement
   // `declare var x` describes an existing binding instead of creating one;
-  // the native rule leaves ambient declarations alone. Only a
+  // the native rule leaves ambient declarations alone. The parser context flag
+  // above includes inherited declare-global, namespace and module ambientness.
+  // The direct statement modifier also preserves explicitly declared AST input.
+  // Only a
   // VariableStatement can carry the modifier — loop headers cannot be
   // ambient outside declaration files, which returned above.
   if ownedByStatement && owner.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {

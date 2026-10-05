@@ -1235,7 +1235,9 @@ export interface ITtscLintCoreRules {
   "no-useless-return"?: TtscLintRuleSetting;
 
   /**
-   * Reject `var` declarations.
+   * Reject runtime `var` declarations; ambient declarations describe existing
+   * bindings and are exempt, including declarations inherited from ambient
+   * global, namespace and module contexts.
    *
    * Use `let` for mutable bindings and `const` for immutable ones. Automatic
    * replacement with `let` requires local or module ownership and no possible
