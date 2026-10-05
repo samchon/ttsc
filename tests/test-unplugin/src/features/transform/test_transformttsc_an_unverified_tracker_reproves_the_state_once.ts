@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
+import { declareTtscTransformPolling } from "../../../../../packages/unplugin/src/core/transform/cache/declareTtscTransformPolling";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
@@ -29,7 +30,7 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  *
  * @evidence contracts/testing.md#behavioral-verification Actual tracker constructors and selectCachedGenerationAction preserve an unchanged generation while clearing both unverified flags, retain trusted membership silence after an unreported file appears and request capture when the same trackers become unverified again.
  * @evidence contracts/testing.md#independent-expectations Literal serve/serve/capture decisions follow the independent membership authority contract. The real appeared.ts file changes the recorded directory population, while the explicit silent watcher provider reports no event; flag arrays must be false after actual complete validation.
- * @evidence contracts/testing.md#distinguishing-cases Two real constructed trackers contrast verified and unverified authority over unchanged and changed membership. The positive reproving path must keep the exact Promise; the negative changed-membership path must evict it. An existing excluded module is planted before observation. Original constructed custom trackers require a snapshot walk; separate immutable consumer inputs expressly declaring content authority permit twenty deliveries with zero walks. They do not claim that a custom observer produced native authority. Actual supported onError callbacks mark retained trackers failed, and a separately refused host registration withdraws both attachments. Each keeps an unchanged Promise through complete proof and captures an actual subsequent disk edit. The silent provider does not claim native content authority or an OS dropped-event reproduction.
+ * @evidence contracts/testing.md#distinguishing-cases Two real constructed trackers contrast verified and unverified authority over unchanged and changed membership. The positive reproving path must keep the exact Promise; the negative changed-membership path must evict it. An existing excluded module is planted before observation. Original constructed custom trackers require a snapshot walk; separate immutable consumer inputs expressly declaring content authority permit twenty deliveries with zero walks. They do not claim that a custom observer produced native authority. Actual supported onError callbacks mark retained trackers failed, and a separately refused host registration withdraws both attachments. Each keeps an unchanged Promise through complete proof and captures an actual subsequent disk edit. The late-polling variant retains actual constructed project/host trackers, declares polling through the production cache operation, and requires the next actual coordinator delivery to detach and close them while retaining the unchanged Promise. A later native source edit requires capture. The silent provider does not claim native content authority or an OS dropped-event reproduction.
  * @evidence contracts/testing.md#execution-ownership Unit test: builds real project and host-input trackers over a silent watch seam, attaches them to a handwritten generation observed from real fixture files, and calls selectCachedGenerationAction for the original serve/serve/serve/capture sequence plus an excluded delivery under unqualified custom content observations (requiring a walk) and twenty deliveries over independently authored qualified comparator inputs (requiring zero directory listings). No native compilation or OS notification is involved; the shared native producer/consumer connection belongs to tests/test-e2e/src/features/test_e2e_metro_batch.ts#test_e2e_metro_batch and native observer assembly to test_transformttsc_notified_absent_candidate_is_not_reprobed.
  */
 export async function test_transformttsc_an_unverified_tracker_reproves_the_state_once(): Promise<void> {
@@ -112,11 +113,12 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     resetTtscTransformCache(cache);
     fixture.dispose();
   }
-  for (const variant of ["callback-failed", "host-registration-failed"] as const) {
+  for (const variant of ["callback-failed", "host-registration-failed", "polling-later"] as const) {
     const input = createCachedDeliveryUnitFixture();
     const projectRoot = path.dirname(path.dirname(input.file));
     const tsconfig = path.join(projectRoot, "tsconfig.json");
     const callbacks: (() => void)[] = [];
+    let closed = 0;
     let phase = "project";
     const owner = createTtscTransformCache({
       watch: (_directory, _listener, onError) => {
@@ -124,7 +126,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
           throw Object.assign(new Error("host registration refused"), { code: "ENOSPC" });
         }
         callbacks.push(onError);
-        return { close: () => undefined };
+        return { close: () => { ++closed; } };
       },
     });
     const view = transformFilesystem(owner);
@@ -141,7 +143,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     const host = await createHostInputMutationTracker([tsconfig], view, new Set([tsconfig]), "all", projectRoot);
     try {
       const available = generationNotificationsAvailable(project, host, undefined);
-      assert.equal(available, variant === "callback-failed");
+      assert.equal(available, variant !== "host-registration-failed");
       retainGenerationNotifications({
         cached: observed, project, host, candidate: undefined,
         retainProjectMembership: true, retainNotifications: true,
@@ -154,21 +156,34 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
         for (const fail of callbacks) fail();
         assert.equal(project.failed, true);
         assert.equal(host.failed, true);
-      } else {
+      } else if (variant === "host-registration-failed") {
         assert.equal(observed.projectMutationTracker, undefined);
         assert.equal(observed.hostInputMutationTracker, undefined);
       }
       const promise = Promise.resolve(observed);
-      owner.set("literal-owner", promise);
+      const key = variant === "polling-later" ? input.key : "literal-owner";
+      owner.set(key, promise);
+      if (variant === "polling-later") {
+        assert.equal(observed.projectMutationTracker, project);
+        assert.equal(observed.hostInputMutationTracker, host);
+        declareTtscTransformPolling(owner, true);
+        assert.equal(closed, 0, "declaration alone does not close retained handles");
+        assert.equal((await input.api.transformTtsc(input.file, input.source,
+          input.options, undefined, owner))?.code, input.code);
+        assert.equal(owner.get(key), promise);
+        assert.equal(observed.projectMutationTracker, undefined);
+        assert.equal(observed.hostInputMutationTracker, undefined);
+        assert.ok(closed > 0, "actual next coordinator delivery withdraws retained watches");
+      }
       const action = () => selectCachedGenerationAction({
         cache: owner, cached: observed, epoch: undefined, file: input.file,
-        generation: promise, key: "literal-owner", source: input.source,
+        generation: promise, key, source: input.source,
       });
       assert.equal(action(), "serve", variant + ": full proof keeps unchanged bytes");
-      assert.equal(owner.get("literal-owner"), promise);
+      assert.equal(owner.get(key), promise);
       fs.appendFileSync(input.file, "// actual edit after notification failure\n");
       assert.equal(action(), "capture", variant + ": disk change still requires capture");
-      assert.equal(owner.has("literal-owner"), false);
+      assert.equal(owner.has(key), false);
     } finally {
       project.close();
       host.close();
