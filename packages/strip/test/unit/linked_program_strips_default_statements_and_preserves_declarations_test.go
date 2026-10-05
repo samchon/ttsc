@@ -21,10 +21,10 @@ import (
 //
 // 1. Parse a source mixing debugger/default callees, a kept call, declarations and an embedded if body.
 // 2. Apply the registered strip plugin with an empty JSON configuration.
-// 3. Check retained statement identity/order, the empty embedded body and all remaining literal text.
+// 3. Check retained statement identity/order, the empty embedded body, remaining literal text and the actual strip dependency declaration.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual strip ApplyProgram removes debugger, console.log, console.debug and assert.equal expression statements from the parsed list. It retains interface/const/export declarations and console.info in order, replacing only the embedded if body with a synthesized empty statement at the original location while retaining the condition and parent.
-// @evidence contracts/testing.md#independent-expectations The strip default contract names the four removable forms; the authored kept call and StripBox declaration must preserve their meaning. Literal retained indices, original pointer identities and the three remaining authored strings are independent expectations rather than a strip predicate or emitted snapshot. Declaration emission and runtime stdout remain E2E responsibilities.
+// @evidence contracts/testing.md#behavioral-verification Actual strip ApplyProgram removes debugger, console.log, console.debug and assert.equal expression statements from the parsed list. It retains interface/const/export declarations and console.info in order, replacing only the embedded if body with a synthesized empty statement at the original location while retaining the condition and parent. TransformDependenciesFor exposes the actual strip hook's complete src/main.ts declaration with no cross-file dependencies.
+// @evidence contracts/testing.md#independent-expectations The strip default contract names the four removable forms; the authored kept call and StripBox declaration must preserve their meaning. Literal retained indices, original pointer identities and the three remaining authored strings are independent expectations rather than a strip predicate or emitted snapshot. Strip reads each file's own AST and reports configuration separately as host input, so the authored sole source key src/main.ts is complete without cross-file dependencies. This does not certify host-input observation, watch narrowing, declaration emission or runtime stdout.
 // @evidence contracts/testing.md#distinguishing-cases Top-level removals differ from the required embedded body slot: the if itself and its condition remain even though its console.log body disappears. Interface, assert implementation, box export and console.info are negative controls; retained literal strings prove a clean list count alone cannot pass after deleting useful content. Custom-only patterns and non-expression calls are owned by the adjacent linked-program custom case.
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations is in test/unit for the utility overlay. A single noLib single-threaded Program runs LoadProgram and ApplyLinkedPlugins in this Go process; an absolute fixture JSON path selects native JSON parsing, t.Setenv restores the manifest and Close releases the checker. No Node config evaluation, native build, command process, private linkname or registry replacement is used.
 func TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations(t *testing.T) {
@@ -64,6 +64,13 @@ if (box.value) console.log("drop-if");`,
   condition, body := embedded.Expression, embedded.ThenStatement
   if err := prog.ApplyLinkedPlugins(); err != nil {
     t.Fatal(err)
+  }
+  dependencies := prog.TransformDependenciesFor(root)
+  if want := []string{"src/main.ts"}; !reflect.DeepEqual(dependencies.Complete, want) {
+    t.Errorf("actual strip complete files: got %#v, want %#v", dependencies.Complete, want)
+  }
+  if len(dependencies.Dependencies) != 0 {
+    t.Errorf("strip must not invent cross-file dependencies: %#v", dependencies.Dependencies)
   }
   retained := []int{0, 1, 6, 7, 8}
   if len(file.Statements.Nodes) != len(retained) {
