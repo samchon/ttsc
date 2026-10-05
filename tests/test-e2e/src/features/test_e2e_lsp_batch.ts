@@ -1284,12 +1284,12 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
  *
  * @evidence contracts/testing.md#behavioral-verification The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
  * @evidence contracts/testing.md#independent-expectations Each owning body supplies authored diagnostics, source coordinates and literal native outcomes; this collector does not reinterpret failure as acceptance.
- * @evidence contracts/testing.md#distinguishing-cases Ordinary supported shutdown and three intentionally terminal selection changes are different lifetimes, all required to settle.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary supported shutdown and five intentionally terminal selection changes are different lifetimes, all required to settle.
  * @evidence contracts/testing.md#execution-ownership This is the single selected LSP entry. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
  * @evidence contracts/e2e.md#necessary-boundary Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls.
  * @evidence contracts/e2e.md#shared-execution Both bodies borrow the same single preparation and shared source producer/cache, with disjoint upfront source/config islands and independent actual lifetimes.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs.
- * @evidence contracts/e2e.md#preserved-coverage Retains the complete ordinary editor body and original config/dependency selection terminal assertions. Actual extra launcher sessions number three; native/descendant totals remain unmeasured, and source/descriptor terminal changes remain unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Retains the complete ordinary editor body and original config/dependency/source/descriptor selection terminal assertions. Actual extra launcher sessions number five; native/descendant totals remain unmeasured.
  */
 export async function test_e2e_lsp_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();

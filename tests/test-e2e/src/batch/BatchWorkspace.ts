@@ -344,6 +344,17 @@ export namespace BatchWorkspace {
       path.resolve(import.meta.dirname, "../../fixtures/shared"),
     );
     await FileSystemIterator.write(root, inputs);
+    const mutableLint = path.join(root, "tools/mutable-lint-producer");
+    const owningLint = path.join(TestProject.WORKSPACE_ROOT, "packages/lint");
+    fs.mkdirSync(mutableLint, { recursive: true });
+    for (const entry of ["package.json", "go.mod", "go.sum", "internal", "lib", "linthost", "plugin", "rule", "src"]) {
+      const from = path.join(owningLint, entry);
+      if (fs.existsSync(from)) fs.cpSync(from, path.join(mutableLint, entry), { recursive: true });
+    }
+    fs.symlinkSync(path.join(owningLint, "node_modules"), path.join(mutableLint, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+    const selectionModules = path.join(root, "tools/lsp-selection/node_modules/@ttsc");
+    fs.mkdirSync(selectionModules, { recursive: true });
+    fs.symlinkSync(mutableLint, path.join(selectionModules, "lint"), process.platform === "win32" ? "junction" : "dir");
     await FileSystemIterator.write(
       path.join(root, "tools/native-topology"),
       await FileSystemIterator.read(path.resolve(import.meta.dirname, "../../fixtures/ttsc/api/baseline")),

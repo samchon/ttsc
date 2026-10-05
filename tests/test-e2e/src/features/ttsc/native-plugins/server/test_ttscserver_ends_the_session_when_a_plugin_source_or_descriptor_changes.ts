@@ -44,18 +44,20 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/testing.md#behavioral-verification A real session announces selection change after copied Go rule changes and is joined before restart; the next startup returns the edited message and descriptor mutation announces selection change again. Both intentional restart exits preserve native error status1 instead of falsely requiring normal shutdown0.
  * @evidence contracts/testing.md#independent-expectations Original/replacement literal messages and pluginSelectionChanged independently prescribe the original observations. Direct close is separately required before reset; the maintained selection sentinel/native command error-status contract supplies the explicit restart1 expectation, not a fabricated clean-shutdown result.
  * @evidence contracts/testing.md#distinguishing-cases Go-source mutation must affect the next actual binary message; descriptor-only mutation must also end selection even though the diagnostic rule source is unchanged.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named server export in the generic E2E population. Two actual native startups use a private workspace-package copy and authored editor-style watched-file protocol notifications; these are not kernel-watch events, packed installation or an inferred Program/process total. Source-key units do not prove edited native code reaches the editor.
+ * @evidence contracts/testing.md#execution-ownership Selected LSP calls this body through lspSelectionCorpus with one upfront owning-package copy. Two actual native startups use authored editor-style watched-file protocol notifications; these are not kernel-watch events, packed installation or an inferred Program/process total. Source-key units do not prove edited native code reaches the editor.
  * @evidence contracts/e2e.md#necessary-boundary Source fingerprinting, native compilation, launcher manifest and LSP restart policy must agree on the current artifact rather than retaining an old binary or descriptor.
  * @evidence contracts/e2e.md#shared-execution One copied producer/consumer and explicit suite cache carry both sessions; Go-object preparation is available for reuse. Original and edited source/restart are distinct inputs, so canonical immutable source cannot replace the edited rule. Messages and close outcomes do not certify hits, binary-byte identity, total builds/Programs/processes or minimum preparation cost.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied package/node_modules link isolate edits from workspace files. Each client is owned immediately on startup; after the original selection notification, direct-child close/status1 is joined before restart. Selection-change sentinel returns1 through the maintained native command/launcher, so it is not incorrectly treated as clean shutdown0. Startup/body/join failure preserves attempted shutdown errors and conservatively retains consumer/copy/already-owned shared cache; no unresolved input is reset or removed. Close is not arbitrary descendant or loaded-image proof.
  * @evidence contracts/e2e.md#preserved-coverage Keeps original message equality, actual source edit, edited-message equality and both selection notifications; no capability stub or cache opt-out substitutes for rebuilt source.
  */
-export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes() {
-  const project = TestLint.createProject({
+export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes(
+  prepared?: { root: string; copy: string; cache: string; retain: (reason: string) => void; closed: () => void },
+) {
+  const project = prepared === undefined ? TestLint.createProject({
     name: "ttscserver-plugin-selection-inputs",
     rules: { "no-var": "error" },
     source: SOURCE,
-  });
+  }) : { tmpdir: prepared.root, cleanup: () => undefined };
   const workspaceLint = path.join(
     TestProject.WORKSPACE_ROOT,
     "packages",
@@ -63,9 +65,9 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
   );
   // A copy, so the test edits no workspace file; its dependencies resolve
   // through the workspace package's own node_modules.
-  const copy = TestProject.tmpdir("ttsc-lint-copy-");
+  const copy = prepared?.copy ?? TestProject.tmpdir("ttsc-lint-copy-");
   const realCopy = fs.realpathSync.native(copy);
-  for (const entry of [
+  if (prepared === undefined) for (const entry of [
     "package.json",
     "go.mod",
     "go.sum",
@@ -80,14 +82,16 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     if (fs.existsSync(from))
       fs.cpSync(from, path.join(copy, entry), { recursive: true });
   }
-  fs.symlinkSync(
+  if (prepared === undefined) fs.symlinkSync(
     path.join(workspaceLint, "node_modules"),
     path.join(copy, "node_modules"),
     process.platform === "win32" ? "junction" : "dir",
   );
   const link = path.join(project.tmpdir, "node_modules", "@ttsc", "lint");
-  fs.rmSync(link, { force: true, recursive: true });
-  fs.symlinkSync(copy, link, process.platform === "win32" ? "junction" : "dir");
+  if (prepared === undefined) {
+    fs.rmSync(link, { force: true, recursive: true });
+    fs.symlinkSync(copy, link, process.platform === "win32" ? "junction" : "dir");
+  }
   const file = path.join(project.tmpdir, "src", "main.ts");
   const uri = pathToFileURL(file).href;
   let activeClient: TtscserverClient | undefined;
@@ -98,7 +102,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     message: string | undefined;
   }> => {
     const client = TtscserverClient.startLauncher(project.tmpdir, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      env: { TTSC_CACHE_DIR: prepared?.cache ?? SHARED_PLUGIN_CACHE_DIR },
     });
     activeClient = client;
     await client.request("initialize", {
@@ -197,6 +201,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     const failures: unknown[] = [error];
     const reason =
       "copied plugin-selection session startup, body or join failed";
+    if (prepared !== undefined) prepared.retain(reason);
     try {
       TestProject.retainTemporaryDirectory(project.tmpdir, reason);
     } catch (retentionError) {
@@ -219,11 +224,14 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
           SELECTION_TIMEOUT,
           "failed plugin-selection session shutdown was not joined",
         );
+        activeClient = undefined;
       } catch (shutdownError) {
         failures.push(shutdownError);
       }
     }
+    if (activeClient === undefined) prepared?.closed();
     throw new AggregateError(failures, reason);
   }
   project.cleanup();
+  prepared?.closed();
 }
