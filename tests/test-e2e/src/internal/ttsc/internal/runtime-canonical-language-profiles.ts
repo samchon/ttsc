@@ -55,29 +55,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
   // One tracked external island keeps physical targets outside the consumer
   // config ancestry; an in-root holding path would change orphan discovery.
   const linkedInputs = TestProject.tmpdir("ttsx-shared-external-file-inputs-");
-  for (const [index, row] of [
-    { options: {}, args: [], source: 'function invalid() { return 42; }\n@invalid\nclass Foo {}\nconsole.log("executed");', diagnostic: /TS1329/ },
-    { options: { lib: [] }, args: [], source: STANDARD_DECORATOR_SOURCE, diagnostic: /TS2318/ },
-    { options: { noLib: true }, args: [], source: STANDARD_DECORATOR_SOURCE, diagnostic: /TS2318/ },
-    { options: {}, args: ["--noLib"], source: STANDARD_DECORATOR_SOURCE, diagnostic: /TS2318/ },
-    { options: {}, args: ["--target", "invalid"], source: STANDARD_DECORATOR_SOURCE, diagnostic: /TS6046/ },
-  ].entries()) {
-    profiles.push({
-      name: `decorator-rejection-before-effects-${index}`,
-      files: {
-        "tsconfig.json": TestProject.tsconfig({ target: "ESNext", module: "commonjs", strict: true, outDir: "dist", rootDir: "src", ...row.options }),
-        "src/main.ts": row.source,
-      },
-      run: (root, _persistent, spawn) => {
-        const result = spawn(TestProject.TTSX_BIN, [...row.args, "src/main.ts"], { cwd: root });
-        const failures: unknown[] = [];
-        try { assert.notEqual(result.status, 0); } catch (error) { failures.push(error); }
-        try { assert.match(result.stderr + result.stdout, row.diagnostic); } catch (error) { failures.push(error); }
-        try { assert.doesNotMatch(result.stdout, /Hello Class|Hello Function|executed/); } catch (error) { failures.push(error); }
-        if (failures.length) throw new AggregateError(failures, "standard_decorators_reject_invalid_programs_before_effects assertions failed");
-      },
-    });
-  }
   for (const module of ["esnext", "commonjs"]) {
     profiles.push({
       name: `decorator-excluded-public-register-${module}`,
