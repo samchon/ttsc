@@ -17,6 +17,12 @@ import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plug
  * Native string decoding, resolved JSON and unchanged neighboring values reach
  * one real ttsx entry. Unremoved configured discard calls throw, so successful
  * values cannot hide missing stripping. Every value belongs to this one graph.
+ * The shared source producer also materializes one imported Go module under four
+ * long components: patch-qualified directives and relative/absolute replacement
+ * select first, changed external bytes select second, and an incompatible local
+ * toolchain directive rejects before publication. Three actual Go builds and
+ * three binary observations replace the standalone source-project recipes;
+ * restored bytes reuse the original publication before the runtime borrows it.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
  * 2. Compare its one actual JSON payload against all original literal rows.
