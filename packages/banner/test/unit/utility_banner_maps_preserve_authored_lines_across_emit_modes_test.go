@@ -17,23 +17,25 @@ import (
 )
 
 // TestUtilityBannerMapsPreserveAuthoredLinesAcrossEmitModes verifies actual
-// utility compiler maps in incompatible inline and removeComments modes.
+// utility compiler maps in incompatible inline, external and removeComments modes.
 //
 // The JSON banner deliberately supplies the original four authored text lines
 // directly to the native plugin. The fixture tsconfigs declare no plugins: the
 // registration and its configFile arrive through --plugins-json, so a tsconfig
-// entry would be dead data naming a config the fixture does not contain. Installed CJS discovery remains in the shared
-// external-map boundary; these units do not evaluate CJS or start Node.
+// entry would be dead data naming a config the fixture does not contain. Main and
+// shebang source bytes come from the original utilities/workspace/banner/shared
+// fixtures. Installed CJS discovery remains in the shared E2E boundary; these
+// units do not evaluate CJS or start Node.
 //
 //  1. Copy the static original source/base/mode inputs and JSON text equivalent.
-//  2. Emit both compiler modes directly with the actual banner registration.
-//  3. Require the inline preamble once, then independently inspect map bounds
-//     and removeComments banner absence.
+//  2. Emit the three compiler profiles with the actual banner registration.
+//  3. Inspect original mapping bounds, embedded source bytes, JS/DTS banner
+//     presence, shebang order and removeComments banner absence.
 //
-// @evidence contracts/testing.md#behavioral-verification RunBuildWithIO loads and emits actual compiler Programs with the registered banner. Inline output contains each of the four authored text lines and package marker exactly once; embedded inline mapping and emitted JS/DTS sidecar mappings address the original source lines, while removeComments outputs omit the preamble.
+// @evidence contracts/testing.md#behavioral-verification RunBuildWithIO loads and emits actual compiler Programs with the registered banner. Inline JS and external JS/DTS contain each authored banner marker exactly once. External JS embeds the exact original main.ts bytes, both main sidecar maps preserve original line bounds and zero anchoring, and the compatible shebang source emits its hashbang before its single banner. removeComments outputs omit the preamble.
 // @evidence contracts/testing.md#independent-expectations The source-map v3 VLQ format, original authored source line count, minimum zero and literal banner markers define expectations. The test decoder is independent of the production source-map corrector and rejects invalid encoding rather than inventing mappings.
-// @evidence contracts/testing.md#distinguishing-cases Inline base64 maps and removeComments JS/DTS maps are incompatible emit profiles; actual inline preamble presence, nonempty mapping, original-line bounds, zero anchoring and preamble absence are collected independently. A missing banner cannot satisfy the inline map checks alone. External maps, embedded source byte identity and installed CJS loading retain their original shared E2E boundary.
-// @evidence contracts/testing.md#execution-ownership This owning Go unit directly calls the actual banner plugin and compiler utility in one process, with two temporary roots and Programs closed by RunBuildWithIO. Native JSON supplies identical authored banner text; no artifact producer, consumer installation or child process executes, and CJS authority is not certified here.
+// @evidence contracts/testing.md#distinguishing-cases Inline maps, external maps and removeComments require incompatible emit profiles. External ordinary and executable sources share one Program; source identity, banner multiplicity, URL termination and shebang-first checks distinguish defects that mapping bounds alone cannot detect. Installed CJS loading remains in the shared E2E boundary.
+// @evidence contracts/testing.md#execution-ownership This owning Go unit calls the actual banner plugin and compiler utility in one process, with three temporary roots and Programs closed by RunBuildWithIO. Ordinary and shebang external outputs share one compilation; native JSON supplies the authored banner text. No artifact producer, consumer installation or child process executes, and CJS authority is not certified here.
 func TestUtilityBannerMapsPreserveAuthoredLinesAcrossEmitModes(t *testing.T) {
   data, err := os.ReadFile("../testdata/utility-map-matrix.json")
   if err != nil {
@@ -43,7 +45,7 @@ func TestUtilityBannerMapsPreserveAuthoredLinesAcrossEmitModes(t *testing.T) {
   if err := json.Unmarshal(data, &inputs); err != nil {
     t.Fatal(err)
   }
-  for _, mode := range []string{"inline-map", "remove-comments"} {
+  for _, mode := range []string{"inline-map", "external-maps", "remove-comments"} {
     t.Run(mode, func(t *testing.T) {
       root := t.TempDir()
       for name, text := range inputs {
@@ -119,6 +121,50 @@ func TestUtilityBannerMapsPreserveAuthoredLinesAcrossEmitModes(t *testing.T) {
           }
           checkMap(t, raw)
         })
+      } else if mode == "external-maps" {
+        const authoredBanner = "/**\n * ----------------------------------------------------------------\n * Copyright\n * MIT License\n * third line\n * fourth line\n *\n * @packageDocumentation\n */\n"
+        for _, name := range []string{"main.js", "main.d.ts", "shebang.js"} {
+          output, err := os.ReadFile(filepath.Join(cwd, "dist", name))
+          if err != nil {
+            t.Fatal(err)
+          }
+          if count := strings.Count(string(output), authoredBanner); count != 1 {
+            t.Errorf("external %s complete authored banner count=%d, want one", name, count)
+          }
+          for _, marker := range []string{"Copyright", "MIT License", "third line", "fourth line", "@packageDocumentation"} {
+            if count := strings.Count(string(output), marker); count != 1 {
+              t.Errorf("external %s marker %q count=%d, want one authored banner", name, marker, count)
+            }
+          }
+          if name == "shebang.js" {
+            if !bytes.HasPrefix(output, []byte("#!/usr/bin/env node\n")) {
+              t.Error("executable output does not start with the authored shebang")
+            }
+            continue
+          }
+          if !regexp.MustCompile(`\n//# sourceMappingURL=` + regexp.QuoteMeta(name+".map") + `$`).Match(output) {
+            t.Errorf("%s lacks its terminating external source-map URL", name)
+          }
+          raw, err := os.ReadFile(filepath.Join(cwd, "dist", name+".map"))
+          if err != nil {
+            t.Fatal(err)
+          }
+          if regexp.MustCompile(`@packageDocumentation|Copyright|MIT License`).Match(raw) {
+            t.Errorf("%s.map includes injected banner text", name)
+          }
+          checkMap(t, raw)
+          if name == "main.js" {
+            var value struct {
+              SourcesContent []string `json:"sourcesContent"`
+            }
+            if err := json.Unmarshal(raw, &value); err != nil {
+              t.Fatal(err)
+            }
+            if len(value.SourcesContent) == 0 || value.SourcesContent[0] != inputs["shared/main.ts"] {
+              t.Error("external JS map does not embed exact authored main.ts bytes")
+            }
+          }
+        }
       } else {
         for _, name := range []string{"main.js", "main.d.ts"} {
           t.Run(name, func(t *testing.T) {
