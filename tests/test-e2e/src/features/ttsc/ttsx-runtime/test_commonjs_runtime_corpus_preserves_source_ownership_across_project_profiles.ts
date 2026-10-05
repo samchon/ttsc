@@ -579,28 +579,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     }
   }
   if (safeForCleanup) {
-    const alias = root + "-runtime-profile-link";
-    let rootAlias: string | undefined;
-    let ownsAlias = false;
     try {
-      try {
-        fs.lstatSync(alias);
-        throw new Error("canonical root alias already exists: " + alias);
-      } catch (cause) {
-        if ((cause as NodeJS.ErrnoException).code !== "ENOENT") throw cause;
-      }
-      try {
-        fs.symlinkSync(root, alias, "junction");
-        ownsAlias = true;
-        rootAlias = alias;
-      } catch (cause) {
-        const code = (cause as NodeJS.ErrnoException).code;
-        if (!["EPERM", "EACCES", "ENOSYS", "ENOTSUP"].includes(code ?? ""))
-          throw cause;
-        console.log(
-          "CAPABILITY-SKIPPED:canonical-root-alias; no alias coverage claimed",
-        );
-      }
       const readProfile = (name: string) =>
         FixtureFiles.read("ttsc/runtime-commonjs-corpus/profiles/" + name);
       const runtime = await runCanonicalRuntimeProfiles(root, [
@@ -629,10 +608,8 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         ...(includeLanguageProfiles ? canonicalRuntimeLanguageProfiles() : []),
         ...canonicalCheckedOutputProfiles(
           {
-            excluded: readProfile("output-excluded-link"),
             declared: readProfile("output-declared-bytes"),
           },
-          rootAlias,
         ),
       ]);
       failures.push(...runtime.failures);
@@ -644,20 +621,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       failures.push(
         new Error("canonical runtime profile transitions", { cause }),
       );
-    } finally {
-      if (ownsAlias && safeForCleanup) {
-        try {
-          assert.equal(fs.lstatSync(alias).isSymbolicLink(), true);
-          assert.equal(
-            fs.realpathSync.native(alias),
-            fs.realpathSync.native(root),
-          );
-          fs.unlinkSync(alias);
-        } catch (cause) {
-          safeForCleanup = false;
-          failures.push(new Error("release canonical root alias", { cause }));
-        }
-      }
     }
   }
   if (!safeForCleanup) {

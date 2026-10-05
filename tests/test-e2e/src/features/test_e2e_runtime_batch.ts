@@ -47,11 +47,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const standardInputs = await FileSystemIterator.read(standardRoot);
   const runtimeOwnerConfig = fs.readFileSync(path.join(workspace.root, "runtime-owned.json"));
   const installedPackage = path.join(workspace.root, "node_modules/root-pkg");
+  const excludedInputs = ["tools/runtime-excluded.ts", "src/runtime-corpus/excluded-owner.ts"]
+    .map((relative) => ({ file: path.join(workspace.root, relative), bytes: fs.readFileSync(path.join(workspace.root, relative)) }));
   const installedInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(installedPackage);
   const installedDirectory = workspace.installationOnly ? undefined : { names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs };
   let result: ReturnType<typeof TestProject.spawn>;
   const base = path.join(workspace.root, "runtime-base.json");
   const selected = workspace.installationOnly ? [] : [
+    "--cwd", workspace.projectAlias,
     "-P", "runtime-owned.json",
     "--outDir", "distx", "--declaration", "--declarationDir", "typesx",
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
@@ -67,7 +70,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       cwd: workspace.root,
       env: { TTSC_CACHE_DIR: workspace.cache, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined,
         TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary, TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
-        TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx },
+        TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx, TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias },
     });
   } finally {
     if (!workspace.installationOnly) fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
@@ -85,6 +88,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   } else {
   BatchWorkspace.assertResult(payload, workspace.expected, true);
   assert.deepEqual(await FileSystemIterator.read(installedPackage), installedInputs, "installed typed package inputs and stale JavaScript must remain unchanged");
+  for (const input of excludedInputs) assert.deepEqual(fs.readFileSync(input.file), input.bytes, "excluded alias delivery must preserve both authored sources");
   assert.deepEqual({ names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs }, installedDirectory);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts").length, 2);
   assert.doesNotMatch(result.stdout, /STALE tool\.js/);

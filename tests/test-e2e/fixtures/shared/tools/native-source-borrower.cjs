@@ -97,3 +97,12 @@ assert.equal(require("root-pkg").value, "root-ran", "the actual installed packag
 assert.equal(require(staleSource).tool, "fresh tool.ts");
 delete require.cache[require.resolve(staleSource)];
 assert.equal(require(path.join(root, "src/runtime-corpus/stale-reader.cts")).observed, "fresh tool.ts");
+
+// The existing project alias carries an excluded typed source importing an
+// admitted source from the same graph. Its real lowering must not emit beside
+// either source or into the configured public output directory.
+const excludedSource = path.join(process.env.TTSC_E2E_PROJECT_ALIAS, "tools/runtime-excluded.ts");
+assert.equal(fs.realpathSync.native(process.env.TTSC_E2E_PROJECT_ALIAS), fs.realpathSync.native(root));
+assert.equal(require(excludedSource).observed, "cleared world");
+assert.equal(fs.existsSync(path.join(root, "tools/runtime-excluded.js")), false);
+assert.equal(fs.existsSync(path.join(root, "src/runtime-corpus/excluded-owner.js")), false);
