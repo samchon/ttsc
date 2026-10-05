@@ -16,7 +16,7 @@ import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal
 import { prunesPluginSourceDirectory } from "../../../../packages/ttsc/lib/plugin/internal/source/prunesPluginSourceDirectory";
 import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins";
 import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
-import { resolveCapabilityPlugins } from "../../../../packages/ttsc/lib/plugin/resolveCapabilityPlugins";
+import { resolveCapabilityPlugins, resolveCapabilityPluginResolution } from "../../../../packages/ttsc/lib/plugin/resolveCapabilityPlugins";
 import { CapabilityResolutionFormat } from "../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat";
 
 /**
@@ -112,7 +112,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
     error instanceof Error && error.message.includes(`the cache ${cache} lies inside the plugin source`) && error.message.includes(sourceModule);
   assert.equal(fs.existsSync(refusedPluginCache), false);
   assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: refusedPluginCache }).prepare(), refusal(refusedPluginCache));
-  assert.equal(fs.existsSync(refusedPluginCache), false, "refused publication must not create a cache among its keyed source");
+  assert.equal(fs.existsSync(refusedPluginCache), false, "refused publication must not create a cache among its keyed source; actual post-refusal cache entries: " + JSON.stringify(
+    fs.existsSync(refusedPluginCache) ? fs.readdirSync(refusedPluginCache, { recursive: true }) : [],
+  ));
   assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
   const excludedCacheRoot = path.join(sourceModule, "node_modules/.cache/public-admission");
   const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
@@ -537,10 +539,18 @@ export async function test_e2e_metro_batch(): Promise<void> {
     return file!;
   };
   const capabilityIdentity = (): { binary: string; inode: string } => {
-    const answer = capabilityAnswer();
+    const resolution = resolveCapabilityPluginResolution({ capability: "probe", cwd: workspace.root, tsconfig: configPath });
+    const answer = resolution.plugins;
     assert.equal(answer.length, 1);
     assert.equal(fs.existsSync(answer[0]!.binary), true);
-    return { binary: answer[0]!.binary, inode: String(fs.statSync(capabilityRecord(), { bigint: true }).ino) };
+    const file = capabilityRecord();
+    assert.equal(fs.existsSync(file), true, "the resolved capability must publish the independently keyed answer record; actual same-call authority: " + JSON.stringify({
+      status: resolution.status, isCurrent: resolution.isCurrent(), file,
+      runtime: process.execPath, nodeBinary: process.env.TTSC_NODE_BINARY ?? null,
+      nodeOptions: process.env.NODE_OPTIONS ?? null, cache: process.env.TTSC_CACHE_DIR,
+      binary: answer[0]!.binary, evaluations: fs.existsSync(capabilityCounter) ? fs.readFileSync(capabilityCounter, "utf8") : null,
+    }));
+    return { binary: answer[0]!.binary, inode: String(fs.statSync(file, { bigint: true }).ino) };
   };
   try {
     applyCapabilityEnvironment(capabilityEnvironment);
@@ -911,6 +921,10 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const value = JSON.parse(fs.readFileSync(path.join(session, name), "utf8"));
     return { name, type: value.result.type, scratchDirectory: value.scratchDirectory };
   });
+  const failureTrace = (): Record<string, unknown[]> => Object.fromEntries(fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).sort().map((name) =>
+    [name, fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))],
+  ));
+  const failureTraceOffsets = Object.fromEntries(Object.entries(failureTrace()).map(([name, rows]) => [name, rows.length]));
   // These state transitions keep the same two actual adapter/cache owners.
   fs.appendFileSync(contractPath, "\nexport type PooledBroken = NotARealExternalType;\nexport const pooledAliasInvalid: import(\"@typed/foo\").Foo = { id: \"wrong\", name: 42 };\n");
   const failed = await Promise.all(workers.map((worker) => worker.request()));
@@ -919,7 +933,13 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
   }
   const failedPublications = publications();
-  assert.equal(failedPublications.filter((publication) => publication.type === "failure").length, 1);
+  assert.equal(failedPublications.filter((publication) => publication.type === "failure").length, 1,
+    "one reusable failed publication must serve the two existing callers; actual failed epoch: " + JSON.stringify({
+      publications: failedPublications, replies: failed, record: JSON.parse(signal()),
+      invocationTrace: Object.entries(failureTrace()).flatMap(([name, rows]) =>
+        rows.slice(failureTraceOffsets[name] ?? 0).map((event) => ({ file: name, event })),
+      ),
+    }));
   const replay = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of replay) {
     assert.match(reply.error ?? "", /NotARealExternalType/);
