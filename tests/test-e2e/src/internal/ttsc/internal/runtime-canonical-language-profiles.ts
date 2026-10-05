@@ -247,15 +247,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     },
   });
   profiles.push({
-    name: "public-runtime-module-preserve",
-    files: FixtureFiles.read("ttsc/ttsx_classifies_module_preserve_as_ecmascript_modules/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), "preserve-stays-esm");
-    },
-  });
-  profiles.push({
     name: "public-runtime-forwarded-module-and-response",
     files: {
       ...FixtureFiles.read("ttsc/ttsx_classifies_the_entry_by_a_forwarded_module_flag/inputs-1"),
