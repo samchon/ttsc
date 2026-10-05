@@ -1,4 +1,4 @@
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { FileSystemIterator, TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { createLoaderPoolWorker, type LoaderPoolOutcome } from "../batch/LoaderPoolWorker";
 import fs from "node:fs";
@@ -10,6 +10,8 @@ import { originalPositionFor } from "../internal/unplugin/internal/source-map/or
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
+import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
+import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginSourceState";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
@@ -24,16 +26,16 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
- * @evidence contracts/e2e.md#shared-execution The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
+ * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const lib = path.join(TestProject.WORKSPACE_ROOT, "packages/metro/lib");
-  const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
-  const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
-  const caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
+  let baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+  let receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
+  let caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
   const session = path.join(workspace.root, "loader-pool-session");
   assert.equal(fs.existsSync(session), false, "the pool owns a fresh shared session directory");
   fs.mkdirSync(session);
@@ -57,6 +59,123 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const poolConfig = JSON.parse(originalConfig.toString("utf8"));
   const nativeProbe = poolConfig.compilerOptions.plugins.find((entry: { name?: string }) => entry.name === "shared-real-program-probe");
   assert.ok(nativeProbe, "the existing native producer must own the capture-time write");
+  // Public preparation pays for this same producer before either adapter starts.
+  // Two simultaneous instance cache owners differ only in their environment;
+  // neither call starts a TypeScript Program or executes a transform hook.
+  const publicApiFailures: unknown[] = [];
+  try {
+  const apiRoots = [".cache/public-a/ttsc", ".cache/public-b/ttsc"] as const;
+  const apiManifestBytes = fs.readFileSync(path.join(workspace.root, "package.json"));
+  const apiDescriptorBytes = fs.readFileSync(path.join(workspace.root, "descriptors/default.cjs"));
+  const apiSourceBytes = await FileSystemIterator.read(nativeProbe.fixtureSource);
+  const apiOutputRoot = path.join(workspace.root, "dist");
+  const apiOutputExisted = fs.existsSync(apiOutputRoot);
+  const apiOutputBytes = apiOutputExisted ? await FileSystemIterator.read(apiOutputRoot) : undefined;
+  for (const relative of apiRoots)
+    assert.equal(fs.existsSync(path.join(workspace.root, relative)), false, "public preparation owns a fresh instance cache");
+  const ambientCache = process.env.TTSC_CACHE_DIR;
+  const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0] } });
+  const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1] } });
+  const preparedA = compilerA.prepare();
+  const preparedB = compilerB.prepare();
+  assert.equal(preparedA.length, 1, "one authored selected native producer is prepared");
+  assert.equal(preparedB.length, 1, "the other instance prepares that same selected producer");
+  const binaryA = preparedA[0]!;
+  const binaryB = preparedB[0]!;
+  const apiRootA = path.join(workspace.root, apiRoots[0]);
+  const apiRootB = path.join(workspace.root, apiRoots[1]);
+  assert.equal(binaryA.startsWith(path.join(apiRootA, "plugins") + path.sep), true);
+  assert.equal(binaryB.startsWith(path.join(apiRootB, "plugins") + path.sep), true);
+  assert.notEqual(binaryA, binaryB);
+  assert.equal(fs.existsSync(binaryA), true);
+  assert.equal(fs.existsSync(binaryB), true);
+  assert.equal(binaryA.startsWith(apiRootB + path.sep), false);
+  assert.equal(binaryB.startsWith(apiRootA + path.sep), false);
+  assert.equal(process.env.TTSC_CACHE_DIR, ambientCache, "instance environments must not mutate the host environment");
+  const sourceModule = path.dirname(nativeProbe.fixtureSource);
+  const refusedPluginCache = path.join(sourceModule, "keyed-plugin-cache");
+  const refusedGoCache = path.join(sourceModule, "keyed-go-cache");
+  const outsideAdmissionCache = path.join(workspace.root, ".cache/public-admission/ttsc");
+  const refusal = (cache: string) => (error: unknown): boolean =>
+    error instanceof Error && error.message.includes(`the cache ${cache} lies inside the plugin source`) && error.message.includes(sourceModule);
+  assert.equal(fs.existsSync(refusedPluginCache), false);
+  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: refusedPluginCache }).prepare(), refusal(path.join(refusedPluginCache, "plugins")));
+  assert.equal(fs.existsSync(refusedPluginCache), false, "refused publication must not create a cache among its keyed source");
+  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
+  const excludedCacheRoot = path.join(sourceModule, "node_modules/.cache/public-admission");
+  const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
+  const excludedPrepared = excludedCompiler.prepare();
+  assert.equal(excludedPrepared.length, 1);
+  assert.equal(fs.existsSync(excludedPrepared[0]!), true, "both publication and Go caches below a pruned directory are admitted by the actual prepare caller");
+  const producerFile = path.join(nativeProbe.fixtureSource, "probe.go");
+  const originalProducer = fs.readFileSync(producerFile);
+  const excludedGo = path.join(sourceModule, "node_modules/public-state/ignored.go");
+  const backupGo = path.join(sourceModule, "ignored.go~");
+  assert.equal(fs.existsSync(excludedGo), false);
+  assert.equal(fs.existsSync(backupGo), false);
+  try {
+    const expectedOriginalState = pluginSourceState(sourceModule);
+    const first = compilerB.transform();
+    assert.equal(first.type, "success", "the public API must acquire the actual native source envelope");
+    if (first.type !== "success") throw new Error("initial public source envelope failed");
+    assert.deepEqual(Object.keys(first.pluginSources ?? {}).sort(), [fs.realpathSync.native(sourceModule)]);
+    const originalState = first.pluginSources![fs.realpathSync.native(sourceModule)];
+    assert.equal(originalState, expectedOriginalState, "the public native envelope must carry the state of the source bytes acquired before execution");
+    fs.mkdirSync(path.dirname(excludedGo), { recursive: true });
+    fs.writeFileSync(excludedGo, "package ignored\n");
+    fs.writeFileSync(backupGo, "backup input\n");
+    assert.equal(pluginSourceState(sourceModule), expectedOriginalState, "pruned and backup bytes must not join source ownership");
+    assert.deepEqual(compilerB.prepare(), preparedB, "pruned bytes must retain the actual selected binary");
+    fs.appendFileSync(producerFile, "\n// public source-state epoch\n");
+    const expectedEditedState = pluginSourceState(sourceModule);
+    assert.notEqual(expectedEditedState, expectedOriginalState);
+    const edited = compilerB.transform();
+    assert.equal(edited.type, "success");
+    if (edited.type !== "success") throw new Error("edited public source envelope failed");
+    assert.notEqual(edited.pluginSources?.[fs.realpathSync.native(sourceModule)], originalState);
+    assert.equal(edited.pluginSources?.[fs.realpathSync.native(sourceModule)], expectedEditedState);
+    const editedBinaries = compilerB.prepare();
+    assert.equal(editedBinaries.length, 1);
+    assert.notEqual(editedBinaries[0], binaryB, "the actual source mutation must publish another keyed binary");
+    const flaggedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: "-tags=ttsc_build_environment_probe" } });
+    const expectedFlaggedState = pluginSourceState(sourceModule, { env: { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe" } });
+    assert.notEqual(expectedFlaggedState, expectedEditedState);
+    const flagged = flaggedCompiler.transform();
+    assert.equal(flagged.type, "success");
+    if (flagged.type !== "success") throw new Error("environment public source envelope failed");
+    assert.notEqual(flagged.pluginSources?.[fs.realpathSync.native(sourceModule)], edited.pluginSources?.[fs.realpathSync.native(sourceModule)]);
+    assert.equal(flagged.pluginSources?.[fs.realpathSync.native(sourceModule)], expectedFlaggedState);
+    assert.notEqual(flaggedCompiler.prepare()[0], editedBinaries[0]);
+    const plain = new TtscCompiler({ cwd: workspace.root, plugins: false, env: { TTSC_CACHE_DIR: apiRoots[1] } }).transform();
+    assert.equal(plain.type, "success");
+    if (plain.type !== "success") throw new Error("plugin-free public source envelope failed");
+    assert.equal(plain.pluginSources, undefined, "a plugin-free operation must not report another owner's native source state");
+  } finally {
+    fs.writeFileSync(producerFile, originalProducer);
+    fs.rmSync(path.join(sourceModule, "node_modules/public-state"), { recursive: true, force: true });
+    fs.rmSync(backupGo, { force: true });
+  }
+  const explicitCleaner = new TtscCompiler({ cwd: workspace.root, cacheDir: apiRootA });
+  assert.deepEqual(explicitCleaner.clean(), [apiRootA]);
+  assert.equal(fs.existsSync(apiRootA), false);
+  const goCacheB = path.join(apiRootB, "go-build");
+  fs.mkdirSync(goCacheB, { recursive: true });
+  fs.writeFileSync(path.join(goCacheB, "seed"), "go object\n");
+  assert.deepEqual(compilerB.clean(), [path.join(apiRootB, "plugins"), goCacheB]);
+  assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
+  assert.equal(fs.existsSync(goCacheB), false);
+  assert.deepEqual(fs.readFileSync(configPath), originalConfig, "public prepare/clean must not rewrite the shared compiler input");
+  assert.deepEqual(fs.readFileSync(path.join(workspace.root, "package.json")), apiManifestBytes);
+  assert.deepEqual(fs.readFileSync(path.join(workspace.root, "descriptors/default.cjs")), apiDescriptorBytes);
+  assert.deepEqual(await FileSystemIterator.read(nativeProbe.fixtureSource), apiSourceBytes, "public preparation and cleanup must preserve the existing native producer's input tree");
+  assert.equal(fs.existsSync(apiOutputRoot), apiOutputExisted, "public in-memory source operations must not publish project output");
+  if (apiOutputBytes !== undefined) assert.deepEqual(await FileSystemIterator.read(apiOutputRoot), apiOutputBytes);
+  } catch (error) {
+    publicApiFailures.push(new Error("public preparation, instance cache and cleanup population", { cause: error }));
+  }
+  baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+  receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
+  caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
   nativeProbe.raceAttempt = baseline;
   nativeProbe.raceFile = nonInputRaceFile;
   nativeProbe.raceContent = nonInputRaceContent;
@@ -355,7 +474,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.rmSync(recreatedOutputDirectory, { recursive: true, force: true });
     const closes = await Promise.allSettled(workers.map((worker) => worker.close()));
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
-    const failures: unknown[] = failedCloses.map((entry) => entry.reason);
+    const failures: unknown[] = [...publicApiFailures, ...failedCloses.map((entry) => entry.reason)];
     if (failedCloses.length === 0) {
       for (const name of fs.readdirSync(traceRoot)) fs.unlinkSync(path.join(traceRoot, name));
       fs.rmdirSync(traceRoot);
