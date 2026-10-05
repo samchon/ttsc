@@ -293,6 +293,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const selectionOuter = path.join(workspace.root, "node_modules/batch-observation-selection");
   const selectionNearer = path.join(workspace.root, "descriptors/node_modules/batch-observation-selection");
   const selectionSibling = path.join(workspace.root, "descriptor-search-sibling");
+  const scopedSelectionOuter = path.join(workspace.root, "node_modules/@batch/observation-selection");
+  const scopedSelectionNearer = path.join(workspace.root, "descriptors/node_modules/@batch/observation-selection");
   for (const owned of [selectionScope, selectionOuter, selectionNearer, selectionSibling])
     assert.equal(fs.existsSync(owned), false, "search epochs own initially absent paths");
   const physicalSelectionPath = (file: string): string => {
@@ -342,10 +344,108 @@ export async function test_e2e_metro_batch(): Promise<void> {
         } catch (error) { publicApiFailures.push(new Error(selectionMode + " actual descriptor selection: " + transform, { cause: error })); }
       }
     }
+    fs.rmSync(selectionNearer, { recursive: true });
+    for (const layout of ["hoisted-bare", "hoisted-subpath", "local-bare"] as const) {
+      const scoped = layout === "hoisted-subpath";
+      const packageName = scoped ? "@batch/observation-selection" : "batch-observation-selection";
+      const nearer = scoped ? scopedSelectionNearer : selectionNearer;
+      const installed = layout === "local-bare" ? nearer : scoped ? scopedSelectionOuter : selectionOuter;
+      const manifestBytes = JSON.stringify({ name: packageName, main: "index.js" });
+      fs.mkdirSync(installed, { recursive: true });
+      fs.writeFileSync(path.join(installed, "package.json"), manifestBytes);
+      fs.writeFileSync(path.join(installed, "index.js"), 'module.exports = "selection";\n');
+      fs.writeFileSync(path.join(installed, "sub.js"), 'module.exports = "selection";\n');
+      const scope = JSON.parse(fs.readFileSync(selectionScope, "utf8"));
+      scope.imports["#observation-selection"] = packageName + (scoped ? "/sub.js" : "");
+      fs.writeFileSync(selectionScope, JSON.stringify(scope));
+      const recordedNearerManifests: string[] = [];
+      for (const transform of ["./descriptors/default.cjs", "./descriptors/selection.ts"] as const) {
+        try {
+          const loaded = loadProjectPlugins({ binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+            cacheDir: path.join(workspace.cache, "descriptor-search-flow"), env: descriptorEnv,
+            entries: [{ ...publicNativeProbe, transform, selectionMode: "mapped-record", selectionSpecifier: "#observation-selection" }],
+          });
+          const recorded = (file: string): string | undefined => loaded.hostInputs.find((input) => physicalSelectionPath(input) === physicalSelectionPath(file));
+          const selectedInput = recorded(path.join(installed, scoped ? "sub.js" : "index.js"));
+          assert.ok(selectedInput, "mapped package's actual selected module is an input: " + layout);
+          assert.equal(Object.hasOwn(loaded.hostInputHashes, selectedInput), true);
+          const searchSuffix = path.join("node_modules", ...packageName.split("/"));
+          const allowed = (layout === "local-bare" ? [path.dirname(nearer)] : [path.dirname(nearer), path.dirname(installed)])
+            .map(physicalSelectionPath);
+          assert.deepEqual(loaded.hostInputs.filter((input) => input.includes(searchSuffix) &&
+            !allowed.some((root) => physicalSelectionPath(input).startsWith(root + path.sep))), [], "mapped lookup must stop at selected root: " + layout);
+          if (layout !== "local-bare") {
+            const candidate = recorded(path.join(nearer, "package.json"));
+            assert.ok(candidate, "the actual nearer manifest remains an input: " + layout);
+            assert.equal(Object.hasOwn(loaded.hostInputHashes, candidate), true);
+            assert.equal(loaded.hostInputHashes[candidate], null, "nearer manifest starts independently absent");
+            recordedNearerManifests.push(candidate);
+          }
+        } catch (error) { publicApiFailures.push(new Error(layout + " mapped descriptor input: " + transform, { cause: error })); }
+      }
+      if (layout !== "local-bare") {
+        fs.mkdirSync(nearer, { recursive: true });
+        fs.writeFileSync(path.join(nearer, "package.json"), manifestBytes);
+        fs.writeFileSync(path.join(nearer, "index.js"), 'module.exports = "selection";\n');
+        for (const candidate of recordedNearerManifests)
+          assert.equal(fs.existsSync(candidate), true, "appearance changes the same recorded absence, without another lookup");
+        fs.rmSync(nearer, { recursive: true });
+      }
+    }
+    const selectedDescriptorAlias = path.join(workspace.root, "node_modules/batch-selected-descriptor");
+    const rootManifestPath = path.join(workspace.root, "package.json");
+    const manifestBeforeAlias = fs.readFileSync(rootManifestPath);
+    const scopeBeforeAlias = fs.readFileSync(selectionScope);
+    assert.equal(fs.existsSync(selectedDescriptorAlias), false);
+    try {
+      const scope = JSON.parse(scopeBeforeAlias.toString("utf8"));
+      Object.assign(scope, { name: "batch-selected-descriptor", main: "default.cjs", version: "0.0.0",
+        ttsc: { plugin: { ...publicNativeProbe, transform: "batch-selected-descriptor" } } });
+      fs.writeFileSync(selectionScope, JSON.stringify(scope));
+      const manifest = JSON.parse(manifestBeforeAlias.toString("utf8"));
+      manifest.dependencies = { "batch-selected-descriptor": "0.0.0" };
+      delete manifest.devDependencies;
+      fs.writeFileSync(rootManifestPath, JSON.stringify(manifest));
+      fs.symlinkSync(path.dirname(selectionScope), selectedDescriptorAlias, "junction");
+      const config = JSON.parse(originalConfig.toString("utf8"));
+      config.compilerOptions.plugins = [{ ...publicNativeProbe, transform: "./node_modules/batch-selected-descriptor/default.cjs" }];
+      fs.writeFileSync(configPath, JSON.stringify(config));
+      const loaded = loadProjectPlugins({ binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+        cacheDir: path.join(workspace.cache, "descriptor-search-flow"), env: descriptorEnv });
+      assert.equal(loaded.nativePlugins.length, 1, "explicit linked path suppresses the same package's automatic marker");
+      assert.equal(loaded.nativePlugins[0]?.name, "shared-real-program-probe");
+      const externalConfigScope = path.join(workspace.root, "isolated-config");
+      assert.equal(fs.existsSync(externalConfigScope), false);
+      try {
+        fs.mkdirSync(externalConfigScope);
+        fs.writeFileSync(path.join(externalConfigScope, "package.json"), '{"private":true}\n');
+        fs.writeFileSync(path.join(externalConfigScope, "tsconfig.json"), '{"compilerOptions":{"target":"ES2022"}}\n');
+        const ownedCache = path.join(workspace.root, ".cache/external-root/ttsc");
+        const compiler = new TtscCompiler({ binary: TestProject.TSGO_BINARY, cwd: path.join(workspace.root, "descriptors"),
+          projectRoot: "..", tsconfig: "../isolated-config/tsconfig.json", cacheDir: ownedCache, env: baselineBuildEnv });
+        const prepared = compiler.prepare();
+        assert.equal(prepared.length, 1, "explicit project root supplies package discovery across an unrelated config package scope");
+        assert.equal(fs.existsSync(prepared[0]!), true);
+        assert.equal(prepared[0]!.startsWith(path.join(ownedCache, "plugins")), true, "native preparation is published under the consumer's literal cache");
+      } catch (error) { publicApiFailures.push(new Error("public prepare project root across separate config authority", { cause: error })); }
+      finally {
+        assert.ok(path.resolve(externalConfigScope).startsWith(path.resolve(workspace.root) + path.sep));
+        fs.rmSync(externalConfigScope, { recursive: true, force: true });
+      }
+    } catch (error) { publicApiFailures.push(new Error("linked explicit descriptor versus package automatic discovery", { cause: error })); }
+    finally {
+      fs.writeFileSync(configPath, originalConfig);
+      fs.writeFileSync(rootManifestPath, manifestBeforeAlias);
+      fs.writeFileSync(selectionScope, scopeBeforeAlias);
+      if (fs.existsSync(selectedDescriptorAlias)) {
+        assert.equal(fs.lstatSync(selectedDescriptorAlias).isSymbolicLink(), true);
+        fs.unlinkSync(selectedDescriptorAlias);
+      }
+    }
   } catch (error) { publicApiFailures.push(new Error("shared descriptor search population", { cause: error })); }
   finally {
     fs.rmSync(selectionScope, { force: true });
-    for (const owned of [selectionOuter, selectionNearer, selectionSibling]) {
+    for (const owned of [selectionOuter, selectionNearer, scopedSelectionOuter, scopedSelectionNearer, selectionSibling]) {
       assert.ok(path.resolve(owned).startsWith(path.resolve(workspace.root) + path.sep));
       fs.rmSync(owned, { recursive: true, force: true });
     }
