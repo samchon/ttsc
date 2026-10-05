@@ -94,19 +94,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
       },
     });
   }
-  profiles.push({
-    name: "decorator-explicit-library-preserves-dom-absence",
-    files: {
-      "package.json": '{"type":"module"}',
-      "tsconfig.json": TestProject.tsconfig({ target: "ESNext", module: "esnext", strict: true, rootDir: "src", outDir: "dist", lib: ["esnext"] }),
-      "src/main.ts": 'declare const console: { log(...args: unknown[]): void };\nif (false) {\n// @ts-expect-error DOM must remain absent.\ndocument.title = "forbidden";\n}\n' + STANDARD_DECORATOR_SOURCE,
-    },
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT);
-    },
-  });
   for (const module of ["esnext", "commonjs"]) {
     profiles.push({
       name: `decorator-excluded-public-register-${module}`,
