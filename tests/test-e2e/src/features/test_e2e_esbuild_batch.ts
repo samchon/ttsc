@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { serviceCorpus } from "../batch/serviceCorpus";
+import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
@@ -35,6 +36,7 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
   const service = serviceCorpus(workspace).catch((error: unknown) => {
     combinedFailures.push(error);
   });
+  const nativeWatch = nativeWatchCorpus(workspace).catch((error: unknown) => { combinedFailures.push(error); });
   try {
     const previous = process.env.TTSC_CACHE_DIR;
     process.env.TTSC_CACHE_DIR = workspace.cache;
@@ -133,6 +135,7 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
     combinedFailures.push(error);
   } finally {
     await service;
+    await nativeWatch;
   }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)

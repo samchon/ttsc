@@ -1,0 +1,1 @@
+{"compilerOptions":{"esModuleInterop":true,"module":"commonjs","noEmit":true,"plugins":[{"transform":"@ttsc/lint"}],"resolveJsonModule":true,"rootDir":".","strict":false,"target":"ES2022"},"include":["src"]}
