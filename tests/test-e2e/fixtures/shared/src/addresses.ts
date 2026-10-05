@@ -13,7 +13,10 @@ export function referenced(): void {}
 /** A function whose name is the prose word. */
 export function Add(): void {}
 
-/** @evidence 문서/가격.md#할인 A non-Latin address. */
+/**
+ * @evidence 문서/가격.md#할인 A non-Latin address with a Markdown suffix.
+ * @evidence 문서/가격#할인 An address with no ASCII searchable terms.
+ */
 export function nonAscii(): void {}
 
 /** @evidence */

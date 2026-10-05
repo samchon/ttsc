@@ -179,7 +179,11 @@ export async function test_e2e_graph_batch(): Promise<void> {
     const operation = await call({ type: "lookup", query: "POST:/orders/{orderId}/coupons" }) as { hits: CitationHit[] };
     assert.equal(operation.hits[0]?.name, "renderNotice");
     assert.deepEqual(operation.hits.filter((hit) => hit.docTags !== undefined).map((hit) => hit.name), ["renderNotice"]);
-    const citationDetails = await call({ type: "details", handles: ["renderNotice", "applyCoupons", "untagged", "bootstrap"] }) as { nodes: (CitationHit & { doc?: string })[] };
+    const citationDetails = await call({ type: "details", handles: ["renderNotice", "applyCoupons", "untagged", "bootstrap", "nonAscii"] }) as { nodes: (CitationHit & { doc?: string })[] };
+    assert.deepEqual(citationDetails.nodes.find((value) => value.name === "nonAscii")?.docTags, [
+      { name: "evidence", text: "문서/가격.md#할인 A non-Latin address with a Markdown suffix." },
+      { name: "evidence", text: "문서/가격#할인 An address with no ASCII searchable terms." },
+    ], "details preserves the original Unicode Markdown address independently of the isolated lookup target");
     const notice = citationDetails.nodes.find((value) => value.name === "renderNotice");
     assert.deepEqual(notice?.docTags, [
       { name: "evidence", text: "docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines." },
@@ -637,12 +641,15 @@ const lookupOf = (result: ToolResult): LookupResult => {
       // subwords are empty — the tokenizer splits on ASCII alphanumerics — so
       // before the citation pass ran first, this query was refused as carrying
       // no searchable terms while the index held that exact address.
-      const korean = await lookup("문서/가격.md#할인");
+      const korean = await lookup("문서/가격#할인");
       assert.deepStrictEqual(
         korean.hits.map((hit) => hit.name),
         ["nonAscii"],
         "an address outside the tokenizer's alphabet must still be answered",
       );
+      assert.deepStrictEqual(korean.hits[0]?.docTags, [
+        { name: "evidence", text: "문서/가격#할인 An address with no ASCII searchable terms." },
+      ], "lookup projects only the independently authored matching citation");
 
       // A tag with no text names nothing, so it indexes nothing — and it is
       // still carried on the declaration, which `details` shows.
