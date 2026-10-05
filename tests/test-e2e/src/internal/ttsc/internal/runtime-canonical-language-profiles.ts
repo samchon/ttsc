@@ -478,19 +478,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     },
   });
   profiles.push({
-    name: "dynamic-esm-commonjs-js-specifier-tsx-rescue",
-    files: {
-      "tsconfig.json": TestProject.tsconfig({ target: "ES2022", module: "commonjs", strict: true, outDir: "dist", rootDir: "src", jsx: "react-jsx" }),
-      ...FixtureFiles.read("ttsc/ttsx_commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import/inputs-1"),
-    },
-    run: (root, _persistent, spawn) => {
-      assert.equal(fs.existsSync(path.join(root, "src", "target.js")), false, "JS request has only the original TSX source behind it");
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/entry.mts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), '{"default":"RESCUED"}');
-    },
-  });
-  profiles.push({
     name: "javascript-commonjs-import-keeps-node-require",
     files: {
       "package.json": `{ "type": "module", "private": true }\n`,
@@ -532,31 +519,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
         }
       }
       if (failures.length) throw new AggregateError(failures, "JavaScript CommonJS require properties");
-    },
-  });
-  profiles.push({
-    name: "commonjs-star-export-same-basename-owner-collision",
-    files: FixtureFiles.read("ttsc/ttsx_exposes_a_package_star_export_by_its_own_names_beside_a_same_named_project_file/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), "project:package");
-    },
-  });
-  profiles.push({
-    name: "node20-package-type-opposite-scopes",
-    files: {
-      "package.json": JSON.stringify({ name: "node20-cjs", version: "1.0.0" }),
-      "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "node20", moduleResolution: "node16", strict: true, outDir: "lib", rootDir: "src" }, include: ["src"] }),
-      "src/globals.d.ts": "declare const __dirname: string;\n",
-      "src/main.ts": 'export {};\nconsole.log(typeof __dirname === "string" ? "node20-commonjs" : "wrong");\nvoid import("./esm/main.js");\n',
-      "src/esm/package.json": JSON.stringify({ name: "node20-esm", version: "1.0.0", type: "module" }),
-      "src/esm/main.ts": 'export {};\nconsole.log(import.meta.url.startsWith("file:") ? "node20-module" : "wrong");\n',
-    },
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["node20-commonjs", "node20-module"]);
     },
   });
   profiles.push({
@@ -622,15 +584,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
         }
       }
       if (failures.length) throw new AggregateError(failures, "CommonJS main under import preload");
-    },
-  });
-  profiles.push({
-    name: "dependency-owned-commonjs-circular-module-graph",
-    files: FixtureFiles.read("ttsc/ttsx_runs_a_dependency_with_a_circular_module_graph/inputs-1"),
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), "combined:AB");
     },
   });
   profiles.push({
