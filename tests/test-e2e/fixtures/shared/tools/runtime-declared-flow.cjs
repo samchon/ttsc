@@ -178,7 +178,15 @@ assert.ok(rejected.pid > 0);
 try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure remained unresolved"); }
 catch (error) { if (error.code !== "ESRCH") throw error; }
 const readonlyActive = process.env.TTSC_E2E_READONLY_DENIED === "1";
-assert.equal(rejected.stdout.trim(), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
+const rejectedLines = rejected.stdout.trim().split(/\r?\n/);
+const cjsMainPrefix = "TTSC_CJS_MAIN:";
+const cjsMainLines = rejectedLines.filter((line) => line.startsWith(cjsMainPrefix));
+assert.equal(cjsMainLines.length, 1);
+const cjsMain = JSON.parse(cjsMainLines[0].slice(cjsMainPrefix.length));
+assert.equal(fs.realpathSync.native(cjsMain.argv1), fs.realpathSync.native(path.join(__dirname, "runtime-negative/readonly/src/main.ts")));
+const { argv1: cjsArgv, ...cjsIdentity } = cjsMain;
+assert.deepEqual(cjsIdentity, { main: true, cache: "object", shared: true }, "the existing typed CommonJS child must stay the main module under an actual import preload");
+assert.equal(rejectedLines.filter((line) => !line.startsWith(cjsMainPrefix)).join("\n"), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
 assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)(?:ran|outside-ran)(?:\r?\n|$)/, "neither the refused JavaScript entry nor the excluded typed entry may execute");
 assert.match(rejected.stderr, /-r requires a value/);
 assert.match(rejected.stderr, /ttsx: entry not found:/);
