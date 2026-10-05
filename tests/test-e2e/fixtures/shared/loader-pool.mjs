@@ -3,6 +3,7 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { performance } from "node:perf_hooks";
 const [mode, root, metroUrl, loaderUrl] = process.argv.slice(2);
 const pluginLockSession = createRequire(import.meta.url)(path.join(root, "plugin-lock-session.cjs"));
 const project = path.join(root, "tsconfig.json");
@@ -13,6 +14,7 @@ let outsideProgramObserved = false;
 let metroConfiguration;
 let adapterCalls = [];
 let callbackObservation;
+let hostObservation;
 if (mode === "metro") {
   const require = createRequire(import.meta.url);
   const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
@@ -22,6 +24,12 @@ if (mode === "metro") {
   metroConfiguration = { transformerPath: configured.transformer.babelTransformerPath, cacheKey, withTtscType: typeof index.withTtsc, transformType: typeof transformer.transform, getCacheKeyType: typeof transformer.getCacheKey };
 } else loader = (await import(loaderUrl)).default;
 async function deliver(sourceSuffix = "", deliveredSource) {
+  const before = Object.fromEntries(["TEMP", "TMP", "TMPDIR"].map((name) => [name, process.env[name] ?? null]));
+  const started = performance.now();
+  let last = started, maximum = 0, ticks = 0;
+  const sample = () => { const now = performance.now(); maximum = Math.max(maximum, now - last); last = now; };
+  const timer = setInterval(() => { sample(); ticks++; }, 10);
+  try {
   adapterCalls = [];
   callbackObservation = undefined;
   if (mode === "metro") {
@@ -69,11 +77,18 @@ async function deliver(sourceSuffix = "", deliveredSource) {
     .finally(() => { loaderCall.finishedAt = new Date().toISOString(); });
   const observed = await import(`data:text/javascript;base64,${Buffer.from(delivery.content).toString("base64")}`);
   return { mode, adapterCalls, ...delivery, dependencies, contextDependencies, cacheability, errors, completions, value: observed.value, requestedOptions: { compilerOptions } };
+  } finally {
+    clearInterval(timer);
+    sample();
+    hostObservation = { before, after: Object.fromEntries(["TEMP", "TMP", "TMPDIR"].map((name) => [name, process.env[name] ?? null])),
+      elapsedMs: performance.now() - started, maximumGapMs: maximum, ticks };
+  }
 }
 // Bounded requests share these exact adapter/module/cache owners and session.
 // A line is an observation/state transition, never another worker or fixture.
 try { for await (const line of createInterface({ input: process.stdin })) {
   const command = JSON.parse(line);
+  hostObservation = undefined;
   if (command.close) break;
   try {
     let value;
@@ -159,8 +174,8 @@ try { for await (const line of createInterface({ input: process.stdin })) {
       value = results;
       }
     } else value = await deliver(command.sourceSuffix, command.deliveredSource);
-    process.stdout.write(JSON.stringify({ id: command.id, value }) + "\n");
+    process.stdout.write(JSON.stringify({ id: command.id, value, hostObservation }) + "\n");
   }
-  catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls, callbackObservation }) + "\n"); }
+  catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls, callbackObservation, hostObservation }) + "\n"); }
 }
 } finally { pluginLockSession.close(); }

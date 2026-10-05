@@ -2114,10 +2114,20 @@ export async function test_e2e_metro_batch(): Promise<void> {
   poolConfig.compilerOptions.skipLibCheck = false;
   fs.writeFileSync(configPath, JSON.stringify(poolConfig));
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
+  const assertHostObservation = (reply: LoaderPoolOutcome): void => {
+    const observation = reply.hostObservation;
+    assert.ok(observation, "the existing actual delivery must retain its caller event-loop/environment receipt");
+    assert.deepEqual(observation.after, observation.before, "native delivery must not change caller TEMP/TMP/TMPDIR");
+    assert.ok(Number.isFinite(observation.elapsedMs) && observation.elapsedMs >= 0);
+    assert.ok(Number.isFinite(observation.maximumGapMs) && observation.maximumGapMs >= 0);
+    assert.ok(Number.isInteger(observation.ticks) && observation.ticks >= 0);
+    assert.ok(observation.maximumGapMs < 750, "the actual adapter caller must remain responsive during native delivery: " + JSON.stringify(observation));
+  };
   const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
   if (failures.length) throw new AggregateError(failures.map((outcome) => outcome.reason), "loader pool outcomes");
   const [metro, turbopack] = outcomes.map((outcome) => {
     const reply = (outcome as PromiseFulfilledResult<LoaderPoolOutcome>).value;
+    assertHostObservation(reply);
     assert.equal(reply.error, undefined); return reply.value;
   });
   assert.equal(metro.ast.filename, "src/bundle.ts");
@@ -2260,6 +2270,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const firstSignal = signal();
   await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
   const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
+  for (const reply of metadataDelivery) assertHostObservation(reply);
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
   assert.match(metadataDelivery[0]!.value.ast.source, /Shared metadata external-input banner/);
   assert.match(metadataDelivery[1]!.value.content, /Shared metadata external-input banner/);
@@ -2308,6 +2319,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   fs.appendFileSync(declaration, "export type PooledExternalBroken = NotARealExternalType;\n");
   const failed = await Promise.all(workers.map((worker) => worker.request()));
   for (const [index, reply] of failed.entries()) {
+    assertHostObservation(reply);
     assert.match(reply.error ?? "", /NotARealExternalType/);
     assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
     assert.match(reply.error ?? "", /contract\.ts/, "the public diagnostic must name its actual failed source");
@@ -2338,6 +2350,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     }));
   const replay = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of replay) {
+    assertHostObservation(reply);
     assert.match(reply.error ?? "", /NotARealExternalType/);
     assert.match(reply.error ?? "", /not assignable/);
   }
@@ -2345,6 +2358,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   fs.writeFileSync(contractPath, originalContract);
   fs.writeFileSync(declaration, healthyDeclaration);
   const repaired = await Promise.all(workers.map((worker) => worker.request()));
+  for (const reply of repaired) assertHostObservation(reply);
   for (const reply of repaired) { assert.equal(reply.error, undefined); assert.ok(reply.value); }
   assert.equal(repaired[0]!.value.ast.source, metadataDelivery[0]!.value.ast.source, "repair restores the actual pre-failure Metro native output of this input epoch");
   assert.equal(repaired[1]!.value.content, metadataDelivery[1]!.value.content, "repair restores the actual pre-failure Turbopack native output of this input epoch");

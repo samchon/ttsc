@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 
 export interface LoaderPoolOutcome {
+  hostObservation?: { before: Record<string, string | null>; after: Record<string, string | null>; elapsedMs: number; maximumGapMs: number; ticks: number };
   value?: any;
   error?: string;
   adapterCalls?: { mode: string; pid: number; filename: string; outcome: string; startedAt: string; finishedAt?: string }[];

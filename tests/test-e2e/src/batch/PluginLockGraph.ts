@@ -34,6 +34,7 @@ export async function observePluginLockGraph(props: {
   assert.equal(legacy.state, "active");
   assert.equal(legacy.fence.protocol, "legacy");
   assert.deepEqual(await command(0, "legacy-release"), { state: "released" });
+  E2eProcessTrace.fixturePaths(path.dirname(props.fixture), [path.basename(props.fixture)]);
   const seed = E2eProcessTrace.spawnSync(process.execPath, [props.fixture, props.root, props.api], {
     encoding: "utf8", windowsHide: true, timeout: 120_000,
   });
