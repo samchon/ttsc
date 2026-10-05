@@ -264,6 +264,13 @@ export namespace BatchWorkspace {
         "src/type-population/foo.ts", "src/metadata-population.ts",
         path.join(root, "node_modules/batch-record-dependency/index.d.ts"),
       ];
+      // Both spellings are actual independent directory links. The native
+      // reporter owns their input proofs; watch policy keeps lexical aliases.
+      for (const alias of ["native-source-first", "native-source-second"])
+        fs.symlinkSync(path.join(root, "src"), path.join(root, alias),
+          process.platform === "win32" ? "junction" : "dir");
+      reportedDependencies.push("native-source-first/map.ts",
+        path.join(root, "native-source-second/map.ts"), "native-source-first/map.ts");
       automaticManifest.ttsc.plugin.contextReceipt = contextReceipt;
       automaticManifest.ttsc.plugin.reportedFiles = reportedFiles;
       automaticManifest.ttsc.plugin.reportedDependencies = reportedDependencies;

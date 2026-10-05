@@ -156,6 +156,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const first = compilerB.transform();
     assert.equal(first.type, "success", "the public API must acquire the actual native source envelope");
     if (first.type !== "success") throw new Error("initial public source envelope failed");
+    const reportedMapDependencies = first.dependencies?.["src/map.ts"];
+    assert.ok(reportedMapDependencies, "the public transformation must expose the actual native reporter envelope");
+    for (const input of ["src/contract.ts", "src/console.d.ts", "native-source-first/map.ts", "native-source-second/map.ts"])
+      assert.equal(reportedMapDependencies.filter((dependency) => dependency === input).length, 1,
+        "the native relative/absolute/duplicate dependency controls normalize to one lexical report: " + input);
+    assert.equal(reportedMapDependencies.includes("src/map.ts"), false, "native aggregation drops the exact self report without dropping the two aliases");
     assert.deepEqual(Object.keys(first.pluginSources ?? {}).sort(), [fs.realpathSync.native(sourceModule)]);
     const originalState = first.pluginSources![fs.realpathSync.native(sourceModule)];
     assert.equal(originalState, expectedOriginalState, "the public native envelope must carry the state of the source bytes acquired before execution");
@@ -2130,6 +2136,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const input of [declaration, candidate])
     assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, input), `native resolution must record ${input}`);
   assert.ok(record.membership !== null, "the real record carries project membership");
+  for (const alias of ["native-source-first", "native-source-second"])
+    assert.ok(Object.hasOwn(record.inputs, path.join(workspace.root, alias, "map.ts")),
+      "the actual native reported dependency must retain each independently retargetable lexical alias");
   const signal = () => fs.readFileSync(projectRecordFile, "utf8");
   const quiet = async (message: string) => {
     const before = signal();
