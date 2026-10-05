@@ -55,6 +55,10 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const declaration = path.join(workspace.root, "node_modules/batch-record-dependency/index.d.ts");
   const unrelatedPackageFile = path.join(workspace.root, "node_modules/batch-record-dependency/unrelated.txt");
   const addedRoot = path.join(workspace.root, "src/pooled-membership.d.ts");
+  const installedDescriptor = path.join(workspace.root, "packages/batch-descriptor-input/index.cjs");
+  const originalInstalledDescriptor = fs.readFileSync(installedDescriptor);
+  const optionalDescriptor = path.join(workspace.root, "descriptors/optional.cjs");
+  assert.equal(fs.existsSync(optionalDescriptor), false);
   for (const owned of [candidate, unrelatedPackageFile, addedRoot]) assert.equal(fs.existsSync(owned), false);
   const originalDeclaration = fs.readFileSync(declaration);
   const rootCase = compilerUsesCaseSensitiveFileNames({ cacheDir: workspace.cache, projectRoot: workspace.root });
@@ -176,22 +180,37 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const signalBeforeEdit = signal();
   const metadataProgramBaseline = fs.statSync(workspace.programRunLog).size;
   // These inputs have no conflicting values or configuration requirements.
-  // One invalidated generation can consume all three changes together.
+  // One invalidated generation can consume the compiler and descriptor changes together.
   fs.appendFileSync(declaration, "export declare const retainedMetadata: 1;\n");
   const candidateSource = "export interface RecordWitness { label: string; native?: 1 }\n";
   const membershipSource = "declare const pooledMembership: 1;\n";
   fs.writeFileSync(candidate, candidateSource);
   fs.writeFileSync(addedRoot, membershipSource);
+  const changedDescriptorSource = 'module.exports = "installed-descriptor-input";\n// changed selected descriptor input\n';
+  const optionalSource = 'module.exports = "appeared-descriptor-input";\n';
+  fs.writeFileSync(installedDescriptor, changedDescriptorSource);
+  fs.writeFileSync(optionalDescriptor, optionalSource);
   await waitFor(() => signal() !== signalBeforeEdit, "the resident record to move for the combined native input epoch");
   const firstSignal = signal();
   await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
   const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
-  assert.equal(fs.statSync(workspace.programRunLog).size - metadataProgramBaseline, 1, "one native ApplyProgram admission consumes the combined declaration, candidate and membership epoch");
+  assert.equal(fs.statSync(workspace.programRunLog).size - metadataProgramBaseline, 1, "one native ApplyProgram admission consumes the combined declaration, candidate, membership and descriptor appearance epoch");
   assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
   const acknowledged = JSON.parse(signal());
   for (const input of [declaration, candidate, addedRoot])
     assert.ok(Object.prototype.hasOwnProperty.call(acknowledged.inputs, input), `the same native delivery must acknowledge ${input}`);
+  for (const [input, authored] of [
+    [installedDescriptor, changedDescriptorSource],
+    [optionalDescriptor, optionalSource],
+  ]) {
+    const evidence = acknowledged.inputs[input!];
+    assert.ok(evidence, "the same native delivery must acknowledge the changed or appeared descriptor input: " + input);
+    assert.equal(evidence.missing, false);
+    assert.equal(evidence.state?.codec, "host");
+    assert.equal(evidence.state.hash, crypto.createHash("sha256").update(authored!).digest("hex"));
+    assert.equal(fs.readFileSync(input!, "utf8"), authored);
+  }
   assert.equal(fs.readFileSync(declaration, "utf8"), originalDeclaration.toString("utf8") + "export declare const retainedMetadata: 1;\n");
   assert.equal(fs.readFileSync(candidate, "utf8"), candidateSource);
   assert.equal(fs.readFileSync(addedRoot, "utf8"), membershipSource);
@@ -296,6 +315,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
     if (failedCloses.length === 0) {
       fs.writeFileSync(configPath, originalConfig);
       fs.rmSync(nonInputRaceFile, { force: true });
+      fs.rmSync(optionalDescriptor, { force: true });
+      fs.writeFileSync(installedDescriptor, originalInstalledDescriptor);
     }
     if (bodyFailure === undefined && failedCloses.length === 0)
       try { assert.ok(finalRecord !== undefined && fs.existsSync(finalRecord), "joined worker close retains the real record for later sessions"); }

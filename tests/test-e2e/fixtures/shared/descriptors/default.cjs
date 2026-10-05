@@ -4,7 +4,10 @@ if (local !== "local-descriptor-input" || installed !== "installed-descriptor-in
   throw new Error("descriptor package imports selected another authored input");
 for (const specifier of ["#missing-local-descriptor", "#missing-package-descriptor"]) {
   let missing = false;
-  try { require(specifier); }
+  try {
+    const optional = require(specifier);
+    if (specifier === "#missing-local-descriptor" && optional === "appeared-descriptor-input") continue;
+  }
   catch (error) {
     if (error.code !== "MODULE_NOT_FOUND") throw error;
     missing = true;
