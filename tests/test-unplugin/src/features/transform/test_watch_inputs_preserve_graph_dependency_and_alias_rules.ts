@@ -27,6 +27,10 @@ import type { ViteServeInputWatch } from "../../../../../packages/unplugin/src/c
  *    canonical spelling, preserving each other independently retargetable
  *    spelling while excluding only the delivered one.
  * 3. Collect every independent list failure before reporting the matrix.
+ * Failed source/declaration carriers omit generation evidence, while selected
+ * and consulted routing configs carry independently hashed current bytes and
+ * physical identities in one batch. This is omission of unvalidated proof,
+ * not a claim that a planted stale evidence object was withdrawn.
  *
  * @evidence contracts/testing.md#behavioral-verification Source notifyWatchInputs and notifyFailedGenerationInputs preserve configured/physical project spellings, while createViteServeWatchHooks forwards the exact compiler batch and mode discriminator. Source notifyWatchInputs must register only universal inputs without dependencies, graph a/b/ambient without self or unreachable edges, a deduplicated graph/dependency union, and the two original alias-dependent watch lists. The helper invokes the actual source owner with each delivered file. Two direct calls with Bun's callback-absent hook shape must return undefined without invoking markVolatile or altering the observed consumer baseline.
  * @evidence contracts/testing.md#independent-expectations Literal graph edges and dependencies reproduce the original E2E inputs; enumerated expected paths reproduce their five watch-list assertions. Real links establish equal physical files independently. Expected lists do not call the selector, traversal or normalization under test. Without a consuming module/project channel no handoff or refused-record volatility is owed; independent copies and native bytes check that both calls preserve their input.
@@ -210,6 +214,13 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
     fs.symlinkSync(root, linkedRoot, process.platform === "win32" ? "junction" : "dir");
     fs.writeFileSync(path.join(root, "src", "types.d.ts"), "export declare const typed: number;\n");
     const tsconfig = path.join(linkedRoot, "tsconfig.json");
+    const consulted = path.join(linkedRoot, "tsconfig.routing.json");
+    const consultedBytes = '{"references":[{"path":"./tsconfig.json"}]}\n';
+    fs.writeFileSync(consulted, consultedBytes);
+    const routingHashes = {
+      "tsconfig.json": createHash("sha256").update(fs.readFileSync(tsconfig)).digest("hex"),
+      "tsconfig.routing.json": createHash("sha256").update(consultedBytes).digest("hex"),
+    };
     const result: ITtscCompilerTransformation.ISuccess = {
       type: "success", typescript: { "src/main.ts": "export const value = 1;\n" },
       hostInputs: ["package.json", "plugin.cjs", "tsconfig.json"],
@@ -218,7 +229,7 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
     const cached = {
       projectRoot: linkedRoot, tsconfig, result,
       membershipPolicy: readProjectMembershipPolicy(tsconfig),
-      inputHashes: Object.fromEntries(["src/main.ts", "src/types.d.ts"].map((name) =>
+      inputHashes: Object.fromEntries(["src/main.ts", "src/types.d.ts", "tsconfig.json"].map((name) =>
         [name, createHash("sha256").update(fs.readFileSync(path.join(root, name))).digest("hex")])),
     };
     const selection = { consulted: [], tsconfig, filesystem: DEFAULT_FILESYSTEM_OPERATIONS };
@@ -229,17 +240,53 @@ export function test_watch_inputs_preserve_graph_dependency_and_alias_rules(): v
         const healthy: string[] = [];
         notifyWatchInputs({ addWatchFile: (input) => { healthy.push(input); } }, cached, delivered, selection);
         assert.deepEqual(healthy.sort(), ["package.json", "plugin.cjs", "tsconfig.json", "src/types.d.ts"].map((name) => path.join(spelling, name)).sort());
-        const failed: string[] = [];
-        let failedBatches = 0;
-        notifyFailedGenerationInputs({ addWatchFiles: (inputs, failure) => {
-          ++failedBatches;
-          assert.equal(failure, true);
-          failed.push(...inputs.map((input) => input.file));
-        } }, cached, delivered, selection);
-        assert.equal(failedBatches, 1, "each failed delivery registers exactly one batch");
-        assert.deepEqual(failed.sort(), ["src/main.ts", "src/types.d.ts", "tsconfig.json"].map((name) => path.join(spelling, name)).sort());
+        for (const withConsulted of [false, true]) {
+          const failed: string[] = [];
+          let failedBatches = 0;
+          let currentRoutingReads = 0;
+          const failedSelection = {
+            ...selection,
+            consulted: withConsulted ? [consulted, tsconfig] : [],
+            filesystem: {
+              ...DEFAULT_FILESYSTEM_OPERATIONS,
+              readFile: (location: string) => {
+                if (location === tsconfig || location === consulted) ++currentRoutingReads;
+                return DEFAULT_FILESYSTEM_OPERATIONS.readFile(location);
+              },
+            },
+          };
+          notifyFailedGenerationInputs({ addWatchFiles: (inputs, failure) => {
+            ++failedBatches;
+            assert.equal(failure, true);
+            for (const name of ["src/main.ts", "src/types.d.ts"]) {
+              const input = inputs.find((entry) => entry.file === path.join(spelling, name));
+              assert.ok(input);
+              assert.equal(input.evidence, undefined,
+                "ordinary failed-generation paths carry no generation proof");
+            }
+            for (const name of withConsulted
+              ? ["tsconfig.json", "tsconfig.routing.json"] as const
+              : ["tsconfig.json"] as const) {
+              const input = inputs.find((entry) => entry.file === path.join(spelling, name));
+              assert.ok(input?.evidence);
+              assert.equal(input.evidence.missing, false);
+              assert.deepEqual(input.evidence.state, { codec: "host", hash: routingHashes[name] });
+              assert.equal(fs.realpathSync.native(input.evidence.identity),
+                fs.realpathSync.native(path.join(root, name)),
+                "current routing evidence retains independently observed physical identity");
+            }
+            failed.push(...inputs.map((input) => input.file));
+          } }, cached, delivered, failedSelection);
+          assert.equal(failedBatches, 1, "each failed delivery registers exactly one batch");
+          assert.equal(currentRoutingReads, withConsulted ? 2 : 1,
+            "routing proof is freshly read; a repeated selected config is read once");
+          assert.deepEqual(failed.sort(), ["src/main.ts", "src/types.d.ts", "tsconfig.json",
+            ...(withConsulted ? ["tsconfig.routing.json"] : []),
+          ].map((name) => path.join(spelling, name)).sort());
+        }
       }
     } finally {
+      fs.rmSync(consulted, { force: true });
       fs.rmSync(linkedRoot, { recursive: true, force: true });
     }
   });
