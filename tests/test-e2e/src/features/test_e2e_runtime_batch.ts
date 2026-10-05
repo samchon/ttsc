@@ -19,6 +19,8 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * 2. Compare its one actual JSON payload against all original literal rows.
  * 3. Require source/config preservation and absent adjacent JavaScript output.
  *
+ * The existing configured ESNext owner also supplies a preserve-mode JSX component, while the existing CommonJS owner requires the configless pragma-selected orphan. Their complete HTML values and unchanged custom runtime/source bytes share the same Runtime payload; neither adds another owner or launcher.
+ *
  * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. The ESNext dependency now selects its own linked strip plugin: its authored secret call must disappear while dependency-value reaches the parent. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
  *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
@@ -41,6 +43,12 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const configuredRoot = path.join(workspace.root, "tools/configured-owners");
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
+  const jsxRuntimeRoot = path.join(workspace.root, "node_modules/myjsx");
+  const jsxOrphanRoot = path.join(workspace.root, "node_modules/orphan-view");
+  const jsxInputs = workspace.installationOnly ? undefined : {
+    runtime: await FileSystemIterator.read(jsxRuntimeRoot),
+    orphan: await FileSystemIterator.read(jsxOrphanRoot),
+  };
   const normalRoot = path.join(workspace.root, "src/runtime-corpus/normal-population");
   const normalInputs = await FileSystemIterator.read(normalRoot);
   const standardRoot = path.join(workspace.root, "src/runtime-corpus/standard");
@@ -181,8 +189,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     declaredOutputs: ["inside", "extra"],
     classification: "cjs-dependency|esm-by-project",
     moduleValues: { enumRuntime: "Low-2", namespaceRuntime: "repeated-3" },
+    jsx: { dependency: "<div>hello</div><b>world</b>", orphan: "<i>orphan</i>" },
   });
   assert.deepEqual(await FileSystemIterator.read(configuredRoot), configuredInputs, "both existing native owner paths must keep all source bytes and declared output trees untouched");
+  if (jsxInputs) {
+    assert.deepEqual(await FileSystemIterator.read(jsxRuntimeRoot), jsxInputs.runtime, "the real custom JSX runtime must remain unchanged");
+    assert.deepEqual(await FileSystemIterator.read(jsxOrphanRoot), jsxInputs.orphan, "the configless pragma source must remain unchanged without adjacent emission");
+  }
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;
   assert.ok(Array.isArray(nativeFrames));
   assert.equal(nativeFrames.length, 2);

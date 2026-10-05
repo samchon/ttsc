@@ -6,8 +6,14 @@ export async function observeConfiguredOwners(): Promise<unknown> {
   // supplied upfront under one owner, not a project/configuration per case.
   const esnextName: string = "batch-configured-esnext";
   const legacyName: string = "batch-configured-legacy";
-  const esnext = await import(esnextName);
-  const legacy = await import(legacyName);
+  // Both real JSX lanes are attempted even if one fails. They join the existing
+  // configured owner and configless package in this same Runtime graph.
+  const jsxModules = await Promise.allSettled([import(esnextName), import(legacyName)]);
+  const jsxFailures = jsxModules.flatMap((result, index) => result.status === "rejected"
+    ? [new Error(index === 0 ? "configured preserved JSX" : "pragma-selected orphan JSX", { cause: result.reason })] : []);
+  if (jsxFailures.length) throw new AggregateError(jsxFailures, "shared configured and orphan JSX loads failed");
+  const esnext = (jsxModules[0] as PromiseFulfilledResult<any>).value;
+  const legacy = (jsxModules[1] as PromiseFulfilledResult<any>).value;
   console.info("entry:" + esnext.strippedDependency);
   const manifest = JSON.parse(fs.readFileSync((globalThis as any).process.env.TTSX_RUNTIME_MANIFEST, "utf8")) as { depCacheDir: string };
   const emitted = fs.readdirSync(manifest.depCacheDir, { recursive: true }) as string[];
@@ -18,5 +24,6 @@ export async function observeConfiguredOwners(): Promise<unknown> {
     strippedDependency: esnext.strippedDependency,
     classification: esnext.classification,
     moduleValues: { enumRuntime: esnext.enumRuntime, namespaceRuntime: esnext.namespaceRuntime },
+    jsx: { dependency: esnext.preservedView, orphan: legacy.default.orphanView },
   };
 }

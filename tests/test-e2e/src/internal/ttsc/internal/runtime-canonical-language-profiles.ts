@@ -368,24 +368,6 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<typeof runCanonic
     },
   });
   profiles.push({
-    name: "public-runtime-preserved-jsx-dependency-and-orphan",
-    files: {
-      ...JSX_RUNTIME_PACKAGE,
-      "package.json": JSON.stringify({ name: "jsx-lanes", private: true }),
-      "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, outDir: "lib", types: [] }, include: ["src"] }),
-      "src/main.ts": ['declare const require: (id: string) => { view: string };', 'declare const process: { exitCode: number };', 'try { console.log(require("../dep/view.tsx").view); } catch (error) { console.log("DEPENDENCY_FAILED:" + String(error)); process.exitCode = 1; }', 'try { console.log(require("orphan-view").view); } catch (error) { console.log("ORPHAN_FAILED:" + String(error)); process.exitCode = 1; }', 'export {};', ""].join("\n"),
-      "dep/tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "preserve", jsxImportSource: "myjsx", types: [] }, include: ["view.tsx"] }),
-      "dep/view.tsx": JSX_COMPONENT_SOURCE,
-      "node_modules/orphan-view/package.json": JSON.stringify({ name: "orphan-view", version: "1.0.0", main: "view.tsx" }),
-      "node_modules/orphan-view/view.tsx": ['/** @jsxImportSource myjsx */', 'export const view: string = <i>orphan</i>;', ""].join("\n"),
-    },
-    run: (root, _persistent, spawn) => {
-      const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
-      assert.equal(result.status, 0, result.stderr);
-      assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["<div>hello</div><b>world</b>", "<i>orphan</i>"]);
-    },
-  });
-  profiles.push({
     name: "public-runtime-generated-source-typed-then-mistyped",
     files: FixtureFiles.read("ttsc/ttsx_checks_a_typescript_file_the_program_generates_before_running_it/inputs-1"),
     run: (root, _persistent, spawn) => {

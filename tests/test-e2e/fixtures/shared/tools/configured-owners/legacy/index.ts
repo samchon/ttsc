@@ -9,3 +9,5 @@ const second = new B();
 export const values = ["arguments=" + firstCount, "dep-a:" + firstCount, "dep-b:" + secondCount];
 export const instances = [first, second];
 export const extra = "extra";
+declare function require(id: string): { view: string };
+export const orphanView = require("orphan-view").view;
