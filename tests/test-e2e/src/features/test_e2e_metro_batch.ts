@@ -158,8 +158,10 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "#local-descriptor")) || input.includes(path.join("node_modules", "#installed-descriptor"))), [], "package imports must not invent bare-package search paths for the internal import names");
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "batch-descriptor-input")) && !input.startsWith(workspace.root + path.sep)), [], "the successful mapped package must not retain candidates beyond its selected root");
+  const phantomDescriptorPackage = path.join(workspace.root, "descriptors/node_modules/batch-descriptor-input/package.json");
+  assert.equal(fs.existsSync(phantomDescriptorPackage), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, phantomDescriptorPackage), false, "a package imports bare target is resolved from the package scope, not a nearer descriptor-directory node_modules");
   for (const missingDescriptor of [
-    path.join(workspace.root, "descriptors/node_modules/batch-descriptor-input/package.json"),
     path.join(workspace.root, "descriptors/optional.cjs"),
     path.join(workspace.root, "node_modules/batch-absent-descriptor-input/package.json"),
   ]) {

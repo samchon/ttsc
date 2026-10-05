@@ -8,6 +8,8 @@ import { result, observeEmittedEffects } from "./bundle.js";
 import { cliPolicyRuntime } from "./runtime-corpus/cli-policy.mjs";
 import { observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
 import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
+import { findSourceMap } from "node:module";
+import { fileURLToPath } from "node:url";
 const host = createMemFS();
 observeEmittedEffects();
 host.writeFile("/main.ts", "export const value = 1;\n");
@@ -47,8 +49,13 @@ const exportPopulation = await observeExportPopulation();
 const configuredOwners = await observeConfiguredOwners();
 const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
+const nativeFrameMaps = ["inside", "outside"].map((name) => {
+  const source = fileURLToPath(new URL(`./runtime-corpus/stack/${name}.cts`, import.meta.url));
+  const requested = fileURLToPath(new URL(`./runtime-corpus/stack/${name}.cjs`, import.meta.url));
+  return { source, requested, sourceMap: findSourceMap(source)?.payload, requestedMap: findSourceMap(requested)?.payload };
+});
 const requireBindings = await observeRequireBindings();
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, nativeFrameMaps, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),

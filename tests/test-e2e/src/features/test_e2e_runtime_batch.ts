@@ -118,8 +118,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   // The one actual Runtime receives inlineSourceMap after explicitly clearing
   // the shared external-map setting. These are Node-consumed native frames,
   // rather than JSON map metadata or a synthetic source API map.
-  assert.match(nativeFrames[0], /inside\.cts:5:\d+/);
-  assert.match(nativeFrames[1], /outside\.cts:5:\d+/);
+  const nativeFrameDiagnostic = JSON.stringify({ frames: nativeFrames, maps: (payload as { nativeFrameMaps: unknown }).nativeFrameMaps });
+  assert.match(nativeFrames[0], /inside\.cts:5:\d+/, nativeFrameDiagnostic);
+  assert.match(nativeFrames[1], /outside\.cts:5:\d+/, nativeFrameDiagnostic);
   assert.deepEqual((payload as { requireBindings: unknown }).requireBindings, ["@lib/message", "local:@lib/message", "imported:@lib/message", "ok", "ok"]);
   const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
   assert.deepEqual(mixed, {
