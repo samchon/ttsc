@@ -36,13 +36,14 @@ export namespace BatchWorkspace {
   /** Compare every delivered value with its pre-print UTF-16 input oracle. */
   export function assertResult(value: unknown, expected: Workspace["expected"], emitted = false): void {
     assert.ok(value !== null && typeof value === "object");
-    const result = value as { authoredMarker: unknown; linkedValue: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown; nativeNumeric: unknown; numericNeighbor: unknown };
+    const result = value as { authoredMarker: unknown; linkedValue: unknown; mapPositionProbe: unknown; answer: unknown; data: unknown; neighbor: unknown; values: unknown; nativePipeline: unknown; nativeNeighbor: unknown; nativeOrdered: unknown; nativeOrderedNeighbor: unknown; defaultOnlyCallRetained: unknown; nativeNumeric: unknown; numericNeighbor: unknown };
     const failures: Error[] = [];
     const check = (name: string, run: () => void): void => {
       try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
     };
     check("authored source marker", () => assert.equal(result.authoredMarker, "authored-marker"));
     check("resolved linked package binding", () => assert.equal(result.linkedValue, "linked"));
+    check("retained source map coordinate control", () => assert.equal(result.mapPositionProbe, "map-coordinate-control"));
     check("retained contract value", () => assert.equal(result.answer, 42));
     check("resolved JSON alias", () => assert.equal(result.data, 42));
     check("unchanged JSON neighbor", () => assert.equal(result.neighbor, "retained"));

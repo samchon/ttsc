@@ -4,6 +4,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { build } from "vite";
 
+import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
+import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 
 /**
@@ -46,6 +48,17 @@ export async function test_e2e_vite_batch(): Promise<void> {
     assert.equal(chunks.length, 1);
     const code = chunks[0]!.code;
     BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
+    const map = chunks[0]!.map;
+    assert.ok(map, "the Rollup-backed Vite host must publish its composed map");
+    assert.equal(map.version, 3);
+    const marker = '"map-coordinate-control"';
+    const generated = positionOf(code, marker);
+    const original = originalPositionFor(map, generated.line, generated.column);
+    assert.ok(original, "the generated control must map to its authored source");
+    assert.match(original.source, /(?:^|\/)map\.ts$/);
+    const authored = fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8").replace(/\r\n/g, "\n");
+    assert.equal(map.sourcesContent[map.sources.indexOf(original.source)]!.replace(/\r\n/g, "\n"), authored);
+    assert.deepEqual({ line: original.line, column: original.column }, positionOf(authored, marker));
     const nativeReceipts = BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset);
     BatchWorkspace.assertContextReceipts(nativeReceipts, "a:", "d:");
     assert.equal(nativeReceipts.some((receipt) => receipt.name === "native-auto-discovery"), false, "explicit plugin override must suppress automatic dependency discovery");
