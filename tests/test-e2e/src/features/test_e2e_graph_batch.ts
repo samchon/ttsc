@@ -46,8 +46,15 @@ type NodeDetails = {
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const failures: unknown[] = [];
-  try { await case_ttscgraph_view_owns_http_server_lifecycle({root:path.join(workspace.root,"tools/graph-http"),retainUnjoined:BatchWorkspace.retain,preventReuse:BatchWorkspace.retain}); }
-  catch(error) { failures.push(error); }
+  try {
+    await case_ttscgraph_view_owns_http_server_lifecycle({
+      root: path.join(workspace.root, "tools/graph-http"),
+      retainUnjoined: BatchWorkspace.retain,
+      preventReuse: BatchWorkspace.retain,
+    });
+  } catch (error) {
+    failures.push(error);
+  }
   await BatchWorkspace.open();
   await FileSystemIterator.write(
     workspace.root,

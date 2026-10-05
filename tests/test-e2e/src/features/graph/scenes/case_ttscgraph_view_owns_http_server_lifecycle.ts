@@ -41,7 +41,11 @@ const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
  * @evidence contracts/e2e.md#preserved-coverage Original status-one/error-count/stack exclusions, URL observation, three HTTP routes, asset length, arrays and live-child checks remain. This genuine native success also retains the removed canned-dump viewer readiness, alive-until-stop and joined-exit assertions; malformed dump schema/diagnostic/code controls remain at the actual generated viewer decoder owner.
  */
 export const case_ttscgraph_view_owns_http_server_lifecycle =
-  async (prepared?: {root: string; retainUnjoined(reason: string): void; preventReuse(reason: string): void}): Promise<void> => {
+  async (prepared?: {
+    root: string;
+    retainUnjoined(reason: string): void;
+    preventReuse(reason: string): void;
+  }): Promise<void> => {
     const target = prepared ?? installedTargetBoundary();
     const root = target.root;
     const configFile = path.join(root, "tsconfig.json");
@@ -83,8 +87,13 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
         );
         if (result.error || result.signal !== null || result.status === null) {
           joined = false;
-          target.retainUnjoined("occupied-port graph viewer has no actual process closure acknowledgement");
-          throw new Error("occupied-port graph viewer closure remained unresolved", {cause:result.error});
+          target.retainUnjoined(
+            "occupied-port graph viewer has no actual process closure acknowledgement",
+          );
+          throw new Error(
+            "occupied-port graph viewer closure remained unresolved",
+            { cause: result.error },
+          );
         }
         assert.equal(result.error, undefined, result.stderr);
         assert.equal(result.status, 1, result.stderr);
@@ -110,7 +119,10 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
         });
       }
 
-      if (!joined) throw new Error("graph viewer inputs remain owned by an unresolved process");
+      if (!joined)
+        throw new Error(
+          "graph viewer inputs remain owned by an unresolved process",
+        );
       const child = childProcess.spawn(
         process.execPath,
         [
