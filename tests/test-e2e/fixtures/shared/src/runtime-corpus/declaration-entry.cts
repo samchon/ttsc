@@ -1,5 +1,6 @@
 import { observed } from "./native-factory";
 import { value } from "./declared-owned.cjs";
+declare const console: { log(value: unknown): void };
 declare function require(id: string): { value: string };
 const placement = require("../../tools/runtime-placement.ts");
 if (placement.value !== "lowered") throw new Error("default orphan placement lost the typed value");

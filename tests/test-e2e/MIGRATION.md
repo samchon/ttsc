@@ -1250,3 +1250,8 @@ The selected Runtime owns one upfront readonly namespace and its empty installat
 The two original readonly functions, their dedicated stage helper and four private fixture trees retire together. Three old CLI parent launches disappear; two real Node entry children and necessary plugin-free compiler/cache preparation remain inside this coherent state flow. The actor's ordinary closure is acknowledged independently; unknown closure or failed permission restoration retains the shared owner. This is not one-process/one-Program or final independent-experiment certification.
 
 Actual D2/current333/native60, authored and unexecuted. Remaining language, response, public register/preserve and terminal/transport boundaries are unfinished. Existing unit pointers do not certify all native60, and the final function and independent-experiment limits remain unmet. No local execution, review, formatting or push.
+### Node logging types in the shared declared/orphan inputs
+
+The completed fc Runtime failed while the installed register checked tools/runtime-placement.ts: its actual console.log had no local Node logging declaration under the intentional DOM-free library. The placement module and the three related declared-flow Node entry modules now declare only their actual console.log(value) input. Runtime statements, string outputs, cache placement, descendant ownership and successful-status expectations are unchanged; no DOM library, Node type population or product diagnostic exception is added.
+
+Actual D0/current333/native60. The reported TS2584 input class is corrected statically, while subsequent Runtime and descendant checks remain unverified. Readonly88 and JSX dcac are preserved; no local execution, review, formatting or push.
