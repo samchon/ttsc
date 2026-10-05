@@ -161,6 +161,14 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const first = compilerB.transform();
     assert.equal(first.type, "success", "the public API must acquire the actual native source envelope");
     if (first.type !== "success") throw new Error("initial public source envelope failed");
+    assert.ok(Array.isArray(first.dependenciesComplete),
+      "the existing single-reporter public transform must acquire positive native completeness");
+    const completeNativePath = (file: string) => path.resolve(workspace.root, file).replace(/\\/g, "/");
+    assert.deepEqual(first.dependenciesComplete.map(completeNativePath).sort(),
+      ["src/bundle.ts", "src/map.ts", "src/pool-routing/map.ts"].map(completeNativePath).sort(),
+      "only the actual loaded sources explicitly reported by this sole contributor are complete");
+    assert.ok(Object.keys(first.typescript).some((file) => completeNativePath(file) === completeNativePath("src/native-pipeline.ts")),
+      "the same acquired Program contains an unmarked transformed sibling");
     const reportedMapDependencies = first.dependencies?.["src/map.ts"];
     assert.ok(reportedMapDependencies, "the public transformation must expose the actual native reporter envelope");
     for (const input of ["src/contract.ts", "src/console.d.ts", "native-source-first/map.ts", "native-source-second/map.ts"])
