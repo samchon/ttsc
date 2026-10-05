@@ -19,7 +19,7 @@ import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation"
  * 2. Compare its one actual JSON payload against all original literal rows.
  * 3. Require source/config preservation and absent adjacent JavaScript output.
  *
- * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
+ * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. The ESNext dependency now selects its own linked strip plugin: its authored secret call must disappear while dependency-value reaches the parent. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
  *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
@@ -103,6 +103,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   for (const location of ["types", "build", "lib", "typesx", "state", "distx"])
     assert.equal(fs.existsSync(path.join(workspace.root, location)), false, "native runtime output resets must protect both authored and explicitly overridden destinations");
   assert.doesNotMatch(result.stdout, /STALE tool\.js/);
+  assert.doesNotMatch(result.stdout, /dependency-secret-should-be-stripped/);
+  assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "entry:dependency-value").length, 1);
   const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
     produced: string[]; nativeEmitBefore: number; nativeEmitAfter: number; registerStatus: number; registerPid: number; registerBefore: number; registerAfter: number;
   };
@@ -168,6 +170,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   });
   assert.deepEqual((payload as { configuredOwners: unknown }).configuredOwners, {
     esnext: ["hello-workspace", "configured-esnext", "derived-from-target"], legacy: ["arguments=3", "dep-a:3", "dep-b:3"],
+    strippedDependency: "dependency-value",
     wholeProject: { wrapped: 7, unimportedEmitted: true },
     declaredOutputs: ["inside", "extra"],
     classification: "cjs-dependency|esm-by-project",
