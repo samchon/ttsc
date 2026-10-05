@@ -21,11 +21,11 @@ export interface LoaderPoolOutcome { value?: any; error?: string }
  */
 export function createLoaderPoolWorker(props: {
   mode: "metro" | "turbopack"; root: string; cache: string; session: string;
-  metro: string; options: string; turbopack: string;
+  metro: string; options: string; turbopack: string; traceRoot: string;
 }) {
   const child = spawn(process.execPath, [path.join(props.root, "loader-pool.mjs"), props.mode, props.root, props.metro, props.options, props.turbopack], {
     cwd: props.root, windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env, NODE_ENV: props.mode === "turbopack" ? "development" : "production", TTSC_CACHE_DIR: props.cache, TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session },
+    env: { ...process.env, NODE_ENV: props.mode === "turbopack" ? "development" : "production", TTSC_CACHE_DIR: props.cache, TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session, TTSC_E2E_TRACE: props.traceRoot },
   });
   let buffered = "", stderr = "", next = 0;
   const pending = new Map<number, { resolve(reply: LoaderPoolOutcome): void; reject(error: unknown): void; timer: ReturnType<typeof setTimeout> }>();

@@ -30,6 +30,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
   const session = path.join(workspace.root, "loader-pool-session");
+  // The existing opt-in sink stays outside the project input population.
+  const traceRoot = path.join(workspace.cache, "loader-pool-observations", crypto.randomUUID());
+  fs.mkdirSync(traceRoot, { recursive: true });
   const recreatedOutputDirectory = path.join(workspace.root, "dist/batch-recreated-output");
   assert.equal(fs.existsSync(recreatedOutputDirectory), false, "the pool owns its output recreation subtree exclusively");
   const contractPath = path.join(workspace.root, "src/contract.ts");
@@ -71,7 +74,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     Object.defineProperty(process, "platform", platform);
   }
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
-    mode, root: workspace.root, cache: workspace.cache, session,
+    mode, root: workspace.root, cache: workspace.cache, session, traceRoot,
     metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
     options: pathToFileURL(path.join(lib, "core/options.mjs")).href,
     turbopack: TestUnpluginRuntime.libUrl("turbopack"),
@@ -158,6 +161,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
     casePolicyReceipts: fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).slice(caseOffset).map((line) => JSON.parse(line)),
     recordConfig: record.tsconfig,
     declaredInputs: Object.keys(record.inputs).sort(),
+    invocationTrace: fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).flatMap((name) =>
+      fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
+    ).filter((row) => ["bridge-lookup", "bridge-cache-hit", "bridge-result", "integrity-failure"].includes(row.event)),
   }));
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");
@@ -313,6 +319,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
     const failures: unknown[] = failedCloses.map((entry) => entry.reason);
     if (failedCloses.length === 0) {
+      for (const name of fs.readdirSync(traceRoot)) fs.unlinkSync(path.join(traceRoot, name));
+      fs.rmdirSync(traceRoot);
       fs.writeFileSync(configPath, originalConfig);
       fs.rmSync(nonInputRaceFile, { force: true });
       fs.rmSync(optionalDescriptor, { force: true });
