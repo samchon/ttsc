@@ -22,6 +22,10 @@ jobs:
         with:
           go-version-file: packages/ttsc/go.mod
           cache: false
+      - uses: actions/checkout@v7
+        with:
+          repository: samchon/typia
+          path: experimental/typia
       - name: Locate Go caches
         id: go-cache
         shell: bash
@@ -36,7 +40,7 @@ jobs:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.objects }}
-          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', '.github/workflows/typia.yml') }}
+          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', '.github/workflows/patches/**', '.github/workflows/typia.yml') }}
           restore-keys: |
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
@@ -44,10 +48,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
-      - uses: actions/checkout@v7
-        with:
-          repository: samchon/typia
-          path: experimental/typia
       - run: >-
           node .github/workflows/scripts/consumer.cjs experimental/typia
           --patch=.github/workflows/patches/typia-master-emit-provenance.patch
