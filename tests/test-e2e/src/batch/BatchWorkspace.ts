@@ -7,6 +7,15 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
 
+import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
+import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
+import { copiesPluginSourceEntry } from "../../../../packages/ttsc/lib/plugin/internal/source/copiesPluginSourceEntry.js";
+import { ensureExecutableGoToolchain } from "../../../../packages/ttsc/lib/plugin/internal/source/ensureExecutableGoToolchain.js";
+import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
+import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
+import { shellQuote } from "../internal/ttsc/internal/source-build";
+
 import factory, { TsPrinter } from "../../../../packages/factory/src/index";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 
@@ -24,6 +33,7 @@ export namespace BatchWorkspace {
     casePolicyReceipt: string;
     projectAlias: string;
     installationOnly: boolean;
+    sourcePublication?: { binary: string; root: string };
     expected: readonly { title: string; units: number[] }[];
   }
   let preparation: Promise<Workspace> | undefined;
@@ -281,7 +291,180 @@ export namespace BatchWorkspace {
     if (installationOnly) {
       fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, jsx: "react", jsxFactory: "jsx", types: [], paths: { "@typed/*": ["./src/type-population/*"] }, plugins: [] }, include: ["src/contract.ts", "src/factory-values.tsx", "src/installation-runtime.ts"] }));
     }
-    return { root, expected, installedTtsx, installationOnly, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
+    let sourcePublication: Workspace["sourcePublication"];
+    if (!installationOnly) {
+      const container = path.join(root, "tools/source-publication");
+      assert.equal(fs.existsSync(container), false);
+      fs.mkdirSync(container, { recursive: true });
+      const source = path.join(container, "project");
+      const fixture = path.join(
+        TestProject.WORKSPACE_ROOT,
+        "packages",
+        "ttsc",
+        "test",
+        "fixtures",
+        "e2e",
+        "plugin_source_state_holds_takes_a_digest_the_caller_vouches_for",
+        "inputs-1",
+      );
+      fs.cpSync(fixture, source, {
+        recursive: true,
+        filter: (location) => copiesPluginSourceEntry(fixture, location),
+      });
+      for (const relative of [
+        "vendor/local/value.go",
+        "lib/helper.go",
+        "dist/generated.go",
+        "build/generated.go",
+      ]) {
+        const target = path.join(source, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(
+          path.join(source, "internal", "rules", "rule.go"),
+          target,
+        );
+      }
+      fs.writeFileSync(
+        path.join(source, ".git"),
+        "gitdir: ../.git/worktrees/plugin\n",
+      );
+      fs.mkdirSync(path.join(source, "notes~"));
+      fs.writeFileSync(path.join(source, "notes~", "notes.txt"), "kept notes\n");
+      fs.mkdirSync(path.join(container, "node_modules", "dependency"), {
+        recursive: true,
+      });
+      fs.mkdirSync(path.join(source, "node_modules"), { recursive: true });
+      assert.deepEqual(fs.readdirSync(path.join(source, "node_modules")), []);
+      const tools = path.join(container, "tools");
+      fs.mkdirSync(tools);
+      const script = path.join(tools, "actual-go.cjs");
+      fs.copyFileSync(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "tests",
+          "test-e2e",
+          "fixtures",
+          "ttsc",
+          "source-plugin",
+          "actual-go.cjs",
+        ),
+        script,
+      );
+      E2eProcessTrace.fixturePaths(tools, ["actual-go.cjs"]);
+      const actualGo = resolveGoCompiler({ ...process.env, TTSC_GO_BINARY: "" });
+      ensureExecutableGoToolchain(actualGo.binary, actualGo.bundled);
+      const go = path.join(tools, process.platform === "win32" ? "go.cmd" : "go");
+      fs.writeFileSync(
+        go,
+        process.platform === "win32"
+          ? `@echo off\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\n`
+          : `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
+      );
+      if (process.platform !== "win32") fs.chmodSync(go, 0o755);
+      const invocations = path.join(container, "go-invocations.jsonl");
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        GOCACHE: "",
+        TTSC_CACHE_DIR: "",
+        TTSC_GO_CACHE_DIR: "",
+        TTSC_GO_BINARY: go,
+        TTSC_TEST_ACTUAL_GO: actualGo.binary,
+        TTSC_TEST_GO_INVOCATIONS: invocations,
+      };
+      const expected = path.join(source, "node_modules", ".cache", "ttsc");
+      assert.equal(
+        resolveSourceBuildCachePaths(source, undefined, env).root,
+        expected,
+      );
+      const request = (root: string, cacheDir?: string): string =>
+        buildSourcePlugin({
+          baseDir: root,
+          env:
+            cacheDir === undefined ? env : { ...env, TTSC_CACHE_DIR: cacheDir },
+          overlayDirs: [],
+          pluginName: "canonical-source",
+          quiet: true,
+          source: root,
+          ttscVersion: "1.0.0",
+          tsgoVersion: "7.0.0-dev",
+        });
+      const countBuilds = (): number =>
+        fs
+          .readFileSync(invocations, "utf8")
+          .trim()
+          .split(/\r?\n/)
+          .map((line) => JSON.parse(line) as string[])
+          .filter((args) => args[0] === "build").length;
+      const first = request(source);
+      assert.ok(
+        first.startsWith(path.join(expected, "plugins") + path.sep),
+        first,
+      );
+      assert.ok(fs.existsSync(first));
+      assert.equal(
+        countBuilds(),
+        1,
+        "the cold request must compile exactly once",
+      );
+      const execution = E2eProcessTrace.spawnSync(first, [], {
+        encoding: "utf8",
+        windowsHide: true,
+        env: {
+          ...process.env,
+          ORPHAN_RACE_SOURCE: undefined,
+          ORPHAN_RACE_DONE: undefined,
+          ORPHAN_RACE_COMPILER: undefined,
+        },
+      });
+      if (!isOrdinarilyClosedReadonlyLauncher(execution))
+        throw new Error(
+          "published smoke did not return ordinary status/signal/PID metadata",
+          {
+            cause:
+              execution.error ??
+              new Error(
+                JSON.stringify({
+                  pid: execution.pid,
+                  status: execution.status,
+                  signal: execution.signal,
+                }),
+              ),
+          },
+        );
+      if (execution.error) throw execution.error;
+      assert.equal(execution.status, 0, execution.stderr);
+      assert.equal(execution.stdout, "");
+      assert.equal(
+        resolveSourceBuildCachePaths(source, undefined, env).root,
+        expected,
+      );
+      const secondSource = path.join(container, "relocated");
+      fs.cpSync(source, secondSource, {
+        recursive: true,
+        filter: (location) => copiesPluginSourceEntry(source, location),
+      });
+      const firstBytes = fs.readFileSync(first);
+      const second = request(secondSource, expected);
+      assert.equal(
+        second,
+        first,
+        "equivalent source roots must share the published content identity",
+      );
+      assert.equal(
+        countBuilds(),
+        1,
+        "the relocated request must not compile again",
+      );
+      assert.deepEqual(fs.readFileSync(second), fs.readFileSync(first));
+      assert.deepEqual(fs.readFileSync(second), firstBytes, "warm reuse must preserve pre-request artifact bytes");
+      sourcePublication = { binary: first, root };
+      const runtimeRace = path.join(root, "node_modules/batch-native-source-race");
+      assert.equal(fs.existsSync(runtimeRace), false);
+      fs.mkdirSync(runtimeRace);
+      fs.copyFileSync(path.join(root, "tools/native-source-race/index.ts"), path.join(runtimeRace, "index.ts"));
+      fs.copyFileSync(path.join(root, "tools/native-source-race/package.json"), path.join(runtimeRace, "package.json"));
+    }
+    return { root, expected, installedTtsx, installationOnly, sourcePublication, programRunLog, contextReceipt, factoryContextProbe, configPathReceipt, pathsReceipt, casePolicyReceipt, projectAlias, cache: TestProject.sharedPluginCache() };
   }
 
   /** The original factory matrix supplies inputs before any printer runs. */

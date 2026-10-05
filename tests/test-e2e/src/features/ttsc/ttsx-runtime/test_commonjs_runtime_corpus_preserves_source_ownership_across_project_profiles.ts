@@ -27,7 +27,6 @@ import {
   TTSX_REGISTER,
   linkTtscPackage,
 } from "../../../internal/ttsc/internal/ttsx-register";
-import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../source-plugin/case_buildsourceplugin_defaults_to_workspace_local_cache";
 
 /**
  * Verifies CommonJS source identity and fallback under shared project profiles.
@@ -66,13 +65,13 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * execution; its invalid-byte transition retains one additional necessary
  * negative host. Three immutable dependency projects borrow the configured
  * consumer host while preserving their own options and excluded-source
- * preparation. A single canonical source publication returns its real binary
- * and container. Ten further profiles borrow this joined consumer root,
- * preserving nineteen requests and their original configuration transitions.
+ * preparation. Native source publication and its two race loads now belong to
+ * the selected shared Runtime. Nine remaining profiles borrow this consumer
+ * root, retaining seventeen requests and their configuration transitions.
  * Only their owned holding namespace is excluded from active-profile oracles.
  * An actual root junction preserves the excluded-entry alias boundary where
  * supported. Unresolved launch metadata stops input changes and retains both
- * the consumer and the published artifact's container.
+ * the consumer root.
  *
  * 1. Run included collisions and raw packages together; preserve suppression in
  *    the configured-output host.
@@ -89,7 +88,7 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  * @evidence contracts/e2e.md#necessary-boundary Native emission ownership, inherited child loader admission, linked index cleanup and conservative versus explicitly selected clean effects must agree under these public launch routes; synthetic emit-index records cannot certify the runtime connection or source-only reads.
  * @evidence contracts/e2e.md#shared-execution One tracked authored corpus replaces independent roots. Included collisions and the raw package share one absent-rootDir host; forwarded suppression joins the configured rootDir/outDir dirname host to preserve its original emission profile. Explicit-root configured output, absent output, direct excluded entry and files-only register routes retain different native inputs or main-entry transports; A distinct driver cwd and relative cache option join the configured dirname and suppression host, and two nested runtime requests retain changed installation placement while their portable query/marking rules execute in source units; NodeNext changes compiler module/resolution and package type once and its MTS/CTS mains require separate entry transports; extension detection joins the configured rootDir/outDir CommonJS host, while the contrary-manifest implicit-module profile borrows the same root after its inputs are held and preserves a separate compiler/host request, and the nested-star ESM/CJS consumers join the existing NodeNext MTS/CTS hosts without adding another host. The copied nested graph keeps its original lib package identity, no-type classification and authored source bytes. The extension main and the copied CTS consumer gain export {} to keep their declarations module-scoped beside the other consumer modules; their original executable statements remain intact. Rewritten source children share the initial host; propagation, fork and three concurrent dependency children share the configured rootDir host, retaining seven actual descendants with no extra runtime parent host. That host also consumes the fresh physical run index through its real directory link. After the first twelve hosts close normally and their descendant-producing parents succeed, exact original readonly populations borrow the same root for three public requests; real denial and restoration of the root and its empty owned installation boundary retain six Windows ACL operations. Missing prerequisites remain BLOCKED; root execution reports zero readonly coverage. Default and explicit public clean share the safely restored canonical root and add two real command children after cache reuse ends. The excluded preload positive joins the initial noRootDir host through actual -r; its invalid-source transition retains another host and restores exact original bytes before the configured profile. Composite included/excluded requests and two physical-root dependencies then share the configured host, but preserve three actual dependency project configurations and separate excluded-source preparation. Existing descendant publications are separated using the real live manifest filename baseline, not assumed global cache counts. Denied native aliases explicitly report zero physical-root coverage while the independent composite requests still execute. Required dependency preparations remain native work. This corpus does not claim the whole runtime family is fully consolidated.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every synchronous child exits before the root config changes. Central packages and source identities stay immutable, the stale JavaScript remains present, CommonJS profiles overwrite only tsconfig.json; the final NodeNext phase also replaces package.json with an authored module package after all CommonJS hosts finish, and TestProject owns the single corpus through process cleanup. The configured children join before its synchronous launcher closes, and the linked index is observed only after that closure. Readonly transitions hold and restore original src, node_modules, package and config only after prior host closure. Every phase collects failures and verifies effective write restoration; an unresolved child or failed restoration retains the root and blocks clean. After all thirty-four runtime requests finish, an authored nonempty workspace package establishes owned default-clean authority; conservative then explicit clean operates only on the completed canonical cache. No warm-cache equivalence is asserted.
- * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and post-exit emptiness, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close empty physical index; all eight conservative-versus-explicit legacy/malformed clean assertions, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status, marker and unchanged root entries, plus excluded failure, entry path, remedy and no execution followed by included success and marker remain; genuine write-refusal and restoration probes strengthen those boundaries. Standalone originals remain until this final corpus has passed and its actual preparation counts are reviewed.
+ * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and post-exit emptiness, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close empty physical index; all eight conservative-versus-explicit legacy/malformed clean assertions, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status, marker and unchanged root entries, plus excluded failure, entry path, remedy and no execution followed by included success and marker remain; genuine write-refusal and restoration probes strengthen those boundaries. Other unmigrated runtime connections remain disclosed here; legacy baseline execution is not a prerequisite for their replacement.
  */
 export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles(includeLanguageProfiles = false) {
   const root = TestProject.createProject(
@@ -97,20 +96,10 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
   );
   linkTtscPackage(root);
   const failures: unknown[] = [];
-  let publication:
-    | ReturnType<
-        typeof case_buildsourceplugin_defaults_to_workspace_local_cache
-      >
-    | undefined;
-  try {
-    publication = case_buildsourceplugin_defaults_to_workspace_local_cache();
-  } catch (cause) {
-    failures.push(new Error("canonical native source publication", { cause }));
-  }
   const completedHosts: ReturnType<typeof TestProject.spawn>[] = [];
   let launchInputsSettled = true;
   const retainInputs = (reason: string): void => {
-    for (const retained of [root, publication?.root])
+    for (const retained of [root])
       if (retained !== undefined)
         try {
           TestProject.retainTemporaryDirectory(retained, reason);
@@ -635,9 +624,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
           {
             placement: readProfile("orphan-placement"),
             identity: readProfile("orphan-compiler-identity"),
-            race: readProfile("orphan-source-race"),
           },
-          publication?.binary,
         ),
         canonicalDecoratorMapProfile(readProfile("orphan-decorator-maps")),
         ...(includeLanguageProfiles ? canonicalResponseDecoratorProfiles() : []),
@@ -680,7 +667,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
   }
   if (!safeForCleanup) {
     const reason =
-      "unresolved canonical runtime or source publication consumer";
+      "unresolved canonical runtime consumer";
     retainInputs(reason);
   }
   if (safeForCleanup)
