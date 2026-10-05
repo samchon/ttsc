@@ -84,7 +84,31 @@ jobs:
         with:
           node-version: ${{ steps.runtime-node.outputs.version }}
           package-manager-cache: false
+      - name: Prepare E2E diagnostic observations
+        id: e2e-trace
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = path.join(process.env.RUNNER_TEMP, "e2e-runner-traces");
+          if (!path.isAbsolute(root)) throw new Error("E2E trace root must be absolute");
+          fs.mkdirSync(root, { recursive: true });
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "root=" + root + "\n");
+          NODE
       - run: pnpm test:e2e
+        env:
+          TTSC_E2E_TRACE: ${{ steps.e2e-trace.outputs.root }}
+      - name: Preserve E2E diagnostic observations
+        if: ${{ always() && steps.e2e-trace.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-observations-${{ matrix.name }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.e2e-trace.outputs.root }}/*.jsonl
+            ${{ steps.e2e-trace.outputs.root }}/*.jsonl.integrity
+          if-no-files-found: error
+          retention-days: 7
       - name: Save Built Go Modules and Objects
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
