@@ -51,6 +51,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "--incremental", "--tsBuildInfoFile", "state/run.tsbuildinfo", "--outFile", "bundle.js",
     "--noEmit", "--emitDeclarationOnly", "--target", "es2019", "@runtime-args.txt",
     "--sourceMap", "false", "--inlineSourceMap",
+    "-r", "./runtime-map-diagnostics.cjs",
   ];
   if (!workspace.installationOnly) fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
   try {
@@ -118,7 +119,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   // The one actual Runtime receives inlineSourceMap after explicitly clearing
   // the shared external-map setting. These are Node-consumed native frames,
   // rather than JSON map metadata or a synthetic source API map.
-  const nativeFrameDiagnostic = JSON.stringify({ frames: nativeFrames, maps: (payload as { nativeFrameMaps: unknown }).nativeFrameMaps });
+  const nativeMapLines = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_RUNTIME_MAPS:"));
+  assert.equal(nativeMapLines.length, 1, "the existing Runtime child must publish its own Node map diagnostics exactly once");
+  const nativeFrameDiagnostic = JSON.stringify({ frames: nativeFrames, maps: JSON.parse(nativeMapLines[0]!.slice("TTSC_RUNTIME_MAPS:".length)) });
   assert.match(nativeFrames[0], /inside\.cts:5:\d+/, nativeFrameDiagnostic);
   assert.match(nativeFrames[1], /outside\.cts:5:\d+/, nativeFrameDiagnostic);
   assert.deepEqual((payload as { requireBindings: unknown }).requireBindings, ["@lib/message", "local:@lib/message", "imported:@lib/message", "ok", "ok"]);
