@@ -74,6 +74,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   // Two simultaneous instance cache owners differ only in their environment;
   // neither call starts a TypeScript Program or executes a transform hook.
   const publicApiFailures: unknown[] = [];
+  const baselineBuildEnv = { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe_baseline" };
   try {
   const apiRoots = [".cache/public-a/ttsc", ".cache/public-b/ttsc"] as const;
   const apiManifestBytes = fs.readFileSync(path.join(workspace.root, "package.json"));
@@ -85,7 +86,6 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const relative of apiRoots)
     assert.equal(fs.existsSync(path.join(workspace.root, relative)), false, "public preparation owns a fresh instance cache");
   const ambientCache = process.env.TTSC_CACHE_DIR;
-  const baselineBuildEnv = { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe_baseline" };
   const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0], GOFLAGS: baselineBuildEnv.GOFLAGS } });
   const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS } });
   const preparedA = compilerA.prepare();
