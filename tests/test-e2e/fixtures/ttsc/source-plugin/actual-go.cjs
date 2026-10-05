@@ -24,6 +24,13 @@ if (args[0] === "build") {
   assert.equal(fs.readFileSync(path.join(process.cwd(), "notes~", "notes.txt"), "utf8").replace(/\r\n/g, "\n"), "kept notes\n");
 }
 fs.appendFileSync(process.env.TTSC_TEST_GO_INVOCATIONS, JSON.stringify(args) + "\n");
-const result = cp.spawnSync(process.env.TTSC_TEST_ACTUAL_GO, args, { stdio: "inherit", windowsHide: true });
+const recording = args[0] === "build" && process.env.TTSC_TEST_GO_BUILD_TRACE;
+const result = cp.spawnSync(process.env.TTSC_TEST_ACTUAL_GO, recording ? ["build", "-x", ...args.slice(1)] : args,
+  recording ? { encoding: "utf8", windowsHide: true, maxBuffer: 64 * 1024 * 1024 } : { stdio: "inherit", windowsHide: true });
+if (recording) {
+  fs.appendFileSync(process.env.TTSC_TEST_GO_BUILD_TRACE, JSON.stringify({ cwd: process.cwd(), stderr: result.stderr ?? "", status: result.status, signal: result.signal }) + "\n");
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+}
 if (result.error) throw result.error;
 process.exit(result.status ?? 1);

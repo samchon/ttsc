@@ -1,5 +1,6 @@
 import { FileSystemIterator, TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -328,13 +329,21 @@ export namespace BatchWorkspace {
         filter: (location) => copiesPluginSourceEntry(fixture, location),
       });
       const materializationInputs = path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/test/fixtures/e2e");
-      for (const filename of ["main.go", "go.mod"])
+      for (const filename of ["main.go", "go.mod", "asset.txt"])
         fs.copyFileSync(path.join(materializationInputs, "source-materialization-module", filename), path.join(source, filename));
       const dependency = path.join(container, ...Array.from({ length: 4 }, (_, index) => "module-depth-" + index + "-" + "x".repeat(40)), "dependency");
       assert.ok(dependency.length > 180, "the real imported workspace module must exceed the original deep-path boundary");
       fs.mkdirSync(dependency, { recursive: true });
       for (const filename of ["dep.go", "go.mod"])
         fs.copyFileSync(path.join(materializationInputs, "source-materialization-dependency", filename), path.join(dependency, filename));
+      // A unique dependency identity gives the first -x observation a genuinely
+      // cold helper while preserving the maintained package's authored bytes.
+      const dependencyName = "example.com/batch-materialization-dependency-" + crypto.createHash("sha256").update(root).digest("hex").slice(0, 16);
+      for (const target of [path.join(source, "main.go"), path.join(source, "go.mod"), path.join(dependency, "go.mod")]) {
+        const original = fs.readFileSync(target, "utf8");
+        assert.ok(original.includes("example.com/batch-materialization-dependency"));
+        fs.writeFileSync(target, original.replaceAll("example.com/batch-materialization-dependency", dependencyName));
+      }
       const sourceMod = path.join(source, "go.mod");
       const moduleBytes = fs.readFileSync(sourceMod, "utf8");
       assert.ok(moduleBytes.includes("../dependency"));
@@ -391,6 +400,7 @@ export namespace BatchWorkspace {
       );
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
       const invocations = path.join(container, "go-invocations.jsonl");
+      const buildTrace = path.join(container, "go-build-actions.jsonl");
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         GOCACHE: "",
@@ -399,6 +409,8 @@ export namespace BatchWorkspace {
         TTSC_GO_BINARY: go,
         TTSC_TEST_ACTUAL_GO: actualGo.binary,
         TTSC_TEST_GO_INVOCATIONS: invocations,
+        TTSC_TEST_GO_BUILD_TRACE: buildTrace,
+        GOFLAGS: "-trimpath=false",
       };
       const expected = path.join(source, "node_modules", ".cache", "ttsc");
       assert.equal(
@@ -424,6 +436,20 @@ export namespace BatchWorkspace {
           .split(/\r?\n/)
           .map((line) => JSON.parse(line) as string[])
           .filter((args) => args[0] === "build").length;
+      const buildActions = (): { cwd: string; stderr: string; status: number | null; signal: string | null }[] =>
+        fs.readFileSync(buildTrace, "utf8").trim().split(/\r?\n/).map((line) => JSON.parse(line));
+      const compiledDependency = (record: { stderr: string }): boolean => record.stderr.split(/\r?\n/)
+        .some((line) => /[\\/]compile(?:\.exe)?\b/.test(line) && line.includes(`-p ${dependencyName} `));
+      const objectOutput = (binary: string, value: "first" | "second"): void => {
+        const result = E2eProcessTrace.spawnSync(binary, [], { encoding: "utf8", windowsHide: true,
+          env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined } });
+        assert.ok(isOrdinarilyClosedReadonlyLauncher(result));
+        assert.equal(result.error, undefined);
+        assert.equal(result.signal, null);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stderr, `${value}\n`);
+        assert.equal(result.stdout, `${value}|"embedded bytes\\n"|example.com/plugin/main.go\n`);
+      };
       const first = request(source);
       assert.ok(
         first.startsWith(path.join(expected, "plugins") + path.sep),
@@ -443,7 +469,7 @@ export namespace BatchWorkspace {
           ORPHAN_RACE_SOURCE: undefined,
           ORPHAN_RACE_DONE: undefined,
           ORPHAN_RACE_COMPILER: undefined,
-          TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "1",
+          TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2",
         },
       });
       if (!isOrdinarilyClosedReadonlyLauncher(execution))
@@ -463,7 +489,7 @@ export namespace BatchWorkspace {
         );
       if (execution.error) throw execution.error;
       assert.equal(execution.status, 0, execution.stderr);
-      assert.equal(execution.stdout, "");
+      assert.equal(execution.stdout, 'first|"embedded bytes\\n"|example.com/plugin/main.go\n');
       assert.equal(execution.stderr.trim(), "first", "the published program must consume the actual deep external replacement");
       assert.equal(
         resolveSourceBuildCachePaths(source, undefined, env).root,
@@ -492,6 +518,24 @@ export namespace BatchWorkspace {
       );
       assert.deepEqual(fs.readFileSync(second), fs.readFileSync(first));
       assert.deepEqual(fs.readFileSync(second), firstBytes, "warm reuse must preserve pre-request artifact bytes");
+      const panic = E2eProcessTrace.spawnSync(first, ["panic"], { encoding: "utf8", windowsHide: true,
+        env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined } });
+      assert.equal(panic.error, undefined);
+      assert.equal(panic.signal, null);
+      assert.equal(panic.status, 2);
+      assert.match(panic.stderr, /panic: source-build-panic/);
+      assert.ok(panic.stderr.includes("example.com/plugin/main.go:"));
+      assert.equal(panic.stderr.includes(buildActions()[0]!.cwd), false);
+      fs.unlinkSync(first);
+      const rebuilt = request(secondSource, expected);
+      assert.equal(rebuilt, first, "binary-only deletion must rebuild the unchanged content identity");
+      assert.equal(countBuilds(), 2);
+      objectOutput(rebuilt, "first");
+      const initialActions = buildActions();
+      assert.equal(initialActions.length, 2);
+      assert.notEqual(initialActions[0]!.cwd, initialActions[1]!.cwd);
+      assert.equal(compiledDependency(initialActions[0]!), true, "the unique dependency must compile cold");
+      assert.equal(compiledDependency(initialActions[1]!), false, "unchanged dependency objects must survive a genuinely cold binary rebuild");
       const dependencySource = path.join(dependency, "dep.go");
       const dependencyMod = path.join(dependency, "go.mod");
       const originalDependency = fs.readFileSync(dependencySource);
@@ -502,33 +546,41 @@ export namespace BatchWorkspace {
         assert.ok(sourceModText.includes(dependencyRelative));
         fs.writeFileSync(sourceMod, sourceModText.replace(dependencyRelative, JSON.stringify(dependency.replace(/\\/g, "/"))));
         const absolutePublication = request(source, expected);
-        assert.equal(countBuilds(), 2, "the changed authored replace spelling is a distinct source identity");
+        assert.equal(countBuilds(), 3, "the changed authored replace spelling is a distinct source identity");
         const absoluteExecution = E2eProcessTrace.spawnSync(absolutePublication, [], {
           encoding: "utf8", windowsHide: true,
-          env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "1", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined },
+          env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined },
         });
         assert.ok(isOrdinarilyClosedReadonlyLauncher(absoluteExecution));
         assert.equal(absoluteExecution.error, undefined);
         assert.equal(absoluteExecution.signal, null);
         assert.equal(absoluteExecution.status, 0, absoluteExecution.stderr);
-        assert.equal(absoluteExecution.stdout, "");
+        assert.equal(absoluteExecution.stdout, 'first|"embedded bytes\\n"|example.com/plugin/main.go\n');
         assert.equal(absoluteExecution.stderr.trim(), "first", "absolute and relative replacements must consume the same unchanged external module");
         const dependencyText = originalDependency.toString("utf8");
         assert.ok(dependencyText.includes('"first"'));
         fs.writeFileSync(dependencySource, dependencyText.replace('"first"', '"second"'));
         const changed = request(source, expected);
         assert.notEqual(changed, absolutePublication, "changed external module bytes alone must publish a new content identity");
-        assert.equal(countBuilds(), 3, "one shared source graph rebuilds once for the external input transition");
+        assert.equal(countBuilds(), 4, "one shared source graph rebuilds once for the external input transition");
+        assert.equal(compiledDependency(buildActions()[3]!), true, "changed dependency bytes must produce a new Go object action");
         const changedExecution = E2eProcessTrace.spawnSync(changed, [], {
           encoding: "utf8", windowsHide: true,
-          env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "1", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined },
+          env: { ...process.env, TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2", ORPHAN_RACE_SOURCE: undefined, ORPHAN_RACE_DONE: undefined, ORPHAN_RACE_COMPILER: undefined },
         });
         assert.ok(isOrdinarilyClosedReadonlyLauncher(changedExecution), "changed publication must have an ordinary closed execution receipt");
         assert.equal(changedExecution.error, undefined);
         assert.equal(changedExecution.signal, null);
         assert.equal(changedExecution.status, 0, changedExecution.stderr);
-        assert.equal(changedExecution.stdout, "");
+        assert.equal(changedExecution.stdout, 'second|"embedded bytes\\n"|example.com/plugin/main.go\n');
         assert.equal(changedExecution.stderr.trim(), "second");
+        // Use the maintained dependency bytes to form the malformed state;
+        // restoration precedes the separate workspace-role transition.
+        assert.ok(dependencyText.includes('return "first" }'));
+        fs.writeFileSync(dependencySource, dependencyText.replace('return "first" }', "return"));
+        assert.throws(() => request(source, expected), /syntax error/);
+        assert.equal(countBuilds(), 5, "the malformed dependency must reach one real rejected build");
+        fs.writeFileSync(dependencySource, dependencyText.replace('"first"', '"second"'));
         // The same module cannot be both an authored external replacement and
         // a workspace-owned overlay. Advance this source graph to the overlay
         // role only after removing its existing replace directive.
@@ -538,20 +590,20 @@ export namespace BatchWorkspace {
         fs.writeFileSync(sourceMod, sourceModText.split(/\r?\n/).filter((line) => line !== replaceLines[0]).join("\n"));
         const workspacePublication = request(source, expected, {}, [dependency]);
         assert.ok(fs.existsSync(workspacePublication), "the actual patch-qualified modules must build together as workspace use entries");
-        assert.equal(countBuilds(), 4, "the replacement-to-workspace role transition has one distinct native build");
+        assert.equal(countBuilds(), 6, "the replacement-to-workspace role transition has one distinct native build");
         const dependencyModText = originalDependencyMod.toString("utf8");
         assert.ok(dependencyModText.includes("go 1.26.0"));
         fs.writeFileSync(dependencyMod, dependencyModText.replace("go 1.26.0", "go 1.99.0"));
         assert.throws(() => request(source, expected, { GOTOOLCHAIN: "local" }, [dependency]), /go >= 1\.99\.0/,
           "the real Go workspace must reject an incompatible imported overlay instead of guessing a lower version");
-        assert.equal(countBuilds(), 4, "the incompatible workspace must fail before native build publication");
+        assert.equal(countBuilds(), 6, "the incompatible workspace must fail before native build publication");
       } finally {
         fs.writeFileSync(dependencySource, originalDependency);
         fs.writeFileSync(dependencyMod, originalDependencyMod);
         fs.writeFileSync(sourceMod, originalSourceMod);
       }
       assert.equal(request(source, expected), first, "restored dependency bytes must reuse the original publication");
-      assert.equal(countBuilds(), 4);
+      assert.equal(countBuilds(), 6);
       assert.deepEqual(fs.readFileSync(first), firstBytes);
       sourcePublication = { binary: first, root };
       const runtimeRace = path.join(root, "node_modules/batch-native-source-race");

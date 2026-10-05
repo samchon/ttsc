@@ -21,8 +21,14 @@ import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plug
  * long components: patch-qualified directives and relative/absolute replacement
  * select first, changed external bytes select second, and an incompatible local
  * toolchain directive rejects before publication. External replacements and
- * workspace overlays are distinct epochs of that graph. Four actual Go builds
- * and three binary observations replace the standalone source-project recipes;
+ * workspace overlays are distinct epochs of that graph. Six actual Go build
+ * attempts include binary-only cold rebuild, external byte change, malformed
+ * dependency refusal and compatible workspace publication. Actual Go -x must
+ * show cold helper compilation, unchanged object reuse across different scratch
+ * roots and recompilation after edit; mode2 independently observes embedding,
+ * logical runtime source and panic provenance. Five compiled executions
+ * (three combined value/object probes, one cold-rebuild probe and one panic) replace the separate
+ * source-project and object-cache recipes;
  * restored bytes reuse the original publication before the runtime borrows it.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
