@@ -240,6 +240,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         "-r",
         "./tools/native-source-borrower.cjs",
         "-r",
+        "./tools/runtime-owned-descendant.cjs",
+        "-r",
         "./tools/runtime-declared-flow.cjs",
         "-r",
         "./tools/runtime-clean-flow.cjs",
@@ -309,7 +311,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       BatchWorkspace.retain(
         "readonly input permissions could not be restored and acknowledged by actual writes",
       );
-    if (result?.stderr.includes("rejection actor closure remained unresolved"))
+    if (result?.stderr.includes("owned runtime descendant closure remained unresolved") || result?.stderr.includes("owned runtime parent closure remained unresolved"))
+      BatchWorkspace.retain("the inherited runtime actor has no actual closure acknowledgement; refuse shared consumers");
+    else if (result?.stderr.includes("rejection actor closure remained unresolved"))
       BatchWorkspace.retain(
         "the rejection actor has no actual closure acknowledgement; keep its held configuration and refuse later shared consumers",
       );

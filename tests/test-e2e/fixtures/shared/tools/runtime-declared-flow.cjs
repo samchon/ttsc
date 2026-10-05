@@ -308,11 +308,12 @@ try {
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
   assert.ok(childReport, "the actual registered parent must publish its owned child identity");
   assert.equal(childReport.parent, registered.pid);
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(descendant, "ready.json"), "utf8")), { pid: childReport.child });
-  assert.equal(childIsRunning(), true, "the registered parent must exit while its actual descendant still owns the run");
-  assert.equal(fs.readdirSync(defaultRuns).length, 1);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(descendant, "ready.json"), "utf8")), { pid: childReport.child, manifest: null, run: null, runtime: null, runs: null });
+  assert.equal(childIsRunning(), true, "the manifestless registered descendant must remain alive for its lazy import");
+  const owners = fs.existsSync(defaultRuns) ? fs.readdirSync(defaultRuns).flatMap((run) => fs.readdirSync(path.join(defaultRuns, run)).filter((name) => /^owner-.*\.json$/.test(name)).map((name) => JSON.parse(fs.readFileSync(path.join(defaultRuns, run, name), "utf8")))) : [];
+  assert.equal(owners.some((owner) => owner.pid === childReport.child), false, "manifestless register must not invent an inherited generation owner");
   assert.equal(cleanDefault(), 0);
-  assert.equal(fs.readdirSync(defaultRuns).length, 1, "default clean must preserve the actual live descendant owner");
+  assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the unowned manifestless generation before the live descendant lazily rebuilds its typed input");
   fs.writeFileSync(path.join(descendant, "release"), "release");
   const deadline = Date.now() + 30000;
   while (!fs.existsSync(path.join(descendant, "result")) || childIsRunning()) {

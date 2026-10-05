@@ -996,8 +996,8 @@ export namespace BatchWorkspace {
       const firstBytes = fs.readFileSync(first);
       const second = request(secondSource, expected);
       assert.equal(
-        second,
-        first,
+        fs.realpathSync.native(second),
+        physicalFirst,
         "equivalent source roots must share the published content identity",
       );
       assert.equal(
@@ -1031,8 +1031,8 @@ export namespace BatchWorkspace {
       fs.unlinkSync(first);
       const rebuilt = request(secondSource, expected);
       assert.equal(
-        rebuilt,
-        first,
+        fs.realpathSync.native(rebuilt),
+        physicalFirst,
         "binary-only deletion must rebuild the unchanged content identity",
       );
       assert.equal(countBuilds(), 2);
@@ -1108,8 +1108,8 @@ export namespace BatchWorkspace {
         );
         const changed = request(source, expected);
         assert.notEqual(
-          changed,
-          absolutePublication,
+          fs.realpathSync.native(changed),
+          fs.realpathSync.native(absolutePublication),
           "changed external module bytes alone must publish a new content identity",
         );
         assert.equal(
@@ -1255,8 +1255,8 @@ export namespace BatchWorkspace {
         fs.writeFileSync(sourceMod, originalSourceMod);
       }
       assert.equal(
-        request(source, expected),
-        first,
+        fs.realpathSync.native(request(source, expected)),
+        physicalFirst,
         "restored dependency bytes must reuse the original publication",
       );
       assert.equal(countBuilds(), 6);
@@ -1265,7 +1265,7 @@ export namespace BatchWorkspace {
         rebuiltBytes,
         "restored warm reuse must preserve the independently captured rebuilt publication; the deleted first publication is a different artifact lifetime",
       );
-      sourcePublication = { binary: first, root };
+      sourcePublication = { binary: physicalFirst, root };
       const runtimeRace = path.join(
         root,
         "node_modules/batch-native-source-race",

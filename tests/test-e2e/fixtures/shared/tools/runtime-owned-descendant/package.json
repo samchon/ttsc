@@ -1,0 +1,1 @@
+{"name":"shared-owned-runtime-descendant","private":true,"type":"commonjs","workspaces":["packages/*"]}
