@@ -39,6 +39,9 @@ import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plug
  * under a contrary CommonJS package. The same cjs-dependency/esm-by-project
  * result distinguishes literal node_modules package precedence from the
  * miscased project directory; no separate classification runtime is launched.
+ * The rejected dependency entry is an explicit module: its console/process
+ * declarations are local to that source, while the imported diagnostic owner's
+ * noUnusedLocals check retains TS6133 and blocks the entry's success effect.
  *
  * The two configured dependency families have incompatible compiler modes: one default-ESM/Bundler owner with a contrary CommonJS manifest supplies all extensionless ESM nodes, while one empty CommonJS/legacy-decorator owner supplies one source fallback containing two independent method decorators. Same-basename identity selection is owned by exact EmitOwnershipIndex/OwnedProjectSource units and the existing root ownership graph rather than additional legacy source requests. The ESNext dependency now selects its own linked strip plugin: its authored secret call must disappear while dependency-value reaches the parent. Both are requested within the existing runtime, with no per-case project or launch. Native owner preparation and fallback are additional explicit Program costs; the outer runtime count alone does not certify total independent experimentation.
  *

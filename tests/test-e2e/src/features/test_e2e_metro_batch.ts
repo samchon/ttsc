@@ -33,6 +33,11 @@ import { buildSourcePlugin, computeCacheKey, createFakeGoBinary, ensureExecutabl
  * runtime-input population. One source graph retains extension substitution,
  * package search, config absence and evaluation-time config appearance without
  * creating another worker or authored Go input.
+ * Native dependency completeness is conservative across all linked contributors.
+ * Paths does not report completeness, so this envelope must omit the whole-file
+ * certificate despite the fixture's explicit reports. Actual transformed source
+ * membership and record inputs remain separate transport assertions; the direct
+ * notifyWatchInputs unit owns complete/unmarked selection in one envelope.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -2139,13 +2144,15 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(initialPublications.length, 1, "the two actual deliveries share one published native envelope");
   const initialEnvelope = initialPublications[0]!.result;
   assert.equal(initialEnvelope.type, "success");
-  assert.ok(Array.isArray(initialEnvelope.dependenciesComplete), "the native per-file declarations must survive SDK acquisition and adapter decoding");
   const envelopePath = (file: string) => path.resolve(workspace.root, file).replace(/\\/g, "/");
-  const completeFiles = initialEnvelope.dependenciesComplete.map(envelopePath);
+  // Completeness is the intersection of every applicable native contributor.
+  // The selected paths contributor does not declare completeness; explicit
+  // fixture reports therefore cannot certify the whole linked Program.
+  assert.equal(Object.hasOwn(initialEnvelope, "dependenciesComplete"), false,
+    "an unreporting linked contributor must keep the native envelope conservative");
   for (const file of ["src/bundle.ts", "src/map.ts", "src/pool-routing/map.ts"])
-    assert.ok(completeFiles.includes(envelopePath(file)), "the selected fixture explicitly reports this loaded source complete: " + file);
-  assert.equal(completeFiles.includes(envelopePath("src/native-pipeline.ts")), false,
-    "a real unmarked source in the same envelope must not inherit another file's completeness");
+    assert.ok(Object.keys(initialEnvelope.typescript).some((source) => envelopePath(source) === envelopePath(file)),
+      "the reporter's configured source must be in this actual transformed Program: " + file);
   assert.ok(Object.keys(initialEnvelope.typescript).some((file) => envelopePath(file) === envelopePath("src/native-pipeline.ts")),
     "the unmarked sibling must be an actual transformed source, not an invented metadata path");
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
