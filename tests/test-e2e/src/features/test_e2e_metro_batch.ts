@@ -30,6 +30,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const caseOffset = fs.existsSync(workspace.casePolicyReceipt) ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
   const session = path.join(workspace.root, "loader-pool-session");
+  assert.equal(fs.existsSync(session), false, "the pool owns a fresh shared session directory");
+  fs.mkdirSync(session);
+  assert.equal(fs.statSync(session).isDirectory(), true, "both workers inherit an admitted shared session before starting");
   // The existing opt-in sink stays outside the project input population.
   const traceRoot = path.join(workspace.cache, "loader-pool-observations", crypto.randomUUID());
   fs.mkdirSync(traceRoot, { recursive: true });
