@@ -32,10 +32,10 @@ import { BuildTiming } from "./BuildTiming";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
 import { NativePluginArguments } from "./NativePluginArguments";
 import { PassthroughFlags } from "./PassthroughFlags";
+import { PluginFailureDiagnostics } from "./PluginFailureDiagnostics";
 import type { RunBuildOptions } from "./RunBuildOptions";
 import { TsgoArguments } from "./TsgoArguments";
 import { appendBuildOutput } from "./appendBuildOutput";
-import { createProcessDiagnostic } from "./createProcessDiagnostic";
 import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPath";
 import { mergeProjectInputSnapshots } from "./mergeProjectInputSnapshots";
 import { normalizeBuildOutput } from "./normalizeBuildOutput";
@@ -556,11 +556,7 @@ export namespace BuildExecution {
     options: RunBuildOptions,
     execution: ReturnType<typeof resolveExecutionContext>,
   ): TtscBuildResult {
-    if (
-      options.format === true ||
-      options.skipDiagnosticsCheck === true ||
-      PassthroughFlags.forwardsTerminalTsgoFlag(options)
-    ) {
+    if (!PluginFailureDiagnostics.shouldCollect(options)) {
       return failure;
     }
     const typechecked = runTsgo(
@@ -573,23 +569,12 @@ export namespace BuildExecution {
       typechecked,
       execution.projectRoot,
     );
-    if (fallback === null) {
-      return failure;
-    }
     // Structured consumers (the public API's `IFailure.diagnostics`) never see
     // stdout/stderr, so a plugin failure that reported no parsable diagnostics
     // must be seeded as one before recovered TypeScript diagnostics are appended
     // — otherwise the recovery would replace the plugin error with unrelated
     // type errors instead of surfacing both.
-    const seeded =
-      failure.diagnostics.length === 0
-        ? { ...failure, diagnostics: [createProcessDiagnostic(failure)] }
-        : failure;
-    const status = failure.status;
-    return {
-      ...appendBuildOutput(seeded, fallback),
-      status,
-    };
+    return PluginFailureDiagnostics.append(failure, fallback);
   }
 
   /**
