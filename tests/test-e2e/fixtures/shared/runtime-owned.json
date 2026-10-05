@@ -1,1 +1,1 @@
-{"extends":"./runtime-base.json","compilerOptions":{"rootDir":null}}
+{"extends":"./runtime-base.json","compilerOptions":{"rootDir":null,"outDir":"lib","declaration":true,"declarationDir":"types","incremental":true,"tsBuildInfoFile":"build/app.tsbuildinfo"}}

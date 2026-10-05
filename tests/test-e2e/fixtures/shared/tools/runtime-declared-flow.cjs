@@ -15,8 +15,11 @@ const inputs = new Map([
   "tools/runtime-declared-script.ts", "tools/runtime-placement.ts",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 assert.equal(fs.existsSync(artifacts), false);
+const missingDescriptor = path.join(root, "missing-plugin.cjs");
+assert.equal(fs.existsSync(missingDescriptor), false);
 const compiled = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json", plugins: false }).compile();
 assert.equal(compiled.type, "success", JSON.stringify(compiled));
+assert.equal(fs.existsSync(missingDescriptor), false, "plugins:false must bypass the actually configured absent descriptor");
 const output = new Map(Object.entries(compiled.output).map(([file, text]) => [path.resolve(root, file), text]));
 const declaration = path.join(artifacts, "types/runtime-corpus/native-factory.d.ts");
 const declarationMap = declaration + ".map";

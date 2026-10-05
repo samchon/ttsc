@@ -46,8 +46,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const standardRoot = path.join(workspace.root, "src/runtime-corpus/standard");
   const standardInputs = await FileSystemIterator.read(standardRoot);
   const runtimeOwnerConfig = fs.readFileSync(path.join(workspace.root, "runtime-owned.json"));
+  if (!workspace.installationOnly)
+    for (const location of ["types", "build", "lib"])
+      assert.equal(fs.existsSync(path.join(workspace.root, location)), false, "declared consumer output locations must be absent before native runtime preparation");
   const installedPackage = path.join(workspace.root, "node_modules/root-pkg");
-  const excludedInputs = ["tools/runtime-excluded.ts", "src/runtime-corpus/excluded-owner.ts"]
+  const excludedInputs = ["tools/runtime-excluded.ts", "src/runtime-corpus/excluded-owner.ts", "src/runtime-corpus/declared-entry.ts"]
     .map((relative) => ({ file: path.join(workspace.root, relative), bytes: fs.readFileSync(path.join(workspace.root, relative)) }));
   const installedInputs = workspace.installationOnly ? undefined : await FileSystemIterator.read(installedPackage);
   const installedDirectory = workspace.installationOnly ? undefined : { names: fs.readdirSync(installedPackage).sort(), mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs };
@@ -95,6 +98,10 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "fresh tool.ts").length, 2);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "tool").length, 1);
   assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "lowered").length, 1);
+  assert.equal(result.stdout.split(/\r?\n/).filter((line) => line === "entry ran").length, 1);
+  assert.equal(fs.existsSync(path.join(workspace.root, "src/runtime-corpus/declared-entry.js")), false);
+  for (const location of ["types", "build", "lib", "typesx", "state", "distx"])
+    assert.equal(fs.existsSync(path.join(workspace.root, location)), false, "native runtime output resets must protect both authored and explicitly overridden destinations");
   assert.doesNotMatch(result.stdout, /STALE tool\.js/);
   const declarationObservation = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8")) as {
     produced: string[]; registerStatus: number; registerPid: number; registerBefore: number; registerAfter: number;

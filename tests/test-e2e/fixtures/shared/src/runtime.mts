@@ -9,6 +9,7 @@ import { cliPolicyRuntime } from "./runtime-corpus/cli-policy.mjs";
 import { observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
 import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
 import { observed as nativeFactory } from "./runtime-corpus/native-factory.js";
+import "./runtime-corpus/declared-entry.js";
 const host = createMemFS();
 observeEmittedEffects();
 host.writeFile("/main.ts", "export const value = 1;\n");
