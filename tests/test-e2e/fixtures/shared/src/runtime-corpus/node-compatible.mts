@@ -56,5 +56,20 @@ export async function observeNodeCompatibleCorpus() {
     const loaded = await import(configName);
     return { handler: loaded.handler, resolved: loaded.resolved, resolvedFromPaths: loaded.resolvedFromPaths, target: loaded.target, wrapped: loaded.wrapped };
   });
+  for (const [name, specifier] of [
+    ["missing-bare", "batch-missing-native-runtime"],
+    ["missing-extensionless", "./node-compatible/absent-source"],
+    ["missing-extensioned", "./node-compatible/absent-source.js"],
+  ] as const) {
+    await capture(name, async () => {
+      try {
+        await import(specifier);
+        return { resolved: true };
+      } catch (error) {
+        const native = error as Error & { code?: string };
+        return { code: native.code, mentionsInput: native.message.includes(specifier) || native.message.includes("absent-source") };
+      }
+    });
+  }
   return { values, failures };
 }

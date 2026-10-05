@@ -106,6 +106,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     wholeProject: { wrapped: 7, unimportedEmitted: true },
     declaredOutputs: ["inside", "extra"],
     classification: "cjs-dependency|esm-by-project",
+    moduleValues: { enumRuntime: "Low-2", namespaceRuntime: "repeated-3" },
   });
   assert.deepEqual(await FileSystemIterator.read(configuredRoot), configuredInputs, "both existing native owner paths must keep all source bytes and declared output trees untouched");
   const nativeFrames = (payload as { nativeFrames: unknown }).nativeFrames;

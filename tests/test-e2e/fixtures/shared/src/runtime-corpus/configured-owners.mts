@@ -15,5 +15,6 @@ export async function observeConfiguredOwners(): Promise<unknown> {
     wholeProject: { wrapped: esnext.wrap(7), unimportedEmitted: emitted.some((file) => file.endsWith("configured-unused.js")) },
     declaredOutputs: [esnext.inside, legacy.default.extra],
     classification: esnext.classification,
+    moduleValues: { enumRuntime: esnext.enumRuntime, namespaceRuntime: esnext.namespaceRuntime },
   };
 }
