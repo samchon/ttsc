@@ -14,4 +14,23 @@ for (const specifier of ["#missing-local-descriptor", "#missing-package-descript
   }
   if (!missing) throw new Error("the independently absent descriptor input unexpectedly resolved: " + specifier);
 }
-exports.default = (context) => ({ name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {} });
+const cachedInput = require("./cache-input.cjs");
+exports.default = (context) => {
+  const observation = context.plugin.cacheObservation;
+  if (observation === undefined)
+    return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {} };
+  const fs = require("node:fs");
+  const settings = require("node:path").join(context.dirname, "cache-settings.json");
+  fs.appendFileSync(context.plugin.evaluationCounter, "x");
+  if (observation === "module")
+    return { name: cachedInput.name, source: context.plugin.fixtureSource, hostInputHashes: {} };
+  const text = fs.readFileSync(settings);
+  const result = { name: JSON.parse(text.toString("utf8")).name, source: context.plugin.fixtureSource };
+  if (observation !== "undeclared") {
+    result.hostInputs = [settings];
+    result.hostInputHashes = observation === "qualified"
+      ? { [settings]: require("node:crypto").createHash("sha256").update(text).digest("hex") }
+      : {};
+  }
+  return result;
+};

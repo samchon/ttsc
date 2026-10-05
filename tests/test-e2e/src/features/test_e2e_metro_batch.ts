@@ -12,6 +12,8 @@ import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFo
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginSourceState";
+import { prunesPluginSourceDirectory } from "../../../../packages/ttsc/lib/plugin/internal/source/prunesPluginSourceDirectory";
+import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
@@ -74,8 +76,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const relative of apiRoots)
     assert.equal(fs.existsSync(path.join(workspace.root, relative)), false, "public preparation owns a fresh instance cache");
   const ambientCache = process.env.TTSC_CACHE_DIR;
-  const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0] } });
-  const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1] } });
+  const baselineBuildEnv = { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe_baseline" };
+  const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0], GOFLAGS: baselineBuildEnv.GOFLAGS } });
+  const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS } });
   const preparedA = compilerA.prepare();
   const preparedB = compilerB.prepare();
   assert.equal(preparedA.length, 1, "one authored selected native producer is prepared");
@@ -111,10 +114,15 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const originalProducer = fs.readFileSync(producerFile);
   const excludedGo = path.join(sourceModule, "node_modules/public-state/ignored.go");
   const backupGo = path.join(sourceModule, "ignored.go~");
+  const excludedGit = path.join(sourceModule, ".git/public-state-ignored.go");
+  assert.equal(fs.existsSync(excludedGit), false);
+  assert.equal(prunesPluginSourceDirectory("node_modules"), true);
+  assert.equal(prunesPluginSourceDirectory(".git"), true);
+  assert.equal(prunesPluginSourceDirectory("internal"), false);
   assert.equal(fs.existsSync(excludedGo), false);
   assert.equal(fs.existsSync(backupGo), false);
   try {
-    const expectedOriginalState = pluginSourceState(sourceModule);
+    const expectedOriginalState = pluginSourceState(sourceModule, { env: baselineBuildEnv });
     const first = compilerB.transform();
     assert.equal(first.type, "success", "the public API must acquire the actual native source envelope");
     if (first.type !== "success") throw new Error("initial public source envelope failed");
@@ -124,10 +132,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.mkdirSync(path.dirname(excludedGo), { recursive: true });
     fs.writeFileSync(excludedGo, "package ignored\n");
     fs.writeFileSync(backupGo, "backup input\n");
-    assert.equal(pluginSourceState(sourceModule), expectedOriginalState, "pruned and backup bytes must not join source ownership");
+    fs.mkdirSync(path.dirname(excludedGit), { recursive: true });
+    fs.writeFileSync(excludedGit, "package ignored\n");
+    assert.equal(pluginSourceState(sourceModule, { env: baselineBuildEnv }), expectedOriginalState, "pruned and backup bytes must not join source ownership");
     assert.deepEqual(compilerB.prepare(), preparedB, "pruned bytes must retain the actual selected binary");
     fs.appendFileSync(producerFile, "\n// public source-state epoch\n");
-    const expectedEditedState = pluginSourceState(sourceModule);
+    const expectedEditedState = pluginSourceState(sourceModule, { env: baselineBuildEnv });
     assert.notEqual(expectedEditedState, expectedOriginalState);
     const edited = compilerB.transform();
     assert.equal(edited.type, "success");
@@ -146,7 +156,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.notEqual(flagged.pluginSources?.[fs.realpathSync.native(sourceModule)], edited.pluginSources?.[fs.realpathSync.native(sourceModule)]);
     assert.equal(flagged.pluginSources?.[fs.realpathSync.native(sourceModule)], expectedFlaggedState);
     assert.notEqual(flaggedCompiler.prepare()[0], editedBinaries[0]);
-    const plain = new TtscCompiler({ cwd: workspace.root, plugins: false, env: { TTSC_CACHE_DIR: apiRoots[1] } }).transform();
+    const plain = new TtscCompiler({ cwd: workspace.root, plugins: false, env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS } }).transform();
     assert.equal(plain.type, "success");
     if (plain.type !== "success") throw new Error("plugin-free public source envelope failed");
     assert.equal(plain.pluginSources, undefined, "a plugin-free operation must not report another owner's native source state");
@@ -154,6 +164,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     fs.writeFileSync(producerFile, originalProducer);
     fs.rmSync(path.join(sourceModule, "node_modules/public-state"), { recursive: true, force: true });
     fs.rmSync(backupGo, { force: true });
+    fs.rmSync(excludedGit, { force: true });
   }
   const explicitCleaner = new TtscCompiler({ cwd: workspace.root, cacheDir: apiRootA });
   assert.deepEqual(explicitCleaner.clean(), [apiRootA]);
@@ -172,6 +183,52 @@ export async function test_e2e_metro_batch(): Promise<void> {
   if (apiOutputBytes !== undefined) assert.deepEqual(await FileSystemIterator.read(apiOutputRoot), apiOutputBytes);
   } catch (error) {
     publicApiFailures.push(new Error("public preparation, instance cache and cleanup population", { cause: error }));
+  }
+  const descriptorSettings = path.join(workspace.root, "descriptors/cache-settings.json");
+  const descriptorModule = path.join(workspace.root, "descriptors/cache-input.cjs");
+  const originalSettings = fs.readFileSync(descriptorSettings);
+  const originalDescriptorModule = fs.readFileSync(descriptorModule);
+  const descriptorCache = path.join(workspace.root, ".cache/descriptor-observations/ttsc");
+  const descriptorEnv = { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe_baseline" };
+  // One physical descriptor, dependency, settings file and native producer own
+  // these observation-authority epochs. Rows change the declared read contract;
+  // they do not allocate projects, launch old recipes or reset a row's cache.
+  for (const observation of ["module", "qualified", "undeclared", "unproved"] as const) {
+    const counter = path.join(traceRoot, "descriptor-" + observation + ".txt");
+    const entry = { ...nativeProbe, cacheObservation: observation, evaluationCounter: counter };
+    const load = (env: NodeJS.ProcessEnv = descriptorEnv): string | undefined => loadProjectPlugins({
+      binary: TestProject.TSGO_BINARY, cwd: workspace.root, cacheDir: descriptorCache,
+      entries: [entry], env, tsconfig: configPath,
+    }).nativePlugins[0]?.name;
+    const evaluations = (): number => fs.existsSync(counter) ? fs.readFileSync(counter, "utf8").length : 0;
+    try {
+      assert.equal(fs.existsSync(counter), false);
+      fs.writeFileSync(descriptorSettings, '{"name":"first"}\n');
+      fs.writeFileSync(descriptorModule, 'module.exports = { name: "first" };\n');
+      assert.equal(load(), "first", "the isolated evaluator must return the authored initial name: " + observation);
+      if (observation === "module") {
+        assert.equal(load(), "first");
+        assert.equal(evaluations(), 1, "an unchanged CJS module graph is reused");
+        fs.writeFileSync(descriptorModule, 'module.exports = { name: "second" };\n');
+        assert.equal(load(), "second", "the isolated CJS generation must load the edited dependency value");
+        assert.equal(evaluations(), 2);
+        assert.equal(load({ ...descriptorEnv, DESCRIPTOR_PROBE: "changed" }), "second");
+        assert.equal(evaluations(), 3, "an effective evaluator environment change cannot borrow the earlier generation");
+      } else {
+        if (observation === "qualified") {
+          assert.equal(load(), "first");
+          assert.equal(evaluations(), 1, "the exact declared settings SHA permits evaluation reuse");
+        }
+        fs.writeFileSync(descriptorSettings, '{"name":"second"}\n');
+        assert.equal(load(), "second", "changed read bytes must reach the actual factory return: " + observation);
+        assert.equal(evaluations(), 2, "missing or changed read authority must re-evaluate: " + observation);
+      }
+    } catch (error) {
+      publicApiFailures.push(new Error("isolated descriptor observation flow: " + observation, { cause: error }));
+    } finally {
+      fs.writeFileSync(descriptorSettings, originalSettings);
+      fs.writeFileSync(descriptorModule, originalDescriptorModule);
+    }
   }
   baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
   receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
