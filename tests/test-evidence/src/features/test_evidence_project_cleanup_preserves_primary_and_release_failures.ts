@@ -45,17 +45,19 @@ export function test_evidence_project_cleanup_preserves_primary_and_release_fail
     withEvidenceProject({ async cleanup() {} }, () => 1);
     // @ts-expect-error A Promise-returning cleanup cannot be a synchronous owner.
     withEvidenceProject({ cleanup: () => Promise.resolve() }, () => 1);
-    // @ts-expect-error A cleanup union can retain resources after return.
     withEvidenceProject(
       {
+        // @ts-expect-error A cleanup union can retain resources after return.
         cleanup: (): void | Promise<void> =>
           Math.random() ? undefined : Promise.resolve(),
       },
       () => 1,
     );
-    // @ts-expect-error PromiseLike cleanup does not prove synchronous release.
     withEvidenceProject(
-      { cleanup: (): PromiseLike<void> => Promise.resolve() },
+      {
+        // @ts-expect-error PromiseLike cleanup does not prove synchronous release.
+        cleanup: (): PromiseLike<void> => Promise.resolve(),
+      },
       () => 1,
     );
   }
