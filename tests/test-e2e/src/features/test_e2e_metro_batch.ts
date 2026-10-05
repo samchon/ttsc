@@ -14,11 +14,16 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 /**
  * Delivers distinct modules through one shared native loader pool.
  *
+ * The Metro worker requires the actual CJS config and the transformer path it
+ * returns before its first existing delivery. That delivery's authored upstream
+ * also returns one identifier location from transformed text; the parent checks
+ * the banner shift and the adapter's restoration against the original source.
+ *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
- * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. This is not a running Next or Metro server.
+ * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
@@ -105,8 +110,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   }
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session, traceRoot,
-    metro: pathToFileURL(path.join(lib, "transformer.mjs")).href,
-    options: pathToFileURL(path.join(lib, "core/options.mjs")).href,
+    metro: pathToFileURL(path.join(lib, "transformer.js")).href,
     turbopack: TestUnpluginRuntime.libUrl("turbopack"),
   }));
   let finalRecord: string | undefined;
@@ -123,6 +127,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(metro.ast.filename, "src/bundle.ts");
   assert.deepEqual(metro.ast.options, { projectRoot: workspace.root, platform: "ios" });
   assert.deepEqual(metro.ast.plugins, ["authored-babel-plugin"]);
+  assert.equal(metro.metroConfiguration.withTtscType, "function");
+  assert.equal(metro.metroConfiguration.transformType, "function");
+  assert.equal(metro.metroConfiguration.getCacheKeyType, "function");
+  assert.equal(metro.metroConfiguration.transformerPath, path.join(lib, "transformer.js"));
+  assert.equal(path.isAbsolute(metro.metroConfiguration.transformerPath), true);
+  assert.match(metro.metroConfiguration.cacheKey, /^[a-f0-9]{64}$/, "the actual required CJS artifact must execute getCacheKey; shape alone is not a valid snapshot proof");
   assert.equal(typeof metro.ast.source, "string");
   assert.match(metro.ast.source, /Shared boundary corpus/);
   assert.doesNotMatch(metro.ast.source, /WRONG ROOT BANNER DECOY/, "explicit nested configFile must win over discovered root config");
@@ -132,6 +142,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.doesNotMatch(metro.ast.source, /logger\.trace\(\s*["']drop["']\s*\)/, "the configured custom call must be absent from the linked host printed TypeScript");
   assert.match(metro.ast.source, /console\.log\(\s*["']DEFAULT_ONLY_RETAINED["']\s*\)/, "the configured custom rule must retain the contrary default-only call");
   assert.ok(metro.ast.source.includes("TTSC_BATCH_RESULT"));
+  const authoredIdentifier = positionOf(fs.readFileSync(path.join(workspace.root, "src/bundle.ts"), "utf8"), "authoredMarker");
+  assert.ok(metro.ast.shifted > authoredIdentifier.line + 1, "the independently authored banner shifts the upstream identifier before Metro remaps it");
+  const identifierLocation = metro.ast.program.body[0].loc;
+  assert.deepEqual(identifierLocation.start, { line: authoredIdentifier.line + 1, column: authoredIdentifier.column });
+  assert.ok(identifierLocation.end.line === authoredIdentifier.line + 1 && identifierLocation.end.column >= authoredIdentifier.column, "the remapped end stays on the authored line at or after its start");
   assert.equal(metro.outsideProgram.filename, "passthrough/tool.ts");
   assert.equal(metro.outsideProgram.source.replace(/\r\n/g, "\n"), "export const outsideProgram: number = 1;\n", "the actual built adapter must forward an excluded source unchanged without substituting the program's output");
   assert.equal(turbopack.completions, 1);

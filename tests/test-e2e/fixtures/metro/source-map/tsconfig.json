@@ -1,1 +1,0 @@
-{"compilerOptions":{"module":"commonjs","plugins":[{"transform":"@ttsc/banner"}],"strict":true,"target":"ES2022"},"include":["src"]}

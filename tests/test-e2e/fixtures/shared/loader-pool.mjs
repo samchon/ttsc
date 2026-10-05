@@ -1,16 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-const [mode, root, metroUrl, optionsUrl, loaderUrl] = process.argv.slice(2);
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+const [mode, root, metroUrl, loaderUrl] = process.argv.slice(2);
 const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
 const compilerOptions = { paths: Object.fromEntries(Object.entries(rootPaths).map(([key, targets]) => [key, targets.map((target) => path.resolve(root, target))])) };
 let transformer, loader;
 let outsideProgramObserved = false;
+let metroConfiguration;
 if (mode === "metro") {
-  const options = await import(optionsUrl);
-  process.env[options.ENV_KEY] = options.serializeOptions({ project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
-  transformer = await import(metroUrl);
+  const require = createRequire(import.meta.url);
+  const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
+  const configured = index.withTtsc({ projectRoot: root, transformer: {} }, { project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
+  transformer = require(configured.transformer.babelTransformerPath);
+  const cacheKey = transformer.getCacheKey({ projectRoot: root });
+  metroConfiguration = { transformerPath: configured.transformer.babelTransformerPath, cacheKey, withTtscType: typeof index.withTtsc, transformType: typeof transformer.transform, getCacheKeyType: typeof transformer.getCacheKey };
 } else loader = (await import(loaderUrl)).default;
 async function deliver(sourceSuffix = "", deliveredSource) {
   if (mode === "metro") {
@@ -24,7 +30,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
       outsideProgram = { filename: outside.ast.filename, source: outside.ast.source };
       outsideProgramObserved = true;
     }
-    return { mode, ast: result.ast, outsideProgram, requestedOptions: { project, compilerOptions } };
+    return { mode, ast: result.ast, outsideProgram, metroConfiguration, requestedOptions: { project, compilerOptions } };
   }
   const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
