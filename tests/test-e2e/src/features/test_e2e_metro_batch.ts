@@ -2158,11 +2158,20 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const optionalSource = 'module.exports = "appeared-descriptor-input";\n';
   fs.writeFileSync(installedDescriptor, changedDescriptorSource);
   fs.writeFileSync(optionalDescriptor, optionalSource);
+  const metadataBanner = JSON.stringify({ text: "Shared metadata external-input banner" });
+  fs.writeFileSync(bannerPath, metadataBanner);
   await waitFor(() => signal() !== signalBeforeEdit, "the resident record to move for the combined native input epoch");
   const firstSignal = signal();
   await waitFor(() => signal() !== firstSignal, "the same resident record to repeat its unacknowledged move");
   const metadataDelivery = await Promise.all(workers.map((worker) => worker.request()));
   for (const reply of metadataDelivery) assert.equal(reply.error, undefined);
+  assert.match(metadataDelivery[0]!.value.ast.source, /Shared metadata external-input banner/);
+  assert.match(metadataDelivery[1]!.value.content, /Shared metadata external-input banner/);
+  assert.match(metadataDelivery[0]!.value.ast.source, /"authored-marker"/);
+  assert.equal(metadataDelivery[1]!.value.value, "authored-marker");
+  for (let index = 0; index < deliveredPaths.length; index++)
+    assert.equal(fs.readFileSync(deliveredPaths[index]!, "utf8"), originalDelivered[index],
+      "the native external-read epoch must update output without changing either delivered entry");
   assert.equal(fs.statSync(workspace.programRunLog).size - metadataProgramBaseline, 1, "one native ApplyProgram admission consumes the combined declaration, candidate, membership and descriptor appearance epoch");
   assert.deepEqual(metadataDelivery[1]!.value.dependencies, [projectRecordFile]);
   const acknowledged = JSON.parse(signal());
@@ -2171,6 +2180,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   for (const [input, authored] of [
     [installedDescriptor, changedDescriptorSource],
     [optionalDescriptor, optionalSource],
+    [bannerPath, metadataBanner],
   ]) {
     const evidence = acknowledged.inputs[input!];
     assertDescriptorBytes(input!, evidence, authored!);
