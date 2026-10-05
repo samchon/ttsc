@@ -20,6 +20,9 @@ import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
 import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
 import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
+import { installedTargetBoundary } from "../internal/graph/internal/installedTargetBoundary";
+import { case_ttscgraph_target_installed_consumers_share_native_boundary } from "./graph/scenes/case_ttscgraph_target_installed_consumers_share_native_boundary";
+import { case_ttscgraph_launcher_repairs_non_executable_dump_binary } from "./graph/scenes/case_ttscgraph_launcher_repairs_non_executable_dump_binary";
 import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
 
 type NodeDetails = {
@@ -46,6 +49,13 @@ type NodeDetails = {
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const failures: unknown[] = [];
+  try {
+    installedTargetBoundary({root:path.join(workspace.root,"tools/graph-native"),empty:workspace.graphNegativeRoot,elsewhere:workspace.graphNegativeRoot,retain:BatchWorkspace.retain});
+    for(const run of [case_ttscgraph_target_installed_consumers_share_native_boundary,case_ttscgraph_launcher_repairs_non_executable_dump_binary]) {
+      try {await run();}catch(error){failures.push(error);}
+    }
+  } catch(error) {failures.push(error);}
+  await BatchWorkspace.open();
   try {
     await case_ttscgraph_view_owns_http_server_lifecycle({
       root: path.join(workspace.root, "tools/graph-http"),

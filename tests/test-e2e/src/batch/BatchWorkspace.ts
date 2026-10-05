@@ -27,6 +27,7 @@ import { shellQuote } from "../internal/ttsc/internal/source-build";
 export namespace BatchWorkspace {
   export interface Workspace {
     root: string;
+    graphNegativeRoot: string;
     cache: string;
     installedTtsx: string;
     programRunLog: string;
@@ -308,7 +309,7 @@ export namespace BatchWorkspace {
   export async function close(): Promise<void> {
     if (reuseFailure !== undefined) return;
     if (preparation === undefined) return;
-    const { root, projectAlias } = await preparation;
+    const { root, projectAlias, graphNegativeRoot } = await preparation;
     if (!fs.existsSync(root)) return;
     if (root !== projectAlias)
       fs.rmSync(path.dirname(projectAlias), {
@@ -323,6 +324,7 @@ export namespace BatchWorkspace {
       maxRetries: 3,
       retryDelay: 100,
     });
+    fs.rmSync(graphNegativeRoot,{recursive:true,force:true,maxRetries:3,retryDelay:100});
   }
 
   async function prepare(): Promise<Workspace> {
@@ -337,6 +339,10 @@ export namespace BatchWorkspace {
       path.resolve(import.meta.dirname, "../../fixtures/shared"),
     );
     await FileSystemIterator.write(root, inputs);
+    const graphNegativeRoot = TestProject.tmpdir("ttsc-shared-graph-uninstalled-");
+    TestProject.retainTemporaryDirectory(graphNegativeRoot,"Graph negative resolution readers have not completed");
+    await FileSystemIterator.write(path.join(root,"tools/graph-native"),await FileSystemIterator.read(path.resolve(import.meta.dirname,"../../fixtures/graph/installedTargetBoundary/inputs-1")));
+    await FileSystemIterator.write(graphNegativeRoot,await FileSystemIterator.read(path.resolve(import.meta.dirname,"../../fixtures/graph/installedTargetBoundary/inputs-2")));
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
       await FileSystemIterator.read(
@@ -1305,6 +1311,7 @@ export namespace BatchWorkspace {
     return {
       root,
       expected,
+      graphNegativeRoot,
       installedTtsx,
       installationOnly,
       sourcePublication,

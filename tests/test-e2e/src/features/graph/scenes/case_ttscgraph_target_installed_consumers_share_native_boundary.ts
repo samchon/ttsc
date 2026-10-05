@@ -135,6 +135,7 @@ export async function case_ttscgraph_target_installed_consumers_share_native_bou
   ];
   for (const [name, run] of cases) {
     try {
+      installedTargetBoundary();
       run();
     } catch (error) {
       errors.push(new Error(name, { cause: error }));
