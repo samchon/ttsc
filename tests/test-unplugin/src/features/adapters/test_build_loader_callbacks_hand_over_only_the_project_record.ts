@@ -18,6 +18,7 @@ import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/tr
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
+import { compilerGraphInputProofFailures } from "../../../../../packages/unplugin/src/core/transform/validation/compilerGraphInputProofFailures";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
@@ -31,8 +32,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * generation from the public shared cache. No producer, compiler or loader host
  * is substituted, and the expected output is authored consumer data.
  *
- * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, an empty listed directory predicate and project membership. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache. Actual resolveConfiguredHostRoot/selectBuildHostRoot fix empty, relative and absolute configured spellings at config-time while omitted roots read current cwd, composing the selected native alias into that persisted record.
- * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 supplies the declaration hash; deliberately absent candidate and empty native directory fix their literal predicates. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals. Native lstat/realpath independently establish the configured-root alias; Node SHA-256 of the lexical linked config determines its expected record filename, while persisted selected-config spelling/input key and exact physical target distinguish relocation or canonicalization. Two independently existing native cwd roots separate config-time anchoring from invocation-time fallback, and exact prior cwd is restored synchronously in finally.
+ * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, the realized directory's graph-kind hash and physical target, and project membership. Actual compilerGraphInputProofFailures separately replays the rich empty-directory listing and checks its agreement with that legacy proof. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache. Actual resolveConfiguredHostRoot/selectBuildHostRoot fix empty, relative and absolute configured spellings at config-time while omitted roots read current cwd, composing the selected native alias into that persisted record.
+ * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 independently supplies the declaration hash and the fixed directory-kind marker hash; native stat/readdir/realpath establish the empty directory input. The absent candidate retains its exact negative predicate, while the realized directory retains its admitted graph hash/physical target rather than an unretained predicate carrier. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals. Native lstat/realpath independently establish the configured-root alias; Node SHA-256 of the lexical linked config determines its expected record filename, while persisted selected-config spelling/input key and exact physical target distinguish relocation or canonicalization. Two independently existing native cwd roots separate config-time anchoring from invocation-time fallback, and exact prior cwd is restored synchronously in finally.
  * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Additional factory rows contrast present loader versus absent native/absent loader fallback, Farm two-argument association versus loader/generic input-only calls, repeated registration, retained loader selection, changed methods and error propagation. The linked configured-root row distinguishes physical module spelling from lexical config/record spelling and repeats the same persisted handoff without changing bytes. Undefined differs from an explicit empty root; relative and absolute native alias selections stay fixed when cwd moves while an omitted root follows it. Real watching streams, automatic Farm wrapper-root selection and installed host cache invalidation remain external boundaries.
  * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used. The factory rows use authored native-context callback shapes with unrelated compiler fields opaque; they exercise the actual production-used channel operation, not installed webpack/Rspack/Farm/Rollup hosts. They do not certify TP/Bun loaders, registration assembly, project-record bridge lifetime or native watch receipt. The linked-root row creates and removes one native alias in finally and uses actual record creation/handoff operations with no bridge, native backend or compiler. It does not certify that a Farm transform wrapper automatically chose that configured root.
  */
@@ -48,9 +49,11 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     fs.mkdirSync(listed, { recursive: true });
     fs.writeFileSync(declaration, "export interface Shared { value: number }\n");
     assert.equal(fs.existsSync(candidate), false);
+    assert.equal(fs.statSync(listed).isDirectory(), true);
     assert.deepEqual(fs.readdirSync(listed), []);
     const digest = (file: string) => createHash("sha256").update(fs.readFileSync(file)).digest("hex");
     const declarationHash = digest(declaration);
+    const directoryHash = createHash("sha256").update("ttsc:host-input:directory\0").digest("hex");
     const result = {
       ...fixture.good.result,
       graph: {
@@ -61,7 +64,7 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         inputHashes: {
           "src/main.ts": digest(fixture.file),
           "node_modules/typed/index.d.ts": declarationHash,
-          "node_modules/@types/empty": createHash("sha256").update("ttsc:host-input:directory\0").digest("hex"),
+          "node_modules/@types/empty": directoryHash,
         },
         inputRealpaths: {
           "src/main.ts": fs.realpathSync.native(fixture.file),
@@ -87,6 +90,8 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     assert.equal(snapshot.complete, true);
     observed.inputHashes = snapshot.hashes;
     observed.projectDirectories = snapshot.projectDirectories;
+    assert.deepEqual(compilerGraphInputProofFailures(observed).entries, [],
+      "native empty-directory predicates and the graph kind proof must agree");
     const externalPaths = selectExternalInputPaths({ projectRoot: root, result,
       membershipPolicy: observed.membershipPolicy, filesystem: DEFAULT_FILESYSTEM_OPERATIONS });
     const external = captureExternalInputSnapshot(observed, externalPaths, undefined);
@@ -149,8 +154,8 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         realpath: fs.realpathSync.native(declaration) });
       assert.equal(record.inputs[candidate]!.missing, true);
       assert.deepEqual(record.inputs[candidate]!.state, { codec: "predicates", observation: { fileExists: false } });
-      assert.deepEqual(record.inputs[listed]!.state, { codec: "predicates",
-        observation: { stat: "directory", accessibleEntries: { directories: [], files: [] } } });
+      assert.deepEqual(record.inputs[listed]!.state, { codec: "graph", hash: directoryHash,
+        realpath: fs.realpathSync.native(listed) });
       assert.ok(record.membership);
       assert.ok(record.membership.directories.includes(root));
       const recordBytes = fs.readFileSync(dependencies[0]!, "utf8");
