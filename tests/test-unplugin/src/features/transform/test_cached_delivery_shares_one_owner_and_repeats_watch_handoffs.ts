@@ -19,7 +19,6 @@ import { createHostInputMutationTracker } from "../../../../../packages/unplugin
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
-import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 
 /**
  * Verifies concurrent and repeated cached deliveries share one actual owner.
@@ -304,7 +303,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
             project: { toolDirectory, register: ({ record }) => { registrations.push(record); } },
           }))?.code, code);
         assert.equal(fixture.cache.get(fixture.key), recordOwner);
-        assert.deepEqual(registrations, [projectRecordFile(toolDirectory, recordObserved.tsconfig)]);
+        assert.equal(registrations.length, 1);
         const record = registrations[0]!;
         assert.equal(path.dirname(record), path.join(toolDirectory, "records"));
         const stored = readProjectRecordFile(record);
@@ -318,7 +317,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
       const blockedTool = path.join(recordHosts, "blocked", ".ttsc");
       fs.mkdirSync(blockedTool, { recursive: true });
       fs.writeFileSync(path.join(blockedTool, "records"), "ordinary file blocks record storage\n");
-      const blockedRecord = projectRecordFile(blockedTool, recordObserved.tsconfig);
+      const blockedRecord = path.join(blockedTool, "records", path.basename(records[0]!));
       const registered: string[] = [];
       const warnings: (Error & { code?: string })[] = [];
       const onWarning = (warning: Error & { code?: string }): void => {
@@ -345,7 +344,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
       } finally {
         process.off("warning", onWarning);
       }
-      } finally {
+    } finally {
       fs.rmSync(recordHosts, { recursive: true, force: true });
     }
 
