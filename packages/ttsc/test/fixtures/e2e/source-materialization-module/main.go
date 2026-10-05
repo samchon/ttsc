@@ -1,18 +1,32 @@
 package main
 
 import (
+  _ "embed"
   "fmt"
   "os"
   "os/exec"
+  "runtime"
 
   "example.com/batch-materialization-dependency"
 )
 
+//go:embed asset.txt
+var asset string
+
 // main preserves the empty smoke and compiler race delegate by default.
-// The fixture-only materialization mode exposes the actual imported module value.
+// Fixture-only modes expose the imported value or its embedded bytes and source path.
 func main() {
   if os.Getenv("TTSC_E2E_SOURCE_MATERIALIZATION_PROBE") == "1" {
     fmt.Fprintln(os.Stderr, dependency.Value())
+    return
+  }
+  if os.Getenv("TTSC_E2E_SOURCE_MATERIALIZATION_PROBE") == "2" {
+    if len(os.Args) > 1 && os.Args[1] == "panic" {
+      panic("source-build-panic")
+    }
+    _, file, _, _ := runtime.Caller(0)
+    // Quoting retains the asset's LF byte in one observable output line.
+    fmt.Printf("%s|%q|%s\n", dependency.Value(), asset, file)
     return
   }
   source := os.Getenv("ORPHAN_RACE_SOURCE")
