@@ -81,7 +81,9 @@ try {
   fs.writeFileSync(path.join(legacy, "main.js"), "");
   fs.mkdirSync(unknown);
   fs.writeFileSync(path.join(unknown, "owner-12.json"), "{");
+  console.info("TTSC_CLEAN_PHASE:legacy:begin");
   const defaultStatus = runTtsc(["clean", "--cwd", root]);
+  console.info("TTSC_CLEAN_PHASE:legacy:end");
   assert.equal(defaultStatus, 0);
   const legacyKept = fs.existsSync(legacy);
   const malformedKept = fs.existsSync(unknown);

@@ -26,7 +26,10 @@ export namespace TestExecutor {
    *
    * Files are selected before import. An import failure blocks only that file;
    * remaining files and locations still execute. Nested causes are printed as
-   * each result arrives, so later discovery failures cannot hide them.
+   * each result arrives, so later discovery failures cannot hide them. Existing
+   * opt-in tracing records real import start/return/throw separately from the
+   * subsequent test invocation, so an unfinished module evaluation is not
+   * mislabeled as an already entered test body.
    *
    * @evidence contracts/common.md#principled-implementation A single walk selects the TypeScript file prefix and substring filters before the exported-function loop. Native ESM imports retain real file URL and module identity. Import and invocation failures remain errors while independent entries continue.
    * @evidence contracts/common.md#clear-and-simple-design One walk and two loops own discovery and execution without another runner or per-file directory rescans; existing package entries still provide locations and named exports.
@@ -92,9 +95,23 @@ export namespace TestExecutor {
       }
       for (const file of files) {
         let exports: Record<string, unknown>;
+        const moduleUrl = pathToFileURL(file).href;
+        const importInvocation = trace.begin();
+        trace.record("test-import", importInvocation, {
+          pid: process.pid,
+          data: { writerRuntime: process.version, file, moduleUrl, phase: "started" },
+        });
         try {
-          exports = await import(pathToFileURL(file).href);
+          exports = await import(moduleUrl);
+          trace.record("test-import", importInvocation, {
+            pid: process.pid,
+            data: { writerRuntime: process.version, file, moduleUrl, phase: "returned" },
+          });
         } catch (error) {
+          trace.record("test-import", importInvocation, {
+            pid: process.pid,
+            data: { writerRuntime: process.version, file, moduleUrl, phase: "threw", error: String(error) },
+          });
           fail(`Test import failed: ${file}`, error);
           continue;
         }

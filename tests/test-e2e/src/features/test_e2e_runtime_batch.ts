@@ -552,16 +552,19 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       assert.equal(declarationObservation.descendantClosed, true);
       assert.ok(
         declarationObservation.produced.includes(
-          "types/runtime-corpus/native-factory.d.ts",
+          path.join("types", "runtime-corpus", "native-factory.d.ts"),
         ),
+        JSON.stringify(declarationObservation.produced),
       );
       assert.ok(
         declarationObservation.produced.includes(
-          "types/runtime-corpus/native-factory.d.ts.map",
+          path.join("types", "runtime-corpus", "native-factory.d.ts.map"),
         ),
+        JSON.stringify(declarationObservation.produced),
       );
       assert.ok(
-        declarationObservation.produced.includes("state/app.tsbuildinfo"),
+        declarationObservation.produced.includes(path.join("state", "app.tsbuildinfo")),
+        JSON.stringify(declarationObservation.produced),
       );
       const allNativeReceipts = BatchWorkspace.readContextReceipts(workspace);
       assert.ok(
@@ -687,15 +690,23 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       assert.equal(cleanObservation.seed.missingOwned, true);
       assert.equal(cleanObservation.seed.signal, null);
       assert.ok(cleanObservation.seed.pid > 0);
+      const legacyBegin = "TTSC_CLEAN_PHASE:legacy:begin";
+      const legacyEnd = "TTSC_CLEAN_PHASE:legacy:end";
+      assert.equal(result.stdout.split(legacyBegin).length, 2);
+      assert.equal(result.stdout.split(legacyEnd).length, 2);
+      const legacyStart = result.stdout.indexOf(legacyBegin) + legacyBegin.length;
+      const legacyFinish = result.stdout.indexOf(legacyEnd);
+      assert.ok(legacyFinish > legacyStart);
+      const legacyOutput = result.stdout.slice(legacyStart, legacyFinish);
       assert.match(
-        result.stdout,
+        legacyOutput,
         /ttsc: kept [^\r\n]*legacy: a run that may still be in progress owns it/,
       );
       assert.match(
-        result.stdout,
+        legacyOutput,
         /ttsc: kept [^\r\n]*unknown: a run that may still be in progress owns it/,
       );
-      assert.doesNotMatch(result.stdout, /no cache directories found/);
+      assert.doesNotMatch(legacyOutput, /no cache directories found/);
       assert.deepEqual(
         JSON.parse(
           fs.readFileSync(
