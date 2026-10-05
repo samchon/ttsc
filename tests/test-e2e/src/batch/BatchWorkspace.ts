@@ -1189,7 +1189,11 @@ export namespace BatchWorkspace {
           path.parse(dependency).root,
           path.join(dependency, "go.mod"),
         );
-        const externalCopies = path.join(workspaceBuild.cwd, ".ttsc", "external");
+        const externalCopies = path.join(
+          workspaceBuild.cwd,
+          ".ttsc",
+          "external",
+        );
         assert.ok(
           observedGoArguments.some((args) => {
             if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
