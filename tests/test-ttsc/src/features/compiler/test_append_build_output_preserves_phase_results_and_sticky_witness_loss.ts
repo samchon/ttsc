@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
 import { appendBuildOutput } from "../../../../../packages/ttsc/src/compiler/internal/build/appendBuildOutput";
+import { PluginFailureDiagnostics } from "../../../../../packages/ttsc/src/compiler/internal/build/PluginFailureDiagnostics";
+import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
 import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structures/internal/TtscBuildResult";
 
 /**
@@ -13,12 +15,13 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * 1. Merge successful and failing phases and inspect ordered reports and streams.
  * 2. Contrast absent and explicitly empty later emission metadata.
  * 3. Compare equal, absent, null and conflicting input witnesses independently.
- * 4. Merge a third phase and require lost proof and incompleteness to stay lost.
+ * 4. Preserve sticky witness loss and the plugin-failure recovery gate, seed
+ *    diagnostic, original status and filtered-batch identity.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the actual imported appendBuildOutput with authored phase records; observes status, ordered diagnostics/streams, emission precedence, declared inputs and independent content/physical proof loss across two and three phases.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual appendBuildOutput and PluginFailureDiagnostics operations with authored records and options; observes phase merging, recovery admission, process-report seeding, original failure status, null-result identity and input preservation.
  * @evidence contracts/testing.md#independent-expectations Literal expected records follow the phase-result contract: right failure wins, earlier failure survives right success, only later emission owns provenance, agreeing declaring phases retain proof, null records absence and missing keys provide none. Native-looking input strings are opaque producer data, not filesystem claims.
- * @evidence contracts/testing.md#distinguishing-cases Success/failure and blank/nonblank error streams, absent/empty emission, equal/null/missing/conflicting witnesses, undeclared phases, independent physical/content disagreement and third-phase non-restoration contrast the meaningful merge boundaries. Explicit incompleteness remains sticky while an unreported value stays absent.
- * @evidence contracts/testing.md#execution-ownership The matching TestExecutor feature and Evidence export call the actual source operation in process with complete valid TtscBuildResult values. No source extraction, substitute dependency, installation, native build, host or process protocol is used.
+ * @evidence contracts/testing.md#distinguishing-cases Phase success/failure, emission and witness distinctions remain separate from format/skip/terminal admission and emit-neutral controls. Recovery contrasts stderr/stdout precedence, whitespace/empty exit fallback, existing reports and null batches while preserving ordered reports and sticky witness loss.
+ * @evidence contracts/testing.md#execution-ownership The feature export directly calls production-used source operations in process. Supplied records do not certify native diagnostic acquisition, plugin dispatch, check-failure early return, emission branches or transport; no compiler, host or child process is invoked by this body.
  */
 export function test_append_build_output_preserves_phase_results_and_sticky_witness_loss(): void {
   const failures: Error[] = [];
@@ -104,6 +107,77 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     assert.deepEqual(empty.hostInputs, []);
     assert.deepEqual({ ...empty.hostInputHashes }, {});
     assert.deepEqual({ ...empty.hostInputRealpaths }, {});
+  });
+  const recoveryModes: readonly [string, RunBuildOptions, boolean][] = [
+    ["ordinary", {}, true],
+    ["format", { format: true }, false],
+    ["format disabled", { format: false }, true],
+    ["skip diagnostics", { skipDiagnosticsCheck: true }, false],
+    ["skip disabled", { skipDiagnosticsCheck: false }, true],
+    ["terminal", { passthrough: ["--showConfig"] }, false],
+    ["terminal disabled", { passthrough: ["--showConfig", "false"] }, true],
+    ["emit", { emit: true }, true],
+    ["no emit", { emit: false }, true],
+  ];
+  for (const [name, options, expected] of recoveryModes) check(`recovery gate/${name}`, () => {
+    const before = structuredClone(options);
+    assert.equal(PluginFailureDiagnostics.shouldCollect(options), expected);
+    assert.deepEqual(options, before);
+  });
+  check("null recovery retains exact failure", () => {
+    const failure = phase({ status: 3, stderr: "plugin failure" });
+    assert.equal(PluginFailureDiagnostics.append(failure, null), failure);
+    assert.deepEqual(failure.diagnostics, []);
+  });
+  const recovered = { file: null, category: "error" as const, code: 2322, messageText: "recovered type error" };
+  const fallback = phase({ status: 7, diagnostics: [recovered], stdout: "fallback-out", stderr: "fallback-error" });
+  for (const [name, stdout, stderr, message, expectedOut, expectedError] of [
+    ["stderr precedence", "ignored", "  crash  ", "crash", "ignoredfallback-out", "  crash  fallback-error"],
+    ["stdout fallback", "  crash-out  ", "", "crash-out", "  crash-out  fallback-out", "fallback-error"],
+    ["whitespace stderr selects exit fallback", "not-selected", " \n ", "ttsc exited with status 3", "not-selectedfallback-out", " \n fallback-error"],
+    ["empty streams", "", "", "ttsc exited with status 3", "fallback-out", "fallback-error"],
+  ] as const) check(`recovery seed/${name}`, () => {
+    const failure = phase({ status: 3, stdout, stderr });
+    const before = structuredClone({ failure, fallback });
+    const result = PluginFailureDiagnostics.append(failure, fallback);
+    assert.deepEqual(result.diagnostics, [
+      { category: "error", code: "TTSC_PROCESS", file: null, messageText: message },
+      recovered,
+    ]);
+    assert.equal(result.diagnostics[1], recovered);
+    assert.equal(result.status, 3);
+    assert.equal(result.stdout, expectedOut);
+    assert.equal(result.stderr, expectedError);
+    assert.deepEqual({ failure, fallback }, before);
+  });
+  check("existing reports need no seed and retain recovery witnesses", () => {
+    const original = { file: null, category: "error" as const, code: 2322, messageText: "original type error" };
+    const failure = phase({
+      status: 3, diagnostics: [original], stderr: "first-error/",
+      hostInputs: ["policy-input"], hostInputHashes: { "policy-input": "old" },
+      hostInputRealpaths: { "policy-input": "/same" },
+    });
+    const batch = phase({
+      status: 7, diagnostics: [recovered], stderr: "second-error",
+      hostInputs: ["policy-input"], hostInputHashes: { "policy-input": "new" },
+      hostInputRealpaths: { "policy-input": "/same" }, observationsComplete: false,
+      emittedFiles: ["recovered.js"], emittedSources: { "recovered.js": [] },
+    });
+    const before = structuredClone({ failure, batch });
+    const result = PluginFailureDiagnostics.append(failure, batch);
+    assert.deepEqual(result.diagnostics, [original, recovered]);
+    assert.equal(result.diagnostics[0], original);
+    assert.equal(result.diagnostics[1], recovered);
+    assert.equal(result.status, 3);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, "first-error/second-error");
+    assert.deepEqual(result.hostInputs, ["policy-input"]);
+    assert.equal(Object.hasOwn(result.hostInputHashes!, "policy-input"), false);
+    assert.equal(result.hostInputRealpaths!["policy-input"], "/same");
+    assert.equal(result.observationsComplete, false);
+    assert.deepEqual(result.emittedFiles, ["recovered.js"]);
+    assert.deepEqual(result.emittedSources, { "recovered.js": [] });
+    assert.deepEqual({ failure, batch }, before);
   });
   if (failures.length) throw new AggregateError(failures, "Build phase merge distinctions failed");
 }
