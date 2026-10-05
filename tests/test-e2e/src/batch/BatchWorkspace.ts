@@ -923,7 +923,9 @@ export namespace BatchWorkspace {
         );
       };
       const first = request(source);
-      const physicalPlugins = fs.realpathSync.native(path.join(expected, "plugins"));
+      const physicalPlugins = fs.realpathSync.native(
+        path.join(expected, "plugins"),
+      );
       const physicalFirst = fs.realpathSync.native(first);
       const pluginRelative = path.relative(physicalPlugins, physicalFirst);
       assert.ok(
@@ -931,7 +933,13 @@ export namespace BatchWorkspace {
           !path.isAbsolute(pluginRelative) &&
           pluginRelative !== ".." &&
           !pluginRelative.startsWith(".." + path.sep),
-        JSON.stringify({ expected, first, physicalPlugins, physicalFirst, pluginRelative }),
+        JSON.stringify({
+          expected,
+          first,
+          physicalPlugins,
+          physicalFirst,
+          pluginRelative,
+        }),
       );
       assert.ok(fs.existsSync(first));
       assert.equal(
