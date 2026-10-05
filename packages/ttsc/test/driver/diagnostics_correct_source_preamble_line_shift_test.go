@@ -64,13 +64,14 @@ const preambleDiagnosticDeclaration = `export interface Named {
 //  3. Assert the pretty render places the same coordinate, quotes the authored
 //     source, never quotes the preamble, and never names the shifted line.
 //
-// @evidence contracts/testing.md#behavioral-verification Loads five actual preamble project shapes and asserts one diagnostic with the authored filename suffix, exact line/column/start, rendered original source and absence of injected text or shifted coordinates. It does not assert complete physical file identity or execute the downstream TypeScript duplicate filter.
+// @evidence contracts/testing.md#behavioral-verification Loads five actual preamble project shapes and asserts one diagnostic with the authored filename suffix, exact line/column/start, rendered original source and absence of injected text or shifted coordinates. Source error rows require code TS2322 exactly once in the render. The banner row supplies the shipped banner's literal preamble shape; this unit does not execute that plugin or the downstream TypeScript duplicate filter.
 // @evidence contracts/testing.md#independent-expectations A test-local marker scan on authored source independently gives coordinates; preamble height is known from literal fixture text and never obtained from corrected diagnostics.
-// @evidence contracts/testing.md#distinguishing-cases No preamble, two/six-line injections, hashbang insertion and noninjected declaration files contrast offset correction with unchanged controls.
+// @evidence contracts/testing.md#distinguishing-cases No preamble, a two-line injection, the Copyright/MIT/packageDocumentation banner, six-line hashbang insertion and noninjected declaration files contrast offset correction with unchanged controls.
 // @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs named scenarios through direct program/diagnostic APIs and closes its private programs; it does not launch a compiler host.
 func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
   const preambleTwoLines = "// preamble 1\n// preamble 2\n"
   const preambleSixLines = "// preamble 1\n// preamble 2\n// preamble 3\n// preamble 4\n// preamble 5\n// preamble 6\n"
+  const bannerPreamble = "/**\n * ----------------------------------------------------------------\n * Copyright\n * MIT License\n * third line\n * fourth line\n *\n * @packageDocumentation\n */\n"
 
   cases := []preambleDiagnosticCase{
     {
@@ -87,10 +88,10 @@ func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
       marker:    "bad",
     },
     {
-      // Same fixture, taller preamble. If any residual offset tracked the
-      // preamble's height this row would disagree with the one above.
-      name:      "six_line_preamble_reports_the_authored_line",
-      preamble:  preambleSixLines,
+      // Same source with the actual banner comment shape. The hashbang row
+      // below retains the six-line injection control without another Program.
+      name:      "banner_preamble_reports_the_authored_line",
+      preamble:  bannerPreamble,
       index:     preambleDiagnosticSource,
       errorFile: "index.ts",
       marker:    "bad",
@@ -159,6 +160,9 @@ func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
         t.Fatalf("fixture must produce exactly one diagnostic, got %d: %#v", len(diags), diags)
       }
       got := diags[0]
+      if testCase.errorFile == "index.ts" && got.Code != 2322 {
+        t.Fatalf("source diagnostic code = %d, want TS2322", got.Code)
+      }
       if !strings.HasSuffix(filepath.ToSlash(got.File), "/"+testCase.errorFile) {
         t.Fatalf("diagnostic file = %q, want a path ending in %q", got.File, testCase.errorFile)
       }
@@ -172,6 +176,9 @@ func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
       var out bytes.Buffer
       driver.WritePrettyDiagnostics(&out, diags, root)
       rendered := stripAnsiEscapes(out.String())
+      if testCase.errorFile == "index.ts" && strings.Count(rendered, "TS2322") != 1 {
+        t.Fatalf("pretty render must report TS2322 exactly once:\n%s", rendered)
+      }
       anchor := fmt.Sprintf(":%d:%d - error", wantLine, wantColumn)
       if !strings.Contains(rendered, anchor) {
         t.Fatalf("pretty render does not place the diagnostic at %q:\n%s", anchor, rendered)
@@ -185,6 +192,11 @@ func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
       }
       if strings.Contains(rendered, "// preamble") {
         t.Fatalf("pretty render quotes the injected preamble, which the user never wrote:\n%s", rendered)
+      }
+      for _, marker := range []string{"Copyright", "MIT License", "@packageDocumentation"} {
+        if strings.Contains(rendered, marker) {
+          t.Fatalf("pretty render quotes injected banner marker %q:\n%s", marker, rendered)
+        }
       }
       shifted := fmt.Sprintf(":%d:%d - error", wantLine+strings.Count(testCase.preamble, "\n"), wantColumn)
       if strings.Contains(rendered, shifted) {
