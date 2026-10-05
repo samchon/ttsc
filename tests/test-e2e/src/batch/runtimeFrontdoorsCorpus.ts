@@ -19,7 +19,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units.
  * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
- * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. Every require spelling, cold orphan cache coherence and an overall single-digit process budget remain uncertified.
+ * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. The same handled CLI carries all four require spellings, scoped/subpath preloads, typed TS/TSX outside include, exact preload order and post-entry option tokens. A separate mistyped preload must reject before main; that irreducible failed-startup actor adds at least one launcher and potentially an entry child, with native costs unmeasured. Existing fatal actors also carry constant-source orphan enum/package-format transitions. An overall single-digit process budget remains uncertified.
  */
 export async function runtimeFrontdoorsCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -206,14 +206,25 @@ export async function runtimeFrontdoorsCorpus(
       "--no-plugins",
       "-r",
       orphanPreload,
+      "--require=./a.ts", "-r=./a.cjs", "-r", "./c.tsx", "--require", "./b.cjs",
+      "-r", "@scope/preload", "--require", "plain-preload/register",
       "src/handled.ts",
+      "--", "generate", "--help", "--version", "--watch", "--build", "-r", "./after.cjs", "--", "b",
     ]);
     capture("handled actor status", () =>
       assert.equal(result.status, 0, result.stderr),
     );
-    capture("handled actor orphan and continuation", () =>
-      assertOrphan(result.stdout, 1, ["handled: boom", "still alive"]),
-    );
+    capture("handled actor orphan, preloads and continuation", () => {
+      const observations = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_HANDLED_PRELOADS:"));
+      assert.equal(observations.length, 1);
+      const observed = JSON.parse(observations[0]!.slice("TTSC_HANDLED_PRELOADS:".length)) as { cwd: string; preload: unknown; scoped: unknown; subpath: unknown; argv: unknown };
+      assert.equal(fs.realpathSync.native(observed.cwd), fs.realpathSync.native(root));
+      const expected = { preload: "loaded", scoped: "scoped", subpath: "subpath", argv: ["generate", "--help", "--version", "--watch", "--build", "-r", "./after.cjs", "--", "b"] };
+      const { cwd, ...preloads } = observed;
+      assert.deepEqual(preloads, expected);
+      assertOrphan(result.stdout, 1, ["PRELOAD a.ts", "PRELOAD a.cjs", "PRELOAD c.tsx", "PRELOAD b.cjs", "TTSC_HANDLED_PRELOADS:" + JSON.stringify({ ...expected, cwd }), "handled: boom", "still alive"]);
+    });
+    capture("post-entry require remains a script token", () => assert.doesNotMatch(result.stdout + result.stderr, /UNEXPECTED POST-ENTRY PRELOAD|entry file is required|Unknown compiler option/i));
   });
   for (const [name, status, message, type, answer] of [
     ["exit.ts", 7, undefined, "module", 2],
@@ -228,7 +239,7 @@ export async function runtimeFrontdoorsCorpus(
         "-r",
         orphanPreload,
         "src/" + name,
-      ]);
+    ]);
       capture(name + " status", () =>
         assert.equal(result.status, status, result.stderr),
       );
@@ -238,6 +249,13 @@ export async function runtimeFrontdoorsCorpus(
         assertOrphan(result.stdout, answer, []),
       );
     });
+  capture("mistyped preload outside include rejects before entry", () => {
+    const result = run([workspace.installedTtsx, "--no-plugins", "-r", "./invalid-preload.ts", "src/handled.ts"]);
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(result.stderr, /root check failed for .*invalid-preload\.ts/);
+    assert.match(result.stderr, /Type 'string' is not assignable to type 'number'/);
+    assert.doesNotMatch(result.stdout, /TTSC_HANDLED_PRELOADS|handled: boom|still alive|INVALID_PRELOAD_RAN/);
+  });
   if (!ownershipUnresolved)
     for (const [file, bytes] of [
       [orphanEnum, orphanEnumBytes],

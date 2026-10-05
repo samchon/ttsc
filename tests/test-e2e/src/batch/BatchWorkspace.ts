@@ -431,6 +431,11 @@ export namespace BatchWorkspace {
       root,
       "tools/runtime-frontdoors/node_modules/runtime-cache-control",
     );
+    for (const [template, destination] of [["scoped", "@scope/preload"], ["plain", "plain-preload"]])
+      await FileSystemIterator.write(
+        path.join(root, "tools/runtime-frontdoors/node_modules", destination),
+        await FileSystemIterator.read(path.join(root, "tools/runtime-frontdoors/preload-templates", template)),
+      );
     await FileSystemIterator.write(
       orphanPackage,
       await FileSystemIterator.read(
