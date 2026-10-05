@@ -26,20 +26,17 @@ func (sharedMutationPlugin) SourcePreamble(driver.PluginContext) (string, error)
 }
 
 // utilityOrderedEmitPlugin supplies one numeric rewrite to the linked emit lane.
-// @evidence contracts/testing.md#behavioral-verification The fixture configures an ordered linked transform used by the utility build operation.
-// @evidence contracts/testing.md#independent-expectations The test supplies literal before/after numeric tokens and a callback counter.
-// @evidence contracts/testing.md#distinguishing-cases Two fixtures distinguish an omitted or reversed emit chain from the expected final value.
-// @evidence contracts/testing.md#execution-ownership The fixture is registered in the Go test process; it acquires no external plugin or child process.
+// The owning test supplies literal numeric tokens and a callback counter, then
+// registers two fixtures in the Go test process to distinguish chain order.
 type utilityOrderedEmitPlugin struct {
   from string
   to string
   calls *int
 }
 
-// @evidence contracts/testing.md#behavioral-verification EmitTransform returns a visitor that replaces the configured numeric token and counts each source invocation.
-// @evidence contracts/testing.md#independent-expectations Replacement text comes from the test-authored fixture fields.
-// @evidence contracts/testing.md#distinguishing-cases Nonmatching nodes are visited unchanged; only the configured numeric literal is replaced.
-// @evidence contracts/testing.md#execution-ownership The returned callback runs through the real in-process driver emit operation; it does not simulate a compiler or host transport.
+// EmitTransform returns a visitor that replaces only the configured numeric
+// token and counts source invocations. Other nodes are recursively visited.
+// The owning test executes it through the real in-process driver operation.
 func (plugin utilityOrderedEmitPlugin) EmitTransform(driver.PluginContext) (driver.PluginTransform, error) {
   return func(context *shimprinter.EmitContext, source *shimast.SourceFile) *shimast.SourceFile {
     (*plugin.calls)++
@@ -71,10 +68,10 @@ func (plugin utilityOrderedEmitPlugin) EmitTransform(driver.PluginContext) (driv
 // stay idle during source-to-source transformation and rewrite 1 to 100 to 200
 // exactly once during build, even when the config lists the source twice.
 //
-// @evidence contracts/testing.md#behavioral-verification The linked preamble appears in transform and build output; the ordered emit callbacks stay idle during transform and rewrite the build value once despite duplicate source entries.
-// @evidence contracts/testing.md#independent-expectations The injected declaration, unchanged source value 1, emitted value 200 and per-stage invocation counts 0/1 are authored literals.
-// @evidence contracts/testing.md#distinguishing-cases Source-only transformation contrasts with emit; omitted or reversed linked stages cannot reach 200, and duplicate processing violates each stage's count of one.
-// @evidence contracts/testing.md#execution-ownership TestUtilityTransformAndBuildPathsShareSourceMutation is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
+// @evidence contracts/testing.md#behavioral-verification The test registers the linked preamble and two numeric visitors, then calls the real utility transform and build operations. The preamble appears in both outputs; emit visitors stay idle during transform and rewrite the build value once despite duplicate source entries.
+// @evidence contracts/testing.md#independent-expectations The fixture fields, injected declaration, unchanged source value 1, emitted value 200 and per-stage invocation counts 0/1 are authored literals.
+// @evidence contracts/testing.md#distinguishing-cases The visitors replace only their matching tokens. Source-only transformation contrasts with emit; omitted or reversed linked stages cannot reach 200, and duplicate processing violates each stage's count of one.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformAndBuildPathsShareSourceMutation registers and executes the visitors in the test/utility process with captured streams and a temporary project. It installs no external plugin or consumer, starts no product process and does not simulate a compiler or host transport.
 func TestUtilityTransformAndBuildPathsShareSourceMutation(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Cleanup(resetLinkedPluginRegistry)
