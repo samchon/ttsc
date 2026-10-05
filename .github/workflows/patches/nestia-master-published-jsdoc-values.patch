@@ -1,0 +1,64 @@
+diff --git a/packages/sdk/test/synthetic_metadata_values_json_cannot_hold_test.go b/packages/sdk/test/synthetic_metadata_values_json_cannot_hold_test.go
+index b5bb4abcc..a8efe19dd 100644
+--- a/packages/sdk/test/synthetic_metadata_values_json_cannot_hold_test.go
++++ b/packages/sdk/test/synthetic_metadata_values_json_cannot_hold_test.go
+@@ -6,23 +6,24 @@ import (
+ )
+ 
+ // Verifies the SDK metadata carries values JSON cannot hold: non-finite numbers
+-// no longer abort generation, JSON schemas write them as null, the way
++// no longer abort generation, JSON schemas write numeric values as null, the way
+ // JavaScript's `JSON.stringify` does, and constant and type tag values keep
+ // them, and bigints, exactly.
+ //
+-// typia hands over NaN and ±Infinity wherever a type or a comment spells one:
+-// a JSDoc `@x-` extension whose text parses as a float (`NaN`, `Infinity`,
+-// `-Infinity`, `inf`), a numeric literal type or enum member such as `1e999`,
+-// and a type tag argument such as `tags.Minimum<1e999>`. The SDK serializes
+-// its metadata with encoding/json, which refuses those values, so a single one
+-// anywhere in the types a route reaches used to fail `nestia sdk` and
+-// `nestia swagger` for the whole project with "json: unsupported value".
++// typia hands over NaN and ±Infinity in numeric literal types and enum
++// members such as `1e999`, or type tag arguments such as `tags.Minimum<1e999>`.
++// Published typia 15.0.1 preserves JSDoc `@x-` nonfinite and Go-only numeric
++// text (`NaN`, `Infinity`, `-Infinity`, `inf`) as strings instead.
++// The SDK serializes numeric metadata with encoding/json, which refuses those
++// values, so one anywhere in the types a route reaches used to fail `nestia sdk`
++// and `nestia swagger` for the whole project with "json: unsupported value".
+ //
+ // Two halves of the metadata differ. A JSON schema is document content, so
+ // the baked schemas and a tag's `schema` hold what a JSON document can: null
+-// in place of the value, with its key kept as `JSON.stringify({ a: NaN })`
+-// keeps it. A constant's or a tag's value is what the SDK generator writes a
+-// type back from, and a null there lost the sign and made a cloned DTO fail
++// in place of a numeric value, with its key kept as `JSON.stringify({ a: NaN })`
++// keeps it. Authored JSDoc strings stay strings under the published cast.
++// A constant's or a tag's value is what the SDK generator writes a type back
++// from, and a null there lost the sign and made a cloned DTO fail
+ // to compile, so it carries the JavaScript name, `"Infinity"` or
+ // `"-Infinity"`. A bigint value is carried as its digits for the same reason:
+ // typia marshals it as a JSON number, which `JSON.parse` rounds past 2^53.
+@@ -41,7 +42,7 @@ import (
+ //     the finite and string ones as they are.
+ //
+ // @evidence contracts/testing.md#behavioral-verification Metadata and baked schemas must preserve nonfinite/bigint identities using the defined JSON encoding while retaining finite numbers and ordinary strings exactly.
+-// @evidence contracts/testing.md#independent-expectations JSON cannot encode Infinity, NaN or bigint directly; schema values follow null conversion while metadata carries number/bigint string encodings. Authored literals and tags establish exact expected values.
++// @evidence contracts/testing.md#independent-expectations JSON cannot encode numeric Infinity, NaN or bigint directly; numeric schema values follow null conversion while metadata carries number/bigint string encodings. The published typia JSDoc cast keeps nonfinite and Go-only numeric text as strings; authored literals and tags distinguish both contracts.
+ // @evidence contracts/testing.md#distinguishing-cases Both decomposed and component schemas compare explicit expected values for nonfinite constants, enum/union, extensions and tags. Finite 1.5/3, string Infinity/digits and bigint range/sequence controls detect indiscriminate stringification or null substitution.
+ // @evidence contracts/testing.md#execution-ownership The SDK Go runner discovers this unit Test. Its authored TypeScript program is loaded and analyzed in-process by EmitTransform with a temporary project and a closed program, without building a native artifact or starting an installed host; CLI/runtime cohorts separately own consumer assembly.
+ func TestSyntheticMetadataValuesJsonCannotHold(t *testing.T) {
+@@ -91,10 +92,10 @@ export class SyntheticController {
+ 	parameter := syntheticField(t, metadata, "parameters").([]any)[0]
+ 
+ 	expected := map[string]string{
+-		"nan":      `{"type":"string","x-nan":null}`,
+-		"inf":      `{"type":"string","x-inf":null}`,
+-		"neg":      `{"type":"string","x-neg":null}`,
+-		"short":    `{"type":"string","x-short":null}`,
++		"nan":      `{"type":"string","x-nan":"NaN"}`,
++		"inf":      `{"type":"string","x-inf":"Infinity"}`,
++		"neg":      `{"type":"string","x-neg":"-Infinity"}`,
++		"short":    `{"type":"string","x-short":"inf"}`,
+ 		"finite":   `{"type":"string","x-finite":1.5}`,
+ 		"literal":  `{"const":null}`,
+ 		"union":    `{"oneOf":[{"const":null},{"const":1}]}`,
