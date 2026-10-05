@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import { createViteBuildLifecycle } from "../../../../../packages/unplugin/src/core/vite/createViteBuildLifecycle";
+import { createEsbuildBuildLifecycle } from "../../../../../packages/unplugin/src/core/esbuild/createEsbuildBuildLifecycle";
 import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import { resolveOptions } from "../../../../../packages/unplugin/src/core/options/resolveOptions";
 import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
@@ -17,6 +22,8 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * a native scheduling deadline. Lease entries are unresolved consumer promises,
  * not compiler results. The Vite controller also receives an existing supported
  * ready consumer fixture, without proving acquisition or installed Vite hooks.
+ * Esbuild ownership uses its own actual controller and joined ready deliveries,
+ * whose public observed epoch distinguishes repeated starts from owner counts.
  * Actual webpack/Rspack compilation stays in E2E.
  *
  * 1. Keep one promise through overlapping owners and repeated delivery passes.
@@ -27,12 +34,12 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * 4. Contrast Vite owner overlap, final serve reset, ordinary build grace and
  *    watch retention, including mode values and an end arriving after close.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls createViteBuildLifecycle, createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration/shutdown callbacks; exact promise and pair identity distinguish premature reclamation and stale registry retention.
+ * @evidence contracts/testing.md#behavioral-verification Calls createEsbuildBuildLifecycle, createViteBuildLifecycle, createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration/shutdown callbacks; exact promise and pair identity distinguish premature reclamation and stale registry retention.
  * @evidence contracts/testing.md#independent-expectations Active owners and ordinary pass boundaries retain the same promise; final idle removes it. Literal tap names, one restoration rule, 2000ms requested grace and callback cancellation specify independent ownership expectations, not compile counts.
- * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. The actual Vite controller contrasts duplicate/unstarted owners, replacement-before-end, final serve reset, ordinary grace reacquisition, non-nullish watch values, close and late end. No output or installed-host equivalence is inferred.
- * @evidence contracts/testing.md#execution-ownership This exported source unit calls real owners in process. It replaces only testbody global timer descriptors synchronously and restores exact descriptors in finally; no Go peer, host, artifact or wall-clock wait is used.
+ * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. The actual Vite controller contrasts duplicate/unstarted owners, replacement-before-end, final serve reset, ordinary grace reacquisition, non-nullish watch values, close and late end. Esbuild distinguishes unstarted, duplicate, unknown, overlapping and late disposal identities; two actual coordinator deliveries observe different pass epochs after repeated starts while retaining the exact Promise. Last esbuild disposal resets immediately, distinct from ordinary Vite grace. No compiler output production or installed-host equivalence is inferred.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit calls real owners in process. It replaces only controlled testbody global timer descriptors, joins the two ready coordinator deliveries, and restores exact descriptors in finally; no Go peer, host, artifact or wall-clock wait is used.
  */
-export function test_build_cache_leases_follow_compiler_and_session_ownership(): void {
+export async function test_build_cache_leases_follow_compiler_and_session_ownership(): Promise<void> {
   const timerDescriptor = Object.getOwnPropertyDescriptor(globalThis, "setTimeout")!;
   const clearDescriptor = Object.getOwnPropertyDescriptor(globalThis, "clearTimeout")!;
   const scheduled = new Map<object, () => void>();
@@ -190,6 +197,45 @@ export function test_build_cache_leases_follow_compiler_and_session_ownership():
       lifecycle.start(first);
       assert.equal(lifecycle.end(first), true);
       assert.equal(fixture.cache.get(fixture.key), ready, "a fresh watch owner still uses the reset identity set");
+      lifecycle.close();
+
+      const projectRoot = path.dirname(path.dirname(fixture.file));
+      const tsconfig = path.join(projectRoot, "tsconfig.json");
+      const observed = observeValidationUnitGeneration(projectRoot, {
+        ...fixture.good.result,
+        hostInputs: [tsconfig],
+        hostInputHashes: { [tsconfig]: createHash("sha256").update(fs.readFileSync(tsconfig)).digest("hex") },
+        hostInputRealpaths: { [tsconfig]: fs.realpathSync.native(tsconfig) },
+      });
+      const esbuildOwner = Promise.resolve(observed);
+      const esbuildLifecycle = createEsbuildBuildLifecycle(fixture.cache);
+      fixture.cache.set(fixture.key, esbuildOwner);
+      assert.equal(esbuildLifecycle.dispose(first), false, "setup without start cannot release another owner");
+      assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
+      esbuildLifecycle.start(first);
+      assert.equal((await fixture.api.transformTtsc(fixture.file, fixture.source,
+        fixture.options, undefined, fixture.cache))?.code, fixture.code);
+      const firstEpoch = observed.deliveryEpoch;
+      assert.equal(typeof firstEpoch, "number");
+      esbuildLifecycle.start(first);
+      assert.equal((await fixture.api.transformTtsc(fixture.file, fixture.source,
+        fixture.options, undefined, fixture.cache))?.code, fixture.code);
+      assert.notEqual(observed.deliveryEpoch, firstEpoch,
+        "even a duplicate owner's start opens another actual delivery pass");
+      assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
+      esbuildLifecycle.start(replacement);
+      assert.equal(esbuildLifecycle.dispose({}), false);
+      assert.equal(esbuildLifecycle.dispose(first), false, "replacement is active before the old owner disposes");
+      assert.equal(esbuildLifecycle.dispose(first), false, "duplicate start did not add ownership");
+      assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
+      assert.equal(esbuildLifecycle.dispose(replacement), true);
+      assert.equal(fixture.cache.size, 0, "last started owner resets the cache immediately");
+      fixture.cache.set(fixture.key, esbuildOwner);
+      esbuildLifecycle.start(replacement);
+      assert.equal(esbuildLifecycle.dispose(first), false, "late disposal cannot release a newly started owner");
+      assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
+      assert.equal(esbuildLifecycle.dispose(replacement), true);
+      assert.equal(fixture.cache.size, 0);
     } finally {
       lifecycle.close();
       fixture.dispose();
