@@ -209,8 +209,8 @@ export namespace BatchWorkspace {
         fs.symlinkSync(path.join(root, "tools/configured-owners", mode!), path.join(modules, name!), "junction");
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt, casePolicyReceipt });
-      const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe");
+      config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource: path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe-module/compile-probe"), runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt, casePolicyReceipt });
+      const fixtureSource = path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe-module/compile-probe");
       fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
       const automaticPackage = path.join(root, "packages/batch-auto-discovery");
       const automaticManifestFile = path.join(automaticPackage, "package.json");
