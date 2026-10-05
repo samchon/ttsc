@@ -14,6 +14,7 @@ import { compilerGraphInputProofFailures } from "../../../../../packages/unplugi
 import { evidencedWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/evidencedWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
+import { removeCaptureScratch } from "../../../../../packages/unplugin/src/core/transform/generation/removeCaptureScratch";
 
 import { graphInputObservationCompatible } from "../../../../../packages/unplugin/src/core/transform/envelope/graphInputObservationCompatible";
 import { legacyProjectionOfGraphInputObservation } from "../../../../../packages/unplugin/src/core/transform/envelope/legacyProjectionOfGraphInputObservation";
@@ -36,6 +37,9 @@ import { normalizeGraphInputObservation } from "../../../../../packages/unplugin
  *    evidence and reject contradictory legacy representations without reading
  *    content for a file-existence-only predicate; after refused watch
  *    registration, replay unchanged candidates and distinguish appearance.
+ * 5. Release an owned scratch wrapper without invalidating persistent graph
+ *    inputs, including malformed/conflicting scratch facts. The original config
+ *    and a same-prefix sibling remain independently validated.
  *
  * @evidence contracts/testing.md#behavioral-verification Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
  * @evidence contracts/testing.md#independent-expectations Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
@@ -214,4 +218,106 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       TRANSFORM_RESULT_FILESYSTEM.delete(result);
     }
   }
+
+  const scratchRoot = fs.realpathSync.native(TestProject.createProject({
+    "src/main.ts": "export {};\n", "tsconfig.json": "{}\n",
+  }));
+  const scratch = path.join(scratchRoot, ".capture-scratch");
+  const wrapper = path.join(scratch, "tsconfig.json");
+  const sibling = path.join(scratchRoot, ".capture-scratch-neighbor", "tsconfig.json");
+  const original = path.join(scratchRoot, "tsconfig.json");
+  const originalBytes = "{}\n";
+  const siblingBytes = '{"compilerOptions":{"strict":true}}\n';
+  fs.mkdirSync(path.dirname(sibling));
+  fs.writeFileSync(sibling, siblingBytes);
+  const originalHash = createHash("sha256").update(originalBytes).digest("hex");
+  const siblingHash = createHash("sha256").update(siblingBytes).digest("hex");
+  const originalRealpath = fs.realpathSync.native(original);
+  const siblingRealpath = fs.realpathSync.native(sibling);
+  const originalObservation: Observation = {
+    readFile: { ok: true, hash: originalHash },
+    realpath: { ok: true, path: originalRealpath },
+  };
+  const siblingObservation: Observation = {
+    readFile: { ok: true, hash: siblingHash },
+    realpath: { ok: true, path: siblingRealpath },
+  };
+  for (const scratchMode of ["readable", "malformed", "conflicting"] as const) {
+    fs.mkdirSync(scratch);
+    const wrapperBytes = '{"extends":"../tsconfig.json"}\n';
+    fs.writeFileSync(wrapper, wrapperBytes);
+    const wrapperHash = createHash("sha256").update(wrapperBytes).digest("hex");
+    const wrapperRealpath = fs.realpathSync.native(wrapper);
+    const wrapperObservation: Observation = {
+      readFile: { ok: true, hash: wrapperHash },
+      realpath: { ok: true, path: wrapperRealpath },
+    };
+    const wrapperAlias = scratch + path.sep + "." + path.sep + "tsconfig.json";
+    const result: ITtscCompilerTransformation.ISuccess = {
+      type: "success", typescript: {},
+      graph: {
+        edges: {}, configs: [original, wrapper, sibling],
+        inputObservations: {
+          [original]: originalObservation, [sibling]: siblingObservation,
+          [wrapper]: scratchMode === "malformed"
+            ? { stat: "invalid-kind" } as unknown as Observation : wrapperObservation,
+          ...(scratchMode === "conflicting" ? {
+            [wrapperAlias]: { readFile: { ok: true as const, hash: otherHash } },
+          } : {}),
+        },
+        inputHashes: { [original]: originalHash, [wrapper]: wrapperHash, [sibling]: siblingHash },
+        inputRealpaths: { [original]: originalRealpath, [wrapper]: wrapperRealpath, [sibling]: siblingRealpath },
+      },
+    };
+    const cached: TtscCachedProjectTransform = {
+      projectRoot: scratchRoot, tsconfig: original, result, inputHashes: {}, scratchDirectory: scratch,
+    };
+    try {
+      const indexed = envelopeGraphIndexes(envelopeDerivation(cached), cached);
+      assert.equal(indexed.inputObservationConflicts.has(wrapper), scratchMode !== "readable",
+        "the index retains malformed/conflicting facts; scratch ownership governs replay exclusion");
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, []);
+      await removeCaptureScratch(scratch);
+      assert.equal(fs.existsSync(wrapper), false);
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, [],
+        scratchMode + ": disposed publisher scratch does not refute persistent graph inputs");
+
+      fs.writeFileSync(original, '{"compilerOptions":{"strict":false}}\n');
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, [
+        { domain: "graph", kind: "read-file-changed", path: original },
+      ]);
+      fs.writeFileSync(original, originalBytes);
+      fs.unlinkSync(original);
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, [
+        { domain: "graph", kind: "read-file-changed", path: original },
+        { domain: "graph", kind: "realpath-changed", path: original },
+      ]);
+      fs.writeFileSync(original, originalBytes);
+      fs.writeFileSync(sibling, '{"compilerOptions":{"strict":false}}\n');
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, [
+        { domain: "graph", kind: "read-file-changed", path: sibling },
+      ], "a same-prefix sibling is outside the owned scratch directory");
+      fs.writeFileSync(sibling, siblingBytes);
+      assert.deepEqual(compilerGraphInputProofFailures(cached).entries, []);
+    } finally {
+      fs.writeFileSync(original, originalBytes);
+      fs.writeFileSync(sibling, siblingBytes);
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  }
+  const persistentConflict: TtscCachedProjectTransform = {
+    projectRoot: scratchRoot, tsconfig: original, inputHashes: {}, scratchDirectory: scratch,
+    result: {
+      type: "success", typescript: {},
+      graph: { edges: {}, configs: [original], inputObservations: {
+        [original]: originalObservation,
+        [scratchRoot + path.sep + "." + path.sep + "tsconfig.json"]: {
+          readFile: { ok: true, hash: otherHash },
+        },
+      } },
+    },
+  };
+  assert.deepEqual(compilerGraphInputProofFailures(persistentConflict).entries, [
+    { domain: "graph", kind: "proof-conflict", detail: "conflicting-observation", path: original },
+  ], "scratch exclusion does not suppress a persistent config's conflicting observations");
 }
