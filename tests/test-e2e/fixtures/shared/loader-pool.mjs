@@ -71,6 +71,42 @@ async function deliver(sourceSuffix = "", deliveredSource) {
 for await (const line of createInterface({ input: process.stdin })) {
   const command = JSON.parse(line);
   if (command.close) break;
-  try { process.stdout.write(JSON.stringify({ id: command.id, value: await deliver(command.sourceSuffix, command.deliveredSource) }) + "\n"); }
+  try {
+    let value;
+    if (command.descriptorFlow) {
+      const scope = command.descriptorFlow.root;
+      const { loadProjectPlugins } = createRequire(import.meta.url)(command.descriptorFlow.api);
+      const cases = [
+        ["factory", "factory.cts"], ["module", "module.cts"],
+        ["counterfeit", "counterfeit.cts", true], ["counterfeit-missing", "counterfeit-missing.cts", true],
+        ["mutated-missing", "mutated-missing.cts", true], ["late-candidate-race", "late-candidate-race.cts", true],
+        ["directory-candidate-race", "directory-candidate-race.cts", true],
+        ["context", "descriptor/context.ts"], ["body", "descriptor/body.ts"],
+      ];
+      const results = [];
+      const previousMarker = process.env.TTSC_DESC_MARKER;
+      process.env.TTSC_DESC_MARKER = "ambient";
+      try {
+        for (const [name, file, refuseFallback] of cases) {
+          const tsconfig = path.join(scope, "tsconfig.json");
+          fs.writeFileSync(tsconfig, JSON.stringify({ compilerOptions: { plugins: [{ transform: path.join(scope, file) }] } }));
+          const env = { ...process.env, TTSC_BINARY: command.descriptorFlow.binary, TTSC_TSGO_BINARY: command.descriptorFlow.tsgo,
+            TTSC_DESC_MARKER: name === "context" ? "context-only" : "effective",
+            ...(refuseFallback ? { TTSC_TTSX_BINARY: path.join(scope, "trap.cjs") } : {}) };
+          try { loadProjectPlugins({ binary: "", env, tsconfig }); results.push({ name, failed: false, message: "NO_ERROR" }); }
+          catch (error) {
+            const message = String(error?.message ?? error);
+            results.push({ name, failed: true, message });
+            process.stderr.write(name + ": " + message + "\n");
+          }
+        }
+      } finally {
+        if (previousMarker === undefined) delete process.env.TTSC_DESC_MARKER;
+        else process.env.TTSC_DESC_MARKER = previousMarker;
+      }
+      value = results;
+    } else value = await deliver(command.sourceSuffix, command.deliveredSource);
+    process.stdout.write(JSON.stringify({ id: command.id, value }) + "\n");
+  }
   catch (error) { process.stdout.write(JSON.stringify({ id: command.id, error: error instanceof Error ? error.message : String(error), adapterCalls }) + "\n"); }
 }

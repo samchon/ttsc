@@ -8,6 +8,8 @@ export interface LoaderPoolOutcome { value?: any; error?: string }
  * Requests are bounded observations of that same adapter/cache/session. An
  * optional deliveredSource carries the caller's earlier bytes independently
  * of the current disk input, without changing the worker or compiler options. A
+ * descriptorFlow command uses the same Node caller before adapter admission;
+ * it does not start a worker and its evaluator attempts remain actual cost. A
  * timeout refuses ownership resolution; it does not kill or certify release.
  *
  * @evidence contracts/testing.md#behavioral-verification The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
@@ -56,11 +58,11 @@ export function createLoaderPoolWorker(props: {
   }));
   void closed.catch(() => undefined);
   return {
-    request: (sourceSuffix = "", deliveredSource?: string) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
+    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
       const id = ++next;
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: delivery remains unresolved: ${stderr}`)); }, 120_000);
       pending.set(id, { resolve, reject, timer });
-      child.stdin.write(JSON.stringify({ id, sourceSuffix, deliveredSource }) + "\n");
+      child.stdin.write(JSON.stringify({ id, sourceSuffix, deliveredSource, descriptorFlow }) + "\n");
     }),
     diagnostics: () => stderr,
     close: async () => {

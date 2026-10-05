@@ -33,7 +33,7 @@ import { buildSourcePlugin, computeCacheKey, createFakeGoBinary, ensureExecutabl
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
- * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
+ * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. Arbitrary restart, dead-owner takeover and a live external bundler watcher remain unproved.
  */
@@ -838,7 +838,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const nearerCapability = path.join(workspace.root, "descriptors/node_modules/batch-cache-capability");
   const capabilityProducer = path.join(nativeProbe.fixtureSource, "probe.go");
   const originalCapabilityProducer = fs.readFileSync(capabilityProducer);
-  const capabilityEnvironment = { TTSC_BINARY: TestProject.TSGO_BINARY, TTSC_CACHE_DIR: capabilityCache, GOFLAGS: baselineBuildEnv.GOFLAGS };
+  const capabilityEnvironment = { TTSC_BINARY: TestProject.TSGO_BINARY, TTSC_CACHE_DIR: capabilityCache, GOFLAGS: baselineBuildEnv.GOFLAGS, TTSC_E2E_TRACE: traceRoot };
   const savedCapabilityEnvironment = Object.fromEntries(Object.keys(capabilityEnvironment).map((key) => [key, process.env[key]]));
   const applyCapabilityEnvironment = (values: NodeJS.ProcessEnv): void => {
     for (const [key, value] of Object.entries(values))
@@ -857,6 +857,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
     return file!;
   };
   const capabilityIdentity = (): { binary: string; inode: string } => {
+    const traceOffsets = Object.fromEntries(fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).map((name) =>
+      [name, fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).length],
+    ));
     const resolution = resolveCapabilityPluginResolution({ capability: "probe", cwd: workspace.root, tsconfig: configPath });
     const answer = resolution.plugins;
     assert.equal(answer.length, 1);
@@ -866,6 +869,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
       status: resolution.status, isCurrent: resolution.isCurrent(), file,
       runtime: process.execPath, nodeBinary: process.env.TTSC_NODE_BINARY ?? null,
       nodeOptions: process.env.NODE_OPTIONS ?? null, cache: process.env.TTSC_CACHE_DIR,
+      capabilityTrace: fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).flatMap((name) =>
+        fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).slice(traceOffsets[name] ?? 0)
+          .map((line) => ({ file: name, event: JSON.parse(line) })).filter((row) => row.event.event === "capability-resolution" || row.event.event === "integrity-failure")),
       binary: answer[0]!.binary, evaluations: fs.existsSync(capabilityCounter) ? fs.readFileSync(capabilityCounter, "utf8") : null,
     }));
     return { binary: answer[0]!.binary, inode: String(fs.statSync(file, { bigint: true }).ino) };
@@ -1114,6 +1120,9 @@ export async function test_e2e_metro_batch(): Promise<void> {
   } finally {
     Object.defineProperty(process, "platform", platform);
   }
+  const descriptorFailureRoot = path.join(workspace.root, "descriptor-process-flow");
+  assert.equal(fs.existsSync(descriptorFailureRoot), false);
+  fs.cpSync(path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/ttsc/descriptor-process-corpus"), descriptorFailureRoot, { recursive: true });
   const workers = (["metro", "turbopack"] as const).map((mode) => createLoaderPoolWorker({
     mode, root: workspace.root, cache: workspace.cache, session, traceRoot,
     metro: pathToFileURL(path.join(lib, "transformer.js")).href,
@@ -1122,6 +1131,33 @@ export async function test_e2e_metro_batch(): Promise<void> {
   let finalRecord: string | undefined;
   let bodyFailure: unknown;
   try {
+  const descriptorReply = await workers[0]!.request("", undefined, {
+    root: descriptorFailureRoot,
+    api: path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js"),
+    binary: TestProject.NATIVE_BINARY,
+    tsgo: TestProject.TSGO_BINARY,
+  });
+  assert.equal(descriptorReply.error, undefined);
+  const descriptorRecords = descriptorReply.value as { name: string; failed: boolean; message: string }[];
+  assert.deepEqual(descriptorRecords.map((record) => record.name), ["factory", "module", "counterfeit", "counterfeit-missing", "mutated-missing", "late-candidate-race", "directory-candidate-race", "context", "body"]);
+  assert.equal(fs.existsSync(path.join(descriptorFailureRoot, "forbidden-fallback.txt")), false);
+  for (const [name, reason] of [
+    ["factory", /factory-env:effective/], ["module", /module-initialization:loaded/],
+    ["counterfeit", /user-assigned loader code/], ["counterfeit-missing", /Cannot find module '\.\/phantom'/],
+    ["mutated-missing", /Cannot find module '\.\/phantom'/], ["late-candidate-race", /Cannot find module '\.\/late-candidate'/],
+    ["directory-candidate-race", /Cannot find module '\.\/directory-candidate'/],
+    ["context", /absent-context-only/], ["body", /failed with exit code 1\ndescriptor-module-body-failed/],
+  ] as const) {
+    try {
+      const record = descriptorRecords.find((entry) => entry.name === name);
+      assert.equal(record?.failed, true);
+      assert.match(record?.message ?? "", reason);
+      if (name !== "context" && name !== "body")
+        assert.equal(fs.readFileSync(path.join(descriptorFailureRoot, name + "-runs.txt"), "utf8"), "run\n");
+    } catch (cause) { publicApiFailures.push(new Error("descriptor failure state: " + name, { cause })); }
+  }
+  assert.equal(fs.readFileSync(path.join(descriptorFailureRoot, "late-candidate.ts"), "utf8"), "export const value = 1;\n");
+  assert.equal(fs.statSync(path.join(descriptorFailureRoot, "directory-candidate.ts")).isDirectory(), true);
   fs.writeFileSync(configPath, JSON.stringify(poolConfig));
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));
   const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
@@ -1211,7 +1247,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     declaredInputs: Object.keys(record.inputs).sort(),
     invocationTrace: fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).flatMap((name) =>
       fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
-    ).filter((row) => ["bridge-lookup", "bridge-cache-hit", "bridge-result", "integrity-failure"].includes(row.event)),
+    ).filter((row) => ["bridge-lookup", "bridge-cache-hit", "bridge-result", "bridge-generation-proof", "bridge-publication", "bridge-attempt-disposition", "integrity-failure"].includes(row.event)),
   }));
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");
@@ -1373,6 +1409,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const failedCloses = closes.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
     const failures: unknown[] = [...publicApiFailures, ...failedCloses.map((entry) => entry.reason)];
     if (failedCloses.length === 0) {
+      try {
+        assert.match(workers[0]!.diagnostics(), /DESCRIPTOR_STDOUT_MARKER loaded/);
+        assert.equal(/factory-env:ambient|absent-ambient/.test(workers[0]!.diagnostics()), false);
+      } catch (error) { failures.push(error); }
+      assert.equal(path.dirname(descriptorFailureRoot), workspace.root);
+      fs.rmSync(descriptorFailureRoot, { recursive: true });
       for (const name of fs.readdirSync(traceRoot)) fs.unlinkSync(path.join(traceRoot, name));
       fs.rmdirSync(traceRoot);
       fs.writeFileSync(configPath, originalConfig);
