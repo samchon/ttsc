@@ -405,12 +405,12 @@ export namespace BatchWorkspace {
         resolveSourceBuildCachePaths(source, undefined, env).root,
         expected,
       );
-      const request = (root: string, cacheDir?: string, extraEnv: NodeJS.ProcessEnv = {}): string =>
+      const request = (root: string, cacheDir?: string, extraEnv: NodeJS.ProcessEnv = {}, overlayDirs: string[] = []): string =>
         buildSourcePlugin({
           baseDir: root,
           env:
             { ...env, ...(cacheDir === undefined ? {} : { TTSC_CACHE_DIR: cacheDir }), ...extraEnv },
-          overlayDirs: [dependency],
+          overlayDirs,
           pluginName: "canonical-source",
           quiet: true,
           source: root,
@@ -529,19 +529,29 @@ export namespace BatchWorkspace {
         assert.equal(changedExecution.status, 0, changedExecution.stderr);
         assert.equal(changedExecution.stdout, "");
         assert.equal(changedExecution.stderr.trim(), "second");
+        // The same module cannot be both an authored external replacement and
+        // a workspace-owned overlay. Advance this source graph to the overlay
+        // role only after removing its existing replace directive.
+        const replaceLines = sourceModText.split(/\r?\n/).filter((line) => line.startsWith("replace "));
+        assert.equal(replaceLines.length, 1);
+        assert.ok(replaceLines[0]!.includes(dependencyRelative));
+        fs.writeFileSync(sourceMod, sourceModText.split(/\r?\n/).filter((line) => line !== replaceLines[0]).join("\n"));
+        const workspacePublication = request(source, expected, {}, [dependency]);
+        assert.ok(fs.existsSync(workspacePublication), "the actual patch-qualified modules must build together as workspace use entries");
+        assert.equal(countBuilds(), 4, "the replacement-to-workspace role transition has one distinct native build");
         const dependencyModText = originalDependencyMod.toString("utf8");
         assert.ok(dependencyModText.includes("go 1.26.0"));
         fs.writeFileSync(dependencyMod, dependencyModText.replace("go 1.26.0", "go 1.99.0"));
-        assert.throws(() => request(source, expected, { GOTOOLCHAIN: "local" }), /go >= 1\.99\.0/,
+        assert.throws(() => request(source, expected, { GOTOOLCHAIN: "local" }, [dependency]), /go >= 1\.99\.0/,
           "the real Go workspace must reject an incompatible imported overlay instead of guessing a lower version");
-        assert.equal(countBuilds(), 3, "the incompatible workspace must fail before native build publication");
+        assert.equal(countBuilds(), 4, "the incompatible workspace must fail before native build publication");
       } finally {
         fs.writeFileSync(dependencySource, originalDependency);
         fs.writeFileSync(dependencyMod, originalDependencyMod);
         fs.writeFileSync(sourceMod, originalSourceMod);
       }
       assert.equal(request(source, expected), first, "restored dependency bytes must reuse the original publication");
-      assert.equal(countBuilds(), 3);
+      assert.equal(countBuilds(), 4);
       assert.deepEqual(fs.readFileSync(first), firstBytes);
       sourcePublication = { binary: first, root };
       const runtimeRace = path.join(root, "node_modules/batch-native-source-race");
