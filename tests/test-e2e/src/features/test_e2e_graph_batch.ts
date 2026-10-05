@@ -20,6 +20,7 @@ import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
 import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
 import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
+import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
 
 type NodeDetails = {
   name: string;
@@ -44,6 +45,10 @@ type NodeDetails = {
  */
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  const failures: unknown[] = [];
+  try { await case_ttscgraph_view_owns_http_server_lifecycle({root:path.join(workspace.root,"tools/graph-http"),retainUnjoined:BatchWorkspace.retain,preventReuse:BatchWorkspace.retain}); }
+  catch(error) { failures.push(error); }
+  await BatchWorkspace.open();
   await FileSystemIterator.write(
     workspace.root,
     await FileSystemIterator.read(path.join(workspace.root, "graph-stage")),
@@ -54,7 +59,6 @@ export async function test_e2e_graph_batch(): Promise<void> {
     workspace.root,
     path.join(workspace.root, "graph-native-starts.jsonl"),
   );
-  const failures: unknown[] = [];
   try {
     const initialization = await client.request("initialize", {
       protocolVersion: "2025-06-18",

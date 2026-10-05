@@ -343,6 +343,7 @@ export namespace BatchWorkspace {
         path.resolve(import.meta.dirname, "../../fixtures/lint/write-boundary"),
       ),
     );
+    await FileSystemIterator.write(path.join(root, "tools/graph-http"), await FileSystemIterator.read(path.resolve(import.meta.dirname, "../../fixtures/graph/ttscgraph_view_owns_http_server_lifecycle/inputs-1")));
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {
