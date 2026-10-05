@@ -113,9 +113,13 @@ export async function test_e2e_metro_batch(): Promise<void> {
     error instanceof Error && error.message.includes(`the cache ${cache} lies inside the plugin source`) && error.message.includes(sourceModule);
   assert.equal(fs.existsSync(refusedPluginCache), false);
   assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: refusedPluginCache }).prepare(), refusal(refusedPluginCache));
-  assert.equal(fs.existsSync(refusedPluginCache), false, "refused publication must not create a cache among its keyed source; actual post-refusal cache entries: " + JSON.stringify(
-    fs.existsSync(refusedPluginCache) ? fs.readdirSync(refusedPluginCache, { recursive: true }) : [],
-  ));
+  assert.deepEqual(fs.readdirSync(refusedPluginCache), ["descriptors"], "descriptor evaluation precedes source-build admission; no plugin or Go build cache may be published");
+  const refusedDescriptorRecords = fs.readdirSync(path.join(refusedPluginCache, "descriptors"));
+  assert.equal(refusedDescriptorRecords.length, 1, "the single evaluated descriptor owns its cache record");
+  assert.match(refusedDescriptorRecords[0]!, /^[a-f0-9]+\.json$/);
+  assert.equal(fs.statSync(path.join(refusedPluginCache, "descriptors", refusedDescriptorRecords[0]!)).isFile(), true);
+  assert.equal(fs.existsSync(path.join(refusedPluginCache, "plugins")), false);
+  assert.equal(fs.existsSync(path.join(refusedPluginCache, "go-build")), false);
   assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
   const excludedCacheRoot = path.join(sourceModule, "node_modules/.cache/public-admission");
   const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
@@ -334,9 +338,14 @@ export async function test_e2e_metro_batch(): Promise<void> {
           const selected = selectionMode === "selected-cutoff" ? selectionNearer : selectionOuter;
           assert.equal(recorded(path.join(selected, "index.js")), true, "selected package is an actual evaluator input");
           assert.equal(proven(path.join(selected, "index.js")), true, "selected bytes keep their own proof");
-          if (selectionMode === "selected-cutoff")
-            assert.deepEqual(loaded.hostInputs.filter((input) => !Object.hasOwn(loaded.hostInputHashes, input)), [], "unrelated parent churn must preserve every recorded proof");
-          else {
+          if (selectionMode === "selected-cutoff") {
+            const nativeBannerInput = path.join(workspace.root, "config/banner.config.json");
+            assert.deepEqual(loaded.deferredHostInputs, [nativeBannerInput], "the forwarded native config is distinct from evaluator-consumed inputs");
+            assert.equal(loaded.hostInputs.includes(nativeBannerInput), true);
+            assert.equal(Object.hasOwn(loaded.hostInputHashes, nativeBannerInput), false, "the evaluator must not invent proof for unread native config");
+            assert.deepEqual(loaded.hostInputs.filter((input) => !loaded.deferredHostInputs.includes(input) &&
+              !Object.hasOwn(loaded.hostInputHashes, input)), [], "unrelated parent churn must preserve every evaluator-owned proof");
+          } else {
             assert.equal(recorded(selectionNearer), true, "the actual nearer candidate is observed before it appears");
             assert.equal(proven(selectionNearer), false, "a nearer candidate that came and went cannot retain absence proof");
           }
